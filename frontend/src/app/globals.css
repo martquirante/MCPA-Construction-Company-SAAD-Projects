@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8f7f5;
+  --foreground: #141414;
+  --amber-glow: #e5a93c;
+  --amber-bright: #f59e0b;
+  --amber-deep: #b45309;
+}
+
+.dark {
+  --background: #050505;
+  --foreground: #f3f3f3;
+  --amber-glow: #f59e0b;
+  --amber-bright: #fbbf24;
+  --amber-deep: #78350f;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+  transition: background-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), color 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Anti-gravity floating keyframes */
+@keyframes floatWeightless {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(0.4deg);
+  }
+}
+
+@keyframes floatWeightlessAlt {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(-0.5deg);
+  }
+}
+
+@keyframes floatBobDeep {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-14px) scale(1.01);
+  }
+}
+
+@keyframes amberPulseGlow {
+  0%, 100% {
+    opacity: 0.75;
+    filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.45)) drop-shadow(0 0 24px rgba(245, 158, 11, 0.25));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 18px rgba(245, 158, 11, 0.8)) drop-shadow(0 0 35px rgba(245, 158, 11, 0.45));
+  }
+}
+
+@keyframes progressShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes beaconSpark {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+.animate-float-weightless {
+  animation: floatWeightless 6s ease-in-out infinite;
+}
+
+.animate-float-alt {
+  animation: floatWeightlessAlt 7.5s ease-in-out infinite;
+}
+
+.animate-float-deep {
+  animation: floatBobDeep 9s ease-in-out infinite;
+}
+
+.animate-amber-pulse {
+  animation: amberPulseGlow 3.5s ease-in-out infinite;
+}
+
+.animate-beacon-spark {
+  animation: beaconSpark 2.4s ease-in-out infinite;
+}
+
+.amber-glow-box {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), 0 0 45px rgba(217, 119, 6, 0.2);
+}
+
+.amber-edge-glow {
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.6)) drop-shadow(0 0 16px rgba(245, 158, 11, 0.3));
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(160, 160, 160, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.4);
+}
+
