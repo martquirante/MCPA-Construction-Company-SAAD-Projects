@@ -1,0 +1,18 @@
+frontend/src\app\admin\page.js:310 ['←'] -> <span>← Return to Public Client Website</span>
+frontend/src\app\admin\page.js:367 ['↗'] -> <span>View Public Site ↗</span>
+frontend/src\app\admin\page.js:620 ['↗'] -> <span>Test Booking Form ↗</span>
+frontend/src\app\admin\page.js:719 ['↗'] -> <span>Open Active Link ↗</span>
+frontend/src\app\book\page.js:49 ['←'] -> <span>← Back to Home</span>
+frontend/src\app\components\LoadingScreen.jsx:147 ['→'] -> Skip Intro →
+frontend/src\modules\home\components\BuildProgressBadge.jsx:72 ['↻'] -> ↻ Replay Build
+frontend/src\modules\home\components\Footer.jsx:170 ['›'] -> <span className="text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">›</span>
+frontend/src\modules\home\components\Footer.jsx:176 ['›'] -> <span className="text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">›</span>
+frontend/src\modules\home\components\Footer.jsx:182 ['›'] -> <span className="text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">›</span>
+frontend/src\modules\home\components\Footer.jsx:188 ['›'] -> <span className="text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">›</span>
+frontend/src\modules\home\components\Footer.jsx:194 ['›'] -> <span className="text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">›</span>
+frontend/src\modules\home\components\Footer.jsx:200 ['›'] -> <span className="text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">›</span>
+frontend/src\modules\home\components\Footer.jsx:377 ['✓'] -> ✓ Subscribed to MCPA Briefings.
+frontend/src\modules\home\components\Footer.jsx:392 ['©'] -> © {new Date().getFullYear()} MCPA CONSTRUCTION AND SUPPLY. ALL RIGHTS RESERVED.
+frontend/src\modules\home\components\Footer.jsx:429 ['↑'] -> <span>↑</span>
+frontend/src\modules\home\components\PreConsultationBooking.jsx:151 ['✓'] -> {step > s.num ? "✓" : s.num}
+frontend/src\modules\home\components\StatsSection.jsx:9 ['★'] -> suffix: "★",

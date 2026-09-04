@@ -1,0 +1,303 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import PillarCard from "./PillarCard";
+import StatsSection from "./StatsSection";
+import PortfolioSection from "./PortfolioSection";
+import CraftInMotion from "./CraftInMotion";
+import ServicesSection from "./ServicesSection";
+import ProcessSection from "./ProcessSection";
+import Footer from "./Footer";
+import ScrollMorph from "../../shared/ScrollMorph";
+import {
+  BuildingIcon,
+  ShieldCheckIcon,
+  HardHatIcon,
+  ArrowRightIcon,
+  FacebookIcon,
+  InstagramIcon,
+  TikTokIcon,
+  GoogleMapsPinIcon,
+} from "../../shared/Icons";
+
+export default function QuickOverview() {
+  const pillarsRef = useRef(null);
+  const [pillarsVisible, setPillarsVisible] = useState(false);
+  const [inquiredStyle, setInquiredStyle] = useState("");
+
+  // Scroll observer to trigger morph and cascade entrance animations for pillars
+  useEffect(() => {
+    const observerOptions = {
+      threshold: 0.15,
+      rootMargin: "0px 0px -50px 0px",
+    };
+
+    const pillarsObserver = new IntersectionObserver(([entry]) => {
+      setPillarsVisible(entry.isIntersecting);
+    }, observerOptions);
+
+    const currentPillars = pillarsRef.current;
+    if (currentPillars) pillarsObserver.observe(currentPillars);
+
+    return () => {
+      if (currentPillars) pillarsObserver.unobserve(currentPillars);
+    };
+  }, []);
+
+  const pillars = [
+    {
+      number: "01",
+      icon: <BuildingIcon className="w-7 h-7 text-amber-500 dark:text-amber-400" />,
+      title: "Engineered For Longevity",
+      description:
+        "High-performance precast concrete, structural steel frameworks, and architectural precision built to withstand Philippine climates and seismic standards.",
+    },
+    {
+      number: "02",
+      icon: <ShieldCheckIcon className="w-7 h-7 text-amber-500 dark:text-amber-400" />,
+      title: "Anti-Bogus Milestone Tracking",
+      description:
+        "Transparent, real-time photographic and technical logs uploaded directly to your Client Portal at every stage of construction from footing to turnover.",
+    },
+    {
+      number: "03",
+      icon: <HardHatIcon className="w-7 h-7 text-amber-500 dark:text-amber-400" />,
+      title: "Build Now, Pay Later Program",
+      description:
+        "Flexible financial structures and verified digital billing schedules designed to accelerate your dream home without compromising structural integrity.",
+    },
+  ];
+
+  return (
+    <div id="overview" className="relative z-10 bg-neutral-50 dark:bg-[#050505] text-neutral-900 dark:text-neutral-100 transition-colors duration-500 overflow-x-clip">
+      {/* Construction Architectural Texture: Concrete Hollow Blocks (CHB) & Rough Semento Wall */}
+      <div
+        className="absolute inset-0 pointer-events-none z-0 bg-repeat opacity-[0.06] dark:opacity-[0.10] mix-blend-luminosity"
+        style={{
+          backgroundImage: "url('/assets/textures/chb_hollowblocks.jpg')",
+          backgroundSize: "440px 440px",
+        }}
+      />
+
+      {/* Architectural CAD Drafting Grid & Concrete Tactile Grain */}
+      <div
+        className="absolute inset-0 pointer-events-none z-0 opacity-[0.025] dark:opacity-[0.045]"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, currentColor 1px, transparent 1px),
+            linear-gradient(to bottom, currentColor 1px, transparent 1px)
+          `,
+          backgroundSize: "80px 80px",
+        }}
+      />
+
+      {/* Background ambient lighting */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-amber-500/5 dark:bg-amber-500/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-3/4 right-10 w-[500px] h-[400px] bg-amber-500/5 dark:bg-amber-500/8 rounded-full blur-[120px] pointer-events-none" />
+
+      {/* ========================================================================= */}
+      {/* 1. STATS BANNER                                                           */}
+      {/* ========================================================================= */}
+      <StatsSection />
+
+      {/* ========================================================================= */}
+      {/* 2. WHY VISIONARIES BUILD WITH MCPA (ANIMATED 3D PILLARS ON SCROLL)        */}
+      {/* ========================================================================= */}
+      <section
+        ref={pillarsRef}
+        className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-b border-neutral-200 dark:border-neutral-900"
+      >
+        {/* Header with Morph & Slide-Up Reveal */}
+        <div
+          style={{
+            transform: pillarsVisible ? "translateY(0px)" : "translateY(30px)",
+            opacity: pillarsVisible ? 1 : 0,
+            transition:
+              "transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease-out",
+          }}
+          className="text-center max-w-3xl mx-auto mb-16 select-none"
+        >
+          {/* Eyebrow badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-mono tracking-[0.25em] uppercase mb-4 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse" />
+            <span>Architectural Excellence · Supply Strength</span>
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
+            Why Visionaries Build With MCPA
+          </h2>
+
+          <p className="mt-4 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-light">
+            Eliminating blind meetings and construction anxiety through cutting-edge engineering, transparent digital tracking, and uncompromising material standards.
+          </p>
+
+          {/* Morphing Expanding Accent Divider Line */}
+          <div className="mt-8 flex items-center justify-center">
+            <div
+              style={{
+                width: pillarsVisible ? "160px" : "0px",
+                transition: "width 1s cubic-bezier(0.16, 1, 0.3, 1) 0.3s",
+              }}
+              className="h-[2px] bg-gradient-to-r from-transparent via-amber-500 dark:via-amber-400 to-transparent"
+            />
+          </div>
+        </div>
+
+        {/* The 3 Morphing 3D Tilt Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+          {pillars.map((pillar, idx) => (
+            <PillarCard
+              key={idx}
+              idx={idx}
+              number={pillar.number}
+              icon={pillar.icon}
+              title={pillar.title}
+              description={pillar.description}
+              isVisible={pillarsVisible}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 3. PORTFOLIO · SELECTED WORKS                                             */}
+      {/* ========================================================================= */}
+      <PortfolioSection
+        onSelectProjectForInquiry={(styleName) => setInquiredStyle(styleName)}
+      />
+
+      {/* ========================================================================= */}
+      {/* 4. OUR CRAFT IN MOTION (LOOPING VIDEO BANNER)                             */}
+      {/* ========================================================================= */}
+      <CraftInMotion />
+
+      {/* ========================================================================= */}
+      {/* 5. SERVICES THAT DEFINE ERAS                                              */}
+      {/* ========================================================================= */}
+      <ServicesSection />
+
+      {/* ========================================================================= */}
+      {/* 6. THE MCPA PROCESS (HOW WE WORK)                                         */}
+      {/* ========================================================================= */}
+      <ProcessSection />
+
+      {/* ========================================================================= */}
+      {/* 7. BEGIN YOUR PROJECT CALLOUT (LINKS TO DEDICATED /book PAGE)             */}
+      {/* ========================================================================= */}
+      <section
+        id="contact"
+        className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
+      >
+        <ScrollMorph
+          variant="portal-expand"
+          duration={950}
+          className="relative rounded-3xl p-8 sm:p-12 lg:p-16 overflow-hidden bg-white dark:bg-neutral-900/60 border border-neutral-200 dark:border-amber-500/20 shadow-2xl text-center backdrop-blur-md"
+        >
+          {/* Ambient Glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
+
+          <div className="relative z-10 max-w-2xl mx-auto">
+            <p className="text-xs uppercase tracking-[0.25em] font-mono text-amber-600 dark:text-amber-400 mb-4">
+              Begin Your Project
+            </p>
+
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight mb-4">
+              Let&apos;s Build Something
+              <br />
+              <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
+                Extraordinary
+              </span>
+            </h2>
+
+            <p className="text-neutral-600 dark:text-neutral-300 text-sm sm:text-base leading-relaxed font-light mb-8 max-w-lg mx-auto">
+              Whether you have land ready to develop or need guidance from site profiling to turnover, our engineering team is ready to collaborate.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link
+                href="/book"
+                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40"
+              >
+                <span>Book an Appointment</span>
+                <ArrowRightIcon className="w-4 h-4" />
+              </Link>
+              <Link
+                href="#projects"
+                className="inline-flex items-center px-6 py-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-mono uppercase tracking-wider transition-colors"
+              >
+                <span>Review Portfolio</span>
+              </Link>
+            </div>
+
+            {/* Official Social Media Channels */}
+            <div className="mt-10 pt-8 border-t border-neutral-200/60 dark:border-neutral-800/80 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs font-mono">
+              <span className="uppercase tracking-widest text-[11px] text-neutral-500 dark:text-neutral-400">
+                Official Channels:
+              </span>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <a
+                  href="https://www.facebook.com/MCPA.ConstructionandSupply/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 hover:border-blue-500/50 transition-all duration-200 text-neutral-800 dark:text-neutral-200 group shadow-xs hover:shadow-md cursor-pointer"
+                  title="Facebook: MCPA Construction and Supply"
+                >
+                  <FacebookIcon className="w-4 h-4 rounded-full shrink-0 group-hover:scale-110 transition-transform shadow-xs" />
+                  <span className="font-semibold text-xs">Facebook</span>
+                </a>
+                <a
+                  href="https://www.instagram.com/mcpa.constructionandsupply/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 hover:border-pink-500/50 transition-all duration-200 text-neutral-800 dark:text-neutral-200 group shadow-xs hover:shadow-md cursor-pointer"
+                  title="Instagram: @mcpa.constructionandsupply"
+                >
+                  <InstagramIcon className="w-4 h-4 rounded-md shrink-0 group-hover:scale-110 transition-transform shadow-xs" />
+                  <span className="font-semibold text-xs">Instagram</span>
+                </a>
+                <a
+                  href="https://www.tiktok.com/@mcpa.construction"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 hover:border-cyan-500/50 transition-all duration-200 text-neutral-800 dark:text-neutral-200 group shadow-xs hover:shadow-md cursor-pointer"
+                  title="TikTok: @mcpa.construction"
+                >
+                  <TikTokIcon className="w-4 h-4 rounded-full shrink-0 group-hover:scale-110 transition-transform shadow-xs" />
+                  <span className="font-semibold text-xs">TikTok</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Quick Contact & Site Coordinates */}
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-6 gap-y-2 text-xs font-mono text-neutral-500 dark:text-neutral-400 pt-2">
+              <a
+                href="https://maps.app.goo.gl/hPB6X66NdhViSvCp7"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 hover:text-amber-500 dark:hover:text-amber-400 transition-colors group cursor-pointer"
+                title="Open MCPA Headquarters in Google Maps"
+              >
+                <GoogleMapsPinIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
+                <span className="group-hover:underline">2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan</span>
+              </a>
+              <span className="hidden sm:inline text-neutral-700">·</span>
+              <a href="tel:+639497758239" className="hover:text-amber-500 dark:hover:text-amber-400 transition-colors">
+                Viber / Mobile: (0949) 775 8239
+              </a>
+              <span className="hidden sm:inline text-neutral-700">·</span>
+              <a href="mailto:mcpa.construction@gmail.com" className="hover:text-amber-500 dark:hover:text-amber-400 transition-colors">
+                mcpa.construction@gmail.com
+              </a>
+            </div>
+          </div>
+        </ScrollMorph>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 8. FOOTER                                                                 */}
+      {/* ========================================================================= */}
+      <Footer />
+    </div>
+  );
+}

@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import McpaVectorLogo from "./McpaVectorLogo";
+import { ArrowRightIcon } from "@/modules/shared/Icons";
 
-export default function LoadingScreen() {
+export default function LoadingScreen({ onComplete }) {
   const [progress, setProgress] = useState(0);
   const [theme, setTheme] = useState("dark"); // Auto-detected from browser: "dark" | "light"
   const [animMode, setAnimMode] = useState("draw"); // "draw" (Vector Stroke Draw) | "sweep" (Laser Blade Etch)
   const [statusText, setStatusText] = useState("CALIBRATING ARCHITECTURAL VECTORS...");
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
   const [animKey, setAnimKey] = useState(0);
 
   // Auto-detect browser/OS theme (prefers-color-scheme) & listen for live changes
@@ -32,6 +34,7 @@ export default function LoadingScreen() {
   const handleReplay = useCallback(() => {
     setProgress(0);
     setIsCompleted(false);
+    setIsFadingOut(false);
     setStatusText("CALIBRATING ARCHITECTURAL VECTORS...");
     setAnimKey((prev) => prev + 1);
   }, []);
@@ -47,12 +50,21 @@ export default function LoadingScreen() {
     handleReplay();
   }, [handleReplay]);
 
-  // Keyboard shortcuts: 'R' for replay, 'T' for theme, 'M' for mode
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  // Keyboard shortcuts: 'R' for replay, 'T' for theme, 'M' for mode, 'Escape' to skip
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "r" || e.key === "R") handleReplay();
       if (e.key === "t" || e.key === "T") toggleTheme();
       if (e.key === "m" || e.key === "M") toggleMode();
+      if (e.key === "Escape") {
+        setIsFadingOut(true);
+        setTimeout(() => onCompleteRef.current?.(), 300);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -86,19 +98,56 @@ export default function LoadingScreen() {
         setStatusText("MCPA SYSTEM READY · 100%");
         setIsCompleted(true);
         clearInterval(timer);
+        setTimeout(() => {
+          setIsFadingOut(true);
+          setTimeout(() => {
+            onCompleteRef.current?.();
+          }, 650);
+        }, 450);
       }
     }, 20);
 
-    return () => clearInterval(timer);
+    // Guaranteed fallback timeout so it never stays stuck under any condition
+    const safetyTimeout = setTimeout(() => {
+      clearInterval(timer);
+      setProgress(100);
+      setIsCompleted(true);
+      setIsFadingOut(true);
+      setTimeout(() => {
+        onCompleteRef.current?.();
+      }, 500);
+    }, 3200);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(safetyTimeout);
+    };
   }, [animKey, animMode]);
+
+  const handleSkip = () => {
+    setIsFadingOut(true);
+    setTimeout(() => {
+      onCompleteRef.current?.();
+    }, 300);
+  };
 
   return (
     <div
       key={animKey}
-      className={`fixed inset-0 z-50 flex flex-col justify-between w-screen h-screen overflow-hidden select-none transition-colors duration-700 ${
+      className={`fixed inset-0 z-50 flex flex-col justify-between w-screen h-screen overflow-hidden select-none transition-all duration-700 ease-out ${
+        isFadingOut ? "opacity-0 pointer-events-none scale-105" : "opacity-100"
+      } ${
         isDark ? "bg-[#070708] text-[#f4f4f4]" : "bg-[#f7f6f3] text-[#141414]"
       }`}
     >
+      {/* Skip button in top right */}
+      <button
+        onClick={handleSkip}
+        className="absolute top-6 right-6 z-30 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-[11px] font-mono tracking-widest uppercase text-neutral-300 hover:text-white transition-all backdrop-blur-md cursor-pointer group"
+      >
+        <span>Skip Intro</span>
+        <ArrowRightIcon className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+      </button>
       {/* 1. Subtle CAD Blueprint Grid Background */}
       <div
         className="absolute inset-0 pointer-events-none opacity-30 transition-opacity duration-700"

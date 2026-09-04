@@ -1,19 +1,44 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-yellow: #fee202;
+  --color-brand-black: #121212;
+  --color-brand-slate: #5b6770;
+  --color-brand-white: #ffffff;
+
+  /* Harmonize amber palette directly with Construction Safety Yellow (Pantone Yellow C / CMYK 0 11 100 0) */
+  --color-amber-50: #fefce8;
+  --color-amber-100: #fef9c3;
+  --color-amber-200: #fef08a;
+  --color-amber-300: #fde047;
+  --color-amber-400: #ffd800;
+  --color-amber-500: #fee202;
+  --color-amber-600: #d4a700;
+  --color-amber-700: #a17c00;
+  --color-amber-800: #715500;
+  --color-amber-900: #423200;
+}
+
 :root {
   --background: #f8f7f5;
-  --foreground: #141414;
-  --amber-glow: #e5a93c;
-  --amber-bright: #f59e0b;
-  --amber-deep: #b45309;
+  --foreground: #121212;
+  --brand-yellow: #fee202;
+  --brand-slate: #5b6770;
+  --amber-glow: #fee202;
+  --amber-bright: #ffd800;
+  --amber-deep: #a17c00;
 }
 
 .dark {
-  --background: #050505;
+  --background: #080a0e;
   --foreground: #f3f3f3;
-  --amber-glow: #f59e0b;
-  --amber-bright: #fbbf24;
-  --amber-deep: #78350f;
+  --brand-yellow: #fee202;
+  --brand-slate: #5b6770;
+  --amber-glow: #fee202;
+  --amber-bright: #fee202;
+  --amber-deep: #715500;
 }
 
 body {
@@ -55,11 +80,11 @@ body {
 @keyframes amberPulseGlow {
   0%, 100% {
     opacity: 0.75;
-    filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.45)) drop-shadow(0 0 24px rgba(245, 158, 11, 0.25));
+    filter: drop-shadow(0 0 10px rgba(254, 226, 2, 0.45)) drop-shadow(0 0 24px rgba(254, 226, 2, 0.25));
   }
   50% {
     opacity: 1;
-    filter: drop-shadow(0 0 18px rgba(245, 158, 11, 0.8)) drop-shadow(0 0 35px rgba(245, 158, 11, 0.45));
+    filter: drop-shadow(0 0 18px rgba(254, 226, 2, 0.8)) drop-shadow(0 0 35px rgba(254, 226, 2, 0.45));
   }
 }
 
@@ -83,6 +108,35 @@ body {
   }
 }
 
+@keyframes staggerItemSlide {
+  0% {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes stageCardMorph {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.92);
+  }
+  60% {
+    transform: translateY(-4px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-stage-morph {
+  animation: stageCardMorph 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .animate-float-weightless {
   animation: floatWeightless 6s ease-in-out infinite;
 }
@@ -104,11 +158,11 @@ body {
 }
 
 .amber-glow-box {
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), 0 0 45px rgba(217, 119, 6, 0.2);
+  box-shadow: 0 0 20px rgba(254, 226, 2, 0.4), 0 0 45px rgba(212, 167, 0, 0.2);
 }
 
 .amber-edge-glow {
-  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.6)) drop-shadow(0 0 16px rgba(245, 158, 11, 0.3));
+  filter: drop-shadow(0 0 6px rgba(254, 226, 2, 0.6)) drop-shadow(0 0 16px rgba(254, 226, 2, 0.3));
 }
 
 /* Custom scrollbars */
@@ -124,6 +178,6 @@ body {
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.4);
+  background: rgba(254, 226, 2, 0.5);
 }
 
