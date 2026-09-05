@@ -6,7 +6,12 @@ import { ArrowRightIcon } from "@/modules/shared/Icons";
 
 export default function LoadingScreen({ onComplete }) {
   const [progress, setProgress] = useState(0);
-  const [theme, setTheme] = useState("dark"); // Auto-detected from browser: "dark" | "light"
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== "undefined" && window.matchMedia) {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    return "dark";
+  });
   const [animMode, setAnimMode] = useState("draw"); // "draw" (Vector Stroke Draw) | "sweep" (Laser Blade Etch)
   const [statusText, setStatusText] = useState("CALIBRATING ARCHITECTURAL VECTORS...");
   const [isCompleted, setIsCompleted] = useState(false);
@@ -17,8 +22,6 @@ export default function LoadingScreen({ onComplete }) {
   useEffect(() => {
     if (typeof window !== "undefined" && window.matchMedia) {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      setTheme(mediaQuery.matches ? "dark" : "light");
-
       const handleThemeChange = (e) => {
         setTheme(e.matches ? "dark" : "light");
       };
@@ -92,9 +95,10 @@ export default function LoadingScreen({ onComplete }) {
             ? "DRAWING STRUCTURAL MCPA GLYPHS..."
             : "LASER-PRECISION ETCHING REVEAL..."
         );
-      } else if (pct < 98) {
+      } else if (pct < 100) {
         setStatusText("SOLIDIFYING BRAND INTEGRITY...");
       } else {
+        setProgress(100);
         setStatusText("MCPA SYSTEM READY · 100%");
         setIsCompleted(true);
         clearInterval(timer);
@@ -102,10 +106,10 @@ export default function LoadingScreen({ onComplete }) {
           setIsFadingOut(true);
           setTimeout(() => {
             onCompleteRef.current?.();
-          }, 650);
-        }, 450);
+          }, 600);
+        }, 400);
       }
-    }, 20);
+    }, 16);
 
     // Guaranteed fallback timeout so it never stays stuck under any condition
     const safetyTimeout = setTimeout(() => {
@@ -308,7 +312,7 @@ export default function LoadingScreen({ onComplete }) {
               {statusText}
             </span>
             <span className="text-amber-500 font-semibold pl-2">
-              {Math.floor(progress)}%
+              {Math.round(progress)}%
             </span>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,9 +13,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "MCPA Construction and Supply | PCAB Licensed Design & Build Contractor",
+  title: "MCPA Construction and Supply",
   description:
     "MCPA Construction and Supply is a PCAB-licensed and DTI-registered design and build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, signed and sealed plans, and our Build Now, Pay Later program across Bulacan, Metro Manila, and Central Luzon.",
+  openGraph: {
+    title: "MCPA Construction and Supply",
+    description:
+      "PCAB-licensed and DTI-registered design and build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, and Build Now, Pay Later program.",
+    siteName: "MCPA Construction and Supply",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MCPA Construction and Supply",
+    description:
+      "PCAB-licensed and DTI-registered design and build contractor based in Plaridel, Bulacan.",
+  },
   keywords: [
     "MCPA Construction and Supply",
     "PCAB Licensed Contractor Bulacan",
@@ -59,7 +73,10 @@ export default function RootLayout({ children }) {
           }}
         />
       </head>
-      <body suppressHydrationWarning className="min-h-full flex flex-col">{children}</body>
+      <body suppressHydrationWarning className="min-h-full flex flex-col">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
