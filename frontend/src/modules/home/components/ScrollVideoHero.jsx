@@ -2,7 +2,8 @@
 
 import { useRef } from "react";
 import { useScrollScrub } from "../hooks/useScrollScrub";
-import ClientNavbar from "./ClientNavbar";
+import { useBlobVideo } from "../hooks/useBlobVideo";
+import ClientNavbar from "@/modules/shared/ClientNavbar";
 import HeroContentOverlay from "./HeroContentOverlay";
 import BuildProgressBadge from "./BuildProgressBadge";
 
@@ -11,6 +12,7 @@ export default function ScrollVideoHero() {
 
   const {
     videoRef,
+    currentStep,
     progress,
     displayedPct,
     isCompleted,
@@ -23,34 +25,46 @@ export default function ScrollVideoHero() {
   } = useScrollScrub(containerRef);
 
   // Responsive video selection: high-definition portrait on mobile, cinematic landscape on desktop
-  const videoSrc = isPortrait
+  const rawVideoSrc = isPortrait
     ? "/videos/portrait-build.mp4"
     : "/videos/landscape-build.mp4";
+
+  // In-memory Blob URL masking: prevents direct static file URL exposure in DevTools / DOM
+  const videoSrc = useBlobVideo(rawVideoSrc);
 
   return (
     <section
       id="top"
       ref={containerRef}
-      className="relative w-full h-[600vh] bg-neutral-950 overscroll-y-contain"
+      className="relative w-full h-[700vh] bg-neutral-950 overscroll-y-contain"
     >
-      {/* Sticky Viewport Frame (Stays pinned during the 5-scroll build journey, 6th scroll finishes) */}
-      <div className="sticky top-0 w-full h-screen h-[100dvh] overflow-hidden select-none">
+      {/* Sticky Viewport Frame (Stays pinned during the 6-scroll build journey, 7th scroll finishes) */}
+      <div className="sticky top-0 w-full h-screen h-[100dvh] overflow-hidden select-none [contain:layout_paint]">
         {/* 1. Client Navbar (Always shows logo; links reveal upon 100% completion) */}
         <ClientNavbar isCompleted={isCompleted} />
 
         {/* 2. Interactive Video Canvas / Player */}
-        <div className="relative w-full h-full bg-neutral-950">
+        <div
+          onClick={() => {
+            if (currentStep < 6) {
+              nextStep();
+            }
+          }}
+          className={`relative w-full h-full bg-neutral-950 ${currentStep < 6 ? "cursor-pointer" : ""}`}
+        >
           <video
             ref={videoRef}
-            src={videoSrc}
-            poster="/videos/test_frame.jpg"
+            src={videoSrc || undefined}
+            poster="/videos/test_frame.webp"
             playsInline
             muted
             preload="auto"
+            disablePictureInPicture
+            disableRemotePlayback
             onLoadedMetadata={handleVideoLoadedMetadata}
             onLoadedData={handleVideoLoadedMetadata}
             onCanPlay={handleVideoLoadedMetadata}
-            className="w-full h-full object-cover transition-opacity duration-700 will-change-transform transform-gpu [contain:paint]"
+            className="w-full h-full object-cover transition-opacity duration-700 [contain:paint] transform-gpu"
           />
 
           {/* Minimalist buffering badge - fades away once ready */}

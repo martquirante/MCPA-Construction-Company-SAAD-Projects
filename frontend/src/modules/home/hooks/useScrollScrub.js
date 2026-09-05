@@ -57,32 +57,140 @@ export function useScrollScrub(containerRef) {
 
   const targetStepRef = useRef(0);
   const playRafRef = useRef(null);
-
+  const watchdogRef = useRef(null);
+  const lastSeekTimeRef = useRef(0);
   const isProgrammaticScrollRef = useRef(false);
+  const isLowEndRef = useRef(false);
+  const lastDisplayedPctRef = useRef(0);
 
-  // Transition to target step (0..5) with milestone percentages [0, 20, 40, 60, 80, 100]
+  // Detect low-end hardware (<= 4 cores, <= 4GB RAM, or mobile) to tune playback rate and seek throttling
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const nav = window.navigator;
+      const cores = nav?.hardwareConcurrency || 4;
+      const memory = nav?.deviceMemory || 4;
+      const isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone/i.test(nav?.userAgent || "");
+      isLowEndRef.current = cores <= 4 || memory <= 4 || isMobile;
+    }
+  }, []);
+
+  // Backward interpolation helper for reverse scrolling
+  const scrubBackward = useCallback((startTime, targetTime, targetProg, targetPct) => {
+    const video = videoRef.current;
+    const duration = video?.duration && isFinite(video.duration) ? video.duration : 10.0;
+    const startProg = Math.min(1, Math.max(0, startTime / duration));
+    const startPct = lastDisplayedPctRef.current || Math.round(startProg * 100);
+    const startMs = performance.now();
+    const durationMs = 450;
+
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
+
+    watchdogRef.current = setTimeout(() => {
+      if (playRafRef.current) {
+        cancelAnimationFrame(playRafRef.current);
+        playRafRef.current = null;
+      }
+      if (video) {
+        video.pause();
+        try {
+          video.currentTime = targetTime;
+        } catch (e) {}
+      }
+      lastDisplayedPctRef.current = targetPct;
+      setProgress(targetProg);
+      setDisplayedPct(targetPct);
+      isAnimatingRef.current = false;
+      watchdogRef.current = null;
+    }, durationMs + 200);
+
+    const animateScrub = (now) => {
+      const elapsed = now - startMs;
+      const t = Math.min(1, elapsed / durationMs);
+      const ease = 1 - Math.pow(1 - t, 3);
+
+      const nextTime = Math.max(0.01, startTime + (targetTime - startTime) * ease);
+
+      // Throttle video seeking: 110ms on low-end / mobile to avoid decoder stalls, 75ms on high-end
+      const seekInterval = isLowEndRef.current ? 110 : 75;
+      if (video && (now - lastSeekTimeRef.current > seekInterval || t >= 1)) {
+        lastSeekTimeRef.current = now;
+        try {
+          video.currentTime = nextTime;
+        } catch (e) {}
+      }
+
+      const nextProg = startProg + (targetProg - startProg) * ease;
+      const nextPct = Math.round(startPct + (targetPct - startPct) * ease);
+
+      // Performance optimization: Only update React state when percentage integer changes
+      if (nextPct !== lastDisplayedPctRef.current) {
+        lastDisplayedPctRef.current = nextPct;
+        setDisplayedPct(nextPct);
+        setProgress(nextProg);
+      }
+
+      if (t < 1) {
+        playRafRef.current = requestAnimationFrame(animateScrub);
+      } else {
+        if (watchdogRef.current) {
+          clearTimeout(watchdogRef.current);
+          watchdogRef.current = null;
+        }
+        if (video) {
+          video.pause();
+          try {
+            video.currentTime = targetTime;
+          } catch (e) {}
+        }
+        lastDisplayedPctRef.current = targetPct;
+        setProgress(targetProg);
+        setDisplayedPct(targetPct);
+        isAnimatingRef.current = false;
+        playRafRef.current = null;
+      }
+    };
+    playRafRef.current = requestAnimationFrame(animateScrub);
+  }, []);
+
+  // Transition to target step (0..6):
+  // Steps 0..5 = Construction stages (0%, 20%, 40%, 60%, 80%, 100% built showcase)
+  // Step 6 = UI Reveal ("tas isa pang scroll para lumabas ung UI nya")
   const goToStep = useCallback((targetStep, immediate = false) => {
-    const clampedStep = Math.max(0, Math.min(5, targetStep));
+    const clampedStep = Math.max(0, Math.min(6, targetStep));
     targetStepRef.current = clampedStep;
-    const targetProgress = MILESTONES[clampedStep];
+
+    // Progress calculation: Steps 0..5 map to milestones [0, 0.2, 0.4, 0.6, 0.8, 1.0]. Step 6 stays at 1.0.
+    const milestoneIndex = Math.min(5, clampedStep);
+    const targetProgress = MILESTONES[milestoneIndex];
     const targetPercentage = Math.round(targetProgress * 100);
-    const targetLabel = STAGE_LABELS[clampedStep];
+    const targetLabel = STAGE_LABELS[milestoneIndex];
 
     currentStepRef.current = clampedStep;
     setCurrentStep(clampedStep);
     setStageName(targetLabel);
 
     const video = videoRef.current;
-    const duration = video?.duration && isFinite(video.duration) ? video.duration : 9.97;
-    const targetTimestamp = clampedStep === 5
-      ? Math.max(0, duration - 0.04)
-      : (clampedStep / 5) * Math.max(0, duration - 0.04);
+    const duration = video?.duration && isFinite(video.duration) ? video.duration : 10.0;
+    const maxTimestamp = Math.max(0, duration - 0.04);
+    const targetTimestamp = clampedStep >= 5
+      ? maxTimestamp
+      : (clampedStep / 5) * maxTimestamp;
 
-    if (clampedStep === 5) {
+    // Only Step 6 triggers isCompleted (UI overlay revealed). Step 5 keeps the build badge at 100% BUILT.
+    if (clampedStep === 6) {
       setIsCompleted(true);
       setHasCompletedBuild(true);
+      hasCompletedRef.current = true;
     } else {
       setIsCompleted(false);
+    }
+
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
     }
 
     if (immediate || !video) {
@@ -92,39 +200,101 @@ export function useScrollScrub(containerRef) {
       setDisplayedPct(targetPercentage);
       if (video) {
         video.pause();
-        video.currentTime = Math.max(0.01, targetTimestamp);
+        try {
+          video.currentTime = Math.max(0.01, targetTimestamp);
+        } catch (e) {}
       }
       return;
     }
 
+    // If moving between Step 5 (100% built) and Step 6 (UI reveal), video is already at final frame
     const currentVideoTime = video.currentTime || 0;
+    if (clampedStep >= 5 && currentStepRef.current >= 5 && Math.abs(currentVideoTime - targetTimestamp) < 0.1) {
+      if (playRafRef.current) cancelAnimationFrame(playRafRef.current);
+      isAnimatingRef.current = false;
+      setProgress(1.0);
+      setDisplayedPct(100);
+      video.pause();
+      try {
+        video.currentTime = targetTimestamp;
+      } catch (e) {}
+
+      if (typeof window !== "undefined") {
+        isProgrammaticScrollRef.current = true;
+        const vh = window.innerHeight;
+        window.scrollTo({
+          top: clampedStep * vh,
+          behavior: "instant",
+        });
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 300);
+      }
+      return;
+    }
+
     const isForward = targetTimestamp > currentVideoTime + 0.04;
 
     if (playRafRef.current) cancelAnimationFrame(playRafRef.current);
     isAnimatingRef.current = true;
 
     if (isForward) {
-      // 1. FORWARD PLAY: Native hardware-accelerated video playback until exact 20% milestone
-      video.playbackRate = 1.35; // Crisp time-lapse construction speed
+      // 1. FORWARD PLAY: Native hardware-accelerated video playback until exact milestone
+      // Adaptive speed: 1.12x on mobile/low-end devices (~33fps, butter smooth on budget decoders), 1.30x on high-end desktop
+      video.playbackRate = isLowEndRef.current ? 1.12 : 1.30;
       const playPromise = video.play();
+
+      // Mobile & buffering safety watchdog: Force complete if video stalls or takes > 1600ms
+      watchdogRef.current = setTimeout(() => {
+        if (playRafRef.current) {
+          cancelAnimationFrame(playRafRef.current);
+          playRafRef.current = null;
+        }
+        if (video) {
+          video.pause();
+          try {
+            video.currentTime = targetTimestamp;
+          } catch (e) {}
+        }
+        lastDisplayedPctRef.current = targetPercentage;
+        setDisplayedPct(targetPercentage);
+        setProgress(targetProgress);
+        isAnimatingRef.current = false;
+        watchdogRef.current = null;
+      }, 1600);
 
       const monitorForward = () => {
         const nowTime = video.currentTime;
         const currentProg = Math.min(targetProgress, Math.max(0, nowTime / duration));
         const currentPct = Math.min(targetPercentage, Math.round(currentProg * 100));
 
-        setDisplayedPct(currentPct);
-        setProgress(currentProg);
+        // Performance optimization: Only update React state when percentage integer changes
+        if (currentPct !== lastDisplayedPctRef.current) {
+          lastDisplayedPctRef.current = currentPct;
+          setDisplayedPct(currentPct);
+          setProgress(currentProg);
+        }
 
         // Check if milestone reached
-        if (nowTime >= targetTimestamp - 0.03 || video.ended) {
+        if (nowTime >= targetTimestamp - 0.04 || video.ended) {
+          if (watchdogRef.current) {
+            clearTimeout(watchdogRef.current);
+            watchdogRef.current = null;
+          }
           video.pause();
-          video.currentTime = targetTimestamp;
+          try {
+            video.currentTime = targetTimestamp;
+          } catch (e) {}
+          lastDisplayedPctRef.current = targetPercentage;
           setDisplayedPct(targetPercentage);
           setProgress(targetProgress);
           isAnimatingRef.current = false;
           playRafRef.current = null;
         } else {
+          // If mobile browser paused playback mid-transition, try to resume
+          if (video.paused && !video.ended && nowTime < targetTimestamp - 0.05) {
+            video.play().catch(() => {});
+          }
           playRafRef.current = requestAnimationFrame(monitorForward);
         }
       };
@@ -159,46 +329,9 @@ export function useScrollScrub(containerRef) {
         isProgrammaticScrollRef.current = false;
       }, 400);
     }
-  }, []);
+  }, [scrubBackward]);
 
-  // Backward interpolation helper for reverse scrolling
-  const scrubBackward = (startTime, targetTime, targetProg, targetPct) => {
-    const video = videoRef.current;
-    const startMs = performance.now();
-    const durationMs = 450;
-    const startPct = displayedPct;
-    const startProg = progress;
-
-    const animateScrub = (now) => {
-      const elapsed = now - startMs;
-      const t = Math.min(1, elapsed / durationMs);
-      const ease = 1 - Math.pow(1 - t, 3);
-
-      const nextTime = Math.max(0.01, startTime + (targetTime - startTime) * ease);
-      if (video) video.currentTime = nextTime;
-
-      const nextProg = startProg + (targetProg - startProg) * ease;
-      const nextPct = Math.round(startPct + (targetPct - startPct) * ease);
-      setProgress(nextProg);
-      setDisplayedPct(nextPct);
-
-      if (t < 1) {
-        playRafRef.current = requestAnimationFrame(animateScrub);
-      } else {
-        if (video) {
-          video.pause();
-          video.currentTime = targetTime;
-        }
-        setProgress(targetProg);
-        setDisplayedPct(targetPct);
-        isAnimatingRef.current = false;
-        playRafRef.current = null;
-      }
-    };
-    playRafRef.current = requestAnimationFrame(animateScrub);
-  };
-
-  // Advance to next milestone (0 -> 20 -> 40 -> 60 -> 80 -> 100 -> 6th scroll exits to site)
+  // Advance to next milestone (0 -> 20 -> 40 -> 60 -> 80 -> 100 -> UI Reveal -> exit to site)
   const nextStep = useCallback(() => {
     if (cooldownRef.current) return;
     cooldownRef.current = true;
@@ -207,27 +340,32 @@ export function useScrollScrub(containerRef) {
     }, 350);
 
     const curr = currentStepRef.current;
-    if (curr < 5) {
+    if (curr < 6) {
       goToStep(curr + 1);
     } else {
-      // 6th scroll: Finished! Smoothly enter the rest of the website
+      // 7th scroll: Finished! Smoothly enter the rest of the website
       const overviewEl = document.getElementById("overview");
       if (overviewEl) {
         overviewEl.scrollIntoView({ behavior: "smooth" });
       } else if (typeof window !== "undefined") {
         const vh = window.innerHeight;
-        window.scrollTo({ top: 6 * vh, behavior: "smooth" });
+        window.scrollTo({ top: 7 * vh, behavior: "smooth" });
       }
     }
   }, [goToStep]);
 
-  // Step back to previous milestone (100 -> 80 -> 60 -> 40 -> 20 -> 0)
+  // Step back to previous milestone (UI Reveal -> 100 -> 80 -> 60 -> 40 -> 20 -> 0)
   const prevStep = useCallback(() => {
+    // If build has reached Step 6 (UI revealed / build complete), lock it:
+    // User cannot scroll up backwards to un-build the house. Replay Build button is used instead.
+    if (currentStepRef.current >= 6 || hasCompletedRef.current) {
+      return;
+    }
     if (cooldownRef.current) return;
     cooldownRef.current = true;
     setTimeout(() => {
       cooldownRef.current = false;
-    }, 450);
+    }, 350);
 
     const curr = currentStepRef.current;
     if (curr > 0) {
@@ -244,16 +382,21 @@ export function useScrollScrub(containerRef) {
     const handleWheel = (e) => {
       const scrollY = window.scrollY;
       const vh = window.innerHeight;
-      const heroMaxScroll = 5 * vh;
+      const heroMaxScroll = 6 * vh;
 
-      // Inside the 600vh hero sequence
-      if (scrollY <= heroMaxScroll + 30) {
+      // Inside the 700vh hero sequence
+      if (scrollY <= heroMaxScroll + 20) {
         if (e.deltaY > 25) {
-          // Scroll Down: 0 -> 20 -> 40 -> 60 -> 80 -> 100, and 6th scroll smoothly exits to #overview
-          e.preventDefault();
-          nextStep();
+          if (currentStepRef.current < 6) {
+            e.preventDefault();
+            nextStep();
+          }
         } else if (e.deltaY < -25) {
-          // Scroll Up: previous step
+          // Once at Step 6 or completed: do not allow scrolling up backwards to reverse build!
+          if (currentStepRef.current >= 6 || hasCompletedRef.current) {
+            e.preventDefault();
+            return;
+          }
           if (currentStepRef.current > 0) {
             e.preventDefault();
             prevStep();
@@ -270,22 +413,55 @@ export function useScrollScrub(containerRef) {
       }
     };
 
+    const handleTouchMove = (e) => {
+      const scrollY = window.scrollY;
+      const vh = window.innerHeight;
+      const heroMaxScroll = 6 * vh;
+
+      // Prevent native momentum runaway while stepping through build sequence (steps 0 to 5)
+      if (scrollY <= heroMaxScroll + 20 && currentStepRef.current < 6) {
+        const target = e.target;
+        if (target && target.closest && (target.closest("button") || target.closest("a") || target.closest("input"))) {
+          return;
+        }
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+      }
+
+      // If at step 6 / completed, prevent swiping down (which is scrolling up backwards into unbuilt stages)
+      if (scrollY <= heroMaxScroll + 20 && (currentStepRef.current >= 6 || hasCompletedRef.current)) {
+        if (e.touches.length === 1) {
+          const currentY = e.touches[0].clientY;
+          if (currentY - touchStartYRef.current > 10) {
+            if (e.cancelable) {
+              e.preventDefault();
+            }
+          }
+        }
+      }
+    };
+
     const handleTouchEnd = (e) => {
       const scrollY = window.scrollY;
       const vh = window.innerHeight;
-      const heroMaxScroll = 5 * vh;
+      const heroMaxScroll = 6 * vh;
 
-      if (scrollY <= heroMaxScroll + 30 && e.changedTouches.length === 1) {
+      if (scrollY <= heroMaxScroll + 40 && e.changedTouches.length === 1) {
         const endY = e.changedTouches[0].clientY;
         const deltaY = touchStartYRef.current - endY;
 
         // Minimum swipe threshold of 28px
         if (Math.abs(deltaY) > 28) {
           if (deltaY > 0) {
-            // Swiped UP = scroll down to next stage / exit on 6th swipe
+            // Swiped UP = advance to next stage
             nextStep();
           } else {
-            // Swiped DOWN = scroll up to previous stage
+            // Swiped DOWN = back to previous stage
+            // Once at Step 6 or completed, locking prevents unbuilding!
+            if (currentStepRef.current >= 6 || hasCompletedRef.current) {
+              return;
+            }
             if (currentStepRef.current > 0) {
               prevStep();
             }
@@ -298,13 +474,20 @@ export function useScrollScrub(containerRef) {
     const handleKeyDown = (e) => {
       const scrollY = window.scrollY;
       const vh = window.innerHeight;
-      const heroMaxScroll = 5 * vh;
+      const heroMaxScroll = 6 * vh;
 
       if (scrollY <= heroMaxScroll + 30) {
         if (["ArrowDown", "PageDown", " "].includes(e.key)) {
-          e.preventDefault();
-          nextStep();
+          if (currentStepRef.current < 6) {
+            e.preventDefault();
+            nextStep();
+          }
         } else if (["ArrowUp", "PageUp"].includes(e.key)) {
+          // Once at Step 6 or completed: do not allow scrolling up backwards
+          if (currentStepRef.current >= 6 || hasCompletedRef.current) {
+            e.preventDefault();
+            return;
+          }
           if (currentStepRef.current > 0) {
             e.preventDefault();
             prevStep();
@@ -315,12 +498,14 @@ export function useScrollScrub(containerRef) {
 
     window.addEventListener("wheel", handleWheel, { passive: false });
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
     window.addEventListener("touchend", handleTouchEnd, { passive: true });
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.removeEventListener("wheel", handleWheel);
       window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -333,15 +518,15 @@ export function useScrollScrub(containerRef) {
     const handleScroll = () => {
       const scrollY = window.scrollY;
       const vh = window.innerHeight;
-      const heroEnd = 5 * vh;
+      const heroEnd = 6 * vh;
 
       if (scrollY >= heroEnd) {
         // Scrolled beyond hero into the rest of the site! Lock completion!
         if (!hasCompletedRef.current) {
           hasCompletedRef.current = true;
           setHasCompletedBuild(true);
-          currentStepRef.current = 5;
-          setCurrentStep(5);
+          currentStepRef.current = 6;
+          setCurrentStep(6);
           setProgress(1.0);
           setDisplayedPct(100);
           setStageName(STAGE_LABELS[5]);
@@ -349,8 +534,18 @@ export function useScrollScrub(containerRef) {
           const video = videoRef.current;
           if (video && video.duration) {
             video.pause();
-            video.currentTime = video.duration - 0.04;
+            try {
+              video.currentTime = video.duration - 0.04;
+            } catch (e) {}
           }
+        }
+        return;
+      }
+
+      // If already at Step 6 or completed, lock scroll from reversing to earlier stages
+      if (hasCompletedRef.current || currentStepRef.current >= 6) {
+        if (!isProgrammaticScrollRef.current && scrollY < heroEnd - 30) {
+          window.scrollTo({ top: heroEnd, behavior: "instant" });
         }
         return;
       }
@@ -360,7 +555,7 @@ export function useScrollScrub(containerRef) {
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(() => {
           if (isProgrammaticScrollRef.current || isAnimatingRef.current) return;
-          const nearestStep = Math.min(5, Math.max(0, Math.round(scrollY / vh)));
+          const nearestStep = Math.min(6, Math.max(0, Math.round(scrollY / vh)));
           if (nearestStep !== currentStepRef.current) {
             goToStep(nearestStep, false);
           }
@@ -425,10 +620,15 @@ export function useScrollScrub(containerRef) {
   const replayBuild = useCallback(() => {
     hasCompletedRef.current = false;
     setHasCompletedBuild(false);
+    setIsCompleted(false);
+    isProgrammaticScrollRef.current = true;
     goToStep(0, true);
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+    setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 650);
   }, [goToStep]);
 
   return {

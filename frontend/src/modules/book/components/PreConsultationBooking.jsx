@@ -19,7 +19,14 @@ export default function PreConsultationBooking({ selectedStyle }) {
   const [lotArea, setLotArea] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [location, setLocation] = useState("");
-  const [preferredStyle, setPreferredStyle] = useState(selectedStyle || "");
+  const [preferredStyle, setPreferredStyle] = useState(() => {
+    if (selectedStyle) return selectedStyle;
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("style") || params.get("interest") || "";
+    }
+    return "";
+  });
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
@@ -29,17 +36,13 @@ export default function PreConsultationBooking({ selectedStyle }) {
   const [submissionId, setSubmissionId] = useState("");
 
   const fileInputRef = useRef(null);
+  const prevSelectedStyleRef = useRef(selectedStyle);
 
-  // Sync when user clicks "Inquire for this Style" on any project card OR from URL params
+  // Sync if selectedStyle prop changes externally after initial mount
   useEffect(() => {
-    if (selectedStyle) {
+    if (selectedStyle && selectedStyle !== prevSelectedStyleRef.current) {
+      prevSelectedStyleRef.current = selectedStyle;
       setPreferredStyle(selectedStyle);
-    } else if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const styleParam = params.get("style") || params.get("interest");
-      if (styleParam) {
-        setPreferredStyle(styleParam);
-      }
     }
   }, [selectedStyle]);
 

@@ -188,6 +188,46 @@ export default function ProcessSection() {
     };
   }, [activeStage, goToStage]);
 
+  // Mobile Touch Swipe gesture listener: swipe left -> next stage, swipe right -> prev stage
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    const onTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+    };
+
+    const onTouchEnd = (e) => {
+      if (e.changedTouches.length === 1) {
+        const deltaX = touchStartX - e.changedTouches[0].clientX;
+        const deltaY = touchStartY - e.changedTouches[0].clientY;
+
+        // Horizontal swipe: left to advance stage, right to go back
+        if (Math.abs(deltaX) > 35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+          if (deltaX > 0 && activeStage < 3) {
+            goToStage(activeStage + 1);
+          } else if (deltaX < 0 && activeStage > 0) {
+            goToStage(activeStage - 1);
+          }
+        }
+      }
+    };
+
+    container.addEventListener("touchstart", onTouchStart, { passive: true });
+    container.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      container.removeEventListener("touchstart", onTouchStart);
+      container.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [activeStage, goToStage]);
+
   // Node centers in 4-column layout: 12.5%, 37.5%, 62.5%, 87.5%
   // Line starts from 12.5% and grows up to 87.5% (or 100%)
   const laserPercent = [12.5, 37.5, 62.5, 100][activeStage];
@@ -201,18 +241,18 @@ export default function ProcessSection() {
       className="relative w-full h-[300vh] md:h-[340vh] bg-transparent text-neutral-900 dark:text-neutral-100"
     >
       {/* Sticky Viewport Frame */}
-      <div className="sticky top-0 w-full h-screen max-h-screen flex flex-col justify-center py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden select-none">
+      <div className="sticky top-0 w-full min-h-screen h-[100dvh] flex flex-col justify-between py-3 sm:py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden select-none">
         
         {/* =================================================================== */}
         {/* 1. TOP HEADER & TELEMETRY HUD STRIP                                 */}
         {/* =================================================================== */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-4 sm:mb-5 pb-3 border-b border-neutral-200 dark:border-neutral-900">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-3 mb-2 sm:mb-4 pb-2 sm:pb-3 border-b border-neutral-200 dark:border-neutral-900 shrink-0">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] font-mono tracking-widest uppercase mb-2">
-              <SparkleBadgeIcon className="w-3.5 h-3.5" />
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] sm:text-[11px] font-mono tracking-widest uppercase mb-1 sm:mb-2">
+              <SparkleBadgeIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               <span>Execution Framework · Stage by Stage</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
+            <h2 className="text-xl sm:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
               The{" "}
               <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
                 MCPA
@@ -221,9 +261,9 @@ export default function ProcessSection() {
             </h2>
           </div>
 
-          {/* Active Stage HUD Counter & Direct Quick Jump Pills */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2">
+          {/* Active Stage HUD Counter & Direct Quick Jump Pills (Desktop/Tablet) */}
+          <div className="hidden sm:flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <span className="text-[11px] font-mono uppercase tracking-widest text-neutral-500 dark:text-neutral-400">
                 Milestone:
               </span>
@@ -253,9 +293,43 @@ export default function ProcessSection() {
         </div>
 
         {/* =================================================================== */}
-        {/* 2. DEDICATED ARCHITECTURAL STEPPER BAR (NO LINE-OVER-TEXT ARTIFACT) */}
+        {/* 2. DEDICATED ARCHITECTURAL STEPPER BAR (MOBILE & DESKTOP)           */}
         {/* =================================================================== */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-4 sm:mb-5 lg:mb-6">
+
+        {/* Mobile Single-Row Stepper: Compact, fits all 4 stages without eating card space */}
+        <div className="flex md:hidden items-center justify-between gap-1 mb-2.5 p-1 bg-neutral-100/90 dark:bg-white/5 rounded-xl border border-neutral-200 dark:border-white/10 w-full shrink-0">
+          {STAGES.map((item, idx) => {
+            const isCurrent = activeStage === idx;
+            const isPast = activeStage > idx;
+
+            return (
+              <button
+                key={item.step}
+                onClick={() => goToStage(idx)}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                  isCurrent
+                    ? "bg-amber-500 text-neutral-950 font-bold shadow-xs scale-[1.02]"
+                    : isPast
+                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold"
+                    : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/50 dark:hover:bg-white/5"
+                }`}
+                aria-label={`Jump to Stage ${item.step}: ${item.title}`}
+              >
+                {isPast ? (
+                  <CheckIcon className="w-3.5 h-3.5 stroke-[3]" />
+                ) : (
+                  <span className="font-black text-[11px]">{item.step}</span>
+                )}
+                <span className="text-[10px] font-bold tracking-tight truncate">
+                  {item.shortTitle}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Desktop Architectural Stepper Bar */}
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-4 sm:mb-5 lg:mb-6 shrink-0">
           {STAGES.map((item, idx) => {
             const isCurrent = activeStage === idx;
             const isPast = activeStage > idx;
@@ -440,7 +514,7 @@ export default function ProcessSection() {
                 <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-white/10 space-y-2.5">
                   {item.checklist.map((check, cIdx) => (
                     <div
-                      key={cIdx}
+                      key={`${item.step}-${cIdx}`}
                       className={`flex items-center gap-2 text-xs font-mono transition-colors ${
                         isCurrent
                           ? "text-neutral-950 dark:text-neutral-100 font-medium"
@@ -448,20 +522,32 @@ export default function ProcessSection() {
                       }`}
                       style={{
                         animation: isCurrent
-                          ? `staggerItemSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) both`
+                          ? `staggerItemSlide 0.45s cubic-bezier(0.16, 1, 0.3, 1) both`
                           : undefined,
                         animationDelay: isCurrent
-                          ? `${(cIdx + 1) * 80}ms`
+                          ? `${(cIdx + 1) * 90}ms`
                           : undefined,
                       }}
                     >
-                      <CheckIcon
-                        className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                          isCurrent
-                            ? "text-amber-600 dark:text-amber-400 stroke-[2.5]"
-                            : "text-amber-600 dark:text-neutral-400 stroke-[2]"
-                        }`}
-                      />
+                      <span
+                        className="shrink-0 flex items-center justify-center"
+                        style={{
+                          animation: isCurrent
+                            ? `checkPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both`
+                            : undefined,
+                          animationDelay: isCurrent
+                            ? `${(cIdx + 1) * 90 + 70}ms`
+                            : undefined,
+                        }}
+                      >
+                        <CheckIcon
+                          className={`w-3.5 h-3.5 transition-colors ${
+                            isCurrent
+                              ? "text-amber-600 dark:text-amber-400 stroke-[2.5]"
+                              : "text-amber-600 dark:text-neutral-400 stroke-[2]"
+                          }`}
+                        />
+                      </span>
                       <span className="truncate">{check}</span>
                     </div>
                   ))}
@@ -472,39 +558,49 @@ export default function ProcessSection() {
         </div>
 
         {/* MOBILE VIEW: Focused Single Hero Stage Card */}
-        <div className="flex md:hidden flex-col gap-4 relative z-10">
+        <div className="flex md:hidden flex-col gap-3 relative z-10 flex-1 justify-center max-h-[60vh]">
           <div
             key={currentStageData.step}
-            className="animate-stage-morph bg-white dark:bg-neutral-900 border-2 border-amber-500 dark:border-amber-400 p-6 rounded-2xl shadow-[0_16px_45px_rgba(245,158,11,0.22)] ring-4 ring-amber-500/15"
+            className="animate-stage-morph bg-white dark:bg-neutral-900 border-2 border-amber-500 dark:border-amber-400 p-4 sm:p-5 rounded-2xl shadow-[0_16px_45px_rgba(245,158,11,0.22)] ring-4 ring-amber-500/15 flex flex-col justify-between"
           >
-            <div className="flex items-center justify-between mb-3.5">
-              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-amber-400 text-neutral-950 font-black shadow-xs">
-                Active Phase · Stage 0{activeStage + 1}
-              </span>
-              <span className="text-xs font-mono text-neutral-500 font-semibold">
-                0{activeStage + 1} / 04
-              </span>
+            <div>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-amber-400 text-neutral-950 font-black shadow-xs">
+                  Active Phase · Stage 0{activeStage + 1}
+                </span>
+                <span className="text-[11px] font-mono text-neutral-500 font-semibold">
+                  0{activeStage + 1} / 04
+                </span>
+              </div>
+
+              <h3 className="text-lg sm:text-xl font-black tracking-tight text-neutral-950 dark:text-amber-400 leading-snug">
+                {currentStageData.title}
+              </h3>
+
+              <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed font-normal">
+                {currentStageData.desc}
+              </p>
             </div>
 
-            <h3 className="text-xl font-black tracking-tight text-neutral-950 dark:text-amber-400 leading-snug">
-              {currentStageData.title}
-            </h3>
-
-            <p className="mt-2.5 text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed font-normal">
-              {currentStageData.desc}
-            </p>
-
-            <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-white/10 space-y-2.5">
+            <div className="mt-3.5 sm:mt-4 pt-3 border-t border-neutral-200 dark:border-white/10 space-y-2 sm:space-y-2.5">
               {currentStageData.checklist.map((check, cIdx) => (
                 <div
-                  key={cIdx}
+                  key={`${currentStageData.step}-${cIdx}`}
                   className="flex items-center gap-2 text-xs font-mono text-neutral-950 dark:text-neutral-100 font-medium"
                   style={{
-                    animation: `staggerItemSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) both`,
-                    animationDelay: `${(cIdx + 1) * 80}ms`,
+                    animation: `staggerItemSlide 0.45s cubic-bezier(0.16, 1, 0.3, 1) both`,
+                    animationDelay: `${(cIdx + 1) * 110}ms`,
                   }}
                 >
-                  <CheckIcon className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400 stroke-[2.5]" />
+                  <span
+                    className="shrink-0 flex items-center justify-center"
+                    style={{
+                      animation: `checkPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both`,
+                      animationDelay: `${(cIdx + 1) * 110 + 90}ms`,
+                    }}
+                  >
+                    <CheckIcon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 stroke-[2.5]" />
+                  </span>
                   <span className="truncate">{check}</span>
                 </div>
               ))}
@@ -515,16 +611,16 @@ export default function ProcessSection() {
         {/* =================================================================== */}
         {/* 3. BOTTOM ARCHITECTURAL CAD HUD & STEPPER CONTROLS                  */}
         {/* =================================================================== */}
-        <div className="mt-4 sm:mt-5 pt-3 border-t border-neutral-200 dark:border-neutral-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
+        <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-neutral-200 dark:border-neutral-900 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3 text-xs font-mono shrink-0">
           
           {/* Active Telemetry Readout */}
           <div
             key={activeStage}
-            className="flex items-center gap-2 text-[11px] text-neutral-600 dark:text-neutral-400 truncate max-w-lg transition-all"
+            className="flex items-center gap-2 text-[11px] text-neutral-600 dark:text-neutral-400 truncate w-full sm:w-auto max-w-lg transition-all"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <span className="text-amber-700 dark:text-amber-400 font-bold uppercase shrink-0">
-              STAGE 0{activeStage + 1} TELEMETRY:
+              STAGE 0{activeStage + 1}:
             </span>
             <span className="truncate text-neutral-900 dark:text-neutral-200 font-medium">
               {currentStageData.telemetry.status}
@@ -532,11 +628,11 @@ export default function ProcessSection() {
           </div>
 
           {/* Stepper Navigation Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             <button
               onClick={() => goToStage(Math.max(0, activeStage - 1))}
               disabled={activeStage === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-neutral-300 dark:border-white/10 hover:border-amber-500 text-neutral-700 dark:text-neutral-300 hover:text-amber-500 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-xs"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-neutral-300 dark:border-white/10 hover:border-amber-500 text-neutral-700 dark:text-neutral-300 hover:text-amber-500 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-xs"
               aria-label="Previous Construction Stage"
             >
               <ArrowLeftIcon className="w-3.5 h-3.5" />
@@ -553,15 +649,15 @@ export default function ProcessSection() {
                   if (contact) contact.scrollIntoView({ behavior: "smooth" });
                 }
               }}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold transition-all shadow-md shadow-amber-500/20 hover:shadow-amber-500/40 cursor-pointer text-xs"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-5 sm:py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold transition-all shadow-md shadow-amber-500/20 hover:shadow-amber-500/40 cursor-pointer text-xs"
               aria-label={
                 activeStage < 3
                   ? "Advance to Next Stage"
                   : "All Stages Complete. Scroll to Next Section."
               }
             >
-              <span>
-                {activeStage < 3 ? "Scroll or Tap to Advance" : "Explore Next Section"}
+              <span className="truncate">
+                {activeStage < 3 ? "Next Stage" : "Next Section"}
               </span>
               <ArrowRightIcon className="w-3.5 h-3.5" />
             </button>

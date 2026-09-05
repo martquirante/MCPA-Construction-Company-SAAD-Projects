@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ThemeToggle from "@/modules/shared/ThemeToggle";
-import AdminUploadModal from "@/modules/home/components/AdminUploadModal";
+import AdminUploadModal from "@/modules/admin/components/AdminUploadModal";
 import {
   LockIcon,
   ShieldCheckIcon,

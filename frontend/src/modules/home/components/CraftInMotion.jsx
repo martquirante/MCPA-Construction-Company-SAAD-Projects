@@ -2,19 +2,24 @@
 
 import Link from "next/link";
 import { ArrowRightIcon } from "../../shared/Icons";
+import { useBlobVideo } from "../hooks/useBlobVideo";
 
 export default function CraftInMotion() {
+  const videoSrc = useBlobVideo("/videos/landscape-build.mp4");
+
   return (
     <section className="relative overflow-hidden w-full h-[60vh] min-h-[420px] max-h-[650px] border-y border-neutral-200 dark:border-neutral-800">
       {/* Ambient Looping Video Background */}
-      <video
-        src="/videos/landscape-build.mp4"
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
-      />
+      {videoSrc ? (
+        <video
+          src={videoSrc}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+        />
+      ) : null}
 
       {/* Cinematic Dark Gradient Tint Overlay */}
       <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/90 via-neutral-950/60 to-neutral-950/85 pointer-events-none" />

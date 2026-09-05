@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import ThemeToggle from "../../shared/ThemeToggle";
+import ThemeToggle from "./ThemeToggle";
 import {
   UserIcon,
   MenuIcon,
@@ -11,7 +11,7 @@ import {
   FacebookIcon,
   InstagramIcon,
   TikTokIcon,
-} from "../../shared/Icons";
+} from "./Icons";
 
 export default function ClientNavbar({ isCompleted }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -19,9 +19,9 @@ export default function ClientNavbar({ isCompleted }) {
 
   useEffect(() => {
     const handleScroll = () => {
-      // Check if user has scrolled beyond the hero section (500vh scroll travel)
+      // Check if user has scrolled beyond the hero section (600vh scroll travel in 700vh container)
       if (typeof window !== "undefined") {
-        setScrolledPastHero(window.scrollY > window.innerHeight * 5.1);
+        setScrolledPastHero(window.scrollY > window.innerHeight * 6.1);
       }
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -29,12 +29,30 @@ export default function ClientNavbar({ isCompleted }) {
   }, []);
 
   const navLinks = [
-    { label: "Home", href: "#top", active: true },
+    { label: "Home", href: "/", active: true },
     { label: "Projects", href: "#projects" },
     { label: "Services", href: "#services" },
     { label: "Process", href: "#process" },
     { label: "Book Consultation", href: "/book" },
   ];
+
+  const handleNavClick = (e, href) => {
+    if (href === "/") {
+      if (typeof window !== "undefined" && window.location.pathname === "/") {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.history.replaceState(null, "", "/");
+      }
+    } else if (href.startsWith("#")) {
+      e.preventDefault();
+      const targetId = href.replace("#", "");
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+        window.history.replaceState(null, "", href);
+      }
+    }
+  };
 
   return (
     <>
@@ -46,9 +64,10 @@ export default function ClientNavbar({ isCompleted }) {
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          {/* 1. BRAND LOGO - ALWAYS VISIBLE */}
+          {/* 1. BRAND LOGO - ALWAYS VISIBLE (ROUTES CLEANLY TO /) */}
           <Link
-            href="#top"
+            href="/"
+            onClick={(e) => handleNavClick(e, "/")}
             className="flex items-center gap-3 group focus:outline-none select-none"
             aria-label="MCPA Construction and Supply Home"
           >
@@ -98,6 +117,7 @@ export default function ClientNavbar({ isCompleted }) {
               <Link
                 key={link.label}
                 href={link.href}
+                onClick={(e) => handleNavClick(e, link.href)}
                 className={`relative py-1 text-sm font-medium tracking-wide transition-colors duration-200 ${
                   scrolledPastHero
                     ? link.active
@@ -175,7 +195,10 @@ export default function ClientNavbar({ isCompleted }) {
             <Link
               key={link.label}
               href={link.href}
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={(e) => {
+                handleNavClick(e, link.href);
+                setMobileMenuOpen(false);
+              }}
               className={`text-lg font-medium tracking-wide py-2 transition-colors ${
                 link.active
                   ? "text-amber-600 dark:text-amber-400 font-bold"

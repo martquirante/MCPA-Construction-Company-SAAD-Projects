@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import ScrollMorph from "../../shared/ScrollMorph";
+import ScrollMorph from "./ScrollMorph";
 import {
   ArrowRightIcon,
   FacebookIcon,
@@ -13,7 +13,7 @@ import {
   ChevronRightIcon,
   CheckIcon,
   ArrowUpIcon,
-} from "../../shared/Icons";
+} from "./Icons";
 
 export default function Footer() {
   const [emailInput, setEmailInput] = useState("");
@@ -31,6 +31,9 @@ export default function Footer() {
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
   };
 
   return (
@@ -88,7 +91,17 @@ export default function Footer() {
           {/* COLUMN 1: BRAND PROFILE & HERITAGE (4 cols) */}
           <ScrollMorph variant="fan-left" delay={0} duration={800} className="lg:col-span-4 flex flex-col justify-between">
             <div>
-              <Link href="#top" className="inline-block mb-5 group">
+              <Link
+                href="/"
+                onClick={(e) => {
+                  if (typeof window !== "undefined" && window.location.pathname === "/") {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    window.history.replaceState(null, "", "/");
+                  }
+                }}
+                className="inline-block mb-5 group"
+              >
                 <div className="relative w-48 sm:w-56 h-12 transition-transform duration-300 group-hover:scale-105">
                   <Image
                     src="/assets/mcpa-logo.png"
@@ -175,7 +188,17 @@ export default function Footer() {
             </p>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <Link href="#top" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
+                <Link
+                  href="/"
+                  onClick={(e) => {
+                    if (typeof window !== "undefined" && window.location.pathname === "/") {
+                      e.preventDefault();
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                      window.history.replaceState(null, "", "/");
+                    }
+                  }}
+                  className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group"
+                >
                   <ChevronRightIcon className="w-3 h-3 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   <span>Home</span>
                 </Link>
@@ -403,28 +426,42 @@ export default function Footer() {
           </div>
 
           {/* Center: Legal & System Status */}
-          <div className="flex flex-wrap items-center justify-center gap-4 text-[11px]">
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-[11px]">
             <a
               href="https://maps.app.goo.gl/hPB6X66NdhViSvCp7"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors group cursor-pointer"
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-100 dark:bg-white/[0.04] border border-neutral-300 dark:border-white/10 hover:border-amber-500/50 hover:bg-amber-500/10 text-neutral-700 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 transition-all duration-300 group cursor-pointer shadow-xs"
               title="Open MCPA Headquarters in Google Maps"
             >
-              <GoogleMapsPinIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
-              <span className="group-hover:underline">Plaridel, Bulacan HQ Active</span>
+              {/* Live operational radar beacon */}
+              <span className="relative flex h-2 w-2 items-center justify-center shrink-0">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              </span>
+
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                Headquarters
+              </span>
+              <span className="text-neutral-400 dark:text-neutral-600">·</span>
+              <span className="text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors">
+                Plaridel, Bulacan
+              </span>
+
+              <GoogleMapsPinIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 group-hover:scale-110 transition-all shrink-0 ml-0.5" />
             </a>
-            <span className="text-neutral-400 dark:text-neutral-700">|</span>
-            <Link href="#top" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+
+            <span className="hidden sm:inline text-neutral-300 dark:text-neutral-700">|</span>
+
+            <Link href="#contact-section" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
               Privacy Policy
             </Link>
-            <span className="text-neutral-400 dark:text-neutral-700">|</span>
-            <Link href="#top" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+            <span className="text-neutral-300 dark:text-neutral-700">·</span>
+            <Link href="#contact-section" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
               Terms of Engagement
             </Link>
-            <span className="text-neutral-400 dark:text-neutral-700">|</span>
-            <Link href="#top" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+            <span className="text-neutral-300 dark:text-neutral-700">·</span>
+            <Link href="#contact-section" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
               Safety Code
             </Link>
           </div>

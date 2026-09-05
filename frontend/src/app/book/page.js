@@ -4,8 +4,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import ThemeToggle from "@/modules/shared/ThemeToggle";
-import PreConsultationBooking from "@/modules/home/components/PreConsultationBooking";
-import Footer from "@/modules/home/components/Footer";
+import PreConsultationBooking from "@/modules/book/components/PreConsultationBooking";
+import Footer from "@/modules/shared/Footer";
 import { ArrowLeftIcon } from "@/modules/shared/Icons";
 
 function BookingContent() {

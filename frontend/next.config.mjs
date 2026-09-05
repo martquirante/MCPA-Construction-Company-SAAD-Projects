@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  productionBrowserSourceMaps: false,
+  poweredByHeader: false,
   allowedDevOrigins: [
     "192.168.1.6",
     "192.168.1.6:3000",

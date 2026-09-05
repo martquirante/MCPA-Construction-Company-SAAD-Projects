@@ -27,18 +27,9 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
 
   const fileInputRef = useRef(null);
 
-  // Reset form when modal opens
+  // Lock scroll when modal is open
   useEffect(() => {
     if (isOpen) {
-      setTitle("");
-      setLocation("");
-      setYear(new Date().getFullYear().toString());
-      setCategory("Residential");
-      setDescription("");
-      setImageUrl("");
-      setSecondaryImageUrl("");
-      setPreviewImages([]);
-      setErrorMsg("");
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -47,6 +38,23 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
       document.body.style.overflow = "";
     };
   }, [isOpen]);
+
+  const resetForm = () => {
+    setTitle("");
+    setLocation("");
+    setYear(new Date().getFullYear().toString());
+    setCategory("Residential");
+    setDescription("");
+    setImageUrl("");
+    setSecondaryImageUrl("");
+    setPreviewImages([]);
+    setErrorMsg("");
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   // Handle local file selection via FileReader
   const handleFileChange = (e) => {

@@ -8,7 +8,7 @@ import PortfolioSection from "./PortfolioSection";
 import CraftInMotion from "./CraftInMotion";
 import ServicesSection from "./ServicesSection";
 import ProcessSection from "./ProcessSection";
-import Footer from "./Footer";
+import Footer from "@/modules/shared/Footer";
 import ScrollMorph from "../../shared/ScrollMorph";
 import {
   BuildingIcon,
