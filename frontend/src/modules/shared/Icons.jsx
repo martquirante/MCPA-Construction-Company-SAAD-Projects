@@ -371,23 +371,18 @@ export function FacebookIcon({ className = "w-4 h-4" }) {
   );
 }
 
-export function InstagramIcon({ className = "w-4 h-4" }) {
+export function InstagramIcon({ className = "w-4 h-4", style = {} }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
-      className={className}
+      className={`rounded-[22%] shrink-0 ${className}`}
+      style={{
+        background:
+          "radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)",
+        ...style,
+      }}
     >
-      <defs>
-        <radialGradient id="ig-brand-gradient" cx="20%" cy="110%" r="145%">
-          <stop offset="0%" stopColor="#fdf497" />
-          <stop offset="10%" stopColor="#fdf497" />
-          <stop offset="50%" stopColor="#fd5949" />
-          <stop offset="75%" stopColor="#d6249f" />
-          <stop offset="100%" stopColor="#285AEB" />
-        </radialGradient>
-      </defs>
-      <rect width="24" height="24" rx="6.5" fill="url(#ig-brand-gradient)" />
       <path
         d="M12 7.02c1.622 0 1.814.006 2.455.035 1.51.069 2.222.788 2.29 2.29.03.64.036.833.036 2.455 0 1.622-.006 1.814-.035 2.455-.069 1.51-.788 2.222-2.29 2.29-.64.03-.833.036-2.455.036-1.622 0-1.814-.006-2.455-.035-1.51-.069-2.222-.788-2.29-2.29-.03-.64-.036-.833-.036-2.455 0-1.622.006-1.814.035-2.455.069-1.51.788-2.222 2.29-2.29.64-.03.833-.036 2.455-.036zm0-1.32c-1.65 0-1.857.007-2.506.037-2.217.101-3.447 1.332-3.548 3.548-.03.65-.037.856-.037 2.506s.007 1.857.037 2.506c.101 2.217 1.331 3.447 3.548 3.548.65.03.856.037 2.506.037s1.857-.007 2.506-.037c2.217-.101 3.447-1.331 3.548-3.548.03-.65.037-.856.037-2.506s-.007-1.857-.037-2.506c-.101-2.217-1.331-3.447-3.548-3.548-.65-.03-.856-.037-2.506-.037zm0 3.125a3.175 3.175 0 100 6.35 3.175 3.175 0 000-6.35zm0 5.03a1.855 1.855 0 110-3.71 1.855 1.855 0 010 3.71zm4.045-5.143a.742.742 0 100 1.485.742.742 0 000-1.485z"
         fill="#FFFFFF"
@@ -476,6 +471,23 @@ export function ArrowUpIcon({ className = "w-4 h-4" }) {
   );
 }
 
+export function ArrowDownIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M12 5v14M19 12l-7 7-7-7" />
+    </svg>
+  );
+}
+
 export function ExternalLinkIcon({ className = "w-4 h-4" }) {
   return (
     <svg
@@ -524,4 +536,117 @@ export function StarIcon({ className = "w-4 h-4" }) {
     </svg>
   );
 }
+
+export function MailIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  );
+}
+
+export function EyeIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+export function EyeOffIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+      <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+      <line x1="2" y1="2" x2="22" y2="22" />
+    </svg>
+  );
+}
+
+export function KeyRoundIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" />
+      <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function RefreshCwIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+      <path d="M8 16H3v5" />
+    </svg>
+  );
+}
+
+export function CheckCircle2Icon({ className = "w-4 h-4" }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
 

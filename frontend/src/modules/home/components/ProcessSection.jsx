@@ -7,8 +7,6 @@ import {
   ShieldCheckIcon,
   HardHatIcon,
   SparkleBadgeIcon,
-  ArrowRightIcon,
-  ArrowLeftIcon,
   MapPinIcon,
 } from "../../shared/Icons";
 
@@ -16,6 +14,7 @@ const STAGES = [
   {
     step: "01",
     tag: "STAGE 01",
+    phaseBadge: "Phase 1: Pre-Construction & Profiling",
     title: "Discovery & Site Inspection",
     shortTitle: "Discovery",
     desc: "Detailed client consultation, lot title verification, soil evaluation, and initial architectural brief across Bulacan, NCR, or Central Luzon.",
@@ -35,6 +34,7 @@ const STAGES = [
   {
     step: "02",
     tag: "STAGE 02",
+    phaseBadge: "Phase 2: Architectural & Engineering CAD",
     title: "Signed & Sealed Plans",
     shortTitle: "Sealed Plans",
     desc: "Complete architectural blueprints, 3D photorealistic renderings, and engineering calculations with LGU building permit assistance.",
@@ -54,6 +54,7 @@ const STAGES = [
   {
     step: "03",
     tag: "STAGE 03",
+    phaseBadge: "Phase 3: Structural Execution & Erection",
     title: "Precision Construction",
     shortTitle: "Construction",
     desc: "In-house project management using premium construction supply materials with regular milestone photographic progress updates.",
@@ -73,12 +74,13 @@ const STAGES = [
   {
     step: "04",
     tag: "STAGE 04",
-    title: "Turnover & 5-Yr Warranty",
-    shortTitle: "Turnover & Warranty",
-    desc: "Formal site inspection, occupancy clearance, ceremonial key turnover, and backed by a 5-year comprehensive structural warranty.",
+    phaseBadge: "Phase 4: Final Handover & Occupancy",
+    title: "Turnover",
+    shortTitle: "Turnover",
+    desc: "Formal site inspection, comprehensive punchlist resolution, LGU Certificate of Occupancy clearance, and ceremonial key handover.",
     icon: ShieldCheckIcon,
     telemetry: {
-      location: "5-Year Structural Integrity Warranty",
+      location: "Official Project Turnover & Client Acceptance",
       bearing: "Certificate of Occupancy Granted",
       status: "Ceremonial Key Handover & As-Built Package",
     },
@@ -86,7 +88,7 @@ const STAGES = [
       "Final Engineering Punchlist",
       "LGU Occupancy Clearance",
       "Ceremonial Key Handover",
-      "5-Year Structural Warranty",
+      "Complete As-Built Documentation",
     ],
   },
 ];
@@ -94,12 +96,38 @@ const STAGES = [
 export default function ProcessSection() {
   const containerRef = useRef(null);
   const [activeStage, setActiveStage] = useState(0);
-  const [progress, setProgress] = useState(0);
   const isTransitioningRef = useRef(false);
 
-  // Calculate scroll position through the sticky container
+  // Smooth jump to a specific stage by scrolling the container
+  const goToStage = useCallback((stageIdx) => {
+    const targetIdx = Math.max(0, Math.min(3, stageIdx));
+    setActiveStage(targetIdx);
+
+    if (containerRef.current) {
+      isTransitioningRef.current = true;
+      const rect = containerRef.current.getBoundingClientRect();
+      const scrollTop = window.scrollY || window.pageYOffset;
+      const containerTop = rect.top + scrollTop;
+      const totalScrollable = rect.height - window.innerHeight;
+
+      if (totalScrollable > 0) {
+        const targetScroll = containerTop + ((targetIdx + 0.5) / 4) * totalScrollable;
+        window.scrollTo({
+          top: targetScroll,
+          behavior: "smooth",
+        });
+      }
+
+      setTimeout(() => {
+        isTransitioningRef.current = false;
+      }, 550);
+    }
+  }, []);
+
+  // Natural scroll tracking for ALL devices (Mobile, Tablet, Desktop)
   const handleScroll = useCallback(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || isTransitioningRef.current) return;
+
     const rect = containerRef.current.getBoundingClientRect();
     const windowHeight = window.innerHeight;
     const totalScrollable = rect.height - windowHeight;
@@ -107,13 +135,22 @@ export default function ProcessSection() {
     if (totalScrollable <= 0) return;
 
     const scrolled = -rect.top;
-    const rawProgress = Math.max(0, Math.min(1, scrolled / totalScrollable));
-    setProgress(rawProgress);
 
-    if (!isTransitioningRef.current) {
-      const stageIdx = Math.min(3, Math.max(0, Math.floor(rawProgress * 4)));
-      setActiveStage(stageIdx);
+    // If section hasn't reached the top of viewport, stay on stage 1
+    if (scrolled < 0) {
+      setActiveStage(0);
+      return;
     }
+
+    const rawProgress = Math.max(0, Math.min(1, scrolled / totalScrollable));
+
+    // Calculate stage based on smooth scroll slice:
+    // 0.00 - 0.25 -> Stage 0 (Discovery)
+    // 0.25 - 0.50 -> Stage 1 (Sealed Plans)
+    // 0.50 - 0.75 -> Stage 2 (Construction)
+    // 0.75 - 1.00 -> Stage 3 (Turnover)
+    const stageIdx = Math.min(3, Math.max(0, Math.floor(rawProgress * 4)));
+    setActiveStage((prev) => (prev !== stageIdx ? stageIdx : prev));
   }, []);
 
   useEffect(() => {
@@ -127,68 +164,7 @@ export default function ProcessSection() {
     };
   }, [handleScroll]);
 
-  // Smooth jump to a specific stage by scrolling the window
-  const goToStage = useCallback((stageIdx) => {
-    if (!containerRef.current) return;
-    isTransitioningRef.current = true;
-    setActiveStage(stageIdx);
-
-    const rect = containerRef.current.getBoundingClientRect();
-    const scrollTop = window.scrollY || window.pageYOffset;
-    const containerTop = rect.top + scrollTop;
-    const totalScrollable = rect.height - window.innerHeight;
-
-    // Center of that stage's scroll slice
-    const targetScroll = containerTop + ((stageIdx + 0.5) / 4) * totalScrollable;
-
-    window.scrollTo({
-      top: targetScroll,
-      behavior: "smooth",
-    });
-
-    setTimeout(() => {
-      isTransitioningRef.current = false;
-    }, 550);
-  }, []);
-
-  // Wheel listener inside pinned container to advance stage-by-stage
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let wheelCooldown = false;
-
-    const onWheel = (e) => {
-      const rect = container.getBoundingClientRect();
-      const windowHeight = window.innerHeight;
-
-      const isPinned = rect.top <= 10 && rect.bottom >= windowHeight - 10;
-      if (!isPinned || wheelCooldown) return;
-
-      if (e.deltaY > 35) {
-        if (activeStage < 3) {
-          e.preventDefault();
-          wheelCooldown = true;
-          goToStage(activeStage + 1);
-          setTimeout(() => { wheelCooldown = false; }, 480);
-        }
-      } else if (e.deltaY < -35) {
-        if (activeStage > 0) {
-          e.preventDefault();
-          wheelCooldown = true;
-          goToStage(activeStage - 1);
-          setTimeout(() => { wheelCooldown = false; }, 480);
-        }
-      }
-    };
-
-    window.addEventListener("wheel", onWheel, { passive: false });
-    return () => {
-      window.removeEventListener("wheel", onWheel);
-    };
-  }, [activeStage, goToStage]);
-
-  // Mobile Touch Swipe gesture listener: swipe left -> next stage, swipe right -> prev stage
+  // Mobile/Tablet Touch Swipe gesture listener: swipe left -> next stage, swipe right -> prev stage
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -209,7 +185,7 @@ export default function ProcessSection() {
         const deltaY = touchStartY - e.changedTouches[0].clientY;
 
         // Horizontal swipe: left to advance stage, right to go back
-        if (Math.abs(deltaX) > 35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+        if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
           if (deltaX > 0 && activeStage < 3) {
             goToStage(activeStage + 1);
           } else if (deltaX < 0 && activeStage > 0) {
@@ -228,31 +204,28 @@ export default function ProcessSection() {
     };
   }, [activeStage, goToStage]);
 
-  // Node centers in 4-column layout: 12.5%, 37.5%, 62.5%, 87.5%
-  // Line starts from 12.5% and grows up to 87.5% (or 100%)
-  const laserPercent = [12.5, 37.5, 62.5, 100][activeStage];
-
-  const currentStageData = STAGES[activeStage];
+  const currentStage = STAGES[activeStage];
+  const IconComponent = currentStage.icon;
 
   return (
     <section
       id="process"
       ref={containerRef}
-      className="relative w-full h-[300vh] md:h-[340vh] bg-transparent text-neutral-900 dark:text-neutral-100"
+      className="relative w-full h-[320vh] sm:h-[340vh] md:h-[360vh] bg-transparent text-neutral-900 dark:text-neutral-100"
     >
-      {/* Sticky Viewport Frame */}
-      <div className="sticky top-0 w-full min-h-screen h-[100dvh] flex flex-col justify-between py-3 sm:py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden select-none">
+      {/* Sticky Viewport Frame on Mobile, Tablet & Desktop */}
+      <div className="sticky top-0 w-full min-h-screen h-[100dvh] flex flex-col justify-between py-3 sm:py-5 md:py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto select-none overflow-hidden">
         
         {/* =================================================================== */}
-        {/* 1. TOP HEADER & TELEMETRY HUD STRIP                                 */}
+        {/* 1. TOP HEADER & MILESTONE HUD STRIP                                 */}
         {/* =================================================================== */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-3 mb-2 sm:mb-4 pb-2 sm:pb-3 border-b border-neutral-200 dark:border-neutral-900 shrink-0">
           <div>
-            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] sm:text-[11px] font-mono tracking-widest uppercase mb-1 sm:mb-2">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] sm:text-xs font-semibold tracking-wider uppercase mb-1 sm:mb-2">
               <SparkleBadgeIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               <span>Execution Framework · Stage by Stage</span>
             </div>
-            <h2 className="text-xl sm:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
+            <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
               The{" "}
               <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
                 MCPA
@@ -264,10 +237,10 @@ export default function ProcessSection() {
           {/* Active Stage HUD Counter & Direct Quick Jump Pills (Desktop/Tablet) */}
           <div className="hidden sm:flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono uppercase tracking-widest text-neutral-500 dark:text-neutral-400">
+              <span className="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-medium">
                 Milestone:
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 text-xs font-mono font-bold shadow-[0_0_12px_rgba(254,226,2,0.5)]">
+              <span className="px-3 py-1 rounded-full bg-amber-500 text-neutral-950 text-xs font-bold shadow-xs">
                 Stage 0{activeStage + 1} / 04
               </span>
             </div>
@@ -278,7 +251,7 @@ export default function ProcessSection() {
                 <button
                   key={s.step}
                   onClick={() => goToStage(idx)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono tracking-wider uppercase transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all cursor-pointer ${
                     activeStage === idx
                       ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
                       : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-300/60 dark:hover:bg-white/10"
@@ -296,8 +269,8 @@ export default function ProcessSection() {
         {/* 2. DEDICATED ARCHITECTURAL STEPPER BAR (MOBILE & DESKTOP)           */}
         {/* =================================================================== */}
 
-        {/* Mobile Single-Row Stepper: Compact, fits all 4 stages without eating card space */}
-        <div className="flex md:hidden items-center justify-between gap-1 mb-2.5 p-1 bg-neutral-100/90 dark:bg-white/5 rounded-xl border border-neutral-200 dark:border-white/10 w-full shrink-0">
+        {/* Mobile Adaptive Stepper: Zero horizontal overflow, expandable active button */}
+        <div className="flex md:hidden items-center justify-between gap-1 mb-2.5 p-1 bg-neutral-200/60 dark:bg-white/5 rounded-2xl border border-neutral-300/80 dark:border-white/10 w-full shrink-0">
           {STAGES.map((item, idx) => {
             const isCurrent = activeStage === idx;
             const isPast = activeStage > idx;
@@ -306,42 +279,43 @@ export default function ProcessSection() {
               <button
                 key={item.step}
                 onClick={() => goToStage(idx)}
-                className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all duration-300 cursor-pointer ${
                   isCurrent
-                    ? "bg-amber-500 text-neutral-950 font-bold shadow-xs scale-[1.02]"
+                    ? "flex-[2] bg-amber-500 text-neutral-950 font-bold shadow-sm scale-[1.01]"
                     : isPast
-                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold"
-                    : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/50 dark:hover:bg-white/5"
+                    ? "flex-1 bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                    : "flex-1 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/50 dark:hover:bg-white/5"
                 }`}
-                aria-label={`Jump to Stage ${item.step}: ${item.title}`}
+                aria-label={`Jump to Stage ${item.step}: ${item.shortTitle}`}
               >
                 {isPast ? (
-                  <CheckIcon className="w-3.5 h-3.5 stroke-[3]" />
+                  <CheckIcon className="w-3.5 h-3.5 stroke-[3] text-amber-700 dark:text-amber-400" />
                 ) : (
-                  <span className="font-black text-[11px]">{item.step}</span>
+                  <span className="font-bold text-[11px]">{item.step}</span>
                 )}
-                <span className="text-[10px] font-bold tracking-tight truncate">
-                  {item.shortTitle}
-                </span>
+                {isCurrent && (
+                  <span className="text-[11px] font-bold tracking-tight truncate">
+                    {item.shortTitle}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* Desktop Architectural Stepper Bar */}
-        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-4 sm:mb-5 lg:mb-6 shrink-0">
+        {/* Desktop Architectural Stepper Bar with Connecting Glowing Rail */}
+        <div className="hidden md:grid md:grid-cols-4 gap-6 mb-4 sm:mb-5 shrink-0">
           {STAGES.map((item, idx) => {
             const isCurrent = activeStage === idx;
             const isPast = activeStage > idx;
-            const isFuture = activeStage < idx;
 
             return (
               <div key={item.step} className="relative flex flex-col">
-                {/* Connecting Rail Line between circles strictly (Desktop only) */}
+                {/* Connecting Rail Line between circles strictly */}
                 {idx < 3 && (
-                  <div className="hidden lg:block absolute top-[18px] left-[42px] right-[-24px] h-[3px] bg-neutral-200 dark:bg-neutral-800 z-0 rounded-full overflow-hidden">
+                  <div className="absolute top-[18px] left-[46px] right-[-28px] h-[3px] bg-neutral-200 dark:bg-neutral-800 z-0 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-amber-500 to-amber-400 shadow-[0_0_12px_rgba(254,226,2,0.9)] transition-all duration-700 ease-out"
+                      className="h-full bg-gradient-to-r from-amber-500 to-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.8)] transition-all duration-500 ease-out"
                       style={{
                         width: activeStage > idx ? "100%" : "0%",
                       }}
@@ -355,14 +329,14 @@ export default function ProcessSection() {
                   aria-label={`Jump to Stage ${item.step}: ${item.title}`}
                 >
                   {/* Node Circle with Solid / Dashed Background */}
-                  <div className="relative flex items-center justify-center shrink-0 mb-2.5">
+                  <div className="relative flex items-center justify-center shrink-0 mb-2">
                     {isCurrent && (
                       <div className="absolute -inset-1.5 rounded-full bg-amber-500/25 animate-ping pointer-events-none" />
                     )}
                     <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center font-mono text-xs font-black transition-all duration-300 border-2 ${
+                      className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 ${
                         isCurrent
-                          ? "bg-amber-400 border-amber-500 text-neutral-950 shadow-[0_0_20px_rgba(254,226,2,0.85)] scale-110 ring-4 ring-amber-400/30"
+                          ? "bg-amber-400 border-amber-500 text-neutral-950 shadow-[0_0_20px_rgba(245,158,11,0.6)] scale-110 ring-4 ring-amber-400/30"
                           : isPast
                           ? "bg-amber-500 border-amber-500 text-neutral-950 shadow-xs"
                           : "bg-neutral-100/80 dark:bg-neutral-900/40 border-dashed border-neutral-300 dark:border-neutral-700 text-neutral-400 dark:text-neutral-500 group-hover:border-amber-500 group-hover:text-amber-500"
@@ -376,21 +350,21 @@ export default function ProcessSection() {
                     </div>
                   </div>
 
-                  {/* Stage Label (Cleanly positioned BELOW the circle - zero line overlap) */}
+                  {/* Stage Label */}
                   <div className="flex flex-col">
                     <span
-                      className={`text-[11px] font-mono font-bold tracking-widest uppercase transition-colors ${
+                      className={`text-[11px] font-bold tracking-wider uppercase transition-colors ${
                         isCurrent
-                          ? "text-amber-700 dark:text-amber-400 font-black"
+                          ? "text-amber-700 dark:text-amber-400"
                           : isPast
-                          ? "text-neutral-900 dark:text-neutral-200 font-bold"
+                          ? "text-neutral-900 dark:text-neutral-200"
                           : "text-neutral-400 dark:text-neutral-500"
                       }`}
                     >
                       STAGE {item.step}
                     </span>
                     <span
-                      className={`text-xs font-bold truncate transition-colors ${
+                      className={`text-xs font-semibold truncate transition-colors ${
                         isCurrent
                           ? "text-neutral-950 dark:text-white"
                           : isPast
@@ -408,259 +382,153 @@ export default function ProcessSection() {
         </div>
 
         {/* =================================================================== */}
-        {/* 3. THE 4 STAGE CARDS: SEQUENTIAL REVEAL & ARCHITECTURAL MORPH        */}
+        {/* 3. FOCUSED ACTIVE STAGE CARD (ONLY ACTIVE STAGE IS VISIBLE)         */}
         {/* =================================================================== */}
-
-        {/* DESKTOP & TABLET VIEW: 4 Interactive Columns */}
-        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6 relative z-10">
-          {STAGES.map((item, idx) => {
-            const isCurrent = activeStage === idx;
-            const isPast = activeStage > idx;
-            const isFuture = activeStage < idx;
-
-            // FUTURE STAGE: Architectural Blueprint Placeholder Slot (Queued)
-            if (isFuture) {
-              return (
-                <div
-                  key={item.step}
-                  onClick={() => goToStage(idx)}
-                  className="relative flex flex-col justify-between p-4 sm:p-5 lg:p-6 rounded-2xl border-2 border-dashed border-neutral-300/80 dark:border-neutral-800 bg-neutral-100/30 dark:bg-white/[0.02] backdrop-blur-[2px] cursor-pointer group hover:border-amber-400/50 hover:bg-neutral-100/60 dark:hover:bg-white/[0.04] transition-all duration-500 min-h-[290px] sm:min-h-[315px]"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Initialize Stage ${item.step}: ${item.title}`}
-                >
-                  <div>
-                    {/* Queued Phase Status Pill */}
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-neutral-200/70 dark:bg-white/5 text-neutral-500 dark:text-neutral-400 font-semibold border border-neutral-300/60 dark:border-white/5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 dark:bg-neutral-600 animate-pulse" />
-                        <span>Stage {item.step} · Queued</span>
-                      </span>
-                      <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-600 font-semibold">
-                        0{idx + 1}/04
-                      </span>
-                    </div>
-
-                    {/* Faint Blueprint Header */}
-                    <h3 className="text-xl font-bold tracking-tight leading-snug text-neutral-400 dark:text-neutral-600 group-hover:text-neutral-600 dark:group-hover:text-neutral-400 transition-colors">
-                      {item.title}
-                    </h3>
-
-                    <p className="mt-2 text-xs sm:text-sm text-neutral-400/70 dark:text-neutral-600/70 leading-relaxed italic">
-                      Awaiting milestone... Scroll or tap to deploy this construction phase.
-                    </p>
-                  </div>
-
-                  {/* Blueprint Placeholder Footer Action */}
-                  <div className="mt-5 pt-3 border-t border-dashed border-neutral-200 dark:border-white/5 flex items-center justify-between text-[11px] font-mono text-neutral-400 dark:text-neutral-500">
-                    <span className="group-hover:text-amber-600 dark:group-hover:text-amber-400 font-semibold transition-colors">
-                      Click to Initialize
-                    </span>
-                    <span className="text-amber-500 font-bold group-hover:translate-x-1 transition-transform">
-                      →
-                    </span>
-                  </div>
-                </div>
-              );
-            }
-
-            // ACTIVE OR COMPLETED STAGE: Fully Revealed & Morphed Physical Card
-            return (
-              <div
-                key={item.step}
-                onClick={() => goToStage(idx)}
-                className={`group relative flex flex-col justify-between p-4 sm:p-5 lg:p-6 rounded-2xl border cursor-pointer min-h-[290px] sm:min-h-[315px] transition-all duration-500 ${
-                  isCurrent
-                    ? "animate-stage-morph bg-white dark:bg-neutral-900 border-2 border-amber-500 dark:border-amber-400 shadow-[0_18px_50px_rgba(245,158,11,0.22)] -translate-y-2 ring-4 ring-amber-500/15 z-20"
-                    : "bg-white dark:bg-neutral-900/80 border border-neutral-200 dark:border-neutral-800 hover:border-amber-400/50 dark:hover:border-neutral-700 shadow-sm translate-y-0 z-10"
-                }`}
-              >
+        <div className="relative z-10 flex-1 flex flex-col justify-center my-auto min-h-0">
+          <div
+            key={currentStage.step}
+            className="animate-stage-morph bg-white dark:bg-neutral-900/95 border-2 border-amber-500/80 dark:border-amber-400/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 lg:p-9 shadow-[0_20px_60px_rgba(245,158,11,0.18)] ring-4 ring-amber-500/10 backdrop-blur-md transition-all overflow-hidden"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-center">
+              
+              {/* Left Column: Stage Narrative, Phase Badge & Deliverables */}
+              <div className="lg:col-span-7 flex flex-col justify-between">
                 <div>
                   {/* Phase Status Pill */}
-                  <div className="flex items-center justify-between mb-3.5">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider transition-all ${
-                        isCurrent
-                          ? "bg-amber-400 text-neutral-950 font-black shadow-xs"
-                          : "bg-neutral-100 dark:bg-white/10 text-neutral-800 dark:text-neutral-200 font-bold border border-neutral-200/60 dark:border-white/5"
-                      }`}
-                    >
-                      {isCurrent ? "Active Phase" : "Completed"}
+                  <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider bg-amber-400 text-neutral-950 shadow-xs">
+                      <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-neutral-950 animate-pulse" />
+                      <span>{currentStage.phaseBadge}</span>
                     </span>
-
-                    <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 font-semibold">
-                      0{idx + 1}/04
+                    <span className="text-[11px] sm:text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                      Stage 0{activeStage + 1} of 04
                     </span>
                   </div>
 
-                  {/* Title: 100% High-Contrast in Both Modes */}
-                  <h3
-                    className={`text-xl font-black tracking-tight leading-snug transition-colors ${
-                      isCurrent
-                        ? "text-neutral-950 dark:text-amber-400"
-                        : "text-neutral-950 dark:text-white"
-                    }`}
-                  >
-                    {item.title}
+                  {/* Title */}
+                  <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-950 dark:text-white leading-tight mb-2">
+                    {currentStage.title}
                   </h3>
 
-                  {/* Description Narrative */}
-                  <p className="mt-2.5 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed font-normal">
-                    {item.desc}
+                  {/* Narrative Description */}
+                  <p className="text-xs sm:text-sm md:text-base text-neutral-600 dark:text-neutral-300 leading-relaxed font-normal mb-4 sm:mb-5">
+                    {currentStage.desc}
                   </p>
                 </div>
 
-                {/* Technical Checklist with Staggered Cascading Reveal */}
-                <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-white/10 space-y-2.5">
-                  {item.checklist.map((check, cIdx) => (
-                    <div
-                      key={`${item.step}-${cIdx}`}
-                      className={`flex items-center gap-2 text-xs font-mono transition-colors ${
-                        isCurrent
-                          ? "text-neutral-950 dark:text-neutral-100 font-medium"
-                          : "text-neutral-700 dark:text-neutral-400 font-normal"
-                      }`}
-                      style={{
-                        animation: isCurrent
-                          ? `staggerItemSlide 0.45s cubic-bezier(0.16, 1, 0.3, 1) both`
-                          : undefined,
-                        animationDelay: isCurrent
-                          ? `${(cIdx + 1) * 90}ms`
-                          : undefined,
-                      }}
-                    >
-                      <span
-                        className="shrink-0 flex items-center justify-center"
+                {/* Scope & Deliverables Checklist */}
+                <div className="pt-3 sm:pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                  <p className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-neutral-500 dark:text-neutral-400 mb-2 sm:mb-2.5">
+                    Key Deliverables & Protocols:
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+                    {currentStage.checklist.map((check, cIdx) => (
+                      <div
+                        key={`${currentStage.step}-${cIdx}`}
+                        className="flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-xl bg-neutral-100/70 dark:bg-white/5 border border-neutral-200/70 dark:border-white/5 text-xs sm:text-sm font-medium text-neutral-900 dark:text-neutral-100"
                         style={{
-                          animation: isCurrent
-                            ? `checkPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both`
-                            : undefined,
-                          animationDelay: isCurrent
-                            ? `${(cIdx + 1) * 90 + 70}ms`
-                            : undefined,
+                          animation: `staggerItemSlide 0.45s cubic-bezier(0.16, 1, 0.3, 1) both`,
+                          animationDelay: `${(cIdx + 1) * 70}ms`,
                         }}
                       >
-                        <CheckIcon
-                          className={`w-3.5 h-3.5 transition-colors ${
-                            isCurrent
-                              ? "text-amber-600 dark:text-amber-400 stroke-[2.5]"
-                              : "text-amber-600 dark:text-neutral-400 stroke-[2]"
-                          }`}
-                        />
-                      </span>
-                      <span className="truncate">{check}</span>
-                    </div>
-                  ))}
+                        <span className="shrink-0 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-500/20 flex items-center justify-center">
+                          <CheckIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 dark:text-amber-400 stroke-[3]" />
+                        </span>
+                        <span className="truncate text-xs sm:text-sm">{check}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
 
-        {/* MOBILE VIEW: Focused Single Hero Stage Card */}
-        <div className="flex md:hidden flex-col gap-3 relative z-10 flex-1 justify-center max-h-[60vh]">
-          <div
-            key={currentStageData.step}
-            className="animate-stage-morph bg-white dark:bg-neutral-900 border-2 border-amber-500 dark:border-amber-400 p-4 sm:p-5 rounded-2xl shadow-[0_16px_45px_rgba(245,158,11,0.22)] ring-4 ring-amber-500/15 flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-amber-400 text-neutral-950 font-black shadow-xs">
-                  Active Phase · Stage 0{activeStage + 1}
-                </span>
-                <span className="text-[11px] font-mono text-neutral-500 font-semibold">
-                  0{activeStage + 1} / 04
-                </span>
-              </div>
-
-              <h3 className="text-lg sm:text-xl font-black tracking-tight text-neutral-950 dark:text-amber-400 leading-snug">
-                {currentStageData.title}
-              </h3>
-
-              <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed font-normal">
-                {currentStageData.desc}
-              </p>
-            </div>
-
-            <div className="mt-3.5 sm:mt-4 pt-3 border-t border-neutral-200 dark:border-white/10 space-y-2 sm:space-y-2.5">
-              {currentStageData.checklist.map((check, cIdx) => (
-                <div
-                  key={`${currentStageData.step}-${cIdx}`}
-                  className="flex items-center gap-2 text-xs font-mono text-neutral-950 dark:text-neutral-100 font-medium"
-                  style={{
-                    animation: `staggerItemSlide 0.45s cubic-bezier(0.16, 1, 0.3, 1) both`,
-                    animationDelay: `${(cIdx + 1) * 110}ms`,
-                  }}
-                >
-                  <span
-                    className="shrink-0 flex items-center justify-center"
-                    style={{
-                      animation: `checkPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both`,
-                      animationDelay: `${(cIdx + 1) * 110 + 90}ms`,
-                    }}
-                  >
-                    <CheckIcon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 stroke-[2.5]" />
+                {/* Mobile/Tablet Compact Telemetry Status Strip (replaces big right dossier on small screens) */}
+                <div className="flex lg:hidden items-center justify-between gap-2 mt-3 pt-2.5 border-t border-neutral-200/80 dark:border-neutral-800 text-[11px] text-neutral-600 dark:text-neutral-400">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                    <span className="font-semibold text-neutral-800 dark:text-neutral-200 truncate">
+                      {currentStage.telemetry.status}
+                    </span>
+                  </div>
+                  <span className="shrink-0 font-mono text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase">
+                    0{activeStage + 1}/04
                   </span>
-                  <span className="truncate">{check}</span>
                 </div>
-              ))}
+              </div>
+
+              {/* Right Column: Engineering Telemetry & CAD Blueprint Dossier (Desktop / Large Screens) */}
+              <div className="hidden lg:flex lg:col-span-5 bg-neutral-50 dark:bg-neutral-950/70 rounded-2xl p-5 sm:p-6 border border-neutral-200 dark:border-neutral-800 flex-col justify-between h-full space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                      <IconComponent className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-950 dark:text-white">
+                        Engineering Dossier
+                      </h4>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        Protocol Spec · 0{activeStage + 1}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Verified</span>
+                  </span>
+                </div>
+
+                {/* Structured Specification Rows */}
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 dark:text-neutral-500 block mb-0.5">
+                      Milestone Scope:
+                    </span>
+                    <span className="font-semibold text-neutral-800 dark:text-neutral-200 leading-snug block">
+                      {currentStage.telemetry.status}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 dark:text-neutral-500 block mb-0.5">
+                      Technical Standard / Clearance:
+                    </span>
+                    <span className="font-semibold text-neutral-800 dark:text-neutral-200 leading-snug block">
+                      {currentStage.telemetry.bearing}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 dark:text-neutral-500 block mb-0.5">
+                      Territory / Supervision:
+                    </span>
+                    <span className="font-semibold text-neutral-800 dark:text-neutral-200 leading-snug block">
+                      {currentStage.telemetry.location}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom Step Indicator Bar */}
+                <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs">
+                  <span className="text-neutral-500 dark:text-neutral-400 font-medium">
+                    Progress: Stage 0{activeStage + 1} of 04
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {[0, 1, 2, 3].map((stepIdx) => (
+                      <span
+                        key={stepIdx}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          activeStage === stepIdx
+                            ? "w-6 bg-amber-500"
+                            : activeStage > stepIdx
+                            ? "w-2.5 bg-amber-500/50"
+                            : "w-2.5 bg-neutral-300 dark:bg-neutral-700"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
             </div>
-          </div>
-        </div>
-
-        {/* =================================================================== */}
-        {/* 3. BOTTOM ARCHITECTURAL CAD HUD & STEPPER CONTROLS                  */}
-        {/* =================================================================== */}
-        <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-neutral-200 dark:border-neutral-900 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3 text-xs font-mono shrink-0">
-          
-          {/* Active Telemetry Readout */}
-          <div
-            key={activeStage}
-            className="flex items-center gap-2 text-[11px] text-neutral-600 dark:text-neutral-400 truncate w-full sm:w-auto max-w-lg transition-all"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <span className="text-amber-700 dark:text-amber-400 font-bold uppercase shrink-0">
-              STAGE 0{activeStage + 1}:
-            </span>
-            <span className="truncate text-neutral-900 dark:text-neutral-200 font-medium">
-              {currentStageData.telemetry.status}
-            </span>
-          </div>
-
-          {/* Stepper Navigation Buttons */}
-          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-            <button
-              onClick={() => goToStage(Math.max(0, activeStage - 1))}
-              disabled={activeStage === 0}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-neutral-300 dark:border-white/10 hover:border-amber-500 text-neutral-700 dark:text-neutral-300 hover:text-amber-500 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-xs"
-              aria-label="Previous Construction Stage"
-            >
-              <ArrowLeftIcon className="w-3.5 h-3.5" />
-              <span>Prev Stage</span>
-            </button>
-
-            {/* Scroll/Tap to Advance Pill */}
-            <button
-              onClick={() => {
-                if (activeStage < 3) {
-                  goToStage(activeStage + 1);
-                } else {
-                  const contact = document.getElementById("contact");
-                  if (contact) contact.scrollIntoView({ behavior: "smooth" });
-                }
-              }}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-5 sm:py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold transition-all shadow-md shadow-amber-500/20 hover:shadow-amber-500/40 cursor-pointer text-xs"
-              aria-label={
-                activeStage < 3
-                  ? "Advance to Next Stage"
-                  : "All Stages Complete. Scroll to Next Section."
-              }
-            >
-              <span className="truncate">
-                {activeStage < 3 ? "Next Stage" : "Next Section"}
-              </span>
-              <ArrowRightIcon className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
 

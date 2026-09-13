@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import {
   SparkleBadgeIcon,
   CheckIcon,
@@ -90,6 +91,17 @@ export default function PreConsultationBooking({ selectedStyle }) {
       console.warn("Storage error:", err);
     }
 
+    // Persist to backend database
+    try {
+      fetch("/api/briefs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(brief),
+      }).catch((e) => console.warn("Could not sync brief with backend:", e));
+    } catch (e) {
+      // Offline fallback
+    }
+
     setIsSubmitted(true);
   };
 
@@ -113,7 +125,7 @@ export default function PreConsultationBooking({ selectedStyle }) {
         <div className="relative z-10 max-w-3xl mb-12">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-mono tracking-widest uppercase mb-4 border border-amber-500/30">
             <SparkleBadgeIcon className="w-3.5 h-3.5" />
-            <span>Smart Pre-Consultation Booking · PCAB Licensed & DTI Registered</span>
+            <span>Smart Pre-Consultation Booking · Full-Service Design & Build</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight leading-tight text-neutral-900 dark:text-white">
@@ -503,12 +515,12 @@ export default function PreConsultationBooking({ selectedStyle }) {
                 >
                   Submit Another Project Inquiry
                 </button>
-                <a
-                  href="#projects"
-                  className="px-6 py-3 rounded-xl bg-amber-500 text-neutral-950 font-bold text-xs font-mono uppercase tracking-wider hover:bg-amber-400 transition-colors"
+                <Link
+                  href="/projects"
+                  className="px-6 py-3 rounded-xl bg-amber-500 text-neutral-950 font-bold text-xs font-mono uppercase tracking-wider hover:bg-amber-400 transition-colors inline-block text-center"
                 >
                   Return to Portfolio
-                </a>
+                </Link>
               </div>
             </div>
           )}

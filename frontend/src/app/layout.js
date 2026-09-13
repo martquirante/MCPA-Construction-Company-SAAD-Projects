@@ -1,10 +1,12 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta-sans",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -15,11 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "MCPA Construction and Supply",
   description:
-    "MCPA Construction and Supply is a PCAB-licensed and DTI-registered design and build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, signed and sealed plans, and our Build Now, Pay Later program across Bulacan, Metro Manila, and Central Luzon.",
+    "Looking to turn your ideas into reality? MCPA Construction and Supply is a full-service design and build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, signed and sealed plans, and turnkey construction supply across Bulacan, Metro Manila, and Central Luzon.",
   openGraph: {
     title: "MCPA Construction and Supply",
     description:
-      "PCAB-licensed and DTI-registered design and build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, and Build Now, Pay Later program.",
+      "Full-service design and build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, and turnkey construction supply.",
     siteName: "MCPA Construction and Supply",
     type: "website",
   },
@@ -27,11 +29,11 @@ export const metadata = {
     card: "summary_large_image",
     title: "MCPA Construction and Supply",
     description:
-      "PCAB-licensed and DTI-registered design and build contractor based in Plaridel, Bulacan.",
+      "Full-service design and build contractor based in Plaridel, Bulacan.",
   },
   keywords: [
     "MCPA Construction and Supply",
-    "PCAB Licensed Contractor Bulacan",
+    "Design and Build Contractor Bulacan",
     "Build Now Pay Later Program",
     "Design and Build Bulacan",
     "Plaridel Bulacan Contractor",
@@ -53,7 +55,7 @@ export default function RootLayout({ children }) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased font-sans`}
     >
       <head>
         <script

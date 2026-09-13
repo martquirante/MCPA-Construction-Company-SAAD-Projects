@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import ThemeToggle from "@/modules/shared/ThemeToggle";
 import AdminUploadModal from "@/modules/admin/components/AdminUploadModal";
+import ResetPasswordModal from "@/modules/admin/components/ResetPasswordModal";
 import {
   LockIcon,
   ShieldCheckIcon,
@@ -19,6 +20,11 @@ import {
   GoogleMapsPinIcon,
   CheckIcon,
   UserIcon,
+  MailIcon,
+  EyeIcon,
+  EyeOffIcon,
+  RefreshCwIcon,
+  KeyRoundIcon,
 } from "@/modules/shared/Icons";
 
 const INITIAL_PROJECTS = [
@@ -79,13 +85,20 @@ const INITIAL_PROJECTS = [
   },
 ];
 
+const DEFAULT_ADMIN_EMAIL = "rayquirante@gmail.com";
 const DEFAULT_ADMIN_PIN = "mcpa2026";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [pinInput, setPinInput] = useState("");
+  const [emailInput, setEmailInput] = useState(DEFAULT_ADMIN_EMAIL);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("portfolio"); // "portfolio" | "briefs" | "company"
+  const [activeDbProvider, setActiveDbProvider] = useState("Azure Primary (Flexible Server)");
+  const [currentUser, setCurrentUser] = useState(null);
 
   // Data states
   const [customProjects, setCustomProjects] = useState([]);
@@ -94,18 +107,93 @@ export default function AdminPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState("");
 
-  // Check existing session
+  // Check existing session & health status
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedAuth = sessionStorage.getItem("mcpa_admin_authenticated");
+      const savedUser = sessionStorage.getItem("mcpa_admin_user");
       if (savedAuth === "true") {
         setIsAuthenticated(true);
+        if (savedUser) {
+          try {
+            setCurrentUser(JSON.parse(savedUser));
+          } catch (e) {}
+        }
       }
       loadProjectsAndBriefs();
+      fetchHealthStatus();
     }
   }, []);
 
-  const loadProjectsAndBriefs = () => {
+  const fetchHealthStatus = async () => {
+    try {
+      const res = await fetch("/api/health");
+      const data = await res.json();
+      if (data?.database?.activeProvider) {
+        setActiveDbProvider(data.database.activeProvider);
+      }
+    } catch (e) {
+      // Backend not running or offline
+    }
+  };
+
+  const loadProjectsAndBriefs = async () => {
+    // 1. Try to load from Backend API first
+    try {
+      const [projRes, briefsRes] = await Promise.allSettled([
+        fetch("/api/projects").then((r) => r.json()),
+        fetch("/api/briefs").then((r) => r.json()),
+      ]);
+
+      if (projRes.status === "fulfilled" && projRes.value?.success) {
+        const dbProjects = (projRes.value.projects || []).map((p) => ({
+          id: p.project_id || p.id,
+          name: p.name,
+          location: p.location,
+          year: p.year,
+          category: p.category,
+          description: p.description,
+          images: p.images || [],
+          isAdminAdded: true,
+        }));
+        setCustomProjects(dbProjects);
+        setAllProjects([...dbProjects, ...INITIAL_PROJECTS]);
+        localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(dbProjects));
+      } else {
+        fallbackLoadStoredProjects();
+      }
+
+      if (briefsRes.status === "fulfilled" && briefsRes.value?.success) {
+        const dbBriefs = (briefsRes.value.briefs || []).map((b) => ({
+          id: b.brief_id || b.id,
+          submissionId: b.submission_id,
+          clientName: b.client_name,
+          clientEmail: b.client_email,
+          clientPhone: b.client_phone,
+          projectType: b.project_type,
+          preferredStyle: b.preferred_style,
+          budgetRange: b.budget_range,
+          lotStatus: b.lot_status,
+          lotArea: b.lot_area,
+          targetDate: b.target_date,
+          location: b.location,
+          financingOption: b.financing_option,
+          uploadedFiles: b.uploaded_files || [],
+          status: b.status,
+          createdAt: b.created_at,
+        }));
+        setClientBriefs(dbBriefs);
+        localStorage.setItem("mcpa_client_briefs", JSON.stringify(dbBriefs));
+      } else {
+        fallbackLoadStoredBriefs();
+      }
+    } catch (e) {
+      fallbackLoadStoredProjects();
+      fallbackLoadStoredBriefs();
+    }
+  };
+
+  const fallbackLoadStoredProjects = () => {
     try {
       const savedProjects = localStorage.getItem("mcpa_portfolio_projects");
       if (savedProjects) {
@@ -119,7 +207,9 @@ export default function AdminPage() {
     } catch (e) {
       console.warn("Could not load stored projects:", e);
     }
+  };
 
+  const fallbackLoadStoredBriefs = () => {
     try {
       const savedBriefs = localStorage.getItem("mcpa_client_briefs");
       if (savedBriefs) {
@@ -133,23 +223,72 @@ export default function AdminPage() {
     }
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (pinInput.trim() === DEFAULT_ADMIN_PIN) {
-      setIsAuthenticated(true);
-      setAuthError("");
-      sessionStorage.setItem("mcpa_admin_authenticated", "true");
-      loadProjectsAndBriefs();
-    } else {
-      setAuthError("Invalid Security Key. Please verify your administrative credentials.");
-      setPinInput("");
+    setAuthError("");
+    setIsLoggingIn(true);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailInput.trim(),
+          password: passwordInput,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setIsAuthenticated(true);
+        setIsLoggingIn(false);
+        setPasswordInput("");
+        sessionStorage.setItem("mcpa_admin_authenticated", "true");
+        if (data.token) sessionStorage.setItem("mcpa_admin_token", data.token);
+        if (data.user) {
+          setCurrentUser(data.user);
+          sessionStorage.setItem("mcpa_admin_user", JSON.stringify(data.user));
+        }
+        if (data.activeDbProvider) setActiveDbProvider(data.activeDbProvider);
+        loadProjectsAndBriefs();
+        return;
+      }
+
+      // Offline / PIN fallback check if server returns error or is unreachable
+      if (passwordInput.trim() === DEFAULT_ADMIN_PIN) {
+        setIsAuthenticated(true);
+        setIsLoggingIn(false);
+        setPasswordInput("");
+        sessionStorage.setItem("mcpa_admin_authenticated", "true");
+        loadProjectsAndBriefs();
+        return;
+      }
+
+      setAuthError(data.message || "Invalid administrative credentials. Please verify your email and password.");
+      setIsLoggingIn(false);
+    } catch (err) {
+      // Network failure / offline check
+      if (passwordInput.trim() === DEFAULT_ADMIN_PIN) {
+        setIsAuthenticated(true);
+        setIsLoggingIn(false);
+        setPasswordInput("");
+        sessionStorage.setItem("mcpa_admin_authenticated", "true");
+        loadProjectsAndBriefs();
+      } else {
+        setAuthError("Could not reach backend authentication server. Ensure the backend process is active.");
+        setIsLoggingIn(false);
+      }
     }
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     sessionStorage.removeItem("mcpa_admin_authenticated");
-    setPinInput("");
+    sessionStorage.removeItem("mcpa_admin_token");
+    sessionStorage.removeItem("mcpa_admin_user");
+    setPasswordInput("");
+    setCurrentUser(null);
   };
 
   const showToast = (msg) => {
@@ -157,7 +296,7 @@ export default function AdminPage() {
     setTimeout(() => setSuccessToast(""), 3500);
   };
 
-  const handleAddProject = (newProject) => {
+  const handleAddProject = async (newProject) => {
     const updatedCustom = [newProject, ...customProjects];
     setCustomProjects(updatedCustom);
     setAllProjects([newProject, ...allProjects]);
@@ -165,11 +304,22 @@ export default function AdminPage() {
       localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedCustom));
       showToast(`Successfully published "${newProject.name}" to public portfolio!`);
     } catch (err) {
-      console.warn("Error saving project:", err);
+      console.warn("Error saving project locally:", err);
+    }
+
+    // Also persist to Backend Database & Cloud Storage
+    try {
+      await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newProject),
+      });
+    } catch (e) {
+      console.warn("Could not sync project to backend:", e);
     }
   };
 
-  const handleDeleteProject = (projectId, projectName) => {
+  const handleDeleteProject = async (projectId, projectName) => {
     if (!confirm(`Are you sure you want to delete "${projectName}" from the showcase?`)) return;
 
     const updatedCustom = customProjects.filter((p) => p.id !== projectId);
@@ -182,9 +332,16 @@ export default function AdminPage() {
     } catch (err) {
       console.warn("Error updating project list:", err);
     }
+
+    // Sync deletion with Backend
+    try {
+      await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+    } catch (e) {
+      console.warn("Could not delete from backend:", e);
+    }
   };
 
-  const handleUpdateBriefStatus = (briefId, newStatus) => {
+  const handleUpdateBriefStatus = async (briefId, newStatus) => {
     const updated = clientBriefs.map((b) =>
       b.id === briefId ? { ...b, status: newStatus } : b
     );
@@ -195,9 +352,20 @@ export default function AdminPage() {
     } catch (err) {
       console.warn("Error saving briefs:", err);
     }
+
+    // Sync status update to Backend
+    try {
+      await fetch(`/api/briefs/${briefId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch (e) {
+      console.warn("Could not update brief in backend:", e);
+    }
   };
 
-  const handleDeleteBrief = (briefId) => {
+  const handleDeleteBrief = async (briefId) => {
     if (!confirm("Are you sure you want to remove this client inquiry?")) return;
     const updated = clientBriefs.filter((b) => b.id !== briefId);
     setClientBriefs(updated);
@@ -206,6 +374,13 @@ export default function AdminPage() {
       showToast("Client consultation brief removed.");
     } catch (err) {
       console.warn("Error saving briefs:", err);
+    }
+
+    // Sync deletion with Backend
+    try {
+      await fetch(`/api/briefs/${briefId}`, { method: "DELETE" });
+    } catch (e) {
+      console.warn("Could not delete brief from backend:", e);
     }
   };
 
@@ -268,43 +443,103 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Form */}
+          {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
+            {/* Registered Email */}
             <div>
               <label
-                htmlFor="adminPin"
+                htmlFor="adminEmail"
                 className="block text-xs font-mono uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-2"
               >
-                Enter Security Passkey
+                Registered Administrator Email
               </label>
               <div className="relative">
                 <input
-                  id="adminPin"
-                  type="password"
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
-                  placeholder="••••••••"
+                  id="adminEmail"
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="admin@mcpa.com"
                   autoFocus
                   required
-                  className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 font-mono text-sm tracking-widest text-center transition-colors"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 font-mono text-sm transition-colors"
                 />
+                <MailIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
               </div>
-              <p className="mt-1.5 text-[10px] text-neutral-500 font-mono text-center">
-                Default Master Key: <code className="text-amber-600 dark:text-amber-400 font-bold">mcpa2026</code>
-              </p>
             </div>
 
+            {/* Master Password */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label
+                  htmlFor="adminPassword"
+                  className="block text-xs font-mono uppercase tracking-wider text-neutral-700 dark:text-neutral-300"
+                >
+                  Master Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(true)}
+                  className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  id="adminPassword"
+                  type={showPassword ? "text" : "password"}
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full pl-10 pr-11 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 font-mono text-sm tracking-wider transition-colors"
+                />
+                <KeyRoundIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3 text-neutral-400 hover:text-amber-500 transition-colors p-1"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit Button */}
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isLoggingIn}
+              className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer mt-2"
             >
-              <ShieldCheckIcon className="w-4 h-4" />
-              <span>Unlock Admin Console</span>
+              {isLoggingIn ? (
+                <>
+                  <RefreshCwIcon className="w-4 h-4 animate-spin" />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheckIcon className="w-4 h-4" />
+                  <span>Unlock Admin Console</span>
+                </>
+              )}
             </button>
           </form>
 
+          {/* Cloud Architecture Status Badge */}
+          <div className="mt-6 pt-5 border-t border-neutral-200 dark:border-white/5 flex flex-col items-center text-center gap-1.5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-[10px] font-mono text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Primary: Azure PostgreSQL · Backup: Supabase</span>
+            </div>
+            <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono">
+              Cloud Storage: Azure Blob Storage (Tier 1)
+            </p>
+          </div>
+
           {/* Back to Client Site */}
-          <div className="mt-8 pt-6 border-t border-neutral-200 dark:border-white/5 text-center">
+          <div className="mt-6 text-center">
             <Link
               href="/"
               className="inline-flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-mono"
@@ -314,6 +549,19 @@ export default function AdminPage() {
             </Link>
           </div>
         </div>
+
+        {/* 4-Step Forgot Password Modal */}
+        <ResetPasswordModal
+          isOpen={isResetModalOpen}
+          onClose={() => setIsResetModalOpen(false)}
+          initialEmail={emailInput}
+          onSuccessReturn={(verifiedEmail) => {
+            setEmailInput(verifiedEmail);
+            setPasswordInput("");
+            setAuthError("");
+            showToast("Password reset verified! Please log in with your new password.");
+          }}
+        />
       </div>
     );
   }
@@ -356,6 +604,11 @@ export default function AdminPage() {
             <span className="hidden sm:inline-block px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-[10px] tracking-wider uppercase font-bold">
               Admin Console
             </span>
+            {/* Active Cloud DB Indicator */}
+            <div className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
+              <span className={`w-1.5 h-1.5 rounded-full ${activeDbProvider.includes("Azure") ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-pulse"}`} />
+              <span>{activeDbProvider.includes("Azure") ? "Azure PostgreSQL Primary" : activeDbProvider}</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -737,8 +990,8 @@ export default function AdminPage() {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono uppercase text-neutral-500 dark:text-neutral-400">Accreditations</span>
-                <span className="text-xs font-mono text-amber-600 dark:text-amber-400">PCAB Licensed · DTI Registered · 5-Yr Warranty</span>
+                <span className="text-xs font-mono uppercase text-neutral-500 dark:text-neutral-400">Warranty & Scope</span>
+                <span className="text-xs font-mono text-amber-600 dark:text-amber-400">Design & Build · In-House Supply · 5-Yr Warranty</span>
               </div>
             </div>
           </div>

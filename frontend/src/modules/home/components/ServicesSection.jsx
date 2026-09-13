@@ -46,7 +46,7 @@ export default function ServicesSection() {
     <section id="services" className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-neutral-200 dark:border-neutral-900">
       <ScrollMorph variant="fade-up" className="mb-16 grid lg:grid-cols-2 gap-8 items-end">
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] font-mono text-amber-600 dark:text-amber-400 mb-3">
+          <p className="text-xs uppercase tracking-[0.2em] font-semibold text-amber-600 dark:text-amber-400 mb-3">
             What We Do
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
@@ -58,7 +58,7 @@ export default function ServicesSection() {
           </h2>
         </div>
 
-        <p className="text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-light max-w-md">
+        <p className="text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal max-w-md">
           We build fast and right. Every engagement is a collaboration between your vision and our craft – resulting in structures that outlast trends.
         </p>
       </ScrollMorph>
@@ -81,7 +81,7 @@ export default function ServicesSection() {
                   {item.icon}
                 </div>
 
-                <span className="text-[11px] font-mono uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-amber-600 dark:text-amber-400">
                   {item.tag}
                 </span>
 
@@ -89,7 +89,7 @@ export default function ServicesSection() {
                   {item.title}
                 </h3>
 
-                <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-light">
+                <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal">
                   {item.desc}
                 </p>
               </div>
@@ -97,7 +97,7 @@ export default function ServicesSection() {
               <div className="mt-8 pt-4 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between">
                 <Link
                   href="/book"
-                  className="inline-flex items-center gap-2 text-xs font-mono tracking-wider uppercase font-semibold text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition-transform"
+                  className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition-transform"
                 >
                   <span>Consult Scope</span>
                   <ArrowRightIcon className="w-3.5 h-3.5" />

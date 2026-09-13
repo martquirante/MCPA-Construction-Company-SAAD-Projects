@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
 import {
   UserIcon,
@@ -13,27 +14,39 @@ import {
   TikTokIcon,
 } from "./Icons";
 
-export default function ClientNavbar({ isCompleted }) {
+export default function ClientNavbar({ isCompleted = true }) {
+  const pathname = usePathname();
+  const isHome = pathname === "/";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [scrolledPastHero, setScrolledPastHero] = useState(false);
+  const [scrolledPastHero, setScrolledPastHero] = useState(!isHome);
 
   useEffect(() => {
+    if (!isHome) {
+      setScrolledPastHero(true);
+      return;
+    }
     const handleScroll = () => {
-      // Check if user has scrolled beyond the hero section (600vh scroll travel in 700vh container)
       if (typeof window !== "undefined") {
-        setScrolledPastHero(window.scrollY > window.innerHeight * 6.1);
+        const overviewEl = document.getElementById("overview");
+        if (overviewEl) {
+          const rect = overviewEl.getBoundingClientRect();
+          setScrolledPastHero(rect.top <= 100);
+        } else {
+          setScrolledPastHero(window.scrollY > window.innerHeight * 5.5);
+        }
       }
     };
+    handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [isHome]);
 
   const navLinks = [
-    { label: "Home", href: "/", active: true },
-    { label: "Projects", href: "#projects" },
-    { label: "Services", href: "#services" },
-    { label: "Process", href: "#process" },
-    { label: "Book Consultation", href: "/book" },
+    { label: "Home", href: "/", active: pathname === "/" },
+    { label: "Projects", href: "/projects", active: pathname === "/projects" },
+    { label: "Services", href: "/services", active: pathname === "/services" },
+    { label: "Process", href: "/process", active: pathname === "/process" },
+    { label: "Book Consultation", href: "/book", active: pathname === "/book" },
   ];
 
   const handleNavClick = (e, href) => {
@@ -43,21 +56,25 @@ export default function ClientNavbar({ isCompleted }) {
         window.scrollTo({ top: 0, behavior: "smooth" });
         window.history.replaceState(null, "", "/");
       }
-    } else if (href.startsWith("#")) {
-      e.preventDefault();
-      const targetId = href.replace("#", "");
-      const el = document.getElementById(targetId);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth" });
-        window.history.replaceState(null, "", href);
+    } else if (href.startsWith("/#") || href.startsWith("#")) {
+      const targetId = href.replace("/#", "").replace("#", "");
+      if (typeof window !== "undefined" && window.location.pathname === "/") {
+        e.preventDefault();
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+          window.history.replaceState(null, "", window.location.pathname);
+        }
       }
     }
   };
 
+  const linksVisible = !isHome || isCompleted || scrolledPastHero;
+
   return (
     <>
       <header
-        className={`fixed top-0 inset-x-0 z-40 transition-all duration-700 ease-out ${
+        className={`fixed top-0 inset-x-0 z-50 transition-all duration-700 ease-out ${
           scrolledPastHero
             ? "bg-white/90 dark:bg-neutral-950/85 backdrop-blur-md border-b border-neutral-200 dark:border-white/10 py-3 shadow-lg text-neutral-900 dark:text-white"
             : "bg-gradient-to-b from-black/80 via-black/40 to-transparent py-5"
@@ -104,11 +121,11 @@ export default function ClientNavbar({ isCompleted }) {
             </div>
           </Link>
 
-          {/* 2. CENTER NAVIGATION LINKS - REVEALS ONLY WHEN 100% COMPLETED */}
+          {/* 2. CENTER NAVIGATION LINKS - REVEALS ONLY WHEN 100% COMPLETED OR SUBPAGE */}
           <nav
             aria-label="Primary Navigation"
             className={`hidden md:flex items-center gap-8 transition-all duration-700 ease-out ${
-              isCompleted
+              linksVisible
                 ? "opacity-100 transform translate-y-0 pointer-events-auto"
                 : "opacity-0 transform -translate-y-4 pointer-events-none"
             }`}
@@ -137,10 +154,10 @@ export default function ClientNavbar({ isCompleted }) {
             ))}
           </nav>
 
-          {/* 3. RIGHT UTILITY ACTIONS (THEME TOGGLE + USER ACCOUNT) - REVEALS ONLY WHEN 100% COMPLETED */}
+          {/* 3. RIGHT UTILITY ACTIONS (THEME TOGGLE + USER ACCOUNT) - REVEALS ONLY WHEN 100% COMPLETED OR SUBPAGE */}
           <div
             className={`flex items-center gap-3 transition-all duration-700 ease-out ${
-              isCompleted
+              linksVisible
                 ? "opacity-100 transform translate-y-0 pointer-events-auto"
                 : "opacity-0 transform -translate-y-4 pointer-events-none"
             }`}
@@ -150,7 +167,7 @@ export default function ClientNavbar({ isCompleted }) {
 
             {/* Client Portal / Account Icon Button */}
             <Link
-              href="#client-portal"
+              href="/portal"
               aria-label="Client Account Portal"
               title="Client Portal & Project Tracker"
               className={`p-2 rounded-full transition-all duration-200 focus:outline-none ${
@@ -184,8 +201,8 @@ export default function ClientNavbar({ isCompleted }) {
 
       {/* 4. MOBILE DRAWER MENU */}
       <div
-        className={`fixed inset-x-0 top-0 z-30 pt-24 pb-8 px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-200 dark:border-white/10 shadow-2xl md:hidden transition-all duration-500 ease-in-out ${
-          mobileMenuOpen && isCompleted
+        className={`fixed inset-x-0 top-0 z-45 pt-24 pb-8 px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-200 dark:border-white/10 shadow-2xl md:hidden transition-all duration-500 ease-in-out ${
+          mobileMenuOpen && linksVisible
             ? "opacity-100 transform translate-y-0 pointer-events-auto"
             : "opacity-0 transform -translate-y-full pointer-events-none"
         }`}
@@ -212,7 +229,7 @@ export default function ClientNavbar({ isCompleted }) {
           <div className="pt-4 border-t border-neutral-200 dark:border-white/10 flex items-center justify-center gap-6">
             <ThemeToggle />
             <Link
-              href="#client-portal"
+              href="/portal"
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400"
             >
@@ -239,7 +256,7 @@ export default function ClientNavbar({ isCompleted }) {
               aria-label="Instagram: @mcpa.constructionandsupply"
               className="p-2 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 hover:border-pink-500/50 text-neutral-800 dark:text-white transition-colors"
             >
-              <InstagramIcon className="w-4 h-4 rounded-xs" />
+              <InstagramIcon className="w-4 h-4 rounded-md" />
             </a>
             <a
               href="https://www.tiktok.com/@mcpa.construction"

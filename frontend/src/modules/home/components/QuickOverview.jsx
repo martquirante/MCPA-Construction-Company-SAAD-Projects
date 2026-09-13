@@ -26,19 +26,31 @@ export default function QuickOverview() {
   const [pillarsVisible, setPillarsVisible] = useState(false);
   const [inquiredStyle, setInquiredStyle] = useState("");
 
-  // Scroll observer to trigger morph and cascade entrance animations for pillars
+  // Scroll observer to trigger entrance animations for pillars (once visible, stays visible)
   useEffect(() => {
+    const currentPillars = pillarsRef.current;
+    if (!currentPillars) return;
+
+    // Immediate check if already near viewport
+    const rect = currentPillars.getBoundingClientRect();
+    if (rect.top < window.innerHeight + 100 && rect.bottom > -100) {
+      setPillarsVisible(true);
+      return;
+    }
+
     const observerOptions = {
-      threshold: 0.15,
-      rootMargin: "0px 0px -50px 0px",
+      threshold: 0.05,
+      rootMargin: "100px 0px 50px 0px",
     };
 
     const pillarsObserver = new IntersectionObserver(([entry]) => {
-      setPillarsVisible(entry.isIntersecting);
+      if (entry.isIntersecting) {
+        setPillarsVisible(true);
+        pillarsObserver.unobserve(currentPillars);
+      }
     }, observerOptions);
 
-    const currentPillars = pillarsRef.current;
-    if (currentPillars) pillarsObserver.observe(currentPillars);
+    pillarsObserver.observe(currentPillars);
 
     return () => {
       if (currentPillars) pillarsObserver.unobserve(currentPillars);
@@ -56,7 +68,7 @@ export default function QuickOverview() {
     {
       number: "02",
       icon: <ShieldCheckIcon className="w-7 h-7 text-amber-500 dark:text-amber-400" />,
-      title: "Anti-Bogus Milestone Tracking",
+      title: "Transparent Milestone Tracking",
       description:
         "Transparent, real-time photographic and technical logs uploaded directly to your Client Portal at every stage of construction from footing to turnover.",
     },
@@ -80,17 +92,6 @@ export default function QuickOverview() {
         }}
       />
 
-      {/* Architectural CAD Drafting Grid & Concrete Tactile Grain */}
-      <div
-        className="absolute inset-0 pointer-events-none z-0 opacity-[0.025] dark:opacity-[0.045]"
-        style={{
-          backgroundImage: `
-            linear-gradient(to right, currentColor 1px, transparent 1px),
-            linear-gradient(to bottom, currentColor 1px, transparent 1px)
-          `,
-          backgroundSize: "80px 80px",
-        }}
-      />
 
       {/* Background ambient lighting */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-amber-500/5 dark:bg-amber-500/10 rounded-full blur-[140px] pointer-events-none" />
@@ -118,17 +119,16 @@ export default function QuickOverview() {
           }}
           className="text-center max-w-3xl mx-auto mb-16 select-none"
         >
-          {/* Eyebrow badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-mono tracking-[0.25em] uppercase mb-4 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse" />
-            <span>Architectural Excellence · Supply Strength</span>
-          </div>
+          {/* Eyebrow text */}
+          <p className="text-amber-600 dark:text-amber-400 text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-4">
+            Architectural Excellence · Supply Strength
+          </p>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
             Why Visionaries Build With MCPA
           </h2>
 
-          <p className="mt-4 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-light">
+          <p className="mt-4 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
             Eliminating blind meetings and construction anxiety through cutting-edge engineering, transparent digital tracking, and uncompromising material standards.
           </p>
 
@@ -223,16 +223,16 @@ export default function QuickOverview() {
                 <ArrowRightIcon className="w-4 h-4" />
               </Link>
               <Link
-                href="#projects"
-                className="inline-flex items-center px-6 py-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-mono uppercase tracking-wider transition-colors"
+                href="/projects"
+                className="inline-flex items-center px-6 py-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold uppercase tracking-wider transition-colors"
               >
                 <span>Review Portfolio</span>
               </Link>
             </div>
 
             {/* Official Social Media Channels */}
-            <div className="mt-10 pt-8 border-t border-neutral-200/60 dark:border-neutral-800/80 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs font-mono">
-              <span className="uppercase tracking-widest text-[11px] text-neutral-500 dark:text-neutral-400">
+            <div className="mt-10 pt-8 border-t border-neutral-200/60 dark:border-neutral-800/80 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs">
+              <span className="uppercase tracking-wider text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
                 Official Channels:
               </span>
               <div className="flex flex-wrap items-center justify-center gap-3">

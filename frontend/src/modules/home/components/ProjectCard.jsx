@@ -39,12 +39,12 @@ export default function ProjectCard({ project, onInquire, onDelete }) {
         {/* Category & Admin Badges */}
         <div className="absolute top-4 left-4 flex flex-wrap items-center gap-2">
           {project.category && (
-            <span className="px-3 py-1 rounded-full text-[11px] font-mono tracking-wider uppercase bg-black/60 text-white border border-white/10 backdrop-blur-md">
+            <span className="px-3 py-1 rounded-full text-[11px] font-medium tracking-wide uppercase bg-black/65 text-white border border-white/15 backdrop-blur-md">
               {project.category}
             </span>
           )}
           {project.isAdminAdded && (
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-wider uppercase bg-amber-500/90 text-neutral-950 font-bold shadow-sm">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-amber-500/90 text-neutral-950 shadow-sm">
               Admin Upload
             </span>
           )}
@@ -92,7 +92,7 @@ export default function ProjectCard({ project, onInquire, onDelete }) {
       <div className="p-6 flex-1 flex flex-col justify-between">
         <div>
           {/* Location and Year */}
-          <div className="flex items-center gap-4 text-xs font-mono text-neutral-500 dark:text-neutral-400 mb-2">
+          <div className="flex items-center gap-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">
             <span className="flex items-center gap-1">
               <MapPinIcon className="w-3.5 h-3.5 text-amber-500/80" />
               <span>{project.location}</span>
@@ -100,7 +100,7 @@ export default function ProjectCard({ project, onInquire, onDelete }) {
             <span>·</span>
             <span className="flex items-center gap-1">
               <CalendarIcon className="w-3.5 h-3.5 text-neutral-400" />
-              <span>{project.year}</span>
+              <span className="tabular-nums">{project.year}</span>
             </span>
           </div>
 
@@ -110,7 +110,7 @@ export default function ProjectCard({ project, onInquire, onDelete }) {
           </h3>
 
           {project.description && (
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2 font-light leading-relaxed">
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2 font-normal leading-relaxed">
               {project.description}
             </p>
           )}
@@ -120,13 +120,13 @@ export default function ProjectCard({ project, onInquire, onDelete }) {
         <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between">
           <button
             onClick={() => onInquire?.(project)}
-            className="inline-flex items-center gap-2 text-xs font-mono tracking-wider uppercase font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 group/link"
+            className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 group/link"
           >
             <span>Inquire for this Style</span>
             <ArrowRightIcon className="w-3.5 h-3.5 transition-transform duration-300 group-hover/link:translate-x-1" />
           </button>
 
-          <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-600">
+          <span className="text-[11px] font-medium tabular-nums text-neutral-400 dark:text-neutral-500">
             MCPA #{String(project.id).slice(-4)}
           </span>
         </div>

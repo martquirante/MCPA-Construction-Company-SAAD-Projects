@@ -1,13 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useScrollScrub } from "../hooks/useScrollScrub";
 import { useBlobVideo } from "../hooks/useBlobVideo";
-import ClientNavbar from "@/modules/shared/ClientNavbar";
 import HeroContentOverlay from "./HeroContentOverlay";
 import BuildProgressBadge from "./BuildProgressBadge";
 
-export default function ScrollVideoHero() {
+export default function ScrollVideoHero({ onCompletionChange }) {
   const containerRef = useRef(null);
 
   const {
@@ -24,6 +23,12 @@ export default function ScrollVideoHero() {
     replayBuild,
   } = useScrollScrub(containerRef);
 
+  useEffect(() => {
+    if (onCompletionChange) {
+      onCompletionChange(isCompleted);
+    }
+  }, [isCompleted, onCompletionChange]);
+
   // Responsive video selection: high-definition portrait on mobile, cinematic landscape on desktop
   const rawVideoSrc = isPortrait
     ? "/videos/portrait-build.mp4"
@@ -39,11 +44,8 @@ export default function ScrollVideoHero() {
       className="relative w-full h-[700vh] bg-neutral-950 overscroll-y-contain"
     >
       {/* Sticky Viewport Frame (Stays pinned during the 6-scroll build journey, 7th scroll finishes) */}
-      <div className="sticky top-0 w-full h-screen h-[100dvh] overflow-hidden select-none [contain:layout_paint]">
-        {/* 1. Client Navbar (Always shows logo; links reveal upon 100% completion) */}
-        <ClientNavbar isCompleted={isCompleted} />
-
-        {/* 2. Interactive Video Canvas / Player */}
+      <div className="sticky top-0 w-full h-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none [contain:layout_paint]">
+        {/* 1. Interactive Video Canvas / Player */}
         <div
           onClick={() => {
             if (currentStep < 6) {
@@ -54,7 +56,7 @@ export default function ScrollVideoHero() {
         >
           <video
             ref={videoRef}
-            src={videoSrc || undefined}
+            src={videoSrc || rawVideoSrc}
             poster="/videos/test_frame.webp"
             playsInline
             muted

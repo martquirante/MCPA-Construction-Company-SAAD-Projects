@@ -16,33 +16,33 @@ export default function HeroContentOverlay({ isCompleted }) {
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
 
       <div className="relative z-10 max-w-2xl mx-auto flex flex-col items-center">
-        {/* Special Program Banner: WE HAVE BUILD NOW, PAY LATER PROGRAM */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 backdrop-blur-md text-amber-300 text-xs sm:text-sm font-semibold tracking-wider uppercase mb-5 shadow-[0_0_20px_rgba(245,158,11,0.25)]">
-          <SparkleBadgeIcon className="w-4 h-4 text-amber-400" />
-          <span>WE HAVE BUILD NOW, PAY LATER PROGRAM</span>
+        {/* Special Program Banner */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-amber-400 text-xs sm:text-sm font-medium tracking-wide uppercase mb-6">
+          <SparkleBadgeIcon className="w-3.5 h-3.5 text-amber-400" />
+          <span>Build Now, Pay Later Program Available</span>
         </div>
 
         {/* Client Core Heading Copy */}
-        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight drop-shadow-xl select-none">
+        <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-[1.15] drop-shadow-lg select-none">
           Looking to turn your ideas into reality?
         </h2>
 
         {/* Client Subtitle Copy */}
-        <p className="mt-3 text-sm sm:text-base md:text-lg text-neutral-200 font-light leading-relaxed max-w-xl mx-auto drop-shadow-md">
+        <p className="mt-4 text-sm sm:text-base md:text-lg text-neutral-300 font-normal leading-relaxed max-w-xl mx-auto drop-shadow-sm">
           Collaborate with us at{" "}
-          <span className="font-semibold text-amber-400">
+          <span className="font-semibold text-white">
             MCPA Construction and Supply
           </span>{" "}
-          and let&apos;s build your dream home!
+          and let&apos;s build your enduring legacy.
         </p>
 
         {/* Single Centered Call-to-Action Button */}
-        <div className="mt-7">
+        <div className="mt-8">
           <Button
             href="/book"
             size="lg"
             variant="primary"
-            className="px-9 py-4 text-sm sm:text-base font-bold shadow-[0_4px_30px_rgba(245,158,11,0.5)] hover:shadow-[0_6px_40px_rgba(245,158,11,0.75)]"
+            className="px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:shadow-amber-500/35"
           >
             Book an Appointment
           </Button>

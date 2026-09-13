@@ -1,21 +1,32 @@
 "use client";
 
 import ScrollMorph from "../../shared/ScrollMorph";
-import { StarIcon } from "../../shared/Icons";
 
 export default function StatsSection() {
   const stats = [
     {
-      value: "PCAB",
-      suffix: <StarIcon className="w-5 h-5 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400" />,
-      label: "Licensed Contractor",
-      desc: "Philippine Contractors Accreditation Board",
+      value: (
+        <span className="flex flex-col items-center lg:items-start leading-tight">
+          <span className="text-xl sm:text-2xl lg:text-2xl xl:text-3xl font-extrabold text-neutral-900 dark:text-white">
+            Earthquake &
+          </span>
+          <span className="text-xl sm:text-2xl lg:text-2xl xl:text-3xl font-extrabold text-neutral-900 dark:text-white inline-flex items-baseline gap-1">
+            <span>Typhoon</span>
+            <span className="text-lg sm:text-xl text-amber-500 dark:text-amber-400 font-semibold">
+              Ready
+            </span>
+          </span>
+        </span>
+      ),
+      custom: true,
+      label: "Structural Resilience",
+      desc: "Engineered for major faults & super typhoon wind loads",
     },
     {
-      value: "5",
-      suffix: "Yrs",
-      label: "Structural Warranty",
-      desc: "Comprehensive post-turnover protection",
+      value: "Direct",
+      suffix: "Supply",
+      label: "In-House Materials",
+      desc: "Direct wholesale aggregates, cement & structural steel",
     },
     {
       value: "100",
@@ -45,16 +56,22 @@ export default function StatsSection() {
             {/* Ambient gold bottom line on hover */}
             <div className="absolute bottom-0 inset-x-4 h-[2px] bg-gradient-to-r from-transparent via-amber-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-            <div className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-neutral-900 dark:text-white font-mono flex items-baseline gap-1 group-hover:scale-105 group-hover:translate-x-0.5 transition-transform duration-300">
-              <span>{stat.value}</span>
-              <span className="text-xl sm:text-2xl text-amber-500 dark:text-amber-400 font-sans inline-flex items-center">
-                {stat.suffix}
-              </span>
+            <div className="group-hover:scale-105 group-hover:translate-x-0.5 transition-transform duration-300">
+              {stat.custom ? (
+                stat.value
+              ) : (
+                <div className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-neutral-900 dark:text-white tabular-nums flex items-baseline gap-1">
+                  <span>{stat.value}</span>
+                  <span className="text-xl sm:text-2xl text-amber-500 dark:text-amber-400 font-semibold inline-flex items-center">
+                    {stat.suffix}
+                  </span>
+                </div>
+              )}
             </div>
-            <p className="mt-2 text-xs sm:text-sm uppercase tracking-[0.15em] font-mono font-bold text-neutral-800 dark:text-neutral-200 group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
+            <p className="mt-2 text-xs sm:text-sm uppercase tracking-wider font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
               {stat.label}
             </p>
-            <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400 font-light leading-snug">
+            <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400 font-normal leading-snug">
               {stat.desc}
             </p>
           </ScrollMorph>

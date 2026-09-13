@@ -56,8 +56,8 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
     onClose();
   };
 
-  // Handle local file selection via FileReader
-  const handleFileChange = (e) => {
+  // Handle local file selection and background cloud upload (Azure -> Supabase)
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -66,6 +66,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
       return;
     }
 
+    // Instant local preview
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result;
@@ -76,6 +77,22 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
       }
     };
     reader.readAsDataURL(file);
+
+    // Upload to Cloud Storage in background (Azure Primary -> Supabase Backup)
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload?category=portfolio", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        setImageUrl(data.url);
+      }
+    } catch (uploadErr) {
+      console.warn("[AdminUploadModal] Cloud storage upload fallback:", uploadErr);
+    }
   };
 
   const handleUrlChange = (val) => {

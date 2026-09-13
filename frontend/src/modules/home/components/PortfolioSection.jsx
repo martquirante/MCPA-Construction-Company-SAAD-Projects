@@ -121,7 +121,7 @@ export default function PortfolioSection({
       {/* Header */}
       <ScrollMorph variant="fade-up" className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div className="max-w-2xl">
-          <p className="text-xs uppercase tracking-[0.25em] font-mono text-amber-600 dark:text-amber-400 mb-3">
+          <p className="text-xs uppercase tracking-[0.2em] font-semibold text-amber-600 dark:text-amber-400 mb-3">
             Portfolio · Selected Works
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
@@ -130,7 +130,7 @@ export default function PortfolioSection({
               Last Centuries
             </span>
           </h2>
-          <p className="mt-4 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-light">
+          <p className="mt-4 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
             Every project represents a distinct vision realized with full structural and aesthetic integrity.
           </p>
         </div>
@@ -141,7 +141,7 @@ export default function PortfolioSection({
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-xl text-xs font-mono tracking-wider uppercase transition-all duration-300 ${
+              className={`px-4 py-2 rounded-xl text-xs font-medium tracking-wide uppercase transition-all duration-300 ${
                 activeCategory === cat
                   ? "bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/20"
                   : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white border border-neutral-200 dark:border-neutral-800"

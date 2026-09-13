@@ -49,23 +49,23 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center divide-x divide-neutral-200 dark:divide-white/10">
             <div className="px-2">
-              <p className="text-[10px] sm:text-xs uppercase tracking-widest text-amber-600 dark:text-amber-500 font-mono font-semibold">
-                Accreditation
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
+                Direct Supply
               </p>
               <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5">
-                PCAB Licensed Contractor
+                In-House Materials & Aggregates
               </p>
             </div>
             <div className="px-2">
-              <p className="text-[10px] sm:text-xs uppercase tracking-widest text-amber-600 dark:text-amber-500 font-mono font-semibold">
-                Business Registration
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
+                Project Delivery
               </p>
               <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5">
-                DTI Registered Enterprise
+                Full-Service Design & Build
               </p>
             </div>
             <div className="px-2">
-              <p className="text-[10px] sm:text-xs uppercase tracking-widest text-amber-600 dark:text-amber-500 font-mono font-semibold">
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
                 Financing Programs
               </p>
               <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5">
@@ -73,11 +73,11 @@ export default function Footer() {
               </p>
             </div>
             <div className="px-2">
-              <p className="text-[10px] sm:text-xs uppercase tracking-widest text-amber-600 dark:text-amber-500 font-mono font-semibold">
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
                 Engineering Standard
               </p>
               <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5">
-                Signed & Sealed Plans · 5-Yr Structural Warranty
+                Signed & Sealed Plans · Earthquake & Typhoon Ready
               </p>
             </div>
           </div>
@@ -121,7 +121,7 @@ export default function Footer() {
               </Link>
 
               <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-sm mb-6 font-light">
-                MCPA Construction and Supply is a PCAB-licensed and DTI-registered design and build contractor based in Plaridel, Bulacan. We specialize in custom residential homes, commercial buildings, industrial warehouses, signed and sealed building plans, and turnkey construction supply across Bulacan, Metro Manila, and Central Luzon.
+                Looking to turn your ideas into reality? MCPA Construction and Supply is a full-service design and build contractor based in Plaridel, Bulacan. We specialize in custom residential homes, modern commercial facilities, warehouse structures, signed and sealed engineering plans, and in-house construction supplies across Bulacan, Metro Manila, and Central Luzon.
               </p>
 
               {/* Status Badge with Google Maps Link */}
@@ -129,18 +129,18 @@ export default function Footer() {
                 href="https://maps.app.goo.gl/hPB6X66NdhViSvCp7"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/50 text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 text-xs font-mono mb-6 transition-all group cursor-pointer"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/50 text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 text-xs font-medium mb-6 transition-all group cursor-pointer"
                 title="View MCPA Headquarters in Google Maps"
               >
                 <GoogleMapsPinIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
-                <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse" />
-                <span>PCAB Licensed · DTI Registered · Plaridel, Bulacan</span>
+                <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400" />
+                <span>Design & Build Contractor · Plaridel, Bulacan</span>
               </a>
             </div>
 
             {/* Social Media Links */}
             <div>
-              <p className="text-[11px] uppercase tracking-widest text-neutral-500 font-mono mb-3">
+              <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-medium mb-3">
                 Official Social Channels
               </p>
               <div className="flex items-center gap-3">
@@ -183,7 +183,7 @@ export default function Footer() {
 
           {/* COLUMN 2: QUICK NAVIGATION (2 cols) */}
           <ScrollMorph variant="fade-up" delay={120} duration={800} className="lg:col-span-2">
-            <p className="text-xs uppercase tracking-widest text-amber-600 dark:text-amber-500 font-mono font-semibold mb-4">
+            <p className="text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold mb-4">
               Navigation
             </p>
             <ul className="space-y-2.5 text-sm">
@@ -204,19 +204,19 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="#projects" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
+                <Link href="/projects" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
                   <ChevronRightIcon className="w-3 h-3 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   <span>Selected Works</span>
                 </Link>
               </li>
               <li>
-                <Link href="#services" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
+                <Link href="/services" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
                   <ChevronRightIcon className="w-3 h-3 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   <span>Services</span>
                 </Link>
               </li>
               <li>
-                <Link href="#process" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
+                <Link href="/process" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
                   <ChevronRightIcon className="w-3 h-3 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   <span>Our Process</span>
                 </Link>
@@ -228,9 +228,9 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/book" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
+                <Link href="/portal" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
                   <ChevronRightIcon className="w-3 h-3 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                  <span>Client Profiler</span>
+                  <span>Client Portal</span>
                 </Link>
               </li>
             </ul>
@@ -238,44 +238,44 @@ export default function Footer() {
 
           {/* COLUMN 3: SERVICES & SUPPLY CAPABILITIES (3 cols) */}
           <ScrollMorph variant="fade-up" delay={220} duration={800} className="lg:col-span-3">
-            <p className="text-xs uppercase tracking-widest text-amber-600 dark:text-amber-500 font-mono font-semibold mb-4">
+            <p className="text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold mb-4">
               Capabilities & Supply
             </p>
             <ul className="space-y-2.5 text-sm text-neutral-600 dark:text-neutral-400">
               <li className="hover:text-neutral-950 dark:hover:text-white transition-colors">
-                <Link href="#services" className="flex items-center justify-between group">
+                <Link href="/services" className="flex items-center justify-between group">
                   <span>Custom Residential Design & Build</span>
-                  <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-600 group-hover:text-amber-500">01</span>
+                  <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500">01</span>
                 </Link>
               </li>
               <li className="hover:text-neutral-950 dark:hover:text-white transition-colors">
-                <Link href="#services" className="flex items-center justify-between group">
+                <Link href="/services" className="flex items-center justify-between group">
                   <span>Commercial & Industrial Warehouses</span>
-                  <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-600 group-hover:text-amber-500">02</span>
+                  <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500">02</span>
                 </Link>
               </li>
               <li className="hover:text-neutral-950 dark:hover:text-white transition-colors">
-                <Link href="#services" className="flex items-center justify-between group">
+                <Link href="/services" className="flex items-center justify-between group">
                   <span>Signed & Sealed Plans & Permits</span>
-                  <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-600 group-hover:text-amber-500">03</span>
+                  <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500">03</span>
                 </Link>
               </li>
               <li className="hover:text-neutral-950 dark:hover:text-white transition-colors">
-                <Link href="#services" className="flex items-center justify-between group">
+                <Link href="/services" className="flex items-center justify-between group">
                   <span>House Renovations & Fit-Outs</span>
-                  <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-600 group-hover:text-amber-500">04</span>
+                  <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500">04</span>
                 </Link>
               </li>
               <li className="hover:text-neutral-950 dark:hover:text-white transition-colors">
-                <Link href="#services" className="flex items-center justify-between group">
+                <Link href="/services" className="flex items-center justify-between group">
                   <span>Construction Supply Logistics</span>
-                  <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-600 group-hover:text-amber-500">05</span>
+                  <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500">05</span>
                 </Link>
               </li>
               <li className="hover:text-neutral-950 dark:hover:text-white transition-colors">
                 <Link href="/book" className="flex items-center justify-between group text-amber-600 dark:text-amber-400 font-medium">
                   <span>Build Now, Pay Later (Titled Lot)</span>
-                  <span className="text-[11px] font-mono text-amber-600 dark:text-amber-500">BNPL</span>
+                  <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-500">BNPL</span>
                 </Link>
               </li>
             </ul>
@@ -283,12 +283,12 @@ export default function Footer() {
 
           {/* COLUMN 4: SITE OFFICE & CONTACT INQUIRIES (3 cols) */}
           <ScrollMorph variant="fan-right" delay={320} duration={800} className="lg:col-span-3">
-            <p className="text-xs uppercase tracking-widest text-amber-600 dark:text-amber-500 font-mono font-semibold mb-4">
+            <p className="text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold mb-4">
               Site Office & Contact
             </p>
-            <div className="space-y-3.5 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 font-light">
+            <div className="space-y-3.5 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 font-normal">
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-wider text-neutral-500 mb-1">
+                <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-medium mb-1">
                   Headquarters & Office
                 </p>
                 <a
@@ -304,34 +304,34 @@ export default function Footer() {
               </div>
 
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-wider text-neutral-500">
+                <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-medium">
                   Direct Mobile / Viber
                 </p>
                 <a
                   href="tel:+639497758239"
-                  className="text-neutral-900 dark:text-neutral-200 hover:text-amber-600 dark:hover:text-amber-400 font-mono text-sm block mt-0.5 transition-colors font-medium"
+                  className="text-neutral-900 dark:text-neutral-200 hover:text-amber-600 dark:hover:text-amber-400 text-sm block mt-0.5 transition-colors font-medium tabular-nums"
                 >
                   (0949) 775 8239
                 </a>
-                <p className="text-neutral-500 dark:text-neutral-400 font-mono text-xs">
+                <p className="text-neutral-500 dark:text-neutral-400 text-xs">
                   Available for Calls, SMS &amp; Viber
                 </p>
               </div>
 
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-wider text-neutral-500">
+                <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-medium">
                   Official Email
                 </p>
                 <a
                   href="mailto:mcpa.construction@gmail.com"
-                  className="text-amber-600 dark:text-amber-400 hover:underline font-mono text-xs"
+                  className="text-amber-600 dark:text-amber-400 hover:underline text-xs"
                 >
                   mcpa.construction@gmail.com
                 </a>
               </div>
 
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-wider text-neutral-500">
+                <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-medium">
                   Operating Hours
                 </p>
                 <p className="text-neutral-700 dark:text-neutral-300 text-xs">
@@ -340,7 +340,7 @@ export default function Footer() {
               </div>
 
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+                <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-medium mb-2">
                   Official Channels
                 </p>
                 <div className="flex flex-col gap-2 text-xs">
@@ -350,8 +350,8 @@ export default function Footer() {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors group"
                   >
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center bg-neutral-200 dark:bg-white/5 group-hover:scale-110 transition-transform shrink-0">
-                      <FacebookIcon className="w-4 h-4 rounded-full" />
+                    <div className="w-5 h-5 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                      <FacebookIcon className="w-5 h-5 rounded-full shadow-xs" />
                     </div>
                     <span className="font-mono truncate">/MCPA.ConstructionandSupply</span>
                   </a>
@@ -361,8 +361,8 @@ export default function Footer() {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-white transition-colors group"
                   >
-                    <div className="w-5 h-5 rounded-md flex items-center justify-center bg-neutral-200 dark:bg-white/5 group-hover:scale-110 transition-transform shrink-0">
-                      <InstagramIcon className="w-4 h-4 rounded-xs" />
+                    <div className="w-5 h-5 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                      <InstagramIcon className="w-5 h-5 rounded-md shadow-xs" />
                     </div>
                     <span className="font-mono truncate">@mcpa.constructionandsupply</span>
                   </a>
@@ -372,8 +372,8 @@ export default function Footer() {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-white transition-colors group"
                   >
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center bg-neutral-200 dark:bg-white/5 group-hover:scale-110 transition-transform shrink-0">
-                      <TikTokIcon className="w-4 h-4 rounded-full" />
+                    <div className="w-5 h-5 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                      <TikTokIcon className="w-5 h-5 rounded-full shadow-xs" />
                     </div>
                     <span className="font-mono truncate">@mcpa.construction</span>
                   </a>

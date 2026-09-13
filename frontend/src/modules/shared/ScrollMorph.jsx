@@ -12,9 +12,9 @@ export default function ScrollMorph({
   variant = "card",
   delay = 0,
   duration = 800,
-  threshold = 0.12,
-  rootMargin = "0px 0px -50px 0px",
-  once = false,
+  threshold = 0.01,
+  rootMargin = "120px 0px 50px 0px",
+  once = true,
   className = "",
   style = {},
   ...props
@@ -25,6 +25,13 @@ export default function ScrollMorph({
   useEffect(() => {
     const node = domRef.current;
     if (!node) return;
+
+    // Immediate viewport check for page load / scroll restoration
+    const rect = node.getBoundingClientRect();
+    if (rect.top < window.innerHeight + 100 && rect.bottom > -100) {
+      setIsVisible(true);
+      if (once) return;
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
