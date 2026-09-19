@@ -4,10 +4,12 @@ import Link from "next/link";
 import ClientNavbar from "@/modules/shared/ClientNavbar";
 import Footer from "@/modules/shared/Footer";
 import {
-  BuildingIcon,
-  HardHatIcon,
-  ShieldCheckIcon,
-  SparkleBadgeIcon,
+  HomeIcon,
+  BadgePercentIcon,
+  FileSignatureIcon,
+  WarehouseIcon,
+  TruckIcon,
+  HammerIcon,
   ArrowRightIcon,
   CheckIcon,
   MapPinIcon,
@@ -18,7 +20,7 @@ export default function ServicesPage() {
     {
       id: "residential",
       badge: "Turnkey Master Build",
-      icon: <BuildingIcon className="w-8 h-8 text-amber-500" />,
+      icon: <HomeIcon className="w-8 h-8 text-amber-500" />,
       title: "Custom Residential Design & Build",
       subtitle: "Bespoke modern residences built for generations",
       description:
@@ -34,7 +36,7 @@ export default function ServicesPage() {
     {
       id: "bnpl",
       badge: "Flexible Financing",
-      icon: <SparkleBadgeIcon className="w-8 h-8 text-amber-500" />,
+      icon: <BadgePercentIcon className="w-8 h-8 text-amber-500" />,
       title: "Build Now, Pay Later Program",
       subtitle: "Financing built around your titled property",
       description:
@@ -50,7 +52,7 @@ export default function ServicesPage() {
     {
       id: "signed-sealed",
       badge: "PRC Professional Compliance",
-      icon: <ShieldCheckIcon className="w-8 h-8 text-amber-500" />,
+      icon: <FileSignatureIcon className="w-8 h-8 text-amber-500" />,
       title: "Signed & Sealed Plans & Permits",
       subtitle: "Full engineering blueprints ready for municipal approval",
       description:
@@ -66,7 +68,7 @@ export default function ServicesPage() {
     {
       id: "commercial",
       badge: "Industrial & Commercial",
-      icon: <HardHatIcon className="w-8 h-8 text-amber-500" />,
+      icon: <WarehouseIcon className="w-8 h-8 text-amber-500" />,
       title: "Commercial Buildings & Warehouses",
       subtitle: "High-span steel frameworks and logistics facilities",
       description:
@@ -82,7 +84,7 @@ export default function ServicesPage() {
     {
       id: "supply",
       badge: "Direct Supply Chain",
-      icon: <BuildingIcon className="w-8 h-8 text-amber-500" />,
+      icon: <TruckIcon className="w-8 h-8 text-amber-500" />,
       title: "In-House Wholesale Construction Supply",
       subtitle: "Wholesale aggregates, cement, and rebars on-site",
       description:
@@ -98,7 +100,7 @@ export default function ServicesPage() {
     {
       id: "renovation",
       badge: "Adaptive Transformation",
-      icon: <SparkleBadgeIcon className="w-8 h-8 text-amber-500" />,
+      icon: <HammerIcon className="w-8 h-8 text-amber-500" />,
       title: "Renovations & Structural Retrofitting",
       subtitle: "Revitalize and fortify existing structures",
       description:
@@ -114,7 +116,7 @@ export default function ServicesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col transition-colors duration-500">
+    <div className="chb-texture min-h-screen bg-[#f8f7f5] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col transition-colors duration-500">
       {/* Top Sticky Navigation */}
       <ClientNavbar isCompleted={true} />
 

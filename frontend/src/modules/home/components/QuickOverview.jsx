@@ -19,6 +19,9 @@ import {
   InstagramIcon,
   TikTokIcon,
   GoogleMapsPinIcon,
+  DraftingCompassIcon,
+  MilestoneIcon,
+  BadgePercentIcon,
 } from "../../shared/Icons";
 
 export default function QuickOverview() {
@@ -60,21 +63,21 @@ export default function QuickOverview() {
   const pillars = [
     {
       number: "01",
-      icon: <BuildingIcon className="w-7 h-7 text-amber-500 dark:text-amber-400" />,
+      icon: <DraftingCompassIcon className="w-8 h-8 text-amber-500" strokeWidth={2} />,
       title: "Engineered For Longevity",
       description:
         "High-performance precast concrete, structural steel frameworks, and architectural precision built to withstand Philippine climates and seismic standards.",
     },
     {
       number: "02",
-      icon: <ShieldCheckIcon className="w-7 h-7 text-amber-500 dark:text-amber-400" />,
+      icon: <MilestoneIcon className="w-8 h-8 text-amber-500" strokeWidth={2} />,
       title: "Transparent Milestone Tracking",
       description:
         "Transparent, real-time photographic and technical logs uploaded directly to your Client Portal at every stage of construction from footing to turnover.",
     },
     {
       number: "03",
-      icon: <HardHatIcon className="w-7 h-7 text-amber-500 dark:text-amber-400" />,
+      icon: <BadgePercentIcon className="w-8 h-8 text-amber-500" strokeWidth={2} />,
       title: "Build Now, Pay Later Program",
       description:
         "Flexible financial structures and verified digital billing schedules designed to accelerate your dream home without compromising structural integrity.",
@@ -82,20 +85,19 @@ export default function QuickOverview() {
   ];
 
   return (
-    <div id="overview" className="relative z-10 bg-neutral-50 dark:bg-[#050505] text-neutral-900 dark:text-neutral-100 transition-colors duration-500 overflow-x-clip">
+    <div id="overview" className="relative z-10 bg-white dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 transition-colors duration-500 overflow-x-clip">
       {/* Construction Architectural Texture: Concrete Hollow Blocks (CHB) & Rough Semento Wall */}
       <div
-        className="absolute inset-0 pointer-events-none z-0 bg-repeat opacity-[0.06] dark:opacity-[0.10] mix-blend-luminosity"
+        className="absolute inset-0 pointer-events-none z-0 bg-repeat opacity-20 dark:opacity-[0.14] mix-blend-multiply dark:mix-blend-luminosity"
         style={{
           backgroundImage: "url('/assets/textures/chb_hollowblocks.jpg')",
           backgroundSize: "440px 440px",
         }}
       />
 
-
       {/* Background ambient lighting */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-amber-500/5 dark:bg-amber-500/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute top-3/4 right-10 w-[500px] h-[400px] bg-amber-500/5 dark:bg-amber-500/8 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-amber-500/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-3/4 right-10 w-[500px] h-[400px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* ========================================================================= */}
       {/* 1. STATS BANNER                                                           */}
@@ -107,7 +109,7 @@ export default function QuickOverview() {
       {/* ========================================================================= */}
       <section
         ref={pillarsRef}
-        className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-b border-neutral-200 dark:border-neutral-900"
+        className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-b border-neutral-200 dark:border-neutral-800"
       >
         {/* Header with Morph & Slide-Up Reveal */}
         <div
@@ -139,7 +141,7 @@ export default function QuickOverview() {
                 width: pillarsVisible ? "160px" : "0px",
                 transition: "width 1s cubic-bezier(0.16, 1, 0.3, 1) 0.3s",
               }}
-              className="h-[2px] bg-gradient-to-r from-transparent via-amber-500 dark:via-amber-400 to-transparent"
+              className="h-[1.5px] bg-gradient-to-r from-transparent via-amber-500/40 to-transparent"
             />
           </div>
         </div>
@@ -192,7 +194,7 @@ export default function QuickOverview() {
         <ScrollMorph
           variant="portal-expand"
           duration={950}
-          className="relative rounded-3xl p-8 sm:p-12 lg:p-16 overflow-hidden bg-white dark:bg-neutral-900/60 border border-neutral-200 dark:border-amber-500/20 shadow-2xl text-center backdrop-blur-md"
+          className="relative rounded-3xl p-8 sm:p-12 lg:p-16 overflow-hidden bg-white/70 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 shadow-xl text-center backdrop-blur-md"
         >
           {/* Ambient Glow */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />

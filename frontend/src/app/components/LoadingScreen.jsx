@@ -42,11 +42,6 @@ export default function LoadingScreen({ onComplete }) {
     setAnimKey((prev) => prev + 1);
   }, []);
 
-  // Manual theme override toggle (Shortcut: T)
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  }, []);
-
   // Mode toggle (Shortcut: M)
   const toggleMode = useCallback(() => {
     setAnimMode((prev) => (prev === "draw" ? "sweep" : "draw"));
@@ -58,11 +53,10 @@ export default function LoadingScreen({ onComplete }) {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
 
-  // Keyboard shortcuts: 'R' for replay, 'T' for theme, 'M' for mode, 'Escape' to skip
+  // Keyboard shortcuts: 'R' for replay, 'M' for mode, 'Escape' to skip
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "r" || e.key === "R") handleReplay();
-      if (e.key === "t" || e.key === "T") toggleTheme();
       if (e.key === "m" || e.key === "M") toggleMode();
       if (e.key === "Escape") {
         setIsFadingOut(true);
@@ -71,7 +65,7 @@ export default function LoadingScreen({ onComplete }) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleReplay, toggleTheme, toggleMode]);
+  }, [handleReplay, toggleMode]);
 
   // Smooth, satisfying 2.4-second progress loop (0% -> 100%)
   useEffect(() => {
@@ -138,16 +132,20 @@ export default function LoadingScreen({ onComplete }) {
   return (
     <div
       key={animKey}
-      className={`fixed inset-0 z-50 flex flex-col justify-between w-screen h-screen overflow-hidden select-none transition-all duration-700 ease-out ${
+      className={`fixed inset-0 z-[100] flex flex-col justify-between w-screen h-screen overflow-hidden select-none transition-all duration-700 ease-out ${
         isFadingOut ? "opacity-0 pointer-events-none scale-105" : "opacity-100"
       } ${
-        isDark ? "bg-[#070708] text-[#f4f4f4]" : "bg-[#f7f6f3] text-[#141414]"
+        isDark ? "bg-[#09090b] text-[#f4f4f4]" : "bg-white text-[#141414]"
       }`}
     >
       {/* Skip button in top right */}
       <button
         onClick={handleSkip}
-        className="absolute top-6 right-6 z-30 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-[11px] font-mono tracking-widest uppercase text-neutral-300 hover:text-white transition-all backdrop-blur-md cursor-pointer group"
+        className={`absolute top-5 right-5 z-30 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[11px] font-mono tracking-widest uppercase transition-all backdrop-blur-md cursor-pointer group select-none shadow-xs ${
+          isDark
+            ? "bg-white/10 hover:bg-white/20 border-white/10 text-neutral-300 hover:text-white"
+            : "bg-neutral-900/10 hover:bg-neutral-900/15 border-neutral-900/10 text-neutral-800 hover:text-black"
+        }`}
       >
         <span>Skip Intro</span>
         <ArrowRightIcon className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
@@ -159,8 +157,8 @@ export default function LoadingScreen({ onComplete }) {
           backgroundImage: isDark
             ? `linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
                linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px)`
-            : `linear-gradient(to right, rgba(0, 0, 0, 0.035) 1px, transparent 1px),
-               linear-gradient(to bottom, rgba(0, 0, 0, 0.035) 1px, transparent 1px)`,
+            : `linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+               linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px)`,
           backgroundSize: "44px 44px",
         }}
       />
@@ -170,8 +168,8 @@ export default function LoadingScreen({ onComplete }) {
         className="absolute inset-0 pointer-events-none transition-opacity duration-700"
         style={{
           background: isDark
-            ? "radial-gradient(ellipse 65% 55% at 50% 50%, rgba(245, 158, 11, 0.14) 0%, rgba(7, 7, 8, 0.85) 60%, #070708 100%)"
-            : "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(245, 158, 11, 0.09) 0%, rgba(247, 246, 243, 0.85) 60%, #f7f6f3 100%)",
+            ? "radial-gradient(ellipse 65% 55% at 50% 50%, rgba(255, 255, 255, 0.04) 0%, rgba(9, 9, 11, 0.85) 60%, #09090b 100%)"
+            : "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(0, 0, 0, 0.02) 0%, rgba(255, 255, 255, 0.85) 60%, #ffffff 100%)",
         }}
       />
 
@@ -242,7 +240,7 @@ export default function LoadingScreen({ onComplete }) {
                   isCompleted={isCompleted}
                 />
 
-                {/* Sweeping Laser Blade with Golden Flare */}
+                {/* Sweeping Laser Blade with Silver/White Flare */}
                 {progress > 0 && progress < 100 && (
                   <div
                     className="absolute top-0 bottom-0 pointer-events-none z-30"
@@ -250,16 +248,16 @@ export default function LoadingScreen({ onComplete }) {
                       left: `${progress}%`,
                       width: "2px",
                       background:
-                        "linear-gradient(to bottom, transparent 0%, #ffedd5 20%, #f59e0b 50%, #d97706 80%, transparent 100%)",
+                        "linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.4) 20%, #ffffff 50%, rgba(255,255,255,0.4) 80%, transparent 100%)",
                       boxShadow:
-                        "0 0 14px 3px rgba(245, 158, 11, 0.95), 0 0 28px 6px rgba(245, 158, 11, 0.5)",
+                        "0 0 14px 3px rgba(255, 255, 255, 0.8), 0 0 24px 6px rgba(255, 255, 255, 0.4)",
                     }}
                   >
                     <div
                       className="absolute top-[48%] -translate-y-1/2 -left-1.5 w-3.5 h-3.5 rounded-full bg-white blur-[1.5px]"
                       style={{
                         boxShadow:
-                          "0 0 12px 4px rgba(245, 158, 11, 1), 0 0 24px 8px rgba(251, 191, 36, 0.7)",
+                          "0 0 12px 4px rgba(255, 255, 255, 0.9), 0 0 20px 6px rgba(255, 255, 255, 0.6)",
                       }}
                     />
                   </div>
@@ -273,7 +271,9 @@ export default function LoadingScreen({ onComplete }) {
             className="absolute -bottom-6 w-80 h-4 rounded-full blur-[14px] pointer-events-none transition-all duration-500"
             style={{
               background:
-                "radial-gradient(ellipse at center, rgba(245, 158, 11, 0.75) 0%, transparent 75%)",
+                isDark
+                  ? "radial-gradient(ellipse at center, rgba(255, 255, 255, 0.25) 0%, transparent 75%)"
+                  : "radial-gradient(ellipse at center, rgba(0, 0, 0, 0.15) 0%, transparent 75%)",
               opacity: progress > 10 ? 0.75 : 0,
               transform: `scaleX(${progress / 100})`,
             }}
@@ -289,15 +289,15 @@ export default function LoadingScreen({ onComplete }) {
           {/* Progress Bar Track */}
           <div
             className={`relative w-full h-[1.6px] rounded-full overflow-hidden transition-colors ${
-              isDark ? "bg-zinc-800/80" : "bg-zinc-300/80"
+              isDark ? "bg-zinc-800" : "bg-zinc-300"
             }`}
           >
             <div
               className="h-full rounded-full transition-all duration-75 ease-out"
               style={{
                 width: `${progress}%`,
-                background: "linear-gradient(90deg, #d97706 0%, #f59e0b 60%, #fbbf24 100%)",
-                boxShadow: "0 0 10px rgba(245, 158, 11, 0.9)",
+                background: isDark ? "#ffffff" : "#09090b",
+                boxShadow: isDark ? "0 0 8px rgba(255, 255, 255, 0.7)" : "none",
               }}
             />
           </div>
@@ -311,7 +311,7 @@ export default function LoadingScreen({ onComplete }) {
             >
               {statusText}
             </span>
-            <span className="text-amber-500 font-semibold pl-2">
+            <span className="text-neutral-900 dark:text-white font-bold pl-2">
               {Math.round(progress)}%
             </span>
           </div>

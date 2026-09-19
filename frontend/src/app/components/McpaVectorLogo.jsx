@@ -10,9 +10,9 @@ export default function McpaVectorLogo({
   isCompleted = false,
   className = "",
 }) {
-  const strokeColor = "#f59e0b"; // Golden Amber Laser
-  const fillColor = isDark ? "#ffffff" : "#111111";
-  const subtextColor = isDark ? "rgba(255,255,255,0.9)" : "rgba(17,17,17,0.85)";
+  const strokeColor = isDark ? "#ffffff" : "#09090b"; // Architectural Monochrome Precision Vector
+  const fillColor = isDark ? "#ffffff" : "#09090b";
+  const subtextColor = isDark ? "rgba(255,255,255,0.9)" : "rgba(9,9,11,0.85)";
 
   return (
     <svg
@@ -22,9 +22,11 @@ export default function McpaVectorLogo({
       style={{
         filter: isCompleted
           ? isDark
-            ? "drop-shadow(0 0 24px rgba(245, 158, 11, 0.35)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.5))"
+            ? "drop-shadow(0 0 20px rgba(255, 255, 255, 0.2))"
             : "drop-shadow(0 2px 10px rgba(0, 0, 0, 0.08))"
-          : "drop-shadow(0 0 16px rgba(245, 158, 11, 0.45))",
+          : isDark
+            ? "drop-shadow(0 0 16px rgba(255, 255, 255, 0.25))"
+            : "drop-shadow(0 0 10px rgba(0, 0, 0, 0.15))",
       }}
     >
       <defs>

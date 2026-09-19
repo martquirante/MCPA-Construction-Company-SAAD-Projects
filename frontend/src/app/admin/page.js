@@ -3,9 +3,14 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import ThemeToggle from "@/modules/shared/ThemeToggle";
 import AdminUploadModal from "@/modules/admin/components/AdminUploadModal";
 import ResetPasswordModal from "@/modules/admin/components/ResetPasswordModal";
+import InquiryPipelineTab from "@/modules/admin/components/InquiryPipelineTab";
+import SiteProgressTab from "@/modules/admin/components/SiteProgressTab";
+import BillingLedgerTab from "@/modules/admin/components/BillingLedgerTab";
+import DelayManagementTab from "@/modules/admin/components/DelayManagementTab";
+import AiReceiptScannerTab from "@/modules/admin/components/AiReceiptScannerTab";
+import WarrantyTicketsTab from "@/modules/admin/components/WarrantyTicketsTab";
 import {
   LockIcon,
   ShieldCheckIcon,
@@ -25,105 +30,64 @@ import {
   EyeOffIcon,
   RefreshCwIcon,
   KeyRoundIcon,
+  MenuIcon,
+  HardHatIcon,
+  ClipboardListIcon,
+  CreditCardIcon,
+  ClockIcon,
+  ScanLineIcon,
+  WrenchIcon,
+  FolderKanbanIcon,
+  Building2Icon,
+  BellIcon,
+  LogOutIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "@/modules/shared/Icons";
+import { INITIAL_PROJECTS, deduplicateProjects } from "@/modules/shared/projectsHelper";
 
-const INITIAL_PROJECTS = [
-  {
-    id: 1,
-    name: "Meridian Modern Residence",
-    location: "Plaridel, Bulacan",
-    year: "2024",
-    category: "Residential",
-    description: "Two-storey contemporary home with cantilevered balcony, reinforced concrete framing, perimeter fence, and complete turnkey architectural finishing.",
-    images: [
-      "https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1200&h=800&fit=crop&auto=format",
-    ],
-  },
-  {
-    id: 2,
-    name: "Tabang Commercial Complex",
-    location: "Tabang, Plaridel",
-    year: "2024",
-    category: "Commercial",
-    description: "Commercial facility and supply yard featuring high-spec structural steel trusses, modern storefront facades, and heavy-duty logistics access.",
-    images: [
-      "https://images.unsplash.com/photo-1706164971302-e30c0640cc3b?w=800&h=1200&fit=crop&auto=format",
-    ],
-  },
-  {
-    id: 3,
-    name: "Grand Royale Executive Villa",
-    location: "Malolos, Bulacan",
-    year: "2023",
-    category: "Luxury Villa",
-    description: "Custom two-storey luxury home built with signed & sealed plans, bespoke granite finishes, premium fixtures, and a 5-year structural warranty.",
-    images: [
-      "https://images.unsplash.com/photo-1762811054947-605b20298615?w=800&h=600&fit=crop&auto=format",
-    ],
-  },
-  {
-    id: 4,
-    name: "North Industrial Logistics Hub",
-    location: "Guiguinto, Bulacan",
-    year: "2024",
-    category: "Commercial",
-    description: "Large-span logistics warehouse and administration annex featuring seismic foundation ties and high-load industrial flooring.",
-    images: [
-      "https://images.unsplash.com/photo-1783490244502-cd5f236e3780?w=1400&h=700&fit=crop&auto=format",
-    ],
-  },
-  {
-    id: 5,
-    name: "Pampanga Zen Sanctuary",
-    location: "Pulilan, Bulacan",
-    year: "2024",
-    category: "Modern Zen",
-    description: "Minimalist Japanese-inspired residence featuring natural timber accents, central dry gravel courtyard, and passive natural cross-ventilation.",
-    images: [
-      "https://images.unsplash.com/photo-1679364297777-1db77b6199be?w=800&h=600&fit=crop&auto=format",
-    ],
-  },
-];
-
-const DEFAULT_ADMIN_EMAIL = "rayquirante@gmail.com";
 const DEFAULT_ADMIN_PIN = "mcpa2026";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [emailInput, setEmailInput] = useState(DEFAULT_ADMIN_EMAIL);
+  const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authError, setAuthError] = useState("");
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("portfolio"); // "portfolio" | "briefs" | "company"
-  const [activeDbProvider, setActiveDbProvider] = useState("Azure Primary (Flexible Server)");
+  const [activeTab, setActiveTab] = useState("briefs"); // "briefs" | "construction" | "billing" | "delays" | "ocr" | "warranty" | "portfolio" | "company"
+  const [activeDbProvider, setActiveDbProvider] = useState("Local PostgreSQL (Docker Standby)");
   const [currentUser, setCurrentUser] = useState(null);
 
   // Data states
   const [customProjects, setCustomProjects] = useState([]);
   const [allProjects, setAllProjects] = useState(INITIAL_PROJECTS);
   const [clientBriefs, setClientBriefs] = useState([]);
+  const [siteProject, setSiteProject] = useState(null);
+  const [siteMilestones, setSiteMilestones] = useState([]);
+  const [sitePhotos, setSitePhotos] = useState([]);
+  const [billingLedger, setBillingLedger] = useState([]);
+  const [delayEvents, setDelayEvents] = useState([]);
+  const [warrantyTickets, setWarrantyTickets] = useState([]);
+  const [siteExpenses, setSiteExpenses] = useState([]);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("mcpa_admin_sidebar_collapsed", String(next));
+        } catch (e) {}
+      }
+      return next;
+    });
+  };
+  const [currentTime, setCurrentTime] = useState("");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState("");
-
-  // Check existing session & health status
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedAuth = sessionStorage.getItem("mcpa_admin_authenticated");
-      const savedUser = sessionStorage.getItem("mcpa_admin_user");
-      if (savedAuth === "true") {
-        setIsAuthenticated(true);
-        if (savedUser) {
-          try {
-            setCurrentUser(JSON.parse(savedUser));
-          } catch (e) {}
-        }
-      }
-      loadProjectsAndBriefs();
-      fetchHealthStatus();
-    }
-  }, []);
 
   const fetchHealthStatus = async () => {
     try {
@@ -137,73 +101,22 @@ export default function AdminPage() {
     }
   };
 
-  const loadProjectsAndBriefs = async () => {
-    // 1. Try to load from Backend API first
-    try {
-      const [projRes, briefsRes] = await Promise.allSettled([
-        fetch("/api/projects").then((r) => r.json()),
-        fetch("/api/briefs").then((r) => r.json()),
-      ]);
-
-      if (projRes.status === "fulfilled" && projRes.value?.success) {
-        const dbProjects = (projRes.value.projects || []).map((p) => ({
-          id: p.project_id || p.id,
-          name: p.name,
-          location: p.location,
-          year: p.year,
-          category: p.category,
-          description: p.description,
-          images: p.images || [],
-          isAdminAdded: true,
-        }));
-        setCustomProjects(dbProjects);
-        setAllProjects([...dbProjects, ...INITIAL_PROJECTS]);
-        localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(dbProjects));
-      } else {
-        fallbackLoadStoredProjects();
-      }
-
-      if (briefsRes.status === "fulfilled" && briefsRes.value?.success) {
-        const dbBriefs = (briefsRes.value.briefs || []).map((b) => ({
-          id: b.brief_id || b.id,
-          submissionId: b.submission_id,
-          clientName: b.client_name,
-          clientEmail: b.client_email,
-          clientPhone: b.client_phone,
-          projectType: b.project_type,
-          preferredStyle: b.preferred_style,
-          budgetRange: b.budget_range,
-          lotStatus: b.lot_status,
-          lotArea: b.lot_area,
-          targetDate: b.target_date,
-          location: b.location,
-          financingOption: b.financing_option,
-          uploadedFiles: b.uploaded_files || [],
-          status: b.status,
-          createdAt: b.created_at,
-        }));
-        setClientBriefs(dbBriefs);
-        localStorage.setItem("mcpa_client_briefs", JSON.stringify(dbBriefs));
-      } else {
-        fallbackLoadStoredBriefs();
-      }
-    } catch (e) {
-      fallbackLoadStoredProjects();
-      fallbackLoadStoredBriefs();
-    }
-  };
-
   const fallbackLoadStoredProjects = () => {
     try {
       const savedProjects = localStorage.getItem("mcpa_portfolio_projects");
       if (savedProjects) {
         const parsed = JSON.parse(savedProjects);
-        if (Array.isArray(parsed)) {
-          const adminOnly = parsed.filter((p) => p.isAdminAdded);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const unified = deduplicateProjects(parsed, INITIAL_PROJECTS);
+          const adminOnly = unified.filter((p) => p.isAdminAdded);
           setCustomProjects(adminOnly);
-          setAllProjects([...adminOnly, ...INITIAL_PROJECTS]);
+          setAllProjects(unified);
+          localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(unified));
+          return;
         }
       }
+      setCustomProjects([]);
+      setAllProjects(INITIAL_PROJECTS);
     } catch (e) {
       console.warn("Could not load stored projects:", e);
     }
@@ -222,6 +135,127 @@ export default function AdminPage() {
       console.warn("Could not load stored briefs:", e);
     }
   };
+
+  const loadProjectsAndBriefs = async () => {
+    // Try to load from Backend API first
+    try {
+      const [projRes, briefsRes, siteRes] = await Promise.allSettled([
+        fetch("/api/projects").then((r) => r.json()),
+        fetch("/api/briefs").then((r) => r.json()),
+        fetch("/api/construction/projects/MCPA-PLR-2024").then((r) => r.json()),
+      ]);
+
+      if (projRes.status === "fulfilled" && projRes.value?.success && projRes.value.projects?.length > 0) {
+        const dbProjects = projRes.value.projects.map((p) => ({
+          id: p.project_id || p.id,
+          name: p.name,
+          location: p.location,
+          year: p.year,
+          category: p.category,
+          description: p.description,
+          images: p.images || [],
+          isAdminAdded: Boolean(p.is_admin_added),
+        }));
+        const unified = deduplicateProjects(dbProjects, INITIAL_PROJECTS);
+        setCustomProjects(unified.filter((p) => p.isAdminAdded));
+        setAllProjects(unified);
+        localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(unified));
+      } else {
+        fallbackLoadStoredProjects();
+      }
+
+      if (briefsRes.status === "fulfilled" && briefsRes.value?.success) {
+        const dbBriefs = (briefsRes.value.briefs || []).map((b) => ({
+          id: b.brief_id || b.id,
+          submissionId: b.submission_id,
+          clientName: b.client_name,
+          clientEmail: b.client_email,
+          clientPhone: b.client_phone,
+          projectType: b.project_type,
+          preferredStyle: b.preferred_style,
+          budgetRange: b.budget_range,
+          lotStatus: b.lot_status,
+          lotArea: b.lot_area,
+          targetDate: b.target_date,
+          location: b.location,
+          mapCoordinates: b.map_coordinates,
+          locationType: b.location_type || "Local",
+          meetingMode: b.meeting_mode,
+          meetingDate: b.meeting_date,
+          meetingTime: b.meeting_time,
+          meetingLink: b.meeting_link,
+          meetingNotes: b.meeting_notes,
+          quotationAmount: b.quotation_amount,
+          quotationNotes: b.quotation_notes,
+          clientPortalCode: b.client_portal_code,
+          financingOption: b.financing_option,
+          uploadedFiles: b.uploaded_files || [],
+          status: b.status || "Pending Review",
+          createdAt: b.created_at,
+        }));
+        setClientBriefs(dbBriefs);
+        localStorage.setItem("mcpa_client_briefs", JSON.stringify(dbBriefs));
+      } else {
+        fallbackLoadStoredBriefs();
+      }
+
+      if (siteRes.status === "fulfilled" && siteRes.value?.success) {
+        setSiteProject(siteRes.value.project);
+        setSiteMilestones(siteRes.value.milestones || []);
+        setSitePhotos(siteRes.value.photos || []);
+        setBillingLedger(siteRes.value.billing || []);
+        setDelayEvents(siteRes.value.delays || []);
+        setWarrantyTickets(siteRes.value.warranty || []);
+        setSiteExpenses(siteRes.value.expenses || []);
+      }
+    } catch (e) {
+      fallbackLoadStoredProjects();
+      fallbackLoadStoredBriefs();
+    }
+  };
+
+  // Check existing session, health status & live clock
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const initAdmin = async () => {
+        const savedAuth = sessionStorage.getItem("mcpa_admin_authenticated");
+        const savedUser = sessionStorage.getItem("mcpa_admin_user");
+        if (savedAuth === "true") {
+          setIsAuthenticated(true);
+          if (savedUser) {
+            try {
+              setCurrentUser(JSON.parse(savedUser));
+            } catch (e) {}
+          }
+        }
+        const savedCollapsed = localStorage.getItem("mcpa_admin_sidebar_collapsed");
+        if (savedCollapsed !== null) {
+          setIsSidebarCollapsed(savedCollapsed === "true");
+        }
+        loadProjectsAndBriefs();
+        fetchHealthStatus();
+      };
+
+      initAdmin();
+
+      const updateClock = () => {
+        const now = new Date();
+        setCurrentTime(
+          now.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          })
+        );
+      };
+      updateClock();
+      const timer = setInterval(updateClock, 10000);
+      return () => clearInterval(timer);
+    }
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -297,11 +331,12 @@ export default function AdminPage() {
   };
 
   const handleAddProject = async (newProject) => {
-    const updatedCustom = [newProject, ...customProjects];
+    const updatedCustom = [newProject, ...customProjects.filter((p) => p.id !== newProject.id)];
     setCustomProjects(updatedCustom);
-    setAllProjects([newProject, ...allProjects]);
+    const updatedAll = [newProject, ...allProjects.filter((p) => p.id !== newProject.id)];
+    setAllProjects(updatedAll);
     try {
-      localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedCustom));
+      localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
       showToast(`Successfully published "${newProject.name}" to public portfolio!`);
     } catch (err) {
       console.warn("Error saving project locally:", err);
@@ -324,10 +359,11 @@ export default function AdminPage() {
 
     const updatedCustom = customProjects.filter((p) => p.id !== projectId);
     setCustomProjects(updatedCustom);
-    setAllProjects([...updatedCustom, ...INITIAL_PROJECTS]);
+    const updatedAll = allProjects.filter((p) => p.id !== projectId);
+    setAllProjects(updatedAll);
 
     try {
-      localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedCustom));
+      localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
       showToast(`Removed "${projectName}" from portfolio.`);
     } catch (err) {
       console.warn("Error updating project list:", err);
@@ -341,9 +377,9 @@ export default function AdminPage() {
     }
   };
 
-  const handleUpdateBriefStatus = async (briefId, newStatus) => {
+  const handleUpdateBriefStatus = async (briefId, newStatus, extraData = {}) => {
     const updated = clientBriefs.map((b) =>
-      b.id === briefId ? { ...b, status: newStatus } : b
+      b.id === briefId ? { ...b, status: newStatus, ...extraData } : b
     );
     setClientBriefs(updated);
     try {
@@ -358,10 +394,29 @@ export default function AdminPage() {
       await fetch(`/api/briefs/${briefId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, ...extraData }),
       });
     } catch (e) {
       console.warn("Could not update brief in backend:", e);
+    }
+  };
+
+  const handleProvisionAccess = async (briefId) => {
+    try {
+      const res = await fetch(`/api/briefs/${briefId}/provision`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        const updated = clientBriefs.map((b) =>
+          b.id === briefId ? { ...b, clientPortalCode: data.portalCode, status: "Approved / Accepted" } : b
+        );
+        setClientBriefs(updated);
+        localStorage.setItem("mcpa_client_briefs", JSON.stringify(updated));
+        showToast(`Access provisioned! Client Code: ${data.portalCode}`);
+      } else {
+        showToast(data.message || "Failed to provision access.");
+      }
+    } catch (err) {
+      showToast("Provisioning error: could not reach backend.");
     }
   };
 
@@ -384,22 +439,103 @@ export default function AdminPage() {
     }
   };
 
+  // Construction Handlers
+  const handleUpdateMilestone = async (milestoneId, data) => {
+    try {
+      const res = await fetch(`/api/construction/milestones/${milestoneId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        // Refresh site project data
+        const siteRes = await fetch("/api/construction/projects/MCPA-PLR-2024").then((r) => r.json());
+        if (siteRes.success) {
+          setSiteProject(siteRes.project);
+          setSiteMilestones(siteRes.milestones || []);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not sync milestone update:", e);
+    }
+  };
+
+  const handleAddPhoto = async (photoData) => {
+    try {
+      const res = await fetch("/api/construction/photos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(photoData),
+      });
+      const data = await res.json();
+      if (data.success && data.log) {
+        setSitePhotos([data.log, ...sitePhotos]);
+      }
+    } catch (e) {
+      console.warn("Could not add photo to backend:", e);
+    }
+  };
+
+  const handleVerifyPayment = async (billId) => {
+    try {
+      const res = await fetch(`/api/construction/billing/${billId}/verify`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.success && data.entry) {
+        const updated = billingLedger.map((b) => (b.bill_id === billId ? data.entry : b));
+        setBillingLedger(updated);
+      }
+    } catch (e) {
+      console.warn("Could not verify payment on backend:", e);
+    }
+  };
+
+  const handleLogDelay = async (delayData) => {
+    try {
+      const res = await fetch("/api/construction/delays", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(delayData),
+      });
+      const data = await res.json();
+      if (data.success && data.delay) {
+        setDelayEvents([data.delay, ...delayEvents]);
+        const siteRes = await fetch("/api/construction/projects/MCPA-PLR-2024").then((r) => r.json());
+        if (siteRes.success) {
+          setSiteProject(siteRes.project);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not log delay on backend:", e);
+    }
+  };
+
+  const handleUpdateWarranty = async (ticketId, status) => {
+    try {
+      await fetch(`/api/construction/warranty/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+    } catch (e) {
+      console.warn("Could not update warranty status on backend:", e);
+    }
+  };
+
   // =========================================================================
   // 1. SECURITY PIN GATE (For unauthenticated users)
   // =========================================================================
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#f8f7f5] dark:bg-neutral-950 text-neutral-900 dark:text-white flex flex-col items-center justify-center px-4 relative overflow-hidden transition-colors duration-500">
-        {/* Floating ThemeToggle in top right */}
-        <div className="absolute top-6 right-6 z-20">
-          <ThemeToggle className="text-neutral-700 dark:text-white hover:text-amber-500 dark:hover:text-amber-400" />
-        </div>
+      <div className="min-h-screen bg-white dark:bg-[#09090b] text-neutral-900 dark:text-white flex flex-col items-center justify-center px-4 relative overflow-hidden transition-colors duration-500">
+        {/* Ambient Subtle Radial Glow */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-[140px] pointer-events-none" />
 
-        {/* Background glow & architectural grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none" />
-
-        <div className="relative z-10 w-full max-w-md p-8 sm:p-10 rounded-3xl bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 shadow-2xl backdrop-blur-xl transition-colors">
+        <div className="relative z-10 w-full max-w-md p-8 sm:p-10 rounded-3xl bg-white/95 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 shadow-2xl backdrop-blur-xl transition-colors">
           {/* Brand Logo & Lock Badge */}
           <div className="flex flex-col items-center text-center mb-8">
             <div className="relative w-44 h-10 mb-6">
@@ -423,11 +559,6 @@ export default function AdminPage() {
               />
             </div>
 
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] font-mono tracking-widest uppercase mb-3">
-              <LockIcon className="w-3.5 h-3.5" />
-              <span>Restricted Admin Portal</span>
-            </div>
-
             <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
               Administrative Access
             </h1>
@@ -444,7 +575,7 @@ export default function AdminPage() {
           )}
 
           {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} autoComplete="off" className="space-y-4">
             {/* Registered Email */}
             <div>
               <label
@@ -459,10 +590,10 @@ export default function AdminPage() {
                   type="email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="admin@mcpa.com"
-                  autoFocus
+                  placeholder="example.com"
+                  autoComplete="off"
                   required
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 font-mono text-sm transition-colors"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono text-sm transition-colors"
                 />
                 <MailIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
               </div>
@@ -493,7 +624,7 @@ export default function AdminPage() {
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-10 pr-11 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 font-mono text-sm tracking-wider transition-colors"
+                  className="w-full pl-10 pr-11 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono text-sm tracking-wider transition-colors"
                 />
                 <KeyRoundIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
                 <button
@@ -511,7 +642,7 @@ export default function AdminPage() {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer mt-2"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer mt-2"
             >
               {isLoggingIn ? (
                 <>
@@ -527,22 +658,12 @@ export default function AdminPage() {
             </button>
           </form>
 
-          {/* Cloud Architecture Status Badge */}
-          <div className="mt-6 pt-5 border-t border-neutral-200 dark:border-white/5 flex flex-col items-center text-center gap-1.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-[10px] font-mono text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Primary: Azure PostgreSQL · Backup: Supabase</span>
-            </div>
-            <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono">
-              Cloud Storage: Azure Blob Storage (Tier 1)
-            </p>
-          </div>
 
           {/* Back to Client Site */}
           <div className="mt-6 text-center">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-mono"
+              className="inline-flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-mono cursor-pointer"
             >
               <ArrowLeftIcon className="w-3.5 h-3.5" />
               <span>Return to Public Client Website</span>
@@ -569,155 +690,391 @@ export default function AdminPage() {
   // =========================================================================
   // 2. AUTHENTICATED ADMIN DASHBOARD
   // =========================================================================
+  const navItems = [
+    { id: "briefs", label: "Inquiries Pipeline", icon: ClipboardListIcon, badge: clientBriefs.length },
+    { id: "construction", label: "Site Execution & 360°", icon: HardHatIcon },
+    { id: "billing", label: "Milestone Billing & OR", icon: CreditCardIcon },
+    { id: "delays", label: "Delay Management", icon: ClockIcon },
+    { id: "ocr", label: "AI Expense OCR", icon: ScanLineIcon, badge: siteExpenses?.length || undefined },
+    { id: "warranty", label: "Warranty Tickets", icon: WrenchIcon, badge: warrantyTickets?.length || undefined },
+    { id: "portfolio", label: "Portfolio Showcase", icon: FolderKanbanIcon, badge: allProjects?.length },
+    { id: "company", label: "HQ & Credentials", icon: Building2Icon },
+  ];
+
+  const currentTabInfo = navItems.find((n) => n.id === activeTab) || navItems[0];
+
   return (
-    <div className="min-h-screen bg-[#f8f7f5] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col font-sans transition-colors duration-500">
+    <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex font-sans transition-colors duration-300">
       {/* Toast Notification */}
       {successToast && (
-        <div className="fixed top-20 right-6 z-50 px-4 py-3 rounded-2xl bg-amber-500 text-neutral-950 font-semibold text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-6 right-6 z-50 px-4 py-3 rounded-2xl bg-emerald-500 text-neutral-950 border border-emerald-400 font-bold text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
           <CheckIcon className="w-4 h-4 shrink-0" />
           <span>{successToast}</span>
         </div>
       )}
 
-      {/* Top Navigation Header */}
-      <header className="sticky top-0 z-40 bg-white/85 dark:bg-black/80 backdrop-blur-md border-b border-neutral-200 dark:border-white/10 px-4 sm:px-8 py-3.5 transition-colors">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="relative w-36 sm:w-44 h-9">
-              {/* Light Mode Logo */}
-              <Image
-                src="/assets/mcpa-logo.png"
-                alt="MCPA Construction"
-                fill
-                className="object-contain object-left block dark:hidden"
-                sizes="176px"
-              />
-              {/* Dark Mode Logo */}
-              <Image
-                src="/assets/logo-white.png"
-                alt="MCPA Construction"
-                fill
-                className="object-contain object-left hidden dark:block"
-                sizes="176px"
-              />
-            </Link>
-            <span className="hidden sm:inline-block px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-[10px] tracking-wider uppercase font-bold">
-              Admin Console
-            </span>
-            {/* Active Cloud DB Indicator */}
-            <div className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
-              <span className={`w-1.5 h-1.5 rounded-full ${activeDbProvider.includes("Azure") ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-pulse"}`} />
-              <span>{activeDbProvider.includes("Azure") ? "Azure PostgreSQL Primary" : activeDbProvider}</span>
+      {/* Mobile Sidebar Overlay */}
+      {isMobileSidebarOpen && (
+        <div
+          onClick={() => setIsMobileSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+        />
+      )}
+
+      {/* Left Sidebar Navigation (Drive&Go Design Architecture) */}
+      <aside
+        className={`fixed lg:sticky top-0 left-0 h-screen ${
+          isSidebarCollapsed ? "lg:w-20" : "lg:w-64"
+        } w-64 bg-white dark:bg-[#12141a] border-r border-neutral-200 dark:border-white/5 flex flex-col justify-between z-50 transition-all duration-300 shrink-0 ${
+          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
+        {/* Top Brand Section: Real System Logo + Collapse/Expand Toggle */}
+        <div
+          className={`border-b border-neutral-200 dark:border-white/5 transition-all ${
+            isSidebarCollapsed
+              ? "p-3 flex flex-col items-center gap-2.5"
+              : "p-4 flex items-center justify-between gap-3"
+          }`}
+        >
+          {isSidebarCollapsed ? (
+            <>
+              {/* Real System Logo (Compact Emblem/Icon) - Floating Anti-Gravity Style */}
+              <div className="relative flex flex-col items-center group py-1">
+                <Link
+                  href="/"
+                  title="MCPA Construction and Supply"
+                  className="relative z-10 w-11 h-11 rounded-xl bg-white dark:bg-[#181a24] border border-neutral-200/90 dark:border-white/10 p-1 flex items-center justify-center shrink-0 shadow-lg shadow-black/10 dark:shadow-black/50 hover:border-neutral-900 dark:hover:border-white transition-all animate-floating-emblem overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-neutral-500/10 via-transparent to-transparent pointer-events-none" />
+                  <Image
+                    src="/assets/mcpa-logo.png"
+                    alt="MCPA System Logo"
+                    fill
+                    priority
+                    className="object-contain p-1.5 block dark:hidden"
+                    sizes="44px"
+                  />
+                  <Image
+                    src="/assets/logo-white.png"
+                    alt="MCPA System Logo"
+                    fill
+                    priority
+                    className="object-contain p-1.5 hidden dark:block"
+                    sizes="44px"
+                  />
+                </Link>
+                {/* Dynamic Floating Shadow Puddle Underneath */}
+                <div className="w-7 h-1.5 bg-black/25 dark:bg-white/20 rounded-full blur-[2px] mt-1 transition-all animate-floating-shadow pointer-events-none" />
+              </div>
+              <button
+                onClick={toggleSidebarCollapse}
+                className="hidden lg:flex p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-all cursor-pointer"
+                title="Expand Navigation (Show Labels)"
+                aria-label="Expand Sidebar"
+              >
+                <ChevronRightIcon className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Real System Logo (Full Brand Banner) */}
+              <Link
+                href="/"
+                title="MCPA Construction and Supply"
+                className="flex items-center gap-2.5 min-w-0 group"
+              >
+                <div className="relative w-32 sm:w-36 h-9 transition-transform group-hover:scale-105 shrink-0">
+                  <Image
+                    src="/assets/mcpa-logo.png"
+                    alt="MCPA Construction and Supply"
+                    fill
+                    priority
+                    className="object-contain object-left block dark:hidden"
+                    sizes="144px"
+                  />
+                  <Image
+                    src="/assets/logo-white.png"
+                    alt="MCPA Construction and Supply"
+                    fill
+                    priority
+                    className="object-contain object-left hidden dark:block"
+                    sizes="144px"
+                  />
+                </div>
+              </Link>
+              <button
+                onClick={toggleSidebarCollapse}
+                className="hidden lg:flex p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                title="Collapse Navigation (Icons Only)"
+                aria-label="Collapse Sidebar"
+              >
+                <ChevronLeftIcon className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Vertical Navigation Menu Links: Panel Icons */}
+        <nav
+          className={`flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden ${
+            isSidebarCollapsed ? "p-2" : "p-3"
+          }`}
+        >
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <div key={item.id} className="relative group flex justify-center">
+                <button
+                  id={`tab-btn-${item.id}`}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  title={item.label}
+                  className={`w-full flex items-center rounded-xl text-xs font-mono tracking-wide transition-all cursor-pointer relative ${
+                    isSidebarCollapsed
+                      ? "h-11 justify-center px-0"
+                      : "justify-between px-3.5 py-2.5"
+                  } ${
+                    isActive
+                      ? "bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/20"
+                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04] border border-transparent"
+                  }`}
+                >
+                  <div
+                    className={`flex items-center min-w-0 ${
+                      isSidebarCollapsed ? "justify-center" : "gap-3"
+                    }`}
+                  >
+                    <Icon
+                      className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                        isActive
+                          ? "text-neutral-950"
+                          : "text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500"
+                      }`}
+                    />
+                    {!isSidebarCollapsed && (
+                      <span className="truncate">{item.label}</span>
+                    )}
+                  </div>
+
+                  {item.badge !== undefined && item.badge > 0 && (
+                    isSidebarCollapsed ? (
+                      <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-amber-500 text-neutral-950 font-bold text-[9px] flex items-center justify-center ring-2 ring-white dark:ring-[#12141a] shadow-xs">
+                        {item.badge}
+                      </span>
+                    ) : (
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shrink-0 ${
+                          isActive
+                            ? "bg-neutral-950 text-white dark:bg-neutral-950 dark:text-white"
+                            : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )
+                  )}
+                </button>
+
+                {/* Floating Tooltip in Collapsed Mode */}
+                {isSidebarCollapsed && (
+                  <div className="hidden lg:flex absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono font-medium shadow-2xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 items-center gap-2">
+                    <span>{item.label}</span>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-neutral-950 font-bold text-[9px]">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Bottom User Profile Section & Logout */}
+        <div
+          className={`border-t border-neutral-200 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] ${
+            isSidebarCollapsed ? "p-3 flex flex-col items-center gap-3" : "p-4 space-y-3"
+          }`}
+        >
+          {isSidebarCollapsed ? (
+            <>
+              <div
+                className="relative group cursor-pointer"
+                title={`${currentUser?.name || "Raymart Quirante"} (${currentUser?.role || "ADMIN"})`}
+              >
+                <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
+                  {currentUser?.name
+                    ? currentUser.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()
+                    : "RQ"}
+                </div>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#12141a] animate-pulse" />
+
+                {/* Tooltip */}
+                <div className="hidden lg:block absolute left-full bottom-0 ml-3 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-2xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                  <p className="font-bold">{currentUser?.name || "Raymart Quirante"}</p>
+                  <p className="text-[10px] text-neutral-400 uppercase">{currentUser?.role || "ADMIN"}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                title="Log Out"
+                aria-label="Log Out"
+                className="w-10 h-10 flex items-center justify-center rounded-xl text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-neutral-200/60 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 transition-all cursor-pointer group"
+              >
+                <LogOutIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
+                  {currentUser?.name
+                    ? currentUser.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()
+                    : "RQ"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                    {currentUser?.name || "Raymart Quirante"}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      {currentUser?.role || "SUPER ADMIN"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-neutral-200 dark:border-white/10 transition-all cursor-pointer"
+              >
+                <LogOutIcon className="w-3.5 h-3.5" />
+                <span>Log Out</span>
+              </button>
+            </>
+          )}
+        </div>
+      </aside>
+
+      {/* Right Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+        {/* Top Header Bar */}
+        <header className="sticky top-0 z-30 h-16 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-md border-b border-neutral-200 dark:border-white/5 px-4 sm:px-8 flex items-center justify-between gap-4 transition-colors">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-xl text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              aria-label="Open Sidebar"
+            >
+              <MenuIcon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={toggleSidebarCollapse}
+              className="hidden lg:flex p-2 rounded-xl text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              title={isSidebarCollapsed ? "Expand Sidebar (Show Labels)" : "Collapse Sidebar (Icons Only)"}
+              aria-label="Toggle Sidebar"
+            >
+              {isSidebarCollapsed ? (
+                <ChevronRightIcon className="w-4 h-4" />
+              ) : (
+                <ChevronLeftIcon className="w-4 h-4" />
+              )}
+            </button>
+            <div>
+              <h1 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white tracking-tight flex items-center gap-2">
+                <span>{currentTabInfo.label}</span>
+              </h1>
+              <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 hidden sm:block">
+                MCPA Integrated Construction &amp; SAAD Management
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <ThemeToggle className="text-neutral-700 dark:text-white hover:text-amber-500 dark:hover:text-amber-400" />
+          <div className="flex items-center gap-2.5 sm:gap-4">
+            {/* Live Formatted Clock */}
+            {currentTime && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/5 text-[11px] font-mono text-neutral-600 dark:text-neutral-300">
+                <ClockIcon className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
+                <span>{currentTime}</span>
+              </div>
+            )}
+
             <Link
               href="/"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-white/10 hover:border-amber-500/30"
+              className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-white/10 hover:border-amber-500/50"
               title="Open the client-facing website in a new tab"
             >
-              <span>View Public Site</span>
+              <span className="hidden sm:inline">View Public Site</span>
               <ExternalLinkIcon className="w-3.5 h-3.5" />
             </Link>
-
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-white/10 hover:border-rose-500/30 cursor-pointer"
-            >
-              <LockIcon className="w-3.5 h-3.5" />
-              <span>Lock Portal</span>
-            </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Stats Ribbon */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/5 shadow-sm dark:shadow-none">
-            <span className="text-xs font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1">
-              Total Showcase Projects
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-neutral-900 dark:text-white">{allProjects.length}</span>
-              <span className="text-xs text-amber-600 dark:text-amber-400 font-mono">Live on Client Site</span>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/5 shadow-sm dark:shadow-none">
-            <span className="text-xs font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1">
-              Custom Admin Uploads
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{customProjects.length}</span>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">Managed via Portal</span>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/5 shadow-sm dark:shadow-none">
-            <span className="text-xs font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1">
-              Client Inquiries / Leads
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">{clientBriefs.length}</span>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">Consultation Briefs</span>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/5 shadow-sm dark:shadow-none">
-            <span className="text-xs font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1">
-              Security Status
-            </span>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 uppercase font-bold">
-                Client Access Isolated
+        {/* Main Content Body */}
+        <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto space-y-8">
+          {/* Quick Stats Ribbon */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/5 shadow-sm dark:shadow-none">
+              <span className="text-xs font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1">
+                Total Showcase Projects
               </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-neutral-900 dark:text-white">{allProjects.length}</span>
+                <span className="text-xs text-neutral-600 dark:text-neutral-400 font-mono">Live on Client Site</span>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/5 shadow-sm dark:shadow-none">
+              <span className="text-xs font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1">
+                Custom Admin Uploads
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-amber-500">{customProjects.length}</span>
+                <span className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">Managed via Portal</span>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/5 shadow-sm dark:shadow-none">
+              <span className="text-xs font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1">
+                Client Inquiries / Leads
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-amber-500">{clientBriefs.length}</span>
+                <span className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">Consultation Briefs</span>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/5 shadow-sm dark:shadow-none">
+              <span className="text-xs font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1">
+                Security Status
+              </span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 uppercase font-bold">
+                  Client Access Isolated
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="flex border-b border-neutral-200 dark:border-white/10 mb-8 overflow-x-auto">
-          <button
-            id="tab-btn-portfolio"
-            onClick={() => setActiveTab("portfolio")}
-            className={`pb-4 px-4 text-xs font-mono uppercase tracking-wider transition-all border-b-2 font-bold cursor-pointer whitespace-nowrap ${
-              activeTab === "portfolio"
-                ? "border-amber-500 text-amber-600 dark:text-amber-400"
-                : "border-transparent text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-            }`}
-          >
-            Portfolio Management ({allProjects.length})
-          </button>
-          <button
-            id="tab-btn-briefs"
-            onClick={() => setActiveTab("briefs")}
-            className={`pb-4 px-4 text-xs font-mono uppercase tracking-wider transition-all border-b-2 font-bold cursor-pointer whitespace-nowrap ${
-              activeTab === "briefs"
-                ? "border-amber-500 text-amber-600 dark:text-amber-400"
-                : "border-transparent text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-            }`}
-          >
-            Client Consultation Briefs ({clientBriefs.length})
-          </button>
-          <button
-            id="tab-btn-company"
-            onClick={() => setActiveTab("company")}
-            className={`pb-4 px-4 text-xs font-mono uppercase tracking-wider transition-all border-b-2 font-bold cursor-pointer whitespace-nowrap ${
-              activeTab === "company"
-                ? "border-amber-500 text-amber-600 dark:text-amber-400"
-                : "border-transparent text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-            }`}
-          >
-            HQ & Security Info
-          </button>
-        </div>
 
         {/* ================================================================= */}
         {/* TAB 1: PORTFOLIO MANAGEMENT                                       */}
@@ -736,7 +1093,7 @@ export default function AdminPage() {
 
               <button
                 onClick={() => setIsUploadModalOpen(true)}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs font-mono uppercase tracking-wider transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs font-mono uppercase tracking-wider transition-all cursor-pointer shadow-md shadow-amber-500/20"
               >
                 <PlusIcon className="w-4 h-4" />
                 <span>+ Upload New Project</span>
@@ -758,8 +1115,8 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200 dark:divide-white/5 text-neutral-800 dark:text-neutral-200">
-                    {allProjects.map((project) => (
-                      <tr key={project.id} className="hover:bg-neutral-50 dark:hover:bg-white/[0.02] transition-colors">
+                    {allProjects.map((project, idx) => (
+                      <tr key={project.id ?? `admin-proj-${idx}`} className="hover:bg-neutral-50 dark:hover:bg-white/[0.02] transition-colors">
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
                             <div className="relative w-14 h-10 rounded-lg overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 shrink-0">
@@ -784,7 +1141,7 @@ export default function AdminPage() {
                           </div>
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className="px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-mono text-[10px] uppercase">
+                          <span className="px-2.5 py-1 rounded-md bg-neutral-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-neutral-800 dark:text-neutral-300 font-mono text-[10px] uppercase">
                             {project.category}
                           </span>
                         </td>
@@ -830,119 +1187,76 @@ export default function AdminPage() {
         )}
 
         {/* ================================================================= */}
-        {/* TAB 2: CLIENT CONSULTATION BRIEFS & LEADS                         */}
+        {/* TAB: INQUIRIES PIPELINE & FLOWCHART LIFECYCLE                     */}
         {/* ================================================================= */}
         {activeTab === "briefs" && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-neutral-900 dark:text-white uppercase tracking-tight">
-                  Client Inquiries & Consultation Leads
-                </h2>
-                <p className="text-xs text-neutral-600 dark:text-neutral-400 font-light">
-                  Submitted via the Smart Pre-Consultation Booking portal by prospective homeowners and investors.
-                </p>
-              </div>
+          <InquiryPipelineTab
+            clientBriefs={clientBriefs}
+            onUpdateStatus={handleUpdateBriefStatus}
+            onProvisionAccess={handleProvisionAccess}
+            onDeleteBrief={handleDeleteBrief}
+            showToast={showToast}
+          />
+        )}
 
-              {clientBriefs.length > 0 && (
-                <button
-                  onClick={() => {
-                    if (confirm("Clear all client inquiries from local memory?")) {
-                      localStorage.removeItem("mcpa_client_briefs");
-                      setClientBriefs([]);
-                      showToast("All consultation briefs cleared.");
-                    }
-                  }}
-                  className="px-3.5 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:border-rose-500/40 text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-mono uppercase transition-colors cursor-pointer"
-                >
-                  Clear All Leads
-                </button>
-              )}
-            </div>
+        {/* ================================================================= */}
+        {/* TAB: SITE PROGRESS, 360° TOUR & VISUAL PROOF OF LIFE              */}
+        {/* ================================================================= */}
+        {activeTab === "construction" && (
+          <SiteProgressTab
+            project={siteProject}
+            milestones={siteMilestones}
+            photos={sitePhotos}
+            onUpdateMilestone={handleUpdateMilestone}
+            onAddPhoto={handleAddPhoto}
+            showToast={showToast}
+          />
+        )}
 
-            {clientBriefs.length === 0 ? (
-              <div className="p-12 text-center rounded-2xl border border-dashed border-neutral-300 dark:border-white/10 bg-neutral-100/60 dark:bg-neutral-900/40">
-                <UserIcon className="w-10 h-10 text-neutral-400 dark:text-neutral-600 mx-auto mb-3" />
-                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white uppercase tracking-wider font-mono">
-                  No Client Inquiries Yet
-                </h3>
-                <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400 max-w-sm mx-auto">
-                  When clients submit the Pre-Consultation form at <code className="text-amber-600 dark:text-amber-400 font-bold">/book</code>, their contact and project specifications will appear here.
-                </p>
-                <Link
-                  href="/book"
-                  target="_blank"
-                  className="mt-4 inline-flex items-center gap-1.5 text-xs font-mono text-amber-600 dark:text-amber-400 hover:underline"
-                >
-                  <span>Test Booking Form</span>
-                  <ExternalLinkIcon className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {clientBriefs.map((brief) => (
-                  <div
-                    key={brief.id}
-                    className="p-5 rounded-2xl bg-white dark:bg-neutral-900/90 border border-neutral-200 dark:border-white/10 space-y-4 shadow-sm dark:shadow-lg"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold uppercase tracking-widest block">
-                          {brief.id}
-                        </span>
-                        <h3 className="text-lg font-bold text-neutral-900 dark:text-white mt-0.5">
-                          {brief.clientName || "Prospective Client"}
-                        </h3>
-                      </div>
+        {/* ================================================================= */}
+        {/* TAB: BILLING LEDGER, PROOF VERIFICATION & DIGITAL OR             */}
+        {/* ================================================================= */}
+        {activeTab === "billing" && (
+          <BillingLedgerTab
+            project={siteProject}
+            billing={billingLedger}
+            onVerifyPayment={handleVerifyPayment}
+            showToast={showToast}
+          />
+        )}
 
-                      <select
-                        value={brief.status || "Pending Consultation Review"}
-                        onChange={(e) => handleUpdateBriefStatus(brief.id, e.target.value)}
-                        className="text-[11px] font-mono rounded-lg px-2.5 py-1 bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/15 text-amber-700 dark:text-amber-400 focus:outline-none focus:border-amber-500 cursor-pointer"
-                      >
-                        <option value="Pending Consultation Review">Pending Review</option>
-                        <option value="Contacted / Scheduled">Contacted / Scheduled</option>
-                        <option value="Site Inspection Completed">Site Inspection Done</option>
-                        <option value="Proposal Approved">Proposal Approved</option>
-                      </select>
-                    </div>
+        {/* ================================================================= */}
+        {/* TAB: CRITICAL PATH DELAY LOGGER & DYNAMIC TURNOVER RECALCULATOR   */}
+        {/* ================================================================= */}
+        {activeTab === "delays" && (
+          <DelayManagementTab
+            project={siteProject}
+            delays={delayEvents}
+            onLogDelay={handleLogDelay}
+            showToast={showToast}
+          />
+        )}
 
-                    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                      <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-black/40 border border-neutral-200 dark:border-white/5">
-                        <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block uppercase">Phone</span>
-                        <span className="text-neutral-900 dark:text-white font-semibold">{brief.clientPhone || "—"}</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-black/40 border border-neutral-200 dark:border-white/5">
-                        <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block uppercase">Email</span>
-                        <span className="text-neutral-900 dark:text-white font-semibold truncate block">{brief.clientEmail || "—"}</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-black/40 border border-neutral-200 dark:border-white/5">
-                        <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block uppercase">Style</span>
-                        <span className="text-amber-700 dark:text-amber-400 font-semibold">{brief.preferredStyle || "Contemporary"}</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-black/40 border border-neutral-200 dark:border-white/5">
-                        <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block uppercase">Financing</span>
-                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold truncate block">{brief.financingOption || "Build Now Pay Later"}</span>
-                      </div>
-                    </div>
+        {/* ================================================================= */}
+        {/* TAB: HARDWARE EXPENSE RECEIPT SCANNER (AI OCR)                    */}
+        {/* ================================================================= */}
+        {activeTab === "ocr" && (
+          <AiReceiptScannerTab
+            projectCode={siteProject?.project_code || "MCPA-PLR-2024"}
+            expenses={siteExpenses}
+            showToast={showToast}
+          />
+        )}
 
-                    <div className="text-xs text-neutral-600 dark:text-neutral-300 font-light flex items-center justify-between pt-2 border-t border-neutral-200 dark:border-white/5">
-                      <span className="text-neutral-500 text-[10px] font-mono">
-                        {brief.timestamp ? new Date(brief.timestamp).toLocaleString() : "Recent"}
-                      </span>
-
-                      <button
-                        onClick={() => handleDeleteBrief(brief.id)}
-                        className="text-rose-600 dark:text-rose-400 hover:text-rose-500 dark:hover:text-rose-300 text-[11px] font-mono uppercase cursor-pointer"
-                      >
-                        Remove Lead
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+        {/* ================================================================= */}
+        {/* TAB: POST-CONSTRUCTION WARRANTY & MAINTENANCE TICKETING           */}
+        {/* ================================================================= */}
+        {activeTab === "warranty" && (
+          <WarrantyTicketsTab
+            warranty={warrantyTickets}
+            onUpdateStatus={handleUpdateWarranty}
+            showToast={showToast}
+          />
         )}
 
         {/* ================================================================= */}
@@ -971,7 +1285,7 @@ export default function AdminPage() {
                   href="https://maps.app.goo.gl/hPB6X66NdhViSvCp7"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:text-amber-600 dark:hover:text-amber-400 font-mono"
+                  className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:text-amber-600 dark:hover:text-amber-400 font-mono transition-colors"
                 >
                   <GoogleMapsPinIcon className="w-3.5 h-3.5" />
                   <span>Open Active Link</span>
@@ -991,12 +1305,13 @@ export default function AdminPage() {
 
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono uppercase text-neutral-500 dark:text-neutral-400">Warranty & Scope</span>
-                <span className="text-xs font-mono text-amber-600 dark:text-amber-400">Design & Build · In-House Supply · 5-Yr Warranty</span>
+                <span className="text-xs font-mono text-amber-600 dark:text-amber-400 font-medium">Design & Build · In-House Supply · 5-Yr Warranty</span>
               </div>
             </div>
           </div>
         )}
       </main>
+      </div>
 
       {/* Admin Upload Modal Component */}
       <AdminUploadModal

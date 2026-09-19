@@ -41,22 +41,22 @@ export default function ScrollVideoHero({ onCompletionChange }) {
     <section
       id="top"
       ref={containerRef}
-      className="relative w-full h-[700vh] bg-neutral-950 overscroll-y-contain"
+      className="relative w-full h-[400vh] bg-neutral-950 overscroll-y-contain"
     >
-      {/* Sticky Viewport Frame (Stays pinned during the 6-scroll build journey, 7th scroll finishes) */}
+      {/* Sticky Viewport Frame (Stays pinned during the 3-scroll build journey, 4th scroll enters homepage) */}
       <div className="sticky top-0 w-full h-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none [contain:layout_paint]">
         {/* 1. Interactive Video Canvas / Player */}
         <div
           onClick={() => {
-            if (currentStep < 6) {
+            if (!isCompleted) {
               nextStep();
             }
           }}
-          className={`relative w-full h-full bg-neutral-950 ${currentStep < 6 ? "cursor-pointer" : ""}`}
+          className={`relative w-full h-full bg-neutral-950 ${!isCompleted ? "cursor-pointer" : ""}`}
         >
           <video
             ref={videoRef}
-            src={videoSrc || rawVideoSrc}
+            src={rawVideoSrc}
             poster="/videos/test_frame.webp"
             playsInline
             muted
@@ -68,16 +68,6 @@ export default function ScrollVideoHero({ onCompletionChange }) {
             onCanPlay={handleVideoLoadedMetadata}
             className="w-full h-full object-cover transition-opacity duration-700 [contain:paint] transform-gpu"
           />
-
-          {/* Minimalist buffering badge - fades away once ready */}
-          {!videoLoaded && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-950/70 backdrop-blur-[2px] text-neutral-400 transition-opacity duration-500 z-10 pointer-events-none">
-              <div className="w-8 h-8 border-2 border-brand-yellow border-t-transparent rounded-full animate-spin mb-3" />
-              <p className="text-xs uppercase tracking-widest font-mono text-neutral-300">
-                Loading Construction Engine...
-              </p>
-            </div>
-          )}
 
           {/* Cinematic lighting gradient overlays */}
           <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-neutral-950/85 via-black/20 to-neutral-950/40" />

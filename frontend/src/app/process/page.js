@@ -11,6 +11,12 @@ import {
   CheckIcon,
   MapPinIcon,
   SparkleBadgeIcon,
+  ListChecksIcon,
+  TruckIcon,
+  SmartphoneIcon,
+  CompassIcon,
+  FileSignatureIcon,
+  KeyIcon,
 } from "@/modules/shared/Icons";
 
 export default function ProcessPage() {
@@ -18,6 +24,7 @@ export default function ProcessPage() {
     {
       step: "01",
       badge: "Phase 1: Due Diligence",
+      icon: <CompassIcon className="w-5 h-5 text-amber-500" />,
       title: "Discovery, Lot Profiling & Site Verification",
       subtitle: "Soil bearing analysis, geodetic boundaries & initial brief",
       desc: "Before a single nail is hammered, our licensed engineers evaluate your titled property across Bulacan, Metro Manila, or Central Luzon to eliminate all structural and legal surprises.",
@@ -33,6 +40,7 @@ export default function ProcessPage() {
     {
       step: "02",
       badge: "Phase 2: Architectural CAD & BIM",
+      icon: <FileSignatureIcon className="w-5 h-5 text-amber-500" />,
       title: "Signed & Sealed Blueprints & Permitting",
       subtitle: "Full engineering calculations ready for municipal approval",
       desc: "Our licensed architects and structural engineers generate complete CAD blueprints and 3D photorealistic BIM models compliant with the National Building Code of the Philippines.",
@@ -48,6 +56,7 @@ export default function ProcessPage() {
     {
       step: "03",
       badge: "Phase 3: Heavy Structural Execution",
+      icon: <HardHatIcon className="w-5 h-5 text-amber-500" />,
       title: "Precision Construction & Supply Integration",
       subtitle: "In-house material logistics and weekly milestone photo logs",
       desc: "We build right and we build strong. Utilizing our direct in-house supply of PNS-certified Grade 60 steel rebars and ready-mix concrete, every milestone is verified with photographic logs.",
@@ -63,6 +72,7 @@ export default function ProcessPage() {
     {
       step: "04",
       badge: "Phase 4: Finishing & Handover",
+      icon: <KeyIcon className="w-5 h-5 text-amber-500" />,
       title: "Punchlisting, Occupancy & Ceremonial Turnover",
       subtitle: "Comprehensive quality audit and official key turnover",
       desc: "The milestone you've dreamed of. We conduct a rigorous 100-point joint engineering punchlist audit, secure municipal occupancy permits, and hand over your keys.",
@@ -79,17 +89,17 @@ export default function ProcessPage() {
 
   const pillars = [
     {
-      icon: <ShieldCheckIcon className="w-6 h-6 text-amber-500" />,
+      icon: <ListChecksIcon className="w-6 h-6 text-amber-500" />,
       title: "Milestone-Gated Releases",
       desc: "No subsequent construction phase begins without a verified engineering inspection sign-off and photographic confirmation.",
     },
     {
-      icon: <BuildingIcon className="w-6 h-6 text-amber-500" />,
+      icon: <TruckIcon className="w-6 h-6 text-amber-500" />,
       title: "Direct In-House Supply",
       desc: "Zero counterfeit materials. All rebars are Grade 60 PNS-certified and aggregates are delivered directly from our own logistics fleet.",
     },
     {
-      icon: <SparkleBadgeIcon className="w-6 h-6 text-amber-500" />,
+      icon: <SmartphoneIcon className="w-6 h-6 text-amber-500" />,
       title: "100% Digital Visibility",
       desc: "Real-time updates directly to your phone via Viber and our Client Portal, so you stay informed whether you're at work or overseas.",
     },
@@ -101,7 +111,7 @@ export default function ProcessPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col transition-colors duration-500">
+    <div className="chb-texture min-h-screen bg-[#f8f7f5] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col transition-colors duration-500">
       {/* Top Sticky Navigation */}
       <ClientNavbar isCompleted={true} />
 

@@ -27,7 +27,7 @@ export default function Button({
   };
 
   const baseClasses =
-    "inline-flex items-center justify-center rounded-xl uppercase transition-all duration-300 select-none cursor-pointer";
+    "inline-flex items-center justify-center rounded-xl uppercase transition-all duration-300 select-none cursor-pointer font-sans";
 
   const combined = `${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`;
 

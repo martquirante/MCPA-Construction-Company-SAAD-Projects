@@ -4,19 +4,21 @@ import { useState } from "react";
 import ClientNavbar from "@/modules/shared/ClientNavbar";
 import ScrollVideoHero from "./components/ScrollVideoHero";
 import QuickOverview from "./components/QuickOverview";
+import { getReturnToCompletedHome } from "./homeState";
 
 export default function HomePanel() {
-  const [heroCompleted, setHeroCompleted] = useState(false);
+  const isReturning = getReturnToCompletedHome();
+  const [heroCompleted, setHeroCompleted] = useState(isReturning);
 
   return (
-    <main className="w-full min-h-screen bg-[#f8f7f5] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-500">
+    <main className="w-full min-h-screen bg-white dark:bg-[#09090b] text-neutral-900 dark:text-neutral-100 transition-colors duration-500">
       {/* 0. Globally Fixed Client Navbar */}
       <ClientNavbar isCompleted={heroCompleted} />
 
-      {/* 1. Interactive Scroll-to-Build Hero Section (600vh) */}
+      {/* 1. Interactive 3-Scroll Video Build Hero Section (400vh) */}
       <ScrollVideoHero onCompletionChange={setHeroCompleted} />
 
-      {/* 2. Overview & Service Showcases Unlocked After Completion */}
+      {/* 2. Overview & Service Showcases */}
       <QuickOverview />
     </main>
   );

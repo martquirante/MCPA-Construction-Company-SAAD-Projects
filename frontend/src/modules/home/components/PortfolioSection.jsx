@@ -1,108 +1,82 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import ProjectCard from "./ProjectCard";
 import ScrollMorph from "../../shared/ScrollMorph";
-
-const INITIAL_PROJECTS = [
-  {
-    id: 1,
-    name: "Meridian Modern Residence",
-    location: "Plaridel, Bulacan",
-    year: "2024",
-    category: "Residential",
-    description: "Two-storey contemporary home with cantilevered balcony, reinforced concrete framing, perimeter fence, and complete turnkey architectural finishing.",
-    images: [
-      "https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1200&h=800&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1785746730462-74049651fa26?w=1200&h=800&fit=crop&auto=format",
-    ],
-  },
-  {
-    id: 2,
-    name: "Tabang Commercial Complex",
-    location: "Plaridel, Bulacan",
-    year: "2024",
-    category: "Commercial",
-    description: "Commercial facility and supply yard featuring high-spec structural steel trusses, modern storefront facades, and heavy-duty logistics access.",
-    images: [
-      "https://images.unsplash.com/photo-1706164971302-e30c0640cc3b?w=800&h=1200&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1783490244502-cd5f236e3780?w=800&h=1200&fit=crop&auto=format",
-    ],
-  },
-  {
-    id: 3,
-    name: "Grand Royale Executive Villa",
-    location: "Malolos, Bulacan",
-    year: "2023",
-    category: "Luxury Villa",
-    description: "Custom two-storey luxury home built with signed & sealed plans, bespoke granite finishes, premium fixtures, and a 5-year structural warranty.",
-    images: [
-      "https://images.unsplash.com/photo-1762811054947-605b20298615?w=800&h=600&fit=crop&auto=format",
-    ],
-  },
-  {
-    id: 4,
-    name: "Pampanga Zen Sanctuary",
-    location: "San Fernando, Pampanga",
-    year: "2023",
-    category: "Modern Zen",
-    description: "Tropical minimalist residence with high-ceiling living zones, climate-resilient roof overhangs, and funded via our Build Now, Pay Later program.",
-    images: [
-      "https://images.unsplash.com/photo-1657346088167-b982455bf29a?w=800&h=600&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1679364297777-1db77b6199be?w=800&h=600&fit=crop&auto=format",
-    ],
-  },
-  {
-    id: 5,
-    name: "North Industrial Logistics Hub",
-    location: "Guiguinto, Bulacan",
-    year: "2024",
-    category: "Commercial",
-    description: "Heavy-duty commercial warehouse with high-load concrete flooring, post-tensioned spans, and direct batch-tested construction supply materials.",
-    images: [
-      "https://images.unsplash.com/photo-1783490244502-cd5f236e3780?w=1400&h=700&fit=crop&auto=format",
-      "https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1400&h=700&fit=crop&auto=format",
-    ],
-  },
-  {
-    id: 6,
-    name: "Skyline Contemporary Residence",
-    location: "Quezon City, Metro Manila",
-    year: "2023",
-    category: "Residential",
-    description: "Modern multi-level urban residence with seismic-certified structural engineering, panoramic balcony views, and complete LGU building permits.",
-    images: [
-      "https://images.unsplash.com/photo-1679364297777-1db77b6199be?w=800&h=600&fit=crop&auto=format",
-    ],
-  },
-];
+import { INITIAL_PROJECTS, deduplicateProjects } from "../../shared/projectsHelper";
 
 export default function PortfolioSection({
   onSelectProjectForInquiry,
 }) {
+  const router = useRouter();
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
   const [activeCategory, setActiveCategory] = useState("All");
 
-  // Load any admin uploaded projects stored in localStorage so client showcase includes them
+  // Load projects from localStorage and backend API with strict deduplication
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("mcpa_portfolio_projects");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const adminItems = parsed.filter((p) => p.isAdminAdded);
-          setProjects([...adminItems, ...INITIAL_PROJECTS]);
+    let isMounted = true;
+
+    const loadProjects = async () => {
+      // 1. Instant local hydration & deduplication
+      try {
+        const saved = localStorage.getItem("mcpa_portfolio_projects");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const deduplicated = deduplicateProjects(parsed, INITIAL_PROJECTS);
+            if (isMounted) {
+              setProjects(deduplicated);
+            }
+            // Self-heal localStorage so duplicated IDs are cleaned up
+            localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(deduplicated));
+          }
         }
+      } catch (err) {
+        console.warn("Could not load stored projects:", err);
       }
-    } catch (err) {
-      console.warn("Could not load stored projects:", err);
-    }
+
+      // 2. Fetch fresh backend projects if available
+      try {
+        const res = await fetch("/api/projects");
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.success && Array.isArray(data.projects) && data.projects.length > 0) {
+            const formatted = data.projects.map((p) => ({
+              id: p.project_id || p.id,
+              name: p.name,
+              location: p.location,
+              year: p.year,
+              category: p.category,
+              description: p.description,
+              images: p.images || [],
+              isAdminAdded: Boolean(p.is_admin_added),
+            }));
+            const deduplicated = deduplicateProjects(formatted, INITIAL_PROJECTS);
+            if (isMounted) {
+              setProjects(deduplicated);
+            }
+            try {
+              localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(deduplicated));
+            } catch (e) {
+              // Ignore storage errors
+            }
+          }
+        }
+      } catch (err) {
+        // Backend offline or error; fallback / cached projects remain active
+      }
+    };
+
+    loadProjects();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleInquire = (project) => {
-    if (typeof window !== "undefined") {
-      window.location.href = `/book?style=${encodeURIComponent(project.name)}`;
-    }
+    router.push(`/book?style=${encodeURIComponent(project.name)}`);
   };
 
   const categories = ["All", "Residential", "Commercial", "Luxury Villa", "Modern Zen"];
@@ -130,8 +104,8 @@ export default function PortfolioSection({
               Last Centuries
             </span>
           </h2>
-          <p className="mt-4 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
-            Every project represents a distinct vision realized with full structural and aesthetic integrity.
+          <p className="mt-4 text-sm md:text-base text-neutral-600 dark:text-neutral-400 font-light leading-relaxed">
+            Real structures built across Bulacan and Central Luzon. Each project reflects our commitment to structural excellence and transparent execution.
           </p>
         </div>
 
@@ -141,7 +115,7 @@ export default function PortfolioSection({
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-xl text-xs font-medium tracking-wide uppercase transition-all duration-300 ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wider uppercase transition-all duration-300 cursor-pointer ${
                 activeCategory === cat
                   ? "bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/20"
                   : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white border border-neutral-200 dark:border-neutral-800"
@@ -166,7 +140,7 @@ export default function PortfolioSection({
 
           return (
             <ScrollMorph
-              key={project.id}
+              key={project.id ?? `project-${idx}`}
               variant={cardVariant}
               delay={(idx % 3) * 130}
               duration={800}

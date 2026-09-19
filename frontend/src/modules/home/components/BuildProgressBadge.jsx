@@ -56,9 +56,13 @@ export default function BuildProgressBadge({
           <div className="relative flex items-center justify-between min-h-[32px]">
             {/* Perfectly centered indicator across the entire viewport width */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="text-xs font-medium tracking-[0.25em] uppercase text-neutral-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] select-none text-center">
+              <button
+                onClick={onAdvance}
+                aria-label="Scroll or click to explore website"
+                className="pointer-events-auto text-xs font-medium tracking-[0.25em] uppercase text-neutral-300 hover:text-amber-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] select-none text-center cursor-pointer transition-colors"
+              >
                 Scroll to Explore
-              </span>
+              </button>
             </div>
 
             {/* Replay Build pill docked to the right */}
@@ -67,7 +71,7 @@ export default function BuildProgressBadge({
                 <button
                   onClick={handleReplay}
                   aria-label="Replay Construction Build Animation"
-                  className={`relative z-10 px-3.5 py-1.5 rounded-full bg-neutral-950/85 hover:bg-neutral-950 border border-white/15 hover:border-amber-400/40 text-xs font-medium tracking-wide text-neutral-300 hover:text-amber-300 transition-all duration-500 backdrop-blur-xl cursor-pointer inline-flex items-center gap-1.5 shadow-lg ${
+                  className={`relative z-10 px-3 py-1.5 text-xs font-mono uppercase tracking-widest text-neutral-400 hover:text-amber-300 transition-colors duration-300 cursor-pointer inline-flex items-center gap-1.5 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] ${
                     showReplay
                       ? "opacity-100 translate-y-0 pointer-events-auto"
                       : "opacity-0 translate-y-2 pointer-events-none group-hover/replay:opacity-100 group-hover/replay:translate-y-0 group-hover/replay:pointer-events-auto"

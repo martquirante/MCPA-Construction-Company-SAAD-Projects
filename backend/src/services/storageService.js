@@ -44,10 +44,10 @@ class StorageService {
       try {
         const containerName = category === "briefs" ? this.azureBriefsContainer : this.azurePortfolioContainer;
         const blobServiceClient = BlobServiceClient.fromConnectionString(this.azureConnStr);
-        const containerClient = blobServiceClient.getBlobContainerClient(containerName);
+        const containerClient = blobServiceClient.getContainerClient(containerName);
 
         // Ensure container exists
-        await containerClient.createIfNotExists({ access: "blob" });
+        await containerClient.createIfNotExists();
 
         const blockBlobClient = containerClient.getBlockBlobClient(uniqueFileName);
         await blockBlobClient.uploadData(buffer, {

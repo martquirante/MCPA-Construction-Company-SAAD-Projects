@@ -73,7 +73,7 @@ export default function PillarCard({
       className={`group relative overflow-hidden rounded-2xl p-8 sm:p-9 transition-all duration-300 border select-none ${
         isHovered
           ? "border-amber-500/80 shadow-[0_20px_50px_rgba(245,158,11,0.2)] bg-white dark:bg-neutral-900/90"
-          : "border-neutral-200 dark:border-neutral-800/80 bg-white/70 dark:bg-neutral-900/50 hover:border-amber-500/50"
+          : "border-neutral-200 dark:border-neutral-800/80 bg-white dark:bg-neutral-900/50 hover:border-amber-500/50 shadow-xs"
       } backdrop-blur-xl`}
     >
       {/* 1. Interactive Cursor Spotlight Radial Glow */}

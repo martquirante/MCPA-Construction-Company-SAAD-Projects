@@ -3,7 +3,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: var(--font-plus-jakarta-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Clash Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Satoshi", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono), monospace;
 
   --color-brand-yellow: #f59e0b;
@@ -29,6 +30,7 @@
   --foreground: #121212;
   --brand-yellow: #f59e0b;
   --brand-slate: #5b6770;
+  --brand-accent: #f59e0b;
   --amber-glow: rgba(245, 158, 11, 0.4);
   --amber-bright: #fbbf24;
   --amber-deep: #b45309;
@@ -39,18 +41,68 @@
   --foreground: #f3f3f3;
   --brand-yellow: #f59e0b;
   --brand-slate: #5b6770;
+  --brand-accent: #f59e0b;
   --amber-glow: rgba(245, 158, 11, 0.35);
   --amber-bright: #fbbf24;
   --amber-deep: #d97706;
 }
 
+/* CHB / Hollow Block texture overlay — architectural concrete pattern */
+.chb-texture {
+  position: relative;
+}
+
+.chb-texture::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/assets/textures/chb_hollowblocks.jpg");
+  background-repeat: repeat;
+  background-size: 420px auto;
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark .chb-texture::before,
+.chb-texture.dark::before {
+  opacity: 0.12;
+  mix-blend-mode: luminosity;
+}
+
+@font-face {
+  font-family: "Clash Display";
+  src: url("https://cdn.fontshare.com/wf/DK2FOA46SRWJ5HXWWU5TK4N4CMHYD236/FPEAXZZSH5L2K5MTJFRIWD2MC32IJMN3/THOOS4VOCKT7H2XEB27NQDYM2NYS4AAR.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("https://cdn.fontshare.com/wf/NWBQYJIM7GCZ5XWD7D26ARB3VDY55ZRT/K63EV2KZIGKLE7RANQ2U42S6SVHU5RJ7/X6XYTKIVDUW7GZTZPZNN4EUM5KH54KHF.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-plus-jakarta-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   overflow-x: hidden;
   transition: background-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), color 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   letter-spacing: -0.01em;
+}
+
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: var(--font-display) !important;
+  letter-spacing: -0.025em;
+  transition: color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+p, span, a, button, input, textarea, select {
+  transition: color 0.3s ease-out, background-color 0.3s ease-out, border-color 0.3s ease-out;
 }
 
 /* Anti-gravity floating keyframes */
@@ -174,6 +226,35 @@ body {
 
 .animate-beacon-spark {
   animation: beaconSpark 2.4s ease-in-out infinite;
+}
+
+/* Zero-gravity floating logo emblem & shadow */
+@keyframes floatingEmblem {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes floatingShadow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(0.72);
+    opacity: 0.25;
+  }
+}
+
+.animate-floating-emblem {
+  animation: floatingEmblem 3.6s ease-in-out infinite;
+}
+
+.animate-floating-shadow {
+  animation: floatingShadow 3.6s ease-in-out infinite;
 }
 
 .amber-glow-box {

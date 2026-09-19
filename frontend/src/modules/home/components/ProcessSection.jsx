@@ -3,11 +3,13 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import {
   CheckIcon,
-  BuildingIcon,
-  ShieldCheckIcon,
   HardHatIcon,
+  CompassIcon,
+  FileSignatureIcon,
+  KeyIcon,
   SparkleBadgeIcon,
-  MapPinIcon,
+  MilestoneIcon,
+  ListChecksIcon,
 } from "../../shared/Icons";
 
 const STAGES = [
@@ -18,7 +20,7 @@ const STAGES = [
     title: "Discovery & Site Inspection",
     shortTitle: "Discovery",
     desc: "Detailed client consultation, lot title verification, soil evaluation, and initial architectural brief across Bulacan, NCR, or Central Luzon.",
-    icon: MapPinIcon,
+    icon: CompassIcon,
     telemetry: {
       location: "Plaridel, Bulacan [14.8872° N, 120.8572° E]",
       bearing: "qa = 150-200 kPa (Titled Lot Verified)",
@@ -38,7 +40,7 @@ const STAGES = [
     title: "Signed & Sealed Plans",
     shortTitle: "Sealed Plans",
     desc: "Complete architectural blueprints, 3D photorealistic renderings, and engineering calculations with LGU building permit assistance.",
-    icon: BuildingIcon,
+    icon: FileSignatureIcon,
     telemetry: {
       location: "PRC Licensed Architect & Structural Engineer",
       bearing: "LGU Bulacan Building & Sanitary Clearances",
@@ -78,7 +80,7 @@ const STAGES = [
     title: "Turnover",
     shortTitle: "Turnover",
     desc: "Formal site inspection, comprehensive punchlist resolution, LGU Certificate of Occupancy clearance, and ceremonial key handover.",
-    icon: ShieldCheckIcon,
+    icon: KeyIcon,
     telemetry: {
       location: "Official Project Turnover & Client Acceptance",
       bearing: "Certificate of Occupancy Granted",

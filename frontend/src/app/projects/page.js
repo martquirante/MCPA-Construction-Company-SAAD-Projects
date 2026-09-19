@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import ClientNavbar from "@/modules/shared/ClientNavbar";
 import PortfolioSection from "@/modules/home/components/PortfolioSection";
@@ -7,8 +8,14 @@ import Footer from "@/modules/shared/Footer";
 import { ArrowRightIcon } from "@/modules/shared/Icons";
 
 export default function ProjectsPage() {
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen bg-[#f8f7f5] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col transition-colors duration-500">
+    <div className="chb-texture min-h-screen bg-[#f8f7f5] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col transition-colors duration-500">
       {/* Top Sticky Navigation */}
       <ClientNavbar isCompleted={true} />
 
@@ -25,7 +32,7 @@ export default function ProjectsPage() {
           </nav>
         </div>
 
-        {/* Portfolio Showcase Grid & Filter Pills */}
+        {/* Portfolio Showcase Grid */}
         <PortfolioSection />
 
         {/* Consultation Call To Action Banner */}
@@ -36,10 +43,10 @@ export default function ProjectsPage() {
               Turnkey Design & Build
             </span>
             <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
-              Have an Architectural Vision in Mind?
+              Ready to construct your modern sanctuary?
             </h3>
-            <p className="mt-4 max-w-2xl mx-auto text-neutral-400 text-sm sm:text-base font-normal">
-              From residential luxury villas to high-span commercial logistics facilities, our licensed engineers and master builders turn blueprints into enduring legacies.
+            <p className="mt-3 text-sm md:text-base text-neutral-400 max-w-xl mx-auto">
+              Schedule a pre-consultation session to review lot feasibility, custom architectural floor plans, and flexible financing timelines.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
@@ -60,7 +67,7 @@ export default function ProjectsPage() {
         </div>
       </main>
 
-      {/* Architectural Multi-Column Footer */}
+      {/* Global Footer */}
       <Footer />
     </div>
   );

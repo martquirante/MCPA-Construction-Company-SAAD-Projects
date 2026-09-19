@@ -173,7 +173,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
         <div className="flex items-center justify-between p-6 sm:p-8 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/30">
-              <LockIcon className="w-5 h-5" />
+              <UploadCloudIcon className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-900 dark:text-white uppercase tracking-tight">

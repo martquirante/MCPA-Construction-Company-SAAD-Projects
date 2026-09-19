@@ -4,17 +4,17 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import ThemeToggle from "./ThemeToggle";
 import {
-  UserIcon,
   MenuIcon,
   CloseIcon,
   FacebookIcon,
   InstagramIcon,
   TikTokIcon,
+  UserIcon,
 } from "./Icons";
+import { setReturnToCompletedHome } from "@/modules/home/homeState";
 
-export default function ClientNavbar({ isCompleted = true }) {
+export default function ClientNavbar({ isCompleted = false } = {}) {
   const pathname = usePathname();
   const isHome = pathname === "/";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -30,15 +30,20 @@ export default function ClientNavbar({ isCompleted = true }) {
         const overviewEl = document.getElementById("overview");
         if (overviewEl) {
           const rect = overviewEl.getBoundingClientRect();
-          setScrolledPastHero(rect.top <= 100);
+          setScrolledPastHero(rect.top <= 120);
         } else {
-          setScrolledPastHero(window.scrollY > window.innerHeight * 5.5);
+          const heroThreshold = 3.5 * window.innerHeight;
+          setScrolledPastHero(window.scrollY >= heroThreshold);
         }
       }
     };
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("resize", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
   }, [isHome]);
 
   const navLinks = [
@@ -46,15 +51,19 @@ export default function ClientNavbar({ isCompleted = true }) {
     { label: "Projects", href: "/projects", active: pathname === "/projects" },
     { label: "Services", href: "/services", active: pathname === "/services" },
     { label: "Process", href: "/process", active: pathname === "/process" },
-    { label: "Book Consultation", href: "/book", active: pathname === "/book" },
   ];
 
   const handleNavClick = (e, href) => {
     if (href === "/") {
-      if (typeof window !== "undefined" && window.location.pathname === "/") {
-        e.preventDefault();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        window.history.replaceState(null, "", "/");
+      if (typeof window !== "undefined") {
+        if (window.location.pathname === "/") {
+          e.preventDefault();
+          const vh = window.innerHeight;
+          window.scrollTo({ top: 3 * vh, behavior: "smooth" });
+          window.history.replaceState(null, "", "/");
+        } else {
+          setReturnToCompletedHome(true);
+        }
       }
     } else if (href.startsWith("/#") || href.startsWith("#")) {
       const targetId = href.replace("/#", "").replace("#", "");
@@ -69,65 +78,75 @@ export default function ClientNavbar({ isCompleted = true }) {
     }
   };
 
-  const linksVisible = !isHome || isCompleted || scrolledPastHero;
+  // Headings appear when the build reaches completion (Step 3 / "if nadito dyan sya"), scrolled past hero, or on subpages
+  const showHeadings = !isHome || isCompleted || scrolledPastHero;
+
+  // "Book an Appointment" in the navbar heading is removed when on the completed hero screen
+  // (because the hero overlay already prominently presents the center "Book an Appointment" CTA)
+  const showHeaderBooking = (!isHome || !isCompleted || scrolledPastHero) && pathname !== "/book";
+
+  // Client Portal link/icon is returned when on completed hero screen ("pagdating rito"), when scrolled past hero, or on subpages
+  const showClientPortal = !isHome || isCompleted || scrolledPastHero;
 
   return (
     <>
       <header
         className={`fixed top-0 inset-x-0 z-50 transition-all duration-700 ease-out ${
           scrolledPastHero
-            ? "bg-white/90 dark:bg-neutral-950/85 backdrop-blur-md border-b border-neutral-200 dark:border-white/10 py-3 shadow-lg text-neutral-900 dark:text-white"
-            : "bg-gradient-to-b from-black/80 via-black/40 to-transparent py-5"
+            ? "bg-white/25 dark:bg-neutral-950/35 backdrop-blur-md border-b border-neutral-200/30 dark:border-white/10 py-3.5 shadow-sm text-neutral-900 dark:text-white"
+            : "bg-transparent py-5"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          {/* 1. BRAND LOGO - ALWAYS VISIBLE (ROUTES CLEANLY TO /) */}
-          <Link
-            href="/"
-            onClick={(e) => handleNavClick(e, "/")}
-            className="flex items-center gap-3 group focus:outline-none select-none"
-            aria-label="MCPA Construction and Supply Home"
-          >
-            <div className="relative w-36 sm:w-44 md:w-52 h-10 transition-transform duration-300 group-hover:scale-105">
-              {scrolledPastHero ? (
-                <>
-                  <Image
-                    src="/assets/mcpa-logo.png"
-                    alt="MCPA Construction and Supply"
-                    fill
-                    priority
-                    className="object-contain object-left block dark:hidden"
-                    sizes="(max-width: 768px) 180px, 220px"
-                  />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-[1fr_auto_1fr] items-center">
+          {/* 1. BRAND LOGO - Column 1 (Left-aligned) */}
+          <div className="flex items-center justify-start">
+            <Link
+              href="/"
+              onClick={(e) => handleNavClick(e, "/")}
+              className="flex items-center gap-3 group focus:outline-none select-none"
+              aria-label="MCPA Construction and Supply Home"
+            >
+              <div className="relative w-36 sm:w-44 md:w-52 h-10 transition-transform duration-300 group-hover:scale-105">
+                {scrolledPastHero ? (
+                  <>
+                    <Image
+                      src="/assets/mcpa-logo.png"
+                      alt="MCPA Construction and Supply"
+                      fill
+                      priority
+                      className="object-contain object-left block dark:hidden"
+                      sizes="(max-width: 768px) 180px, 220px"
+                    />
+                    <Image
+                      src="/assets/logo-white.png"
+                      alt="MCPA Construction and Supply"
+                      fill
+                      priority
+                      className="object-contain object-left hidden dark:block"
+                      sizes="(max-width: 768px) 180px, 220px"
+                    />
+                  </>
+                ) : (
                   <Image
                     src="/assets/logo-white.png"
                     alt="MCPA Construction and Supply"
                     fill
                     priority
-                    className="object-contain object-left hidden dark:block"
+                    className="object-contain object-left"
                     sizes="(max-width: 768px) 180px, 220px"
                   />
-                </>
-              ) : (
-                <Image
-                  src="/assets/logo-white.png"
-                  alt="MCPA Construction and Supply"
-                  fill
-                  priority
-                  className="object-contain object-left"
-                  sizes="(max-width: 768px) 180px, 220px"
-                />
-              )}
-            </div>
-          </Link>
+                )}
+              </div>
+            </Link>
+          </div>
 
-          {/* 2. CENTER NAVIGATION LINKS - REVEALS ONLY WHEN 100% COMPLETED OR SUBPAGE */}
+          {/* 2. CENTER NAVIGATION LINKS - Column 2 (Perfect horizontal & vertical center) */}
           <nav
             aria-label="Primary Navigation"
-            className={`hidden md:flex items-center gap-8 transition-all duration-700 ease-out ${
-              linksVisible
-                ? "opacity-100 transform translate-y-0 pointer-events-auto"
-                : "opacity-0 transform -translate-y-4 pointer-events-none"
+            className={`hidden md:flex items-center justify-center gap-8 transition-all duration-700 ease-out ${
+              showHeadings
+                ? "opacity-100 translate-y-0 pointer-events-auto"
+                : "opacity-0 -translate-y-2 pointer-events-none"
             }`}
           >
             {navLinks.map((link) => (
@@ -135,51 +154,59 @@ export default function ClientNavbar({ isCompleted = true }) {
                 key={link.label}
                 href={link.href}
                 onClick={(e) => handleNavClick(e, link.href)}
-                className={`relative py-1 text-sm font-medium tracking-wide transition-colors duration-200 ${
+                className={`relative py-1.5 px-0.5 text-sm font-medium tracking-wide transition-colors duration-200 select-none flex flex-col items-center justify-center ${
                   scrolledPastHero
                     ? link.active
-                      ? "text-neutral-950 dark:text-white font-bold"
-                      : "text-neutral-700 hover:text-amber-600 dark:text-neutral-300 dark:hover:text-amber-400"
+                      ? "text-amber-600 dark:text-amber-400 font-bold"
+                      : "text-neutral-600 hover:text-amber-600 dark:text-neutral-400 dark:hover:text-amber-400"
                     : link.active
-                    ? "text-white font-semibold"
-                    : "text-neutral-300 hover:text-amber-400"
+                    ? "text-amber-400 font-semibold drop-shadow-sm"
+                    : "text-neutral-300 hover:text-white drop-shadow-sm"
                 }`}
               >
-                {link.label}
-                {/* Active indicator bar matching user mockup under 'Home' */}
+                <span>{link.label}</span>
                 {link.active && (
-                  <span className="absolute bottom-0 inset-x-0 h-0.5 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+                  <span className={`absolute bottom-0 inset-x-0 h-0.5 rounded-full ${
+                    scrolledPastHero ? "bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]" : "bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.8)]"
+                  }`} />
                 )}
               </Link>
             ))}
           </nav>
 
-          {/* 3. RIGHT UTILITY ACTIONS (THEME TOGGLE + USER ACCOUNT) - REVEALS ONLY WHEN 100% COMPLETED OR SUBPAGE */}
-          <div
-            className={`flex items-center gap-3 transition-all duration-700 ease-out ${
-              linksVisible
-                ? "opacity-100 transform translate-y-0 pointer-events-auto"
-                : "opacity-0 transform -translate-y-4 pointer-events-none"
-            }`}
-          >
-            {/* Theme Toggle (Light / Dark mode SVG) */}
-            <ThemeToggle className={scrolledPastHero ? "text-neutral-800 dark:text-white" : "text-white hover:text-amber-400"} />
+          {/* 3. RIGHT UTILITY ACTIONS - Column 3 (Right-aligned) */}
+          <div className="flex items-center justify-end gap-3">
+            {/* Book an Appointment CTA button: Hidden on completed hero screen to eliminate duplicate with center CTA; hidden on small mobile screens to prevent collisions */}
+            {showHeaderBooking && (
+              <Link
+                href="/book"
+                className={`hidden sm:inline-flex px-5 sm:px-6 py-2 sm:py-2.5 rounded-full font-sans text-xs sm:text-sm font-semibold tracking-wider uppercase transition-all duration-300 select-none whitespace-nowrap ${
+                  scrolledPastHero
+                    ? "bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 text-neutral-950 font-bold shadow-[0_4px_20px_rgba(245,158,11,0.35)] hover:shadow-[0_6px_25px_rgba(245,158,11,0.5)]"
+                    : "bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 text-neutral-950 font-bold shadow-lg shadow-amber-500/20"
+                } hover:scale-105 active:scale-95`}
+              >
+                Book an Appointment
+              </Link>
+            )}
 
-            {/* Client Portal / Account Icon Button */}
-            <Link
-              href="/portal"
-              aria-label="Client Account Portal"
-              title="Client Portal & Project Tracker"
-              className={`p-2 rounded-full transition-all duration-200 focus:outline-none ${
-                scrolledPastHero
-                  ? "text-neutral-700 hover:text-amber-600 hover:bg-neutral-100 dark:text-white/90 dark:hover:text-amber-400 dark:hover:bg-white/10"
-                  : "text-white/90 hover:text-amber-400 hover:bg-white/10"
-              }`}
-            >
-              <UserIcon className="w-5 h-5" />
-            </Link>
+            {/* Client Portal Link Button: Restored to heading */}
+            {showClientPortal && (
+              <Link
+                href="/portal"
+                aria-label="Client Account Portal"
+                title="Client Portal & Project Tracker"
+                className={`p-2.5 rounded-full transition-all duration-200 focus:outline-none flex items-center justify-center border select-none ${
+                  scrolledPastHero
+                    ? "border-neutral-200/80 dark:border-white/10 text-neutral-800 hover:text-amber-600 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:text-amber-400 dark:hover:bg-white/10 shadow-xs"
+                    : "border-white/20 bg-black/30 backdrop-blur-sm text-white hover:text-amber-400 hover:bg-black/50 hover:border-white/40"
+                }`}
+              >
+                <UserIcon className="w-5 h-5" />
+              </Link>
+            )}
 
-            {/* Mobile Menu Hamburger Toggle (hidden on desktop) */}
+            {/* Mobile Menu Hamburger Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle Navigation Menu"
@@ -199,10 +226,10 @@ export default function ClientNavbar({ isCompleted = true }) {
         </div>
       </header>
 
-      {/* 4. MOBILE DRAWER MENU */}
+      {/* 3. MOBILE DRAWER MENU */}
       <div
         className={`fixed inset-x-0 top-0 z-45 pt-24 pb-8 px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-200 dark:border-white/10 shadow-2xl md:hidden transition-all duration-500 ease-in-out ${
-          mobileMenuOpen && linksVisible
+          mobileMenuOpen
             ? "opacity-100 transform translate-y-0 pointer-events-auto"
             : "opacity-0 transform -translate-y-full pointer-events-none"
         }`}
@@ -219,21 +246,32 @@ export default function ClientNavbar({ isCompleted = true }) {
               className={`text-lg font-medium tracking-wide py-2 transition-colors ${
                 link.active
                   ? "text-amber-600 dark:text-amber-400 font-bold"
-                  : "text-neutral-800 hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white"
+                  : "text-neutral-800 hover:text-amber-600 dark:text-neutral-300 dark:hover:text-amber-400"
               }`}
             >
               {link.label}
             </Link>
           ))}
 
-          <div className="pt-4 border-t border-neutral-200 dark:border-white/10 flex items-center justify-center gap-6">
-            <ThemeToggle />
+          {/* Mobile Direct Booking CTA */}
+          <div className="pt-2">
+            <Link
+              href="/book"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block w-full py-3 text-center text-xs font-semibold uppercase tracking-widest rounded-xl bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 text-neutral-950 font-bold shadow-[0_4px_20px_rgba(245,158,11,0.35)] active:scale-95 transition-all font-sans"
+            >
+              Book an Appointment
+            </Link>
+          </div>
+
+          {/* Mobile Client Portal Link */}
+          <div className="pt-1">
             <Link
               href="/portal"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400"
+              className="flex items-center justify-center gap-2.5 w-full py-3 text-center text-xs font-semibold uppercase tracking-widest rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 hover:border-amber-500/50 hover:text-amber-600 dark:hover:text-amber-400 text-neutral-800 dark:text-white transition-all font-sans"
             >
-              <UserIcon className="w-4 h-4" />
+              <UserIcon className="w-4 h-4 text-neutral-800 dark:text-white" />
               <span>Client Portal</span>
             </Link>
           </div>

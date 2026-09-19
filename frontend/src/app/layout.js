@@ -1,13 +1,7 @@
-import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import Script from "next/script";
 import "./globals.css";
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  variable: "--font-plus-jakarta-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  display: "swap",
-});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -50,23 +44,32 @@ export const metadata = {
   },
 };
 
+import ScrollToTop from "@/modules/shared/ScrollToTop";
+import SystemThemeSync from "@/modules/shared/SystemThemeSync";
+
 export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased font-sans`}
+      className={`${geistMono.variable} h-full antialiased font-sans`}
     >
       <head>
-        <script
+        <link rel="preconnect" href="https://api.fontshare.com" crossOrigin="anonymous" />
+        <link
+          href="https://api.fontshare.com/v2/css?f[]=clash-display@1,2&f[]=satoshi@1,2&display=swap"
+          rel="stylesheet"
+        />
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                var stored = localStorage.getItem('mcpa-theme');
-                if (stored === 'light') {
-                  document.documentElement.classList.remove('dark');
-                } else {
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
                   document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
                 }
               } catch (e) {
                 document.documentElement.classList.add('dark');
@@ -76,6 +79,8 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body suppressHydrationWarning className="min-h-full flex flex-col">
+        <SystemThemeSync />
+        <ScrollToTop />
         {children}
         <Analytics />
       </body>

@@ -57,23 +57,23 @@ class DbFailoverEngine {
 
   getActiveProviderName() {
     if (this.isMockActive) return "Local Resilient Storage (Dev Mode)";
-    if (this.isFailoverActive) return "Supabase Backup (Hot Standby)";
-    if (this.azurePool) return "Azure Primary (Flexible Server)";
-    if (this.supabasePool) return "Supabase Backup";
-    if (this.localPool) return "Local PostgreSQL";
+    if (this.isFailoverActive) return "Local PostgreSQL (Docker Standby)";
+    if (this.supabasePool) return "Supabase Cloud (Primary Production)";
+    if (this.azurePool) return "Azure Flexible Server (Optional Tier)";
+    if (this.localPool) return "Local PostgreSQL (Docker Local)";
     return "Local Resilient Storage (Dev Mode)";
   }
 
   async triggerFailover(reason) {
     if (this.isFailoverActive) return;
     this.isFailoverActive = true;
-    console.warn(`\x1b[33m🚨 [DbFailoverEngine] AUTOMATIC DUAL-CLOUD FAILOVER ACTIVATED: ${reason}. Switched active database to Supabase Backup.\x1b[0m`);
+    console.warn(`\x1b[33m[WARN] [DbFailoverEngine] AUTOMATIC CLOUD-TO-LOCAL FAILOVER ACTIVATED: ${reason}. Switched active database to Local Docker PostgreSQL.\x1b[0m`);
   }
 
   async triggerFailback() {
     if (!this.isFailoverActive) return;
     this.isFailoverActive = false;
-    console.log(`\x1b[32m🟢 [DbFailoverEngine] AUTOMATIC DUAL-CLOUD FAILBACK RESTORED: Azure Primary Database is verified healthy. Switched active database back to Azure Primary.\x1b[0m`);
+    console.log(`\x1b[32m[OK] [DbFailoverEngine] AUTOMATIC FAILBACK RESTORED: Supabase Cloud Primary is verified healthy. Switched active database back to Supabase Cloud.\x1b[0m`);
   }
 
   /**
@@ -85,10 +85,10 @@ class DbFailoverEngine {
       return this.executeMockQuery(text, params);
     }
 
-    // 2. Try Azure Primary if healthy and configured
-    if (!this.isFailoverActive && this.azurePool) {
+    // 2. Try Supabase Cloud Primary if healthy and configured
+    if (!this.isFailoverActive && this.supabasePool) {
       try {
-        const res = await this.azurePool.query(text, params);
+        const res = await this.supabasePool.query(text, params);
         return res;
       } catch (err) {
         if (this.isConnectionError(err)) {
@@ -99,35 +99,26 @@ class DbFailoverEngine {
       }
     }
 
-    // 3. Try Supabase Standby if failover is active or Azure not configured
-    if (this.supabasePool) {
+    // 3. Try Local Docker PostgreSQL (Hot Standby / Offline Fallback)
+    if (this.localPool) {
       try {
-        const res = await this.supabasePool.query(text, params);
+        const res = await this.localPool.query(text, params);
         return res;
-      } catch (err) {
-        console.error("[DbFailoverEngine] Supabase query failed:", err.message);
-        if (this.localPool) {
-          try {
-            return await this.localPool.query(text, params);
-          } catch (localErr) {
-            console.error("[DbFailoverEngine] Local DB also failed:", localErr.message);
-          }
-        }
-        // Fallback to mock storage rather than crashing during development
+      } catch (localErr) {
+        console.error("[DbFailoverEngine] Local Docker PostgreSQL query failed:", localErr.message);
+        // Fallback to mock storage rather than crashing during defense/demo
         console.warn("[DbFailoverEngine] Falling back to Local Resilient Mock Storage.");
         this.isMockActive = true;
         return this.executeMockQuery(text, params);
       }
     }
 
-    // 4. Try Local PostgreSQL pool if configured
-    if (this.localPool) {
+    // 4. Try Azure Pool if configured
+    if (this.azurePool) {
       try {
-        return await this.localPool.query(text, params);
+        return await this.azurePool.query(text, params);
       } catch (err) {
-        console.warn("[DbFailoverEngine] Local pool unreachable. Falling back to Mock Storage.");
-        this.isMockActive = true;
-        return this.executeMockQuery(text, params);
+        console.warn("[DbFailoverEngine] Azure pool unreachable.");
       }
     }
 
@@ -156,13 +147,14 @@ class DbFailoverEngine {
   }
 
   startHealthCheck() {
-    if (!this.azurePool) return;
+    const primaryPool = this.supabasePool || this.azurePool;
+    if (!primaryPool) return;
 
     setInterval(async () => {
       if (!this.isFailoverActive) return;
 
       try {
-        await this.azurePool.query("SELECT 1");
+        await primaryPool.query("SELECT 1");
         this.consecutiveAzureSuccesses++;
         if (this.consecutiveAzureSuccesses >= 2) {
           this.consecutiveAzureSuccesses = 0;
@@ -171,7 +163,7 @@ class DbFailoverEngine {
       } catch (e) {
         this.consecutiveAzureSuccesses = 0;
       }
-    }, 30000);
+    }, 15000);
   }
 
   // =========================================================================

@@ -9,6 +9,7 @@ const storage = require("./services/storageService");
 const authController = require("./controllers/authController");
 const projectsController = require("./controllers/projectsController");
 const briefsController = require("./controllers/briefsController");
+const constructionController = require("./controllers/constructionController");
 const initializeDatabase = require("./scripts/initDb");
 
 const app = express();
@@ -63,19 +64,35 @@ app.post("/api/auth/reset-password-with-otp", (req, res) => authController.reset
 app.get("/api/auth/me", (req, res) => authController.me(req, res));
 
 // -----------------------------------------------------------------------------
-// PROJECTS ROUTES
+// PROJECTS ROUTES (PORTFOLIO SHOWCASE)
 // -----------------------------------------------------------------------------
 app.get("/api/projects", (req, res) => projectsController.getAll(req, res));
 app.post("/api/projects", upload.single("image"), (req, res) => projectsController.create(req, res));
 app.delete("/api/projects/:id", (req, res) => projectsController.delete(req, res));
 
 // -----------------------------------------------------------------------------
-// CLIENT BRIEFS / CONSULTATIONS ROUTES
+// CLIENT BRIEFS / CONSULTATIONS ROUTES (SAAD FLOWCHART PHASES 1-4)
 // -----------------------------------------------------------------------------
 app.get("/api/briefs", (req, res) => briefsController.getAll(req, res));
 app.post("/api/briefs", (req, res) => briefsController.submit(req, res));
 app.patch("/api/briefs/:id", (req, res) => briefsController.updateStatus(req, res));
+app.post("/api/briefs/:id/provision", (req, res) => briefsController.provisionAccess(req, res));
 app.delete("/api/briefs/:id", (req, res) => briefsController.delete(req, res));
+
+// -----------------------------------------------------------------------------
+// CONSTRUCTION SITE EXECUTION ROUTES (SAAD FLOWCHART PHASE 5)
+// -----------------------------------------------------------------------------
+app.get("/api/construction/project", (req, res) => constructionController.getProject(req, res));
+app.get("/api/construction/projects/:code", (req, res) => constructionController.getProject(req, res));
+app.patch("/api/construction/milestones/:milestoneId", (req, res) => constructionController.updateMilestone(req, res));
+app.post("/api/construction/photos", (req, res) => constructionController.addPhotoLog(req, res));
+app.patch("/api/construction/billing/:billId/verify", (req, res) => constructionController.verifyPayment(req, res));
+app.patch("/api/construction/billing/:billId/proof", (req, res) => constructionController.uploadPaymentProof(req, res));
+app.post("/api/construction/billing/:billId/proof", (req, res) => constructionController.uploadPaymentProof(req, res));
+app.post("/api/construction/delays", (req, res) => constructionController.logDelay(req, res));
+app.post("/api/construction/warranty", (req, res) => constructionController.submitWarrantyTicket(req, res));
+app.patch("/api/construction/warranty/:ticketId", (req, res) => constructionController.updateWarrantyStatus(req, res));
+app.post("/api/construction/expenses/ocr", (req, res) => constructionController.logOcrExpense(req, res));
 
 // -----------------------------------------------------------------------------
 // STANDALONE UPLOAD ROUTE (Direct Azure / Supabase file upload)
@@ -102,8 +119,8 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
 // Startup & Database Sync
 initializeDatabase().then(() => {
   app.listen(PORT, () => {
-    console.log(`\n\x1b[32m✨ MCPA Enterprise Backend listening on http://localhost:${PORT}\x1b[0m`);
-    console.log(`📊 Active DB Provider: \x1b[33m${db.getActiveProviderName()}\x1b[0m`);
-    console.log(`📦 Cloud Storage: \x1b[36mAzure Blob (Tier 1) -> Supabase Storage (Tier 2)\x1b[0m\n`);
+    console.log(`\n\x1b[32m[SERVER] MCPA Enterprise Backend listening on http://localhost:${PORT}\x1b[0m`);
+    console.log(`[DATABASE] Active DB Provider: \x1b[33m${db.getActiveProviderName()}\x1b[0m`);
+    console.log(`[STORAGE] Cloud Storage: \x1b[36mAzure Blob (Tier 1) -> Supabase Storage (Tier 2)\x1b[0m\n`);
   });
 });

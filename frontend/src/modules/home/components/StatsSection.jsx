@@ -51,7 +51,7 @@ export default function StatsSection() {
             variant="isometric-pop"
             delay={idx * 130}
             duration={750}
-            className="relative overflow-hidden text-center lg:text-left flex flex-col items-center lg:items-start group p-5 sm:p-6 rounded-2xl bg-white/60 dark:bg-neutral-900/40 border border-neutral-200/80 dark:border-neutral-800/80 hover:border-amber-500/50 hover:shadow-[0_10px_30px_rgba(245,158,11,0.12)] transition-all duration-500 backdrop-blur-sm"
+            className="relative overflow-hidden text-center lg:text-left flex flex-col items-center lg:items-start group p-5 sm:p-6 rounded-2xl bg-white dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 hover:shadow-[0_10px_30px_rgba(245,158,11,0.12)] transition-all duration-500 backdrop-blur-sm shadow-xs"
           >
             {/* Ambient gold bottom line on hover */}
             <div className="absolute bottom-0 inset-x-4 h-[2px] bg-gradient-to-r from-transparent via-amber-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
