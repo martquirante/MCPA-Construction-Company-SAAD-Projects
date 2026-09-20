@@ -11,14 +11,22 @@ import {
   InstagramIcon,
   TikTokIcon,
   UserIcon,
+  SunIcon,
+  MoonIcon,
 } from "./Icons";
+import UtilityBar from "./UtilityBar";
+import { getThemePreference, setThemePreference } from "./SystemThemeSync";
+import { useLanguage } from "./LanguageContext";
 import { setReturnToCompletedHome } from "@/modules/home/homeState";
 
 export default function ClientNavbar({ isCompleted = false } = {}) {
   const pathname = usePathname();
   const isHome = pathname === "/";
+  const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolledPastHero, setScrolledPastHero] = useState(!isHome);
+  const [announcementState, setAnnouncementState] = useState({ route: pathname, dismissed: false });
+  const announcementDismissed = announcementState.route === pathname && announcementState.dismissed;
 
   useEffect(() => {
     if (!isHome) {
@@ -46,11 +54,38 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
     };
   }, [isHome]);
 
+  useEffect(() => {
+    if (!isCompleted) return undefined;
+
+    let hideAnnouncement;
+    const listenerTimer = window.setTimeout(() => {
+      let lastScrollY = window.scrollY;
+      hideAnnouncement = () => {
+        const currentScrollY = window.scrollY;
+        const scrollDelta = currentScrollY - lastScrollY;
+        if (Math.abs(scrollDelta) < 28) return;
+
+        if (scrollDelta > 0) {
+          setAnnouncementState({ route: pathname, dismissed: true });
+        } else {
+          setAnnouncementState({ route: pathname, dismissed: false });
+        }
+        lastScrollY = currentScrollY;
+      };
+      window.addEventListener("scroll", hideAnnouncement, { passive: true });
+    }, 700);
+
+    return () => {
+      window.clearTimeout(listenerTimer);
+      if (hideAnnouncement) window.removeEventListener("scroll", hideAnnouncement);
+    };
+  }, [isCompleted, pathname]);
+
   const navLinks = [
-    { label: "Home", href: "/", active: pathname === "/" },
-    { label: "Projects", href: "/projects", active: pathname === "/projects" },
-    { label: "Services", href: "/services", active: pathname === "/services" },
-    { label: "Process", href: "/process", active: pathname === "/process" },
+    { label: t("navHome"), href: "/", active: pathname === "/" },
+    { label: t("navProjects"), href: "/projects", active: pathname === "/projects" },
+    { label: t("navServices"), href: "/services", active: pathname === "/services" },
+    { label: t("navProcess"), href: "/process", active: pathname === "/process" },
   ];
 
   const handleNavClick = (e, href) => {
@@ -90,14 +125,22 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
 
   return (
     <>
-      <header
-        className={`fixed top-0 inset-x-0 z-50 transition-all duration-700 ease-out ${
-          scrolledPastHero
-            ? "bg-white/25 dark:bg-neutral-950/35 backdrop-blur-md border-b border-neutral-200/30 dark:border-white/10 py-3.5 shadow-sm text-neutral-900 dark:text-white"
-            : "bg-transparent py-5"
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-[1fr_auto_1fr] items-center">
+      <div className="fixed top-0 inset-x-0 z-50 transition-all duration-700 select-none">
+        {/* Top Utility Announcement Bar (ShopRave Inspired) */}
+        <UtilityBar
+          show={isHome && isCompleted && !announcementDismissed}
+          scrolledPastHero={scrolledPastHero}
+        />
+
+        {/* Main Header / Navigation Bar */}
+        <header
+          className={`w-full transition-all duration-700 ease-out ${
+            scrolledPastHero
+              ? "bg-white/80 dark:bg-neutral-950/80 backdrop-blur-md border-b border-neutral-200/40 dark:border-white/10 py-3 shadow-xs text-neutral-900 dark:text-white"
+              : "bg-transparent py-4"
+          }`}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-[1fr_auto_1fr] items-center">
           {/* 1. BRAND LOGO - Column 1 (Left-aligned) */}
           <div className="flex items-center justify-start">
             <Link
@@ -186,7 +229,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
                     : "bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 text-neutral-950 font-bold shadow-lg shadow-amber-500/20"
                 } hover:scale-105 active:scale-95`}
               >
-                Book an Appointment
+                {t("bookAppointment")}
               </Link>
             )}
 
@@ -225,10 +268,11 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
           </div>
         </div>
       </header>
+      </div>
 
       {/* 3. MOBILE DRAWER MENU */}
       <div
-        className={`fixed inset-x-0 top-0 z-45 pt-24 pb-8 px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-200 dark:border-white/10 shadow-2xl md:hidden transition-all duration-500 ease-in-out ${
+        className={`fixed inset-x-0 top-0 z-45 pt-28 pb-8 px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-200 dark:border-white/10 shadow-2xl md:hidden transition-all duration-500 ease-in-out ${
           mobileMenuOpen
             ? "opacity-100 transform translate-y-0 pointer-events-auto"
             : "opacity-0 transform -translate-y-full pointer-events-none"
@@ -260,7 +304,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
               onClick={() => setMobileMenuOpen(false)}
               className="block w-full py-3 text-center text-xs font-semibold uppercase tracking-widest rounded-xl bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 text-neutral-950 font-bold shadow-[0_4px_20px_rgba(245,158,11,0.35)] active:scale-95 transition-all font-sans"
             >
-              Book an Appointment
+              {t("bookAppointment")}
             </Link>
           </div>
 
@@ -272,8 +316,33 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
               className="flex items-center justify-center gap-2.5 w-full py-3 text-center text-xs font-semibold uppercase tracking-widest rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 hover:border-amber-500/50 hover:text-amber-600 dark:hover:text-amber-400 text-neutral-800 dark:text-white transition-all font-sans"
             >
               <UserIcon className="w-4 h-4 text-neutral-800 dark:text-white" />
-              <span>Client Portal</span>
+              <span>{t("clientPortal")}</span>
             </Link>
+          </div>
+
+          {/* Mobile Theme Toggle */}
+          <div className="pt-2 flex items-center justify-between px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10">
+            <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              {t("appearanceLabel")}
+            </span>
+            <div className="flex items-center gap-1 bg-neutral-200 dark:bg-neutral-800 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setThemePreference("light")}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer text-neutral-800 dark:text-neutral-300 hover:text-amber-500"
+              >
+                <SunIcon className="w-3.5 h-3.5" />
+                <span>Light</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setThemePreference("dark")}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer text-neutral-800 dark:text-neutral-300 hover:text-amber-500"
+              >
+                <MoonIcon className="w-3.5 h-3.5" />
+                <span>Dark</span>
+              </button>
+            </div>
           </div>
 
           {/* Mobile Social Links */}

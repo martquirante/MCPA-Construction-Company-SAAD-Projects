@@ -17,28 +17,28 @@ export default function ServicesSection() {
       icon: <HomeIcon className="w-8 h-8 text-amber-500" strokeWidth={1.8} />,
       title: "Custom Residential",
       tag: "Turnkey Design & Build",
-      desc: "Fully bespoke homes engineered around your family's lifestyle. From modern Zen retreats to multi-storey luxury residences with 5-year structural warranty.",
+      desc: "Custom homes designed for your family's daily living. From modern bungalow homes to two-storey family residences with a 5-year structural warranty.",
     },
     {
       id: "bnpl",
       icon: <BadgePercentIcon className="w-8 h-8 text-amber-500" strokeWidth={1.8} />,
       title: "Build Now, Pay Later",
       tag: "Titled Lot Financing",
-      desc: "Exclusive program for titled lot owners across Bulacan and Central Luzon. Build your dream home with flexible milestone schedules and Pag-IBIG/bank loan support.",
+      desc: "Special program for titled lot owners across Bulacan and Central Luzon. Build your dream home with flexible payment stages and Pag-IBIG or bank loan assistance.",
     },
     {
       id: "plans",
       icon: <FileSignatureIcon className="w-8 h-8 text-amber-500" strokeWidth={1.8} />,
       title: "Signed & Sealed Plans",
       tag: "Architectural & Engineering",
-      desc: "Complete architectural blueprints and structural calculations signed and sealed by licensed professionals, with fast LGU building permit facilitation.",
+      desc: "Complete architectural blueprints and structural calculations prepared by licensed professionals, with full assistance in getting city building permits.",
     },
     {
       id: "commercial-supply",
       icon: <WarehouseIcon className="w-8 h-8 text-amber-500" strokeWidth={1.8} />,
-      title: "Commercial & Supply",
-      tag: "Warehouses & Direct Materials",
-      desc: "High-spec commercial units, industrial steel warehouses, house renovations, and direct construction supply logistics delivered on-site.",
+      title: "Commercial & Project Supply",
+      tag: "Warehouses & In-House Logistics",
+      desc: "Commercial buildings, steel warehouses, home renovations, and dedicated in-house materials delivered right to your job site.",
     },
   ];
 
@@ -59,7 +59,7 @@ export default function ServicesSection() {
         </div>
 
         <p className="text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal max-w-md">
-          We build fast and right. Every engagement is a collaboration between your vision and our craft – resulting in structures that outlast trends.
+          We build on time and built to last. We work closely with you from initial idea to completed build, creating a home your family can enjoy for generations.
         </p>
       </ScrollMorph>
 
@@ -99,7 +99,7 @@ export default function ServicesSection() {
                   href="/book"
                   className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition-transform"
                 >
-                  <span>Consult Scope</span>
+                  <span>Inquire Now</span>
                   <ArrowRightIcon className="w-3.5 h-3.5" />
                 </Link>
               </div>

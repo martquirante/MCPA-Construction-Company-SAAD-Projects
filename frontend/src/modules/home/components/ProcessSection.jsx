@@ -7,7 +7,6 @@ import {
   CompassIcon,
   FileSignatureIcon,
   KeyIcon,
-  SparkleBadgeIcon,
   MilestoneIcon,
   ListChecksIcon,
 } from "../../shared/Icons";
@@ -16,81 +15,81 @@ const STAGES = [
   {
     step: "01",
     tag: "STAGE 01",
-    phaseBadge: "Phase 1: Pre-Construction & Profiling",
+    phaseBadge: "Phase 1: Initial Planning & Site Visit",
     title: "Discovery & Site Inspection",
-    shortTitle: "Discovery",
-    desc: "Detailed client consultation, lot title verification, soil evaluation, and initial architectural brief across Bulacan, NCR, or Central Luzon.",
+    shortTitle: "Site Visit",
+    desc: "We meet with you, inspect your lot, check the land title, and evaluate the ground to ensure your property is ready for building.",
     icon: CompassIcon,
     telemetry: {
-      location: "Plaridel, Bulacan [14.8872° N, 120.8572° E]",
-      bearing: "qa = 150-200 kPa (Titled Lot Verified)",
-      status: "TCT Land Verification & Geodetic Boundary Scan",
+      location: "Bulacan, Metro Manila & Central Luzon",
+      bearing: "Solid Ground Tested & Land Title Checked",
+      status: "Property Boundary Survey & Consultation",
     },
     checklist: [
-      "TCT Lot Title Verification",
-      "Soil Bearing Capacity Test",
-      "Topographical Drone Scan",
-      "Architectural Design Pegs",
+      "Land Title & Property Check",
+      "Soil Strength Inspection",
+      "Lot Boundary & Area Survey",
+      "Architectural Design Consultation",
     ],
   },
   {
     step: "02",
     tag: "STAGE 02",
-    phaseBadge: "Phase 2: Architectural & Engineering CAD",
-    title: "Signed & Sealed Plans",
-    shortTitle: "Sealed Plans",
-    desc: "Complete architectural blueprints, 3D photorealistic renderings, and engineering calculations with LGU building permit assistance.",
+    phaseBadge: "Phase 2: Architectural Plans & Permits",
+    title: "Signed & Sealed Blueprints",
+    shortTitle: "Plans & Permits",
+    desc: "Our licensed architects and engineers prepare your complete house plans, 3D color designs, and take care of your city building permits.",
     icon: FileSignatureIcon,
     telemetry: {
-      location: "PRC Licensed Architect & Structural Engineer",
-      bearing: "LGU Bulacan Building & Sanitary Clearances",
-      status: "3D BIM Photorealistic Framing Calculations",
+      location: "Licensed Architects & Civil Engineers",
+      bearing: "Complete City Building Permits & Approvals",
+      status: "Realistic 3D House Renders & Blueprints",
     },
     checklist: [
-      "Architectural Elevation Plans",
-      "Seismic Zone 4 Calculations",
-      "LGU Permit Documentation",
-      "3D Photorealistic Renders",
+      "Complete Floor Plans & Elevations",
+      "Earthquake-Resistant Structural Design",
+      "City & Municipal Building Permits",
+      "3D Exterior & Interior Color Views",
     ],
   },
   {
     step: "03",
     tag: "STAGE 03",
-    phaseBadge: "Phase 3: Structural Execution & Erection",
-    title: "Precision Construction",
+    phaseBadge: "Phase 3: Structural Building & Framing",
+    title: "Strong & Careful Construction",
     shortTitle: "Construction",
-    desc: "In-house project management using premium construction supply materials with regular milestone photographic progress updates.",
+    desc: "Our dedicated team builds your home using tested high-grade concrete and steel, sending you weekly photo updates every step of the way.",
     icon: HardHatIcon,
     telemetry: {
-      location: "Grade 60 High-Tensile Steel Rebars",
-      bearing: "3000 PSI Ready-Mix Structural Pouring",
-      status: "Weekly Viber Photo Reports & Portal Sync",
+      location: "Certified Heavy-Duty Steel Bars",
+      bearing: "Strong Ready-Mix Concrete (3000 PSI)",
+      status: "Weekly Photo Updates to Your Phone",
     },
     checklist: [
-      "Engineered Footing Pour",
-      "Reinforced Column Framing",
-      "Zero-Compromise Supply",
-      "Weekly Progress Dashboard",
+      "Solid Foundation & Footing Pouring",
+      "Strong Reinforced Columns & Beams",
+      "Direct In-House Quality Materials",
+      "Regular Progress Photo Reports",
     ],
   },
   {
     step: "04",
     tag: "STAGE 04",
-    phaseBadge: "Phase 4: Final Handover & Occupancy",
-    title: "Turnover",
+    phaseBadge: "Phase 4: Final Inspection & Move-In",
+    title: "House Turnover & Move-In",
     shortTitle: "Turnover",
-    desc: "Formal site inspection, comprehensive punchlist resolution, LGU Certificate of Occupancy clearance, and ceremonial key handover.",
+    desc: "We do a thorough room-by-room walkthrough with you, secure your official Certificate of Occupancy, and hand over your house keys.",
     icon: KeyIcon,
     telemetry: {
-      location: "Official Project Turnover & Client Acceptance",
-      bearing: "Certificate of Occupancy Granted",
-      status: "Ceremonial Key Handover & As-Built Package",
+      location: "Official House Acceptance & Handover",
+      bearing: "City Certificate of Occupancy Approved",
+      status: "Official Key Handover & House Plans Package",
     },
     checklist: [
-      "Final Engineering Punchlist",
-      "LGU Occupancy Clearance",
-      "Ceremonial Key Handover",
-      "Complete As-Built Documentation",
+      "Room-by-Room Quality Walkthrough",
+      "Certificate of Occupancy Assistance",
+      "Official House Key Turnover",
+      "Complete Final House Blueprints & Warranty",
     ],
   },
 ];
@@ -216,16 +215,16 @@ export default function ProcessSection() {
       className="relative w-full h-[320vh] sm:h-[340vh] md:h-[360vh] bg-transparent text-neutral-900 dark:text-neutral-100"
     >
       {/* Sticky Viewport Frame on Mobile, Tablet & Desktop */}
-      <div className="sticky top-0 w-full min-h-screen h-[100dvh] flex flex-col justify-between py-3 sm:py-5 md:py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto select-none overflow-hidden">
+      <div className="sticky top-0 w-full min-h-screen h-[100dvh] flex flex-col justify-between pt-20 sm:pt-24 lg:pt-[104px] pb-4 sm:pb-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto select-none overflow-hidden">
         
         {/* =================================================================== */}
         {/* 1. TOP HEADER & MILESTONE HUD STRIP                                 */}
         {/* =================================================================== */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-3 mb-2 sm:mb-4 pb-2 sm:pb-3 border-b border-neutral-200 dark:border-neutral-900 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-3 mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-neutral-200 dark:border-neutral-900 shrink-0">
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] sm:text-xs font-semibold tracking-wider uppercase mb-1 sm:mb-2">
-              <SparkleBadgeIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span>Execution Framework · Stage by Stage</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
+              <span>Our 4-Step Building Journey</span>
             </div>
             <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
               The{" "}
@@ -236,11 +235,11 @@ export default function ProcessSection() {
             </h2>
           </div>
 
-          {/* Active Stage HUD Counter & Direct Quick Jump Pills (Desktop/Tablet) */}
+          {/* Active Stage Indicator & Direct Quick Jump Pills (Desktop/Tablet) */}
           <div className="hidden sm:flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-medium">
-                Milestone:
+                Current Step:
               </span>
               <span className="px-3 py-1 rounded-full bg-amber-500 text-neutral-950 text-xs font-bold shadow-xs">
                 Stage 0{activeStage + 1} / 04
@@ -306,7 +305,7 @@ export default function ProcessSection() {
         </div>
 
         {/* Desktop Architectural Stepper Bar with Connecting Glowing Rail */}
-        <div className="hidden md:grid md:grid-cols-4 gap-6 mb-4 sm:mb-5 shrink-0">
+        <div className="hidden md:grid md:grid-cols-4 gap-6 mb-3 sm:mb-4 shrink-0">
           {STAGES.map((item, idx) => {
             const isCurrent = activeStage === idx;
             const isPast = activeStage > idx;
@@ -389,7 +388,7 @@ export default function ProcessSection() {
         <div className="relative z-10 flex-1 flex flex-col justify-center my-auto min-h-0">
           <div
             key={currentStage.step}
-            className="animate-stage-morph bg-white dark:bg-neutral-900/95 border-2 border-amber-500/80 dark:border-amber-400/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 lg:p-9 shadow-[0_20px_60px_rgba(245,158,11,0.18)] ring-4 ring-amber-500/10 backdrop-blur-md transition-all overflow-hidden"
+            className="animate-stage-morph bg-white dark:bg-neutral-900/95 border-2 border-amber-500/80 dark:border-amber-400/80 rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 lg:p-7 shadow-[0_20px_60px_rgba(245,158,11,0.18)] ring-4 ring-amber-500/10 backdrop-blur-md transition-all overflow-hidden"
           >
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-center">
               
@@ -421,7 +420,7 @@ export default function ProcessSection() {
                 {/* Scope & Deliverables Checklist */}
                 <div className="pt-3 sm:pt-4 border-t border-neutral-200 dark:border-neutral-800">
                   <p className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-neutral-500 dark:text-neutral-400 mb-2 sm:mb-2.5">
-                    Key Deliverables & Protocols:
+                    What Happens In This Step:
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
                     {currentStage.checklist.map((check, cIdx) => (
@@ -442,7 +441,7 @@ export default function ProcessSection() {
                   </div>
                 </div>
 
-                {/* Mobile/Tablet Compact Telemetry Status Strip (replaces big right dossier on small screens) */}
+                {/* Mobile/Tablet Compact Status Strip */}
                 <div className="flex lg:hidden items-center justify-between gap-2 mt-3 pt-2.5 border-t border-neutral-200/80 dark:border-neutral-800 text-[11px] text-neutral-600 dark:text-neutral-400">
                   <div className="flex items-center gap-1.5 truncate">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -456,7 +455,7 @@ export default function ProcessSection() {
                 </div>
               </div>
 
-              {/* Right Column: Engineering Telemetry & CAD Blueprint Dossier (Desktop / Large Screens) */}
+              {/* Right Column: Stage Highlights & Key Details (Desktop / Large Screens) */}
               <div className="hidden lg:flex lg:col-span-5 bg-neutral-50 dark:bg-neutral-950/70 rounded-2xl p-5 sm:p-6 border border-neutral-200 dark:border-neutral-800 flex-col justify-between h-full space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-800">
                   <div className="flex items-center gap-2">
@@ -465,24 +464,20 @@ export default function ProcessSection() {
                     </div>
                     <div>
                       <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-950 dark:text-white">
-                        Engineering Dossier
+                        Stage Highlights
                       </h4>
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                        Protocol Spec · 0{activeStage + 1}
+                        Key Details · Step 0{activeStage + 1}
                       </p>
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Verified</span>
-                  </span>
                 </div>
 
                 {/* Structured Specification Rows */}
                 <div className="space-y-3 text-xs">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 dark:text-neutral-500 block mb-0.5">
-                      Milestone Scope:
+                      Main Activity:
                     </span>
                     <span className="font-semibold text-neutral-800 dark:text-neutral-200 leading-snug block">
                       {currentStage.telemetry.status}
@@ -491,7 +486,7 @@ export default function ProcessSection() {
 
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 dark:text-neutral-500 block mb-0.5">
-                      Technical Standard / Clearance:
+                      Quality Standards & Clearances:
                     </span>
                     <span className="font-semibold text-neutral-800 dark:text-neutral-200 leading-snug block">
                       {currentStage.telemetry.bearing}
@@ -500,7 +495,7 @@ export default function ProcessSection() {
 
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 dark:text-neutral-500 block mb-0.5">
-                      Territory / Supervision:
+                      Project Coverage & Supervision:
                     </span>
                     <span className="font-semibold text-neutral-800 dark:text-neutral-200 leading-snug block">
                       {currentStage.telemetry.location}
@@ -511,7 +506,7 @@ export default function ProcessSection() {
                 {/* Bottom Step Indicator Bar */}
                 <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs">
                   <span className="text-neutral-500 dark:text-neutral-400 font-medium">
-                    Progress: Stage 0{activeStage + 1} of 04
+                    Progress: Step 0{activeStage + 1} of 04
                   </span>
                   <div className="flex items-center gap-1.5">
                     {[0, 1, 2, 3].map((stepIdx) => (

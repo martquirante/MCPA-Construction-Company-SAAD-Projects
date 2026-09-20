@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
-  SparkleBadgeIcon,
   CheckIcon,
   UploadCloudIcon,
   ArrowRightIcon,
@@ -141,8 +140,8 @@ export default function PreConsultationBooking({ selectedStyle }) {
         {/* Section Header */}
         <div className="relative z-10 max-w-3xl mb-12">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs font-mono tracking-widest uppercase mb-4 border border-amber-500/20">
-            <SparkleBadgeIcon className="w-3.5 h-3.5 text-amber-500" />
-            <span>Smart Pre-Consultation Booking · Full-Service Design & Build</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            <span>Pre-Consultation Booking · Full-Service Design & Build</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight leading-tight text-neutral-900 dark:text-white">

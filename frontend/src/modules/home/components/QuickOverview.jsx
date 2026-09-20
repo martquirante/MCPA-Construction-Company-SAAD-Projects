@@ -10,6 +10,7 @@ import ServicesSection from "./ServicesSection";
 import ProcessSection from "./ProcessSection";
 import Footer from "@/modules/shared/Footer";
 import ScrollMorph from "../../shared/ScrollMorph";
+import { useLanguage } from "../../shared/LanguageContext";
 import {
   BuildingIcon,
   ShieldCheckIcon,
@@ -18,13 +19,14 @@ import {
   FacebookIcon,
   InstagramIcon,
   TikTokIcon,
-  GoogleMapsPinIcon,
+  MapPinIcon,
   DraftingCompassIcon,
   MilestoneIcon,
   BadgePercentIcon,
 } from "../../shared/Icons";
 
 export default function QuickOverview() {
+  const { t } = useLanguage();
   const pillarsRef = useRef(null);
   const [pillarsVisible, setPillarsVisible] = useState(false);
   const [inquiredStyle, setInquiredStyle] = useState("");
@@ -64,23 +66,20 @@ export default function QuickOverview() {
     {
       number: "01",
       icon: <DraftingCompassIcon className="w-8 h-8 text-amber-500" strokeWidth={2} />,
-      title: "Engineered For Longevity",
-      description:
-        "High-performance precast concrete, structural steel frameworks, and architectural precision built to withstand Philippine climates and seismic standards.",
+      title: t("pillarStrengthTitle"),
+      description: t("pillarStrengthDescription"),
     },
     {
       number: "02",
       icon: <MilestoneIcon className="w-8 h-8 text-amber-500" strokeWidth={2} />,
-      title: "Transparent Milestone Tracking",
-      description:
-        "Transparent, real-time photographic and technical logs uploaded directly to your Client Portal at every stage of construction from footing to turnover.",
+      title: t("pillarUpdatesTitle"),
+      description: t("pillarUpdatesDescription"),
     },
     {
       number: "03",
       icon: <BadgePercentIcon className="w-8 h-8 text-amber-500" strokeWidth={2} />,
-      title: "Build Now, Pay Later Program",
-      description:
-        "Flexible financial structures and verified digital billing schedules designed to accelerate your dream home without compromising structural integrity.",
+      title: t("pillarPaymentTitle"),
+      description: t("pillarPaymentDescription"),
     },
   ];
 
@@ -123,15 +122,15 @@ export default function QuickOverview() {
         >
           {/* Eyebrow text */}
           <p className="text-amber-600 dark:text-amber-400 text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-4">
-            Architectural Excellence · Supply Strength
+            {t("overviewEyebrow")}
           </p>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
-            Why Visionaries Build With MCPA
+            {t("overviewHeading")}
           </h2>
 
           <p className="mt-4 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
-            Eliminating blind meetings and construction anxiety through cutting-edge engineering, transparent digital tracking, and uncompromising material standards.
+            {t("overviewDescription")}
           </p>
 
           {/* Morphing Expanding Accent Divider Line */}
@@ -280,7 +279,7 @@ export default function QuickOverview() {
                 className="flex items-center gap-1.5 hover:text-amber-500 dark:hover:text-amber-400 transition-colors group cursor-pointer"
                 title="Open MCPA Headquarters in Google Maps"
               >
-                <GoogleMapsPinIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
+                <MapPinIcon className="w-3.5 h-3.5 text-amber-500 group-hover:scale-110 transition-transform shrink-0" />
                 <span className="group-hover:underline">2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan</span>
               </a>
               <span className="hidden sm:inline text-neutral-700">·</span>

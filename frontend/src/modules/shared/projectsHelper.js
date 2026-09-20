@@ -12,7 +12,7 @@ export const INITIAL_PROJECTS = [
     year: "2024",
     category: "Residential",
     description:
-      "Two-storey contemporary home with cantilevered balcony, reinforced concrete framing, perimeter fence, and complete turnkey architectural finishing.",
+      "Two-storey contemporary home with a spacious second-floor balcony, reinforced concrete framing, perimeter fence, and complete turnkey finishing.",
     images: [
       "https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1200&h=800&fit=crop&auto=format",
       "https://images.unsplash.com/photo-1785746730462-74049651fa26?w=1200&h=800&fit=crop&auto=format",
@@ -67,7 +67,7 @@ export const INITIAL_PROJECTS = [
     year: "2024",
     category: "Commercial",
     description:
-      "Heavy-duty commercial warehouse with high-load concrete flooring, post-tensioned spans, and direct batch-tested construction supply materials.",
+      "Heavy-duty commercial warehouse with reinforced concrete flooring, wide open storage bays, and built using our dedicated in-house materials.",
     images: [
       "https://images.unsplash.com/photo-1783490244502-cd5f236e3780?w=1400&h=700&fit=crop&auto=format",
       "https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1400&h=700&fit=crop&auto=format",
@@ -81,7 +81,7 @@ export const INITIAL_PROJECTS = [
     year: "2023",
     category: "Residential",
     description:
-      "Modern multi-level urban residence with seismic-certified structural engineering, panoramic balcony views, and complete LGU building permits.",
+      "Modern multi-level urban residence with earthquake-tested structural framing, spacious balcony views, and complete municipal building permits.",
     images: [
       "https://images.unsplash.com/photo-1679364297777-1db77b6199be?w=800&h=600&fit=crop&auto=format",
     ],

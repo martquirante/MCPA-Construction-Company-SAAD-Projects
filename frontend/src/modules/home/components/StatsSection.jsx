@@ -26,7 +26,7 @@ export default function StatsSection() {
       value: "Direct",
       suffix: "Supply",
       label: "In-House Materials",
-      desc: "Direct wholesale aggregates, cement & structural steel",
+      desc: "Project-dedicated aggregates, cement & structural steel",
     },
     {
       value: "100",

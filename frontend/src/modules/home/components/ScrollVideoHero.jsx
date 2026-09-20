@@ -74,7 +74,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
         </div>
 
         {/* 3. Hero Content Overlay (Reveals only when 100% completed) */}
-        <HeroContentOverlay isCompleted={isCompleted} />
+        <HeroContentOverlay key={isCompleted ? "completed" : "building"} isCompleted={isCompleted} />
 
         {/* 4. Minimalist Progress & Scroll Indicator with exact milestones (0, 20, 40, 60, 80, 100) */}
         <BuildProgressBadge

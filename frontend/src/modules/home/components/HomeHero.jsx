@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Button from "../../shared/Button";
-import { SparkleBadgeIcon, ChevronDownIcon } from "../../shared/Icons";
+import { ChevronDownIcon } from "../../shared/Icons";
 
 export default function HomeHero() {
   const scrollToExplore = () => {

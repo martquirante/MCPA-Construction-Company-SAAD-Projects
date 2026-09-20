@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import McpaVectorLogo from "./McpaVectorLogo";
-import { ArrowRightIcon } from "@/modules/shared/Icons";
 
 export default function LoadingScreen({ onComplete }) {
   const [progress, setProgress] = useState(0);
@@ -13,7 +12,6 @@ export default function LoadingScreen({ onComplete }) {
     return "dark";
   });
   const [animMode, setAnimMode] = useState("draw"); // "draw" (Vector Stroke Draw) | "sweep" (Laser Blade Etch)
-  const [statusText, setStatusText] = useState("CALIBRATING ARCHITECTURAL VECTORS...");
   const [isCompleted, setIsCompleted] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [animKey, setAnimKey] = useState(0);
@@ -38,7 +36,6 @@ export default function LoadingScreen({ onComplete }) {
     setProgress(0);
     setIsCompleted(false);
     setIsFadingOut(false);
-    setStatusText("CALIBRATING ARCHITECTURAL VECTORS...");
     setAnimKey((prev) => prev + 1);
   }, []);
 
@@ -53,19 +50,23 @@ export default function LoadingScreen({ onComplete }) {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
 
+  const handleSkip = useCallback(() => {
+    setIsFadingOut(true);
+    setTimeout(() => {
+      onCompleteRef.current?.();
+    }, 300);
+  }, []);
+
   // Keyboard shortcuts: 'R' for replay, 'M' for mode, 'Escape' to skip
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "r" || e.key === "R") handleReplay();
       if (e.key === "m" || e.key === "M") toggleMode();
-      if (e.key === "Escape") {
-        setIsFadingOut(true);
-        setTimeout(() => onCompleteRef.current?.(), 300);
-      }
+      if (e.key === "Escape") handleSkip();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleReplay, toggleMode]);
+  }, [handleReplay, toggleMode, handleSkip]);
 
   // Smooth, satisfying 2.4-second progress loop (0% -> 100%)
   useEffect(() => {
@@ -77,23 +78,8 @@ export default function LoadingScreen({ onComplete }) {
       const pct = Math.min(100, (elapsed / duration) * 100);
       setProgress(pct);
 
-      if (pct < 25) {
-        setStatusText(
-          animMode === "draw"
-            ? "PEN DRAFTING: ARCHITECTURAL VECTORS..."
-            : "CALIBRATING BLUEPRINT GEOMETRY..."
-        );
-      } else if (pct < 65) {
-        setStatusText(
-          animMode === "draw"
-            ? "DRAWING STRUCTURAL MCPA GLYPHS..."
-            : "LASER-PRECISION ETCHING REVEAL..."
-        );
-      } else if (pct < 100) {
-        setStatusText("SOLIDIFYING BRAND INTEGRITY...");
-      } else {
+      if (pct >= 100) {
         setProgress(100);
-        setStatusText("MCPA SYSTEM READY · 100%");
         setIsCompleted(true);
         clearInterval(timer);
         setTimeout(() => {
@@ -122,34 +108,15 @@ export default function LoadingScreen({ onComplete }) {
     };
   }, [animKey, animMode]);
 
-  const handleSkip = () => {
-    setIsFadingOut(true);
-    setTimeout(() => {
-      onCompleteRef.current?.();
-    }, 300);
-  };
-
   return (
     <div
       key={animKey}
-      className={`fixed inset-0 z-[100] flex flex-col justify-between w-screen h-screen overflow-hidden select-none transition-all duration-700 ease-out ${
+      className={`fixed inset-0 z-[100] flex items-center justify-center w-screen h-screen overflow-hidden select-none transition-all duration-700 ease-out ${
         isFadingOut ? "opacity-0 pointer-events-none scale-105" : "opacity-100"
       } ${
         isDark ? "bg-[#09090b] text-[#f4f4f4]" : "bg-white text-[#141414]"
       }`}
     >
-      {/* Skip button in top right */}
-      <button
-        onClick={handleSkip}
-        className={`absolute top-5 right-5 z-30 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[11px] font-mono tracking-widest uppercase transition-all backdrop-blur-md cursor-pointer group select-none shadow-xs ${
-          isDark
-            ? "bg-white/10 hover:bg-white/20 border-white/10 text-neutral-300 hover:text-white"
-            : "bg-neutral-900/10 hover:bg-neutral-900/15 border-neutral-900/10 text-neutral-800 hover:text-black"
-        }`}
-      >
-        <span>Skip Intro</span>
-        <ArrowRightIcon className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-      </button>
       {/* 1. Subtle CAD Blueprint Grid Background */}
       <div
         className="absolute inset-0 pointer-events-none opacity-30 transition-opacity duration-700"
@@ -173,13 +140,10 @@ export default function LoadingScreen({ onComplete }) {
         }}
       />
 
-      {/* Top spacer for balanced vertical alignment */}
-      <div className="pt-8" />
-
       {/* ========================================================================= */}
       {/* CENTER: 100% PURE VECTOR LOGO ANIMATION (ZERO RASTER IMAGES)             */}
       {/* ========================================================================= */}
-      <main className="relative z-10 flex flex-col items-center justify-center flex-1 px-6">
+      <main className="relative z-10 flex flex-col items-center justify-center w-full px-6">
         <div className="relative w-full max-w-[560px] md:max-w-[700px] flex items-center justify-center">
 
           {animMode === "draw" ? (
@@ -280,45 +244,6 @@ export default function LoadingScreen({ onComplete }) {
           />
         </div>
       </main>
-
-      {/* ========================================================================= */}
-      {/* BOTTOM: SLEEK HAIRLINE PROGRESS BAR & DIGITAL COUNTER                     */}
-      {/* ========================================================================= */}
-      <footer className="relative z-20 flex flex-col items-center justify-end pb-12 px-6">
-        <div className="flex flex-col items-center w-full max-w-[280px]">
-          {/* Progress Bar Track */}
-          <div
-            className={`relative w-full h-[1.6px] rounded-full overflow-hidden transition-colors ${
-              isDark ? "bg-zinc-800" : "bg-zinc-300"
-            }`}
-          >
-            <div
-              className="h-full rounded-full transition-all duration-75 ease-out"
-              style={{
-                width: `${progress}%`,
-                background: isDark ? "#ffffff" : "#09090b",
-                boxShadow: isDark ? "0 0 8px rgba(255, 255, 255, 0.7)" : "none",
-              }}
-            />
-          </div>
-
-          {/* Telemetry Status & Crisp Digital Percentage */}
-          <div className="flex items-center justify-between w-full mt-3 font-mono text-[10px] tracking-[0.2em]">
-            <span
-              className={`truncate max-w-[200px] transition-colors ${
-                isDark ? "text-zinc-500" : "text-zinc-500"
-              }`}
-            >
-              {statusText}
-            </span>
-            <span className="text-neutral-900 dark:text-white font-bold pl-2">
-              {Math.round(progress)}%
-            </span>
-          </div>
-        </div>
-
-
-      </footer>
     </div>
   );
 }

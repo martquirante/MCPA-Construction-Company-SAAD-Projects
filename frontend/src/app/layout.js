@@ -1,7 +1,13 @@
-import { Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
-import Script from "next/script";
 import "./globals.css";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta-sans",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -46,43 +52,30 @@ export const metadata = {
 
 import ScrollToTop from "@/modules/shared/ScrollToTop";
 import SystemThemeSync from "@/modules/shared/SystemThemeSync";
+import { LanguageProvider } from "@/modules/shared/LanguageContext";
 
 export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistMono.variable} h-full antialiased font-sans`}
+      className={`${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased font-sans`}
     >
       <head>
-        <link rel="preconnect" href="https://api.fontshare.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://api.fontshare.com/v2/css?f[]=clash-display@1,2&f[]=satoshi@1,2&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap"
           rel="stylesheet"
-        />
-        <Script
-          id="theme-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                  document.documentElement.classList.add('dark');
-                } else {
-                  document.documentElement.classList.remove('dark');
-                }
-              } catch (e) {
-                document.documentElement.classList.add('dark');
-              }
-            `,
-          }}
         />
       </head>
       <body suppressHydrationWarning className="min-h-full flex flex-col">
-        <SystemThemeSync />
-        <ScrollToTop />
-        {children}
-        <Analytics />
+        <LanguageProvider>
+          <SystemThemeSync />
+          <ScrollToTop />
+          {children}
+          <Analytics />
+        </LanguageProvider>
       </body>
     </html>
   );

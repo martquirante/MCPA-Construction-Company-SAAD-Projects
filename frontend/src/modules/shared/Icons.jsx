@@ -1,6 +1,7 @@
 import {
   Sun,
   Moon,
+  Monitor,
   User,
   Menu,
   X,
@@ -372,6 +373,16 @@ export function MoonIcon({ className = "w-5 h-5", strokeWidth = 1.75, ...props }
     <Moon
       strokeWidth={strokeWidth}
       className={`transition-transform duration-300 group-hover:-rotate-12 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function MonitorIcon({ className = "w-5 h-5", strokeWidth = 1.75, ...props }) {
+  return (
+    <Monitor
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
       {...props}
     />
   );

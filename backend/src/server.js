@@ -11,6 +11,7 @@ const projectsController = require("./controllers/projectsController");
 const briefsController = require("./controllers/briefsController");
 const constructionController = require("./controllers/constructionController");
 const initializeDatabase = require("./scripts/initDb");
+const { translateDictionary } = require("./services/translationService");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -52,6 +53,27 @@ app.get("/api/health", (req, res) => {
       backup: "Supabase Storage",
     },
   });
+});
+
+// -----------------------------------------------------------------------------
+// TRANSLATION ROUTE
+// -----------------------------------------------------------------------------
+app.post("/api/translations", async (req, res) => {
+  try {
+    const { source, target } = req.body;
+    if (!source || typeof source !== "object") {
+      return res.status(400).json({ message: "A source translation dictionary is required." });
+    }
+    if (target !== "tl") {
+      return res.status(400).json({ message: "Only Filipino (tl) translation is supported." });
+    }
+
+    const result = await translateDictionary(source, target);
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    console.error("[Translations] Error:", err);
+    return res.status(502).json({ message: "Translation provider unavailable." });
+  }
 });
 
 // -----------------------------------------------------------------------------

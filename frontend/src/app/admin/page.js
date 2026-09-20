@@ -531,11 +531,21 @@ export default function AdminPage() {
   // =========================================================================
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-white dark:bg-[#09090b] text-neutral-900 dark:text-white flex flex-col items-center justify-center px-4 relative overflow-hidden transition-colors duration-500">
-        {/* Ambient Subtle Radial Glow */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex flex-col items-center justify-center px-4 relative overflow-hidden transition-colors duration-500">
+        {/* Construction Architectural Texture: Concrete Hollow Blocks (CHB) matching client site */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0 bg-repeat opacity-30 dark:opacity-[0.16] mix-blend-multiply dark:mix-blend-luminosity"
+          style={{
+            backgroundImage: "url('/assets/textures/chb_hollowblocks.jpg')",
+            backgroundSize: "440px 440px",
+          }}
+        />
 
-        <div className="relative z-10 w-full max-w-md p-8 sm:p-10 rounded-3xl bg-white/95 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 shadow-2xl backdrop-blur-xl transition-colors">
+        {/* Ambient Subtle Lighting Glows */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-[450px] h-[350px] bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="relative z-10 w-full max-w-md p-8 sm:p-10 rounded-3xl bg-white/95 dark:bg-neutral-900/90 border border-neutral-200/80 dark:border-neutral-800/80 shadow-2xl backdrop-blur-xl transition-colors">
           {/* Brand Logo & Lock Badge */}
           <div className="flex flex-col items-center text-center mb-8">
             <div className="relative w-44 h-10 mb-6">
@@ -576,13 +586,13 @@ export default function AdminPage() {
 
           {/* Login Form */}
           <form onSubmit={handleLogin} autoComplete="off" className="space-y-4">
-            {/* Registered Email */}
+            {/* Email */}
             <div>
               <label
                 htmlFor="adminEmail"
                 className="block text-xs font-mono uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-2"
               >
-                Registered Administrator Email
+                Email
               </label>
               <div className="relative">
                 <input
@@ -590,7 +600,7 @@ export default function AdminPage() {
                   type="email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="example.com"
+                  placeholder="admin@mcpa.com"
                   autoComplete="off"
                   required
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono text-sm transition-colors"
@@ -599,14 +609,14 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Master Password */}
+            {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label
                   htmlFor="adminPassword"
                   className="block text-xs font-mono uppercase tracking-wider text-neutral-700 dark:text-neutral-300"
                 >
-                  Master Password
+                  Password
                 </label>
                 <button
                   type="button"

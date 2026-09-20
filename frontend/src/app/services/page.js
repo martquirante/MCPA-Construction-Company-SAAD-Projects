@@ -19,94 +19,94 @@ export default function ServicesPage() {
   const services = [
     {
       id: "residential",
-      badge: "Turnkey Master Build",
+      badge: "Complete Turnkey Build",
       icon: <HomeIcon className="w-8 h-8 text-amber-500" />,
       title: "Custom Residential Design & Build",
-      subtitle: "Bespoke modern residences built for generations",
+      subtitle: "Custom family homes built to last for generations",
       description:
-        "Full-cycle architectural conceptualization, structural engineering, and master construction. From minimalist modern Zen villas to multi-storey luxury estates, every home is engineered to withstand extreme typhoons and Philippine seismic conditions.",
+        "From initial floor plans to final key handover, we handle your entire build. Whether you envision a modern single-storey home or a multi-storey family residence, every home is built strong to withstand heavy typhoons and earthquakes.",
       inclusions: [
-        "Complete 3D photorealistic BIM modeling & interior pegs",
-        "Engineered concrete foundation & Grade 60 high-tensile steel",
+        "3D realistic color views & floor plan designs",
+        "Solid concrete foundation & certified heavy-duty steel bars",
         "High-grade plumbing, electrical wiring & sanitary installations",
-        "Full turnkey handover with 5-Year Structural Warranty",
+        "Full house handover with a 5-Year Structural Warranty",
       ],
       ctaText: "Inquire Residential Build",
     },
     {
       id: "bnpl",
-      badge: "Flexible Financing",
+      badge: "Flexible Payment Options",
       icon: <BadgePercentIcon className="w-8 h-8 text-amber-500" />,
       title: "Build Now, Pay Later Program",
       subtitle: "Financing built around your titled property",
       description:
-        "An exclusive program designed for titled lot owners across Bulacan, Metro Manila, and Central Luzon. Start your construction immediately without waiting for full cash reserves, powered by flexible milestone billing and institutional loan assistance.",
+        "An exclusive program for lot owners across Bulacan, Metro Manila, and Central Luzon. Start building your home without waiting for full cash upfront, backed by flexible step-by-step payments and loan guidance.",
       inclusions: [
-        "Milestone-based progress billing with zero surprise costs",
+        "Step-by-step progress billing with zero surprise costs",
         "Pag-IBIG Housing Loan end-to-end processing & documentation",
         "Major commercial bank loan packaging assistance",
-        "Transparent digital escrow tracking per construction phase",
+        "Transparent milestone billing so you only pay as each stage is done",
       ],
       ctaText: "Apply for BNPL",
     },
     {
       id: "signed-sealed",
-      badge: "PRC Professional Compliance",
+      badge: "Licensed Architects & Engineers",
       icon: <FileSignatureIcon className="w-8 h-8 text-amber-500" />,
       title: "Signed & Sealed Plans & Permits",
       subtitle: "Full engineering blueprints ready for municipal approval",
       description:
-        "Complete, fully certified architectural and engineering plans signed and sealed by licensed PRC Architects, Civil Engineers, Master Plumbers, and Electrical Engineers, backed by fast-tracked LGU permit facilitation.",
+        "Complete, fully certified architectural and engineering plans signed and sealed by licensed Architects, Civil Engineers, Master Plumbers, and Electrical Engineers, backed by full assistance in securing city building permits.",
       inclusions: [
-        "Architectural blueprints, site development plans & schedules",
-        "Seismic Zone 4 structural design & soil analysis computations",
-        "Electrical layout, load computations & auxiliary diagrams",
+        "Architectural blueprints, site plans & room layouts",
+        "Earthquake-tested structural plan & soil condition analysis",
+        "Electrical wiring layout, load computations & plumbing diagrams",
         "Bulacan & NCR LGU Building Permit submission assistance",
       ],
       ctaText: "Order Blueprint Package",
     },
     {
       id: "commercial",
-      badge: "Industrial & Commercial",
+      badge: "Commercial & Warehouses",
       icon: <WarehouseIcon className="w-8 h-8 text-amber-500" />,
       title: "Commercial Buildings & Warehouses",
-      subtitle: "High-span steel frameworks and logistics facilities",
+      subtitle: "Spacious steel buildings and commercial rental spaces",
       description:
-        "Engineering high-efficiency commercial spaces, logistics hubs, retail commercial strips, and industrial warehouses with wide-span structural steel framing engineered for maximum operational floor space and heavy machinery loads.",
+        "We construct durable commercial spaces, logistics buildings, retail units, and storage warehouses built with strong structural steel framing for wide open floor space and heavy daily use.",
       inclusions: [
-        "High-span structural steel trusses and wide-flange columns",
+        "Heavy-duty structural steel framing and wide columns",
         "Reinforced heavy-duty concrete slab pouring for vehicle traffic",
         "Integrated fire protection, industrial ventilation & loading bays",
-        "Strict corporate milestone scheduling with safety compliance",
+        "Clear project milestone scheduling with on-site safety standards",
       ],
       ctaText: "Inquire Commercial Space",
     },
     {
       id: "supply",
-      badge: "Direct Supply Chain",
+      badge: "In-House Materials & Supply",
       icon: <TruckIcon className="w-8 h-8 text-amber-500" />,
-      title: "In-House Wholesale Construction Supply",
-      subtitle: "Wholesale aggregates, cement, and rebars on-site",
+      title: "In-House Project Materials & Supply",
+      subtitle: "Materials dedicated exclusively to our own construction builds",
       description:
-        "Cut out middlemen markups. As both contractor and direct materials distributor, MCPA delivers certified cement, PNS-tested Grade 60 steel rebars, and wholesale aggregates directly to project sites throughout Bulacan and neighboring provinces.",
+        "Zero retail markups and zero site delays. MCPA is not an open retail hardware store—our direct materials supply and logistics fleet are dedicated exclusively to our own construction and design-and-build projects. We test, prepare, and transport certified steel rebars, structural concrete, and aggregates directly to your build site.",
       inclusions: [
-        "Certified Grade 60 & Grade 40 high-tensile steel rebars",
-        "Premium Portland and Pozzolan cement brands",
-        "Washed sand, crushed gravel (G1, 3/4), and subbase aggregates",
-        "Dedicated fleet of dump trucks for guaranteed on-time delivery",
+        "Certified heavy-duty steel rebars tested for strength",
+        "Tested ready-mix structural concrete for strong foundations",
+        "Quality-screened clean washed sand, crushed gravel, and base aggregates",
+        "Dedicated fleet of dump trucks ensuring zero project delivery delays",
       ],
-      ctaText: "Request Supply Quotation",
+      ctaText: "Inquire Design & Build",
     },
     {
       id: "renovation",
-      badge: "Adaptive Transformation",
+      badge: "Home Renovations & Upgrades",
       icon: <HammerIcon className="w-8 h-8 text-amber-500" />,
-      title: "Renovations & Structural Retrofitting",
-      subtitle: "Revitalize and fortify existing structures",
+      title: "Renovations & Home Extensions",
+      subtitle: "Refresh, expand, and strengthen existing homes",
       description:
-        "Comprehensive residential extensions, modern facade upgrades, vertical second-floor additions, and commercial tenant fit-outs with rigorous structural integrity assessments before any wall is touched.",
+        "Complete residential extensions, modern exterior upgrades, vertical second-floor additions, and commercial tenant fit-outs with careful structural checks before any work begins.",
       inclusions: [
-        "Comprehensive structural load assessment & footing checking",
+        "Thorough structural check of existing posts and foundations",
         "Second-floor vertical expansions & roof deck conversions",
         "Modern architectural cladding, glass railings & lighting updates",
         "Complete plumbing and electrical re-piping & rewiring",
@@ -138,7 +138,7 @@ export default function ServicesPage() {
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold tracking-wider uppercase mb-4">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
-              <span>Architectural Excellence · Direct Material Supply</span>
+              <span>Design & Build Excellence · Dedicated In-House Materials</span>
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
               Services That <br />
@@ -147,7 +147,7 @@ export default function ServicesPage() {
               </span>
             </h1>
             <p className="mt-5 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
-              MCPA Construction and Supply integrates licensed architectural engineering with an in-house wholesale supply chain. We eliminate contractor markups and deliver uncompromising structural integrity from foundation to key turnover.
+              MCPA Construction and Supply brings together licensed architectural design, skilled engineering, and our own dedicated materials for each project. We eliminate retail hardware markups and ensure reliable, long-lasting quality from foundation to key turnover.
             </p>
           </div>
 
@@ -263,7 +263,7 @@ export default function ServicesPage() {
                 No Contractor Markups. No Compromised Blueprints.
               </h3>
               <p className="mt-4 text-neutral-400 text-sm sm:text-base leading-relaxed font-light">
-                Traditional contractors purchase materials from third-party hardware stores at retail prices, passing high markup costs onto the client. Because MCPA operates its own dedicated wholesale supply distribution, you receive certified materials at plant wholesale rates with strict quality control.
+                Traditional contractors purchase materials from third-party hardware stores at retail prices, passing high markup costs and delivery delays onto the client. Because MCPA operates its own dedicated in-house supply and logistics fleet exclusively for our construction projects, your build receives certified, batch-tested materials directly on-site—guaranteeing authentic structural quality with zero middleman markups.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">

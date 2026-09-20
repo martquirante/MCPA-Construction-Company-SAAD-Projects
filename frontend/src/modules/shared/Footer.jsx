@@ -9,7 +9,7 @@ import {
   FacebookIcon,
   InstagramIcon,
   TikTokIcon,
-  GoogleMapsPinIcon,
+  MapPinIcon,
   ChevronRightIcon,
   CheckIcon,
   ArrowUpIcon,
@@ -123,19 +123,6 @@ export default function Footer() {
               <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-sm mb-6 font-light">
                 Looking to turn your ideas into reality? MCPA Construction and Supply is a full-service design and build contractor based in Plaridel, Bulacan. We specialize in custom residential homes, modern commercial facilities, warehouse structures, signed and sealed engineering plans, and in-house construction supplies across Bulacan, Metro Manila, and Central Luzon.
               </p>
-
-              {/* Status Badge with Google Maps Link */}
-              <a
-                href="https://maps.app.goo.gl/hPB6X66NdhViSvCp7"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/50 text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 text-xs font-medium mb-6 transition-all group cursor-pointer"
-                title="View MCPA Headquarters in Google Maps"
-              >
-                <GoogleMapsPinIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
-                <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400" />
-                <span>Design & Build Contractor · Plaridel, Bulacan</span>
-              </a>
             </div>
 
             {/* Social Media Links */}
@@ -298,7 +285,7 @@ export default function Footer() {
                   className="text-neutral-800 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 mt-0.5 inline-flex items-start gap-2 transition-colors group cursor-pointer"
                   title="Open MCPA Headquarters in Google Maps"
                 >
-                  <GoogleMapsPinIcon className="w-4 h-4 group-hover:scale-110 transition-transform shrink-0 mt-0.5" />
+                  <MapPinIcon className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform shrink-0 mt-0.5" />
                   <span className="group-hover:underline">2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines</span>
                 </a>
               </div>
