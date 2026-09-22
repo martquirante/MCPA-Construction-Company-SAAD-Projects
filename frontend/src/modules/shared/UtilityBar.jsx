@@ -118,7 +118,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
       {/* 1. TOP UTILITY ANNOUNCEMENT BAR */}
       <div
         ref={utilityRef}
-        className={`w-full bg-[#1c1c1e] text-neutral-300 border-b border-white/10 text-[11px] font-sans select-none z-50 transition-all duration-700 ease-out overflow-visible ${
+        className={`w-full bg-white/90 dark:bg-[#1c1c1e] text-neutral-600 dark:text-neutral-300 border-b border-neutral-200/80 dark:border-white/10 text-[11px] font-sans select-none z-50 transition-all duration-700 ease-out overflow-visible shadow-sm dark:shadow-none ${
           show
             ? "max-h-10 opacity-100 translate-y-0 pointer-events-auto"
             : "max-h-0 opacity-0 -translate-y-full pointer-events-none overflow-hidden"
@@ -128,18 +128,18 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
           {/* Left: Dynamic Announcement Guarantee (No dot, clean typography) */}
           <div className="flex items-center min-w-0">
             <div className="flex items-center gap-1.5 truncate">
-              <span className="text-neutral-200 font-medium tracking-wide truncate transition-opacity duration-300">
+              <span className="text-neutral-700 dark:text-neutral-200 font-medium tracking-wide truncate transition-opacity duration-300">
                 {currentMessage}
               </span>
             </div>
           </div>
 
           {/* Right: Actions, Links & Theme Switcher */}
-          <div className="flex items-center gap-3 sm:gap-5 shrink-0 text-neutral-400">
+          <div className="flex items-center gap-3 sm:gap-5 shrink-0 text-neutral-500 dark:text-neutral-400">
             {/* About Us */}
             <button
               onClick={handleAboutClick}
-              className="hover:text-white transition-colors cursor-pointer hidden md:inline-block whitespace-nowrap"
+              className="hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer hidden md:inline-block whitespace-nowrap"
             >
               {t("aboutUs")}
             </button>
@@ -147,12 +147,12 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
             {/* Help Center */}
             <button
               onClick={handleHelpClick}
-              className="hover:text-white transition-colors cursor-pointer hidden md:inline-block whitespace-nowrap"
+              className="hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer hidden md:inline-block whitespace-nowrap"
             >
               {t("helpCenter")}
             </button>
 
-            <span className="hidden md:inline-block w-px h-3 bg-white/15" />
+            <span className="hidden md:inline-block w-px h-3 bg-neutral-300 dark:bg-white/15" />
 
             {/* Language Dropdown (Fully Functional) */}
             <div className="relative">
@@ -162,17 +162,17 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                   setLangDropdownOpen(!langDropdownOpen);
                   setThemeDropdownOpen(false);
                 }}
-                className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer py-1"
+                className="flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer py-1"
                 aria-label="Select Language"
               >
-                <span className="font-medium text-neutral-200">
+                <span className="font-medium text-neutral-700 dark:text-neutral-200">
                   {language === "fil" ? "Filipino" : "English"}
                 </span>
                 <ChevronDownIcon className="w-3 h-3 opacity-70" />
               </button>
 
               {langDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-36 rounded-xl bg-neutral-900 border border-neutral-700/80 shadow-2xl py-1 z-50 text-xs backdrop-blur-xl animate-fadeIn">
+                <div className="absolute right-0 top-full mt-1.5 w-36 rounded-xl bg-white/95 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700/80 shadow-xl dark:shadow-2xl py-1 z-50 text-xs backdrop-blur-xl animate-fadeIn">
                   {[
                     { key: "en", label: "English", sub: "English" },
                     { key: "fil", label: "Filipino", sub: "Tagalog" },
@@ -183,7 +183,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                       className={`w-full flex items-center justify-between px-3 py-1.5 text-left transition-colors cursor-pointer ${
                         language === langItem.key
                           ? "text-amber-400 font-semibold bg-white/5"
-                          : "text-neutral-300 hover:text-white hover:bg-white/10"
+                          : "text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10"
                       }`}
                     >
                       <span>
@@ -201,7 +201,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
               )}
             </div>
 
-            <span className="w-px h-3 bg-white/15" />
+            <span className="w-px h-3 bg-neutral-300 dark:bg-white/15" />
 
             {/* 2. THEME DROPDOWN & BUTTONS (With Lucide SVG API Icons, NO EMOJIS) */}
             <div className="relative">
@@ -211,11 +211,11 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                   setThemeDropdownOpen(!themeDropdownOpen);
                   setLangDropdownOpen(false);
                 }}
-                className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer py-1"
+                className="flex items-center gap-1.5 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer py-1"
                 aria-label="Select Theme Mode"
               >
-                <span className="font-medium text-neutral-200">{t("theme")}</span>
-                <span className="px-1.5 py-0.2 rounded-md bg-white/10 text-[9px] font-mono uppercase tracking-wider text-amber-400 font-bold">
+                <span className="font-medium text-neutral-700 dark:text-neutral-200">{t("theme")}</span>
+                <span className="px-1.5 py-0.2 rounded-md bg-neutral-200/80 dark:bg-white/10 text-[9px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">
                   {currentTheme === "system"
                     ? activeThemeMode
                     : currentTheme}
@@ -224,8 +224,8 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
               </button>
 
               {themeDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-40 rounded-xl bg-neutral-900/95 border border-neutral-700/90 shadow-2xl py-1.5 z-50 text-xs backdrop-blur-xl animate-fadeIn">
-                  <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-neutral-500 border-b border-white/5 mb-1">
+                <div className="absolute right-0 top-full mt-1.5 w-40 rounded-xl bg-white/95 dark:bg-neutral-900/95 border border-neutral-200 dark:border-neutral-700/90 shadow-xl dark:shadow-2xl py-1.5 z-50 text-xs backdrop-blur-xl animate-fadeIn">
+                  <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-neutral-500 border-b border-neutral-200 dark:border-white/5 mb-1">
                     {t("appearance")}
                   </div>
 
@@ -236,7 +236,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                     className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors cursor-pointer ${
                       currentTheme === "light"
                         ? "text-amber-400 font-bold bg-amber-500/10"
-                        : "text-neutral-200 hover:text-white hover:bg-white/10"
+                        : "text-neutral-700 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -255,7 +255,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                     className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors cursor-pointer ${
                       currentTheme === "dark"
                         ? "text-amber-400 font-bold bg-amber-500/10"
-                        : "text-neutral-200 hover:text-white hover:bg-white/10"
+                        : "text-neutral-700 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -268,14 +268,14 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                   </button>
 
                   {/* System Auto Button (SVG Icon, No Emoji) */}
-                  <div className="my-1 border-t border-white/10" />
+                  <div className="my-1 border-t border-neutral-200 dark:border-white/10" />
                   <button
                     type="button"
                     onClick={() => handleSelectTheme("system")}
                     className={`w-full flex items-center justify-between px-3 py-1.5 text-left transition-colors cursor-pointer ${
                       currentTheme === "system"
                         ? "text-amber-400 font-bold bg-amber-500/10"
-                        : "text-neutral-400 hover:text-white hover:bg-white/10"
+                        : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -295,7 +295,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
               onClick={() => setIsDismissed(true)}
               aria-label="Dismiss announcement bar"
               title="Dismiss banner"
-              className="text-neutral-400 hover:text-white transition-colors cursor-pointer p-0.5"
+              className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors cursor-pointer p-0.5"
             >
               <CloseIcon className="w-3.5 h-3.5" />
             </button>

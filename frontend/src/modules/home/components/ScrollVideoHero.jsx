@@ -70,7 +70,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
           />
 
           {/* Cinematic lighting gradient overlays */}
-          <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-neutral-950/85 via-black/20 to-neutral-950/40" />
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-neutral-950/10 via-transparent to-neutral-950/5 dark:from-neutral-950/25 dark:via-black/5 dark:to-neutral-950/10" />
         </div>
 
         {/* 3. Hero Content Overlay (Reveals only when 100% completed) */}

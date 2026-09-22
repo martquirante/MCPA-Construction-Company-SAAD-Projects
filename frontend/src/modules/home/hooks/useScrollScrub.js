@@ -67,6 +67,13 @@ export function useScrollScrub(containerRef) {
   const isLowEndRef = useRef(false);
   const lastDisplayedPctRef = useRef(isReturning ? 100 : 0);
 
+  useEffect(() => {
+    return () => {
+      if (playRafRef.current) cancelAnimationFrame(playRafRef.current);
+      if (watchdogRef.current) clearTimeout(watchdogRef.current);
+    };
+  }, []);
+
   // Detect low-end hardware (<= 4 cores, <= 4GB RAM, or mobile) to tune playback rate and seek throttling
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -373,6 +380,7 @@ export function useScrollScrub(containerRef) {
     if (cooldownRef.current) return;
 
     const curr = currentStepRef.current;
+    if (curr < 3 && isAnimatingRef.current) return;
     const video = videoRef.current;
     const duration = video?.duration && isFinite(video.duration) ? video.duration : 10.0;
     const maxTimestamp = Math.max(0, duration - 0.04);

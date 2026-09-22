@@ -42,10 +42,10 @@ export default function BuildProgressBadge({
             aria-label="Scroll or tap to continue construction animation"
             className="pointer-events-auto inline-flex flex-col items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity duration-300 group cursor-pointer"
           >
-            <span className="text-xs font-medium tracking-[0.25em] uppercase text-neutral-200 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] select-none text-center">
+            <span className="text-xs font-medium tracking-[0.25em] uppercase text-neutral-200 drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] select-none text-center">
               Scroll to Continue
             </span>
-            <ArrowDownIcon className="w-3.5 h-3.5 text-amber-400 animate-bounce drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] group-hover:translate-y-0.5 transition-transform" />
+            <ArrowDownIcon className="w-3.5 h-3.5 text-amber-400 animate-bounce drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] group-hover:translate-y-0.5 transition-transform" />
           </button>
         </div>
       )}
@@ -59,7 +59,7 @@ export default function BuildProgressBadge({
               <button
                 onClick={onAdvance}
                 aria-label="Scroll or click to explore website"
-                className="pointer-events-auto text-xs font-medium tracking-[0.25em] uppercase text-neutral-300 hover:text-amber-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] select-none text-center cursor-pointer transition-colors"
+                className="pointer-events-auto text-xs font-medium tracking-[0.25em] uppercase text-neutral-300 hover:text-amber-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] select-none text-center cursor-pointer transition-colors"
               >
                 Scroll to Explore
               </button>
@@ -71,7 +71,7 @@ export default function BuildProgressBadge({
                 <button
                   onClick={handleReplay}
                   aria-label="Replay Construction Build Animation"
-                  className={`relative z-10 px-3 py-1.5 text-xs font-mono uppercase tracking-widest text-neutral-400 hover:text-amber-300 transition-colors duration-300 cursor-pointer inline-flex items-center gap-1.5 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] ${
+                    className={`relative z-10 px-3 py-1.5 text-xs font-mono uppercase tracking-widest text-neutral-400 hover:text-amber-300 transition-colors duration-300 cursor-pointer inline-flex items-center gap-1.5 drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] ${
                     showReplay
                       ? "opacity-100 translate-y-0 pointer-events-auto"
                       : "opacity-0 translate-y-2 pointer-events-none group-hover/replay:opacity-100 group-hover/replay:translate-y-0 group-hover/replay:pointer-events-auto"

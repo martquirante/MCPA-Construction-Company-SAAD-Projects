@@ -54,32 +54,8 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
     };
   }, [isHome]);
 
-  useEffect(() => {
-    if (!isCompleted) return undefined;
-
-    let hideAnnouncement;
-    const listenerTimer = window.setTimeout(() => {
-      let lastScrollY = window.scrollY;
-      hideAnnouncement = () => {
-        const currentScrollY = window.scrollY;
-        const scrollDelta = currentScrollY - lastScrollY;
-        if (Math.abs(scrollDelta) < 28) return;
-
-        if (scrollDelta > 0) {
-          setAnnouncementState({ route: pathname, dismissed: true });
-        } else {
-          setAnnouncementState({ route: pathname, dismissed: false });
-        }
-        lastScrollY = currentScrollY;
-      };
-      window.addEventListener("scroll", hideAnnouncement, { passive: true });
-    }, 700);
-
-    return () => {
-      window.clearTimeout(listenerTimer);
-      if (hideAnnouncement) window.removeEventListener("scroll", hideAnnouncement);
-    };
-  }, [isCompleted, pathname]);
+  // Show UtilityBar ONLY on the homepage hero section when build is completed and not scrolled past hero
+  const showUtilityBar = isHome && isCompleted && !scrolledPastHero && !announcementDismissed;
 
   const navLinks = [
     { label: t("navHome"), href: "/", active: pathname === "/" },
@@ -128,7 +104,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
       <div className="fixed top-0 inset-x-0 z-50 transition-all duration-700 select-none">
         {/* Top Utility Announcement Bar (ShopRave Inspired) */}
         <UtilityBar
-          show={isHome && isCompleted && !announcementDismissed}
+          show={showUtilityBar}
           scrolledPastHero={scrolledPastHero}
         />
 
@@ -136,8 +112,8 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
         <header
           className={`w-full transition-all duration-700 ease-out ${
             scrolledPastHero
-              ? "bg-white/80 dark:bg-neutral-950/80 backdrop-blur-md border-b border-neutral-200/40 dark:border-white/10 py-3 shadow-xs text-neutral-900 dark:text-white"
-              : "bg-transparent py-4"
+              ? "bg-white/80 dark:bg-neutral-950/80 backdrop-blur-md border-b border-neutral-200/40 dark:border-white/10 py-3 shadow-md text-neutral-900 dark:text-white"
+              : "bg-gradient-to-b from-white/70 via-white/30 to-transparent dark:from-black/45 dark:via-black/20 dark:to-transparent py-4 text-neutral-800 dark:text-white shadow-sm shadow-neutral-900/5 dark:shadow-black/20"
           }`}
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-[1fr_auto_1fr] items-center">
@@ -150,35 +126,22 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
               aria-label="MCPA Construction and Supply Home"
             >
               <div className="relative w-36 sm:w-44 md:w-52 h-10 transition-transform duration-300 group-hover:scale-105">
-                {scrolledPastHero ? (
-                  <>
-                    <Image
-                      src="/assets/mcpa-logo.png"
-                      alt="MCPA Construction and Supply"
-                      fill
-                      priority
-                      className="object-contain object-left block dark:hidden"
-                      sizes="(max-width: 768px) 180px, 220px"
-                    />
-                    <Image
-                      src="/assets/logo-white.png"
-                      alt="MCPA Construction and Supply"
-                      fill
-                      priority
-                      className="object-contain object-left hidden dark:block"
-                      sizes="(max-width: 768px) 180px, 220px"
-                    />
-                  </>
-                ) : (
-                  <Image
-                    src="/assets/logo-white.png"
-                    alt="MCPA Construction and Supply"
-                    fill
-                    priority
-                    className="object-contain object-left"
-                    sizes="(max-width: 768px) 180px, 220px"
-                  />
-                )}
+                <Image
+                  src="/assets/mcpa-logo.png"
+                  alt="MCPA Construction and Supply"
+                  fill
+                  priority
+                  className="object-contain object-left block dark:hidden"
+                  sizes="(max-width: 768px) 180px, 220px"
+                />
+                <Image
+                  src="/assets/logo-white.png"
+                  alt="MCPA Construction and Supply"
+                  fill
+                  priority
+                  className="object-contain object-left hidden dark:block"
+                  sizes="(max-width: 768px) 180px, 220px"
+                />
               </div>
             </Link>
           </div>
@@ -203,14 +166,14 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
                       ? "text-amber-600 dark:text-amber-400 font-bold"
                       : "text-neutral-600 hover:text-amber-600 dark:text-neutral-400 dark:hover:text-amber-400"
                     : link.active
-                    ? "text-amber-400 font-semibold drop-shadow-sm"
-                    : "text-neutral-300 hover:text-white drop-shadow-sm"
+                    ? "text-amber-600 dark:text-amber-400 font-bold drop-shadow-xs"
+                    : "text-neutral-800 hover:text-amber-600 dark:text-neutral-200 dark:hover:text-white drop-shadow-xs"
                 }`}
               >
                 <span>{link.label}</span>
                 {link.active && (
                   <span className={`absolute bottom-0 inset-x-0 h-0.5 rounded-full ${
-                    scrolledPastHero ? "bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]" : "bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.8)]"
+                    scrolledPastHero ? "bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]" : "bg-amber-500 dark:bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.8)]"
                   }`} />
                 )}
               </Link>
@@ -242,7 +205,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
                 className={`p-2.5 rounded-full transition-all duration-200 focus:outline-none flex items-center justify-center border select-none ${
                   scrolledPastHero
                     ? "border-neutral-200/80 dark:border-white/10 text-neutral-800 hover:text-amber-600 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:text-amber-400 dark:hover:bg-white/10 shadow-xs"
-                    : "border-white/20 bg-black/30 backdrop-blur-sm text-white hover:text-amber-400 hover:bg-black/50 hover:border-white/40"
+                    : "border-neutral-200/60 bg-white/50 text-neutral-800 hover:text-amber-600 hover:bg-white/80 dark:border-white/20 dark:bg-black/40 dark:text-neutral-100 dark:hover:text-amber-400 dark:hover:bg-black/60 shadow-xs"
                 }`}
               >
                 <UserIcon className="w-5 h-5" />
@@ -256,7 +219,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
               className={`md:hidden p-2 rounded-lg transition-colors duration-200 ${
                 scrolledPastHero
                   ? "text-neutral-800 hover:text-amber-600 hover:bg-neutral-100 dark:text-white dark:hover:text-amber-400 dark:hover:bg-white/10"
-                  : "text-white hover:text-amber-400 hover:bg-white/10"
+                  : "text-neutral-800 hover:text-amber-600 hover:bg-white/40 dark:text-white dark:hover:text-amber-400 dark:hover:bg-white/10"
               }`}
             >
               {mobileMenuOpen ? (
