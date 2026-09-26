@@ -222,10 +222,18 @@ app.get("/api/locations/ph", async (req, res) => {
 });
 
 // Startup & Database Sync
-initializeDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`\n\x1b[32m[SERVER] MCPA Enterprise Backend listening on http://localhost:${PORT}\x1b[0m`);
-    console.log(`[DATABASE] Active DB Provider: \x1b[33m${db.getActiveProviderName()}\x1b[0m`);
-    console.log(`[STORAGE] Cloud Storage: \x1b[36mAzure Blob (Tier 1) -> Supabase Storage (Tier 2)\x1b[0m\n`);
+if (!process.env.VERCEL) {
+  initializeDatabase().then(() => {
+    app.listen(PORT, () => {
+      console.log(`\n\x1b[32m[SERVER] MCPA Enterprise Backend listening on http://localhost:${PORT}\x1b[0m`);
+      console.log(`[DATABASE] Active DB Provider: \x1b[33m${db.getActiveProviderName()}\x1b[0m`);
+      console.log(`[STORAGE] Cloud Storage: \x1b[36mAzure Blob (Tier 1) -> Supabase Storage (Tier 2)\x1b[0m\n`);
+    });
   });
-});
+} else {
+  // On Vercel serverless, run db init on cold start
+  initializeDatabase().catch((err) => console.error("[InitDB Error]:", err));
+}
+
+module.exports = app;
+
