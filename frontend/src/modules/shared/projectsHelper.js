@@ -9,21 +9,27 @@ export const INITIAL_PROJECTS = [
     id: 1,
     name: "Meridian Modern Residence",
     location: "Plaridel, Bulacan",
+    month: "October",
     year: "2024",
+    status: "completed",
     category: "Residential",
     description:
       "Two-storey contemporary home with a spacious second-floor balcony, reinforced concrete framing, perimeter fence, and complete turnkey finishing.",
     images: [
       "https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1200&h=800&fit=crop&auto=format",
       "https://images.unsplash.com/photo-1785746730462-74049651fa26?w=1200&h=800&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&h=800&fit=crop&auto=format",
     ],
     isAdminAdded: false,
+    isWebVisible: true,
   },
   {
     id: 2,
     name: "Tabang Commercial Complex",
     location: "Plaridel, Bulacan",
+    month: "June",
     year: "2024",
+    status: "completed",
     category: "Commercial",
     description:
       "Commercial facility and supply yard featuring high-spec structural steel trusses, modern storefront facades, and heavy-duty logistics access.",
@@ -32,25 +38,32 @@ export const INITIAL_PROJECTS = [
       "https://images.unsplash.com/photo-1783490244502-cd5f236e3780?w=800&h=1200&fit=crop&auto=format",
     ],
     isAdminAdded: false,
+    isWebVisible: true,
   },
   {
     id: 3,
     name: "Grand Royale Executive Villa",
     location: "Malolos, Bulacan",
+    month: "March",
     year: "2023",
+    status: "completed",
     category: "Luxury Villa",
     description:
-      "Custom two-storey luxury home built with signed & sealed plans, bespoke granite finishes, premium fixtures, and a 5-year structural warranty.",
+      "Custom two-storey luxury home built with signed & sealed plans, bespoke granite finishes, premium fixtures, and a 15-year structural warranty.",
     images: [
       "https://images.unsplash.com/photo-1762811054947-605b20298615?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop&auto=format",
     ],
     isAdminAdded: false,
+    isWebVisible: true,
   },
   {
     id: 4,
     name: "Pampanga Zen Sanctuary",
     location: "San Fernando, Pampanga",
+    month: "August",
     year: "2023",
+    status: "completed",
     category: "Modern Zen",
     description:
       "Tropical minimalist residence with high-ceiling living zones, climate-resilient roof overhangs, and funded via our Build Now, Pay Later program.",
@@ -59,12 +72,15 @@ export const INITIAL_PROJECTS = [
       "https://images.unsplash.com/photo-1679364297777-1db77b6199be?w=800&h=600&fit=crop&auto=format",
     ],
     isAdminAdded: false,
+    isWebVisible: true,
   },
   {
     id: 5,
     name: "North Industrial Logistics Hub",
     location: "Guiguinto, Bulacan",
+    month: "November",
     year: "2024",
+    status: "completed",
     category: "Commercial",
     description:
       "Heavy-duty commercial warehouse with reinforced concrete flooring, wide open storage bays, and built using our dedicated in-house materials.",
@@ -73,19 +89,24 @@ export const INITIAL_PROJECTS = [
       "https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1400&h=700&fit=crop&auto=format",
     ],
     isAdminAdded: false,
+    isWebVisible: true,
   },
   {
     id: 6,
     name: "Skyline Contemporary Residence",
     location: "Quezon City, Metro Manila",
+    month: "May",
     year: "2023",
+    status: "completed",
     category: "Residential",
     description:
       "Modern multi-level urban residence with earthquake-tested structural framing, spacious balcony views, and complete municipal building permits.",
     images: [
       "https://images.unsplash.com/photo-1679364297777-1db77b6199be?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&h=600&fit=crop&auto=format",
     ],
     isAdminAdded: false,
+    isWebVisible: true,
   },
 ];
 
@@ -132,9 +153,20 @@ export function deduplicateProjects(primaryProjects = [], fallbackProjects = [])
     if (strId) seenIds.add(strId);
     if (normName) seenNames.add(normName);
 
+    const matchingFallback = fallbackProjects.find(
+      (f) => normalizeProjectName(f.name) === normName
+    );
+    const resolvedImages =
+      Array.isArray(project.images) && project.images.length > 1
+        ? project.images
+        : matchingFallback?.images || project.images || [];
+
     merged.push({
       ...project,
       id: rawId ?? `proj-${merged.length + 1}`,
+      images: resolvedImages,
+      month: project.month || matchingFallback?.month || "January",
+      status: project.status || matchingFallback?.status || "completed",
       isAdminAdded: Boolean(project.isAdminAdded ?? project.is_admin_added),
     });
   };

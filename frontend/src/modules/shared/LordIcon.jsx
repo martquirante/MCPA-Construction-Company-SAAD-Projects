@@ -1,98 +1,67 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 
-/**
- * Architectural LordIcon Component (Theme-Adaptive)
- * Dynamically shifts palette between Light and Dark mode:
- * - Dark Mode: Primary (Pure White #ffffff), Secondary (Crisp Silver #a1a1aa)
- * - Light Mode: Primary (Deep Obsidian #09090b), Secondary (Graphite Gray #71717a)
- */
 export default function LordIcon({
   src,
-  trigger = "hover",
-  delay = 0,
-  colors,
-  darkColors = "primary:#f59e0b,secondary:#ffffff",
-  lightColors = "primary:#f59e0b,secondary:#121212",
-  size = 32,
+  trigger = "loop",
+  colors = "primary:#f59e0b,secondary:#64748b",
+  size = 64,
   className = "",
   style = {},
-  fallback = null,
-  ...props
+  fallback: FallbackIcon = null,
 }) {
-  const [loaded, setLoaded] = useState(false);
-  const [isDark, setIsDark] = useState(true);
-  const iconRef = useRef(null);
+  const [isClient, setIsClient] = useState(false);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
 
   useEffect(() => {
-    // Initial theme check
-    const checkTheme = () => {
-      if (typeof document !== "undefined") {
-        setIsDark(document.documentElement.classList.contains("dark"));
-      }
-    };
-    checkTheme();
+    setIsClient(true);
 
-    // Listen to theme events
-    const handleThemeEvent = (e) => {
-      if (e?.detail?.isDark !== undefined) {
-        setIsDark(e.detail.isDark);
-      } else {
-        checkTheme();
-      }
-    };
-    window.addEventListener("mcpa-theme-change", handleThemeEvent);
+    if (typeof window === "undefined") return;
 
-    // MutationObserver to observe .dark class changes on <html>
-    const observer = new MutationObserver(() => {
-      checkTheme();
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    // Script injection
-    const existingScript = document.querySelector('script[src*="lordicon.js"]');
-    if (!existingScript) {
-      const script = document.createElement("script");
-      script.src = "https://cdn.lordicon.com/lordicon.js";
-      script.async = true;
-      script.onload = () => setLoaded(true);
-      document.body.appendChild(script);
-    } else {
-      setLoaded(true);
+    if (window.customElements && window.customElements.get("lord-icon")) {
+      setScriptLoaded(true);
+      return;
     }
 
-    return () => {
-      window.removeEventListener("mcpa-theme-change", handleThemeEvent);
-      observer.disconnect();
-    };
+    const existingScript = document.querySelector('script[src*="lordicon.js"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => setScriptLoaded(true));
+      if (window.customElements?.get("lord-icon")) {
+        setScriptLoaded(true);
+      }
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://cdn.lordicon.com/lordicon.js";
+    script.async = true;
+    script.onload = () => setScriptLoaded(true);
+    document.body.appendChild(script);
   }, []);
 
-  // Compute active colors: explicit colors override, otherwise theme-based colors
-  const activeColors = colors || (isDark ? darkColors : lightColors);
+  if (!isClient) {
+    return (
+      <div
+        className={`inline-flex items-center justify-center ${className}`}
+        style={{ width: `${size}px`, height: `${size}px`, ...style }}
+      >
+        {FallbackIcon && <FallbackIcon className="w-8 h-8 text-amber-500 animate-pulse" />}
+      </div>
+    );
+  }
 
   return (
-    <span
-      className={`inline-flex items-center justify-center shrink-0 transition-colors duration-300 ${className}`}
-      style={{ width: size, height: size, ...style }}
-      {...props}
+    <div
+      className={`inline-flex items-center justify-center relative select-none ${className}`}
+      style={{ width: `${size}px`, height: `${size}px`, ...style }}
     >
-      {loaded ? (
-        <lord-icon
-          key={`${src}-${isDark ? "dark" : "light"}`}
-          ref={iconRef}
-          src={src}
-          trigger={trigger}
-          delay={delay}
-          colors={activeColors}
-          style={{ width: `${size}px`, height: `${size}px` }}
-        />
-      ) : (
-        fallback || <span className="inline-block w-full h-full opacity-0" />
-      )}
-    </span>
+      <lord-icon
+        src={src}
+        trigger={trigger}
+        colors={colors}
+        style={{ width: `${size}px`, height: `${size}px` }}
+      />
+    </div>
   );
 }

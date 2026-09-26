@@ -142,9 +142,9 @@ export default function SiteProgressTab({
         </div>
 
         <div className="space-y-3">
-          {milestones.map((ms) => (
+          {milestones.map((ms, idx) => (
             <div
-              key={ms.milestone_id}
+              key={ms?.milestone_id ? `ms-${ms.milestone_id}-${idx}` : `ms-idx-${idx}`}
               className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
             >
               <div className="space-y-1 max-w-lg">
@@ -257,9 +257,9 @@ export default function SiteProgressTab({
 
         {/* Photo Logs Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {photos.map((p) => (
+          {photos.map((p, idx) => (
             <div
-              key={p.log_id}
+              key={p?.log_id ? `photo-${p.log_id}-${idx}` : `photo-idx-${idx}`}
               className="rounded-2xl overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm flex flex-col justify-between"
             >
               <div className="relative aspect-video w-full bg-neutral-800">

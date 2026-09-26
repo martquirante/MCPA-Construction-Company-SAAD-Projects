@@ -29,7 +29,7 @@ export default function ServicesPage() {
         "3D realistic color views & floor plan designs",
         "Solid concrete foundation & certified heavy-duty steel bars",
         "High-grade plumbing, electrical wiring & sanitary installations",
-        "Full house handover with a 5-Year Structural Warranty",
+        "Full house handover with a 15-Year Structural Warranty",
       ],
       ctaText: "Inquire Residential Build",
     },
@@ -154,32 +154,36 @@ export default function ServicesPage() {
           {/* Quick Metrics Strip */}
           <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4 pt-8 border-t border-neutral-200 dark:border-neutral-800">
             <div>
-              <div className="text-xl sm:text-2xl font-extrabold text-neutral-900 dark:text-white leading-tight">
-                Earthquake & Typhoon <span className="text-amber-500 font-semibold text-base sm:text-lg">Ready</span>
+              <div className="flex flex-wrap items-baseline gap-x-1.5 text-lg sm:text-xl md:text-2xl font-extrabold text-neutral-900 dark:text-white leading-tight">
+                <span className="break-words">Earthquake & Typhoon</span>
+                <span className="text-amber-500 font-semibold text-sm sm:text-base md:text-lg shrink-0">Ready</span>
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 uppercase tracking-wider font-medium">
                 Structural Resilience Standard
               </p>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white">
-                Direct <span className="text-amber-500 font-semibold text-lg">Supply</span>
+              <div className="flex flex-wrap items-baseline gap-x-1.5 text-xl sm:text-2xl md:text-3xl font-extrabold text-neutral-900 dark:text-white leading-tight">
+                <span className="break-words">Direct</span>
+                <span className="text-amber-500 font-semibold text-base sm:text-lg shrink-0">Supply</span>
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 uppercase tracking-wider font-medium">
                 In-House Cement & Steel
               </p>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white">
-                100<span className="text-amber-500 font-semibold text-lg">%</span>
+              <div className="flex flex-wrap items-baseline gap-x-0.5 text-xl sm:text-2xl md:text-3xl font-extrabold text-neutral-900 dark:text-white leading-tight">
+                <span>100</span>
+                <span className="text-amber-500 font-semibold text-base sm:text-lg">%</span>
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 uppercase tracking-wider font-medium">
                 PRC Signed & Sealed
               </p>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white">
-                BNPL <span className="text-amber-500 font-semibold text-lg">Program</span>
+              <div className="flex flex-wrap items-baseline gap-x-1.5 text-xl sm:text-2xl md:text-3xl font-extrabold text-neutral-900 dark:text-white leading-tight">
+                <span>BNPL</span>
+                <span className="text-amber-500 font-semibold text-base sm:text-lg shrink-0">Program</span>
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 uppercase tracking-wider font-medium">
                 Titled Lot Financing
@@ -252,31 +256,31 @@ export default function ServicesPage() {
 
         {/* The MCPA Advantage Ribbon */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 md:mt-28">
-          <div className="rounded-3xl p-8 sm:p-12 bg-gradient-to-br from-neutral-900 via-neutral-900 to-black text-white border border-neutral-800 shadow-2xl relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="rounded-3xl p-8 sm:p-12 bg-gradient-to-br from-white via-neutral-50/90 to-amber-50/30 dark:from-neutral-900 dark:via-neutral-900 dark:to-black text-neutral-950 dark:text-white border border-neutral-200 dark:border-neutral-800 shadow-xl dark:shadow-2xl relative overflow-hidden backdrop-blur-md transition-colors duration-300">
+            <div className="absolute right-0 top-0 w-96 h-96 bg-amber-500/15 dark:bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
             <div className="max-w-3xl relative z-10">
-              <span className="inline-block px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-4">
+              <span className="inline-block px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold uppercase tracking-wider mb-4">
                 Why MCPA Services Stand Out
               </span>
-              <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+              <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-neutral-950 dark:text-white">
                 No Contractor Markups. No Compromised Blueprints.
               </h3>
-              <p className="mt-4 text-neutral-400 text-sm sm:text-base leading-relaxed font-light">
+              <p className="mt-4 text-neutral-600 dark:text-neutral-400 text-sm sm:text-base leading-relaxed font-normal">
                 Traditional contractors purchase materials from third-party hardware stores at retail prices, passing high markup costs and delivery delays onto the client. Because MCPA operates its own dedicated in-house supply and logistics fleet exclusively for our construction projects, your build receives certified, batch-tested materials directly on-site—guaranteeing authentic structural quality with zero middleman markups.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link
                   href="/book"
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20"
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 active:scale-95"
                 >
                   <span>Book a Consultation</span>
                   <ArrowRightIcon className="w-4 h-4" />
                 </Link>
                 <Link
                   href="/projects"
-                  className="inline-flex items-center justify-center px-8 py-4 rounded-xl border border-neutral-700 hover:bg-white/5 text-neutral-300 hover:text-white text-xs font-semibold uppercase tracking-wider transition-colors"
+                  className="inline-flex items-center justify-center px-8 py-4 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-100/70 dark:bg-white/[0.02] hover:bg-neutral-200/80 dark:hover:bg-white/5 text-neutral-800 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-xs dark:shadow-none"
                 >
                   <span>Explore Completed Projects</span>
                 </Link>

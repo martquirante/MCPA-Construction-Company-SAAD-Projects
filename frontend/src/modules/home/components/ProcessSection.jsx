@@ -222,10 +222,9 @@ export default function ProcessSection() {
         {/* =================================================================== */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-3 mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-neutral-200 dark:border-neutral-900 shrink-0">
           <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] sm:text-xs font-semibold tracking-wider uppercase mb-1 sm:mb-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
-              <span>Our 4-Step Building Journey</span>
-            </div>
+            <p className="text-[10px] sm:text-xs font-semibold tracking-[0.2em] uppercase text-amber-600 dark:text-amber-400 mb-1 sm:mb-2 select-none">
+              Our 4-Step Building Journey
+            </p>
             <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
               The{" "}
               <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
@@ -365,7 +364,7 @@ export default function ProcessSection() {
                       STAGE {item.step}
                     </span>
                     <span
-                      className={`text-xs font-semibold truncate transition-colors ${
+                      className={`text-xs font-semibold leading-tight line-clamp-2 transition-colors ${
                         isCurrent
                           ? "text-neutral-950 dark:text-white"
                           : isPast
@@ -426,16 +425,16 @@ export default function ProcessSection() {
                     {currentStage.checklist.map((check, cIdx) => (
                       <div
                         key={`${currentStage.step}-${cIdx}`}
-                        className="flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-xl bg-neutral-100/70 dark:bg-white/5 border border-neutral-200/70 dark:border-white/5 text-xs sm:text-sm font-medium text-neutral-900 dark:text-neutral-100"
+                        className="flex items-start gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-xl bg-neutral-100/70 dark:bg-white/5 border border-neutral-200/70 dark:border-white/5 text-xs sm:text-sm font-medium text-neutral-900 dark:text-neutral-100"
                         style={{
                           animation: `staggerItemSlide 0.45s cubic-bezier(0.16, 1, 0.3, 1) both`,
                           animationDelay: `${(cIdx + 1) * 70}ms`,
                         }}
                       >
-                        <span className="shrink-0 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-500/20 flex items-center justify-center">
+                        <span className="shrink-0 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-500/20 flex items-center justify-center mt-0.5">
                           <CheckIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 dark:text-amber-400 stroke-[3]" />
                         </span>
-                        <span className="truncate text-xs sm:text-sm">{check}</span>
+                        <span className="text-xs sm:text-sm leading-snug break-words">{check}</span>
                       </div>
                     ))}
                   </div>
@@ -443,9 +442,9 @@ export default function ProcessSection() {
 
                 {/* Mobile/Tablet Compact Status Strip */}
                 <div className="flex lg:hidden items-center justify-between gap-2 mt-3 pt-2.5 border-t border-neutral-200/80 dark:border-neutral-800 text-[11px] text-neutral-600 dark:text-neutral-400">
-                  <div className="flex items-center gap-1.5 truncate">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                    <span className="font-semibold text-neutral-800 dark:text-neutral-200 truncate">
+                    <span className="font-semibold text-neutral-800 dark:text-neutral-200 leading-tight">
                       {currentStage.telemetry.status}
                     </span>
                   </div>

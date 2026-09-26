@@ -47,10 +47,13 @@ export default function PortfolioSection({
               name: p.name,
               location: p.location,
               year: p.year,
+              month: p.month,
               category: p.category,
+              status: p.status || "completed",
               description: p.description,
               images: p.images || [],
               isAdminAdded: Boolean(p.is_admin_added),
+              isWebVisible: p.is_web_visible !== false,
             }));
             const deduplicated = deduplicateProjects(formatted, INITIAL_PROJECTS);
             if (isMounted) {
@@ -79,12 +82,21 @@ export default function PortfolioSection({
     router.push(`/book?style=${encodeURIComponent(project.name)}`);
   };
 
-  const categories = ["All", "Residential", "Commercial", "Luxury Villa", "Modern Zen"];
+  const visibleProjects = projects.filter((p) => p.isWebVisible !== false);
+
+  const baseCategories = ["All", "Residential", "Commercial", "Luxury Villa", "Modern Zen"];
+  // Dynamically include any custom categories added by admin via "Other"
+  const categories = Array.from(
+    new Set([
+      ...baseCategories,
+      ...visibleProjects.map((p) => p.category).filter(Boolean),
+    ])
+  );
 
   const filteredProjects =
     activeCategory === "All"
-      ? projects
-      : projects.filter(
+      ? visibleProjects
+      : visibleProjects.filter(
           (p) =>
             p.category?.toLowerCase() === activeCategory.toLowerCase() ||
             (activeCategory === "Residential" && p.category?.toLowerCase().includes("residential"))

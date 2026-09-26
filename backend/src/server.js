@@ -10,6 +10,7 @@ const authController = require("./controllers/authController");
 const projectsController = require("./controllers/projectsController");
 const briefsController = require("./controllers/briefsController");
 const constructionController = require("./controllers/constructionController");
+const legalPdfController = require("./controllers/legalPdfController");
 const initializeDatabase = require("./scripts/initDb");
 const { translateDictionary } = require("./services/translationService");
 
@@ -90,6 +91,7 @@ app.get("/api/auth/me", (req, res) => authController.me(req, res));
 // -----------------------------------------------------------------------------
 app.get("/api/projects", (req, res) => projectsController.getAll(req, res));
 app.post("/api/projects", upload.single("image"), (req, res) => projectsController.create(req, res));
+app.put("/api/projects/:id", upload.single("image"), (req, res) => projectsController.update(req, res));
 app.delete("/api/projects/:id", (req, res) => projectsController.delete(req, res));
 
 // -----------------------------------------------------------------------------
@@ -117,6 +119,11 @@ app.patch("/api/construction/warranty/:ticketId", (req, res) => constructionCont
 app.post("/api/construction/expenses/ocr", (req, res) => constructionController.logOcrExpense(req, res));
 
 // -----------------------------------------------------------------------------
+// CORPORATE LEGAL PDF GENERATION & DIRECT DOWNLOAD ROUTE
+// -----------------------------------------------------------------------------
+app.get("/api/legal/pdf/:docType", (req, res) => legalPdfController.downloadLegalPdf(req, res));
+
+// -----------------------------------------------------------------------------
 // STANDALONE UPLOAD ROUTE (Direct Azure / Supabase file upload)
 // -----------------------------------------------------------------------------
 app.post("/api/upload", upload.single("file"), async (req, res) => {
@@ -135,6 +142,82 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
   } catch (err) {
     console.error("[Upload API] Error:", err);
     return res.status(500).json({ message: "Upload failed: " + err.message });
+  }
+});
+
+// MULTI-PHOTO UPLOAD ROUTE (Up to 10 photos, 10MB max each)
+app.post("/api/upload-multiple", upload.array("files", 10), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "No files provided." });
+    }
+    const category = req.query.category || "portfolio";
+    const uploadPromises = req.files.map((file) =>
+      storage.uploadFile(file.buffer, file.originalname, file.mimetype, category)
+    );
+    const urls = await Promise.all(uploadPromises);
+    return res.json({ success: true, urls });
+  } catch (err) {
+    console.error("[Multi-Upload API] Error:", err);
+    return res.status(500).json({ message: "Multiple upload failed: " + err.message });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// PHILIPPINES LOCATION AUTOCOMPLETE API (Strictly PH, no frontend storage)
+// -----------------------------------------------------------------------------
+app.get("/api/locations/ph", async (req, res) => {
+  const query = (req.query.q || "").trim();
+  if (!query || query.length < 2) {
+    return res.json({ success: true, locations: [] });
+  }
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=ph&q=${encodeURIComponent(
+      query
+    )}&addressdetails=1&limit=8`;
+
+    const osmRes = await fetch(url, {
+      headers: {
+        "User-Agent": "MCPA-Construction-App/1.0 (development@mcpaconstruction.ph)",
+        Accept: "application/json",
+      },
+    });
+
+    if (!osmRes.ok) {
+      return res.json({ success: true, locations: [] });
+    }
+
+    const data = await osmRes.json();
+    const formattedList = [];
+
+    for (const item of data) {
+      const addr = item.address || {};
+      const primary =
+        addr.city ||
+        addr.town ||
+        addr.municipality ||
+        addr.suburb ||
+        addr.village ||
+        item.name;
+
+      const province = addr.province || addr.state || addr.region || "";
+
+      if (primary) {
+        if (province && !primary.toLowerCase().includes(province.toLowerCase())) {
+          formattedList.push(`${primary}, ${province}`);
+        } else {
+          formattedList.push(primary);
+        }
+      }
+    }
+
+    // Deduplicate suggestions and return
+    const uniqueLocations = Array.from(new Set(formattedList));
+    return res.json({ success: true, locations: uniqueLocations });
+  } catch (err) {
+    console.error("[Locations API] Search error:", err.message);
+    return res.status(500).json({ success: false, message: "Location search failed." });
   }
 });
 

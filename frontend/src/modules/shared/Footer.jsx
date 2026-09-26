@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ScrollMorph from "./ScrollMorph";
+import { setReturnToCompletedHome } from "@/modules/home/homeState";
+import { useLanguage } from "./LanguageContext";
 import {
   ArrowRightIcon,
   FacebookIcon,
@@ -16,6 +18,13 @@ import {
 } from "./Icons";
 
 export default function Footer() {
+  const { language } = useLanguage();
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
+
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
+
   const [emailInput, setEmailInput] = useState("");
   const [subscribed, setSubscribed] = useState(false);
 
@@ -39,7 +48,7 @@ export default function Footer() {
   return (
     <footer
       id="contact-section"
-      className="relative bg-neutral-100 dark:bg-[#080a0e] text-neutral-800 dark:text-neutral-300 border-t border-neutral-200 dark:border-white/10 transition-colors duration-500 overflow-hidden font-sans"
+      className="relative bg-neutral-100 dark:bg-[#080a0e] text-neutral-800 dark:text-neutral-300 border-t border-neutral-200 dark:border-white/10 transition-colors duration-500 overflow-hidden font-sans print:hidden"
     >
       {/* Ambient background glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 max-w-4xl h-48 bg-radial from-amber-500/10 via-amber-500/5 to-transparent pointer-events-none blur-2xl" />
@@ -47,36 +56,36 @@ export default function Footer() {
       {/* 1. PRE-FOOTER TRUST & ACCREDITATION RIBBON */}
       <ScrollMorph variant="curtain-wipe" duration={750} className="border-b border-neutral-200 dark:border-white/10 bg-neutral-200/40 dark:bg-white/[0.02]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center divide-x divide-neutral-200 dark:divide-white/10">
-            <div className="px-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center md:divide-x md:divide-neutral-200 md:dark:divide-white/10">
+            <div className="px-2 sm:px-3">
               <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
                 Direct Supply
               </p>
-              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5">
+              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5 leading-snug break-words">
                 In-House Materials & Aggregates
               </p>
             </div>
-            <div className="px-2">
+            <div className="px-2 sm:px-3">
               <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
                 Project Delivery
               </p>
-              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5">
+              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5 leading-snug break-words">
                 Full-Service Design & Build
               </p>
             </div>
-            <div className="px-2">
+            <div className="px-2 sm:px-3">
               <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
                 Financing Programs
               </p>
-              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5">
+              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5 leading-snug break-words">
                 Build Now, Pay Later (Titled Lot) & Pag-IBIG
               </p>
             </div>
-            <div className="px-2">
+            <div className="px-2 sm:px-3">
               <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
                 Engineering Standard
               </p>
-              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5">
+              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5 leading-snug break-words">
                 Signed & Sealed Plans · Earthquake & Typhoon Ready
               </p>
             </div>
@@ -96,9 +105,12 @@ export default function Footer() {
                 onClick={(e) => {
                   if (typeof window !== "undefined" && window.location.pathname === "/") {
                     e.preventDefault();
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    const vh = window.innerHeight;
+                    window.scrollTo({ top: 3 * vh, behavior: "instant" });
                     window.history.replaceState(null, "", "/");
+                    return;
                   }
+                  setReturnToCompletedHome(true);
                 }}
                 className="inline-block mb-5 group"
               >
@@ -180,9 +192,12 @@ export default function Footer() {
                   onClick={(e) => {
                     if (typeof window !== "undefined" && window.location.pathname === "/") {
                       e.preventDefault();
-                      window.scrollTo({ top: 0, behavior: "smooth" });
+                      const vh = window.innerHeight;
+                      window.scrollTo({ top: 3 * vh, behavior: "instant" });
                       window.history.replaceState(null, "", "/");
+                      return;
                     }
+                    setReturnToCompletedHome(true);
                   }}
                   className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group"
                 >
@@ -408,21 +423,31 @@ export default function Footer() {
       <div className="border-t border-neutral-200 dark:border-white/10 bg-neutral-200/40 dark:bg-black/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-neutral-600 dark:text-neutral-500 font-mono">
           {/* Left: Copyright */}
-          <div>
-            © {new Date().getFullYear()} MCPA CONSTRUCTION AND SUPPLY. ALL RIGHTS RESERVED.
+          <div suppressHydrationWarning>
+            © {currentYear} MCPA CONSTRUCTION AND SUPPLY.{" "}
+            {language === "fil" ? "LAHAT NG KARAPATAN AY NAKALAAN." : "ALL RIGHTS RESERVED."}
           </div>
 
           {/* Center: Legal & System Status */}
           <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-[11px]">
-            <Link href="#contact-section" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+            <Link
+              href="/legal/privacy"
+              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-medium hover:underline"
+            >
               Privacy Policy
             </Link>
             <span className="text-neutral-300 dark:text-neutral-700">·</span>
-            <Link href="#contact-section" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+            <Link
+              href="/legal/terms"
+              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-medium hover:underline"
+            >
               Terms of Engagement
             </Link>
             <span className="text-neutral-300 dark:text-neutral-700">·</span>
-            <Link href="#contact-section" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+            <Link
+              href="/legal/safety"
+              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-medium hover:underline"
+            >
               Safety Code
             </Link>
           </div>

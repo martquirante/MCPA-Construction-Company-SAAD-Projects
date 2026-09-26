@@ -70,7 +70,7 @@ export default function PillarCard({
           : `transform 0.85s cubic-bezier(0.16, 1, 0.3, 1) ${isVisible ? transitionDelay : "0ms"}, opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1) ${isVisible ? transitionDelay : "0ms"}, filter 0.85s ease-out ${isVisible ? transitionDelay : "0ms"}`,
         opacity: isVisible ? 1 : 0,
       }}
-      className={`group relative overflow-hidden rounded-2xl p-8 sm:p-9 transition-all duration-300 border select-none ${
+      className={`group relative overflow-hidden rounded-2xl p-8 sm:p-9 transition-all duration-300 border select-none h-full flex flex-col ${
         isHovered
           ? "border-amber-500/80 shadow-[0_20px_50px_rgba(245,158,11,0.2)] bg-white dark:bg-neutral-900/90"
           : "border-neutral-200 dark:border-neutral-800/80 bg-white dark:bg-neutral-900/50 hover:border-amber-500/50 shadow-xs"

@@ -328,11 +328,33 @@ class DbFailoverEngine {
         description: params[4],
         images: params[5] || [],
         is_admin_added: true,
+        is_web_visible: params[6] !== false,
+        status: params[7] || "completed",
+        month: params[8] || "January",
         created_at: new Date().toISOString(),
       };
       data.projects.push(newP);
       this.writeMockData(data);
       return { rows: [newP] };
+    }
+    if (cleanSql.startsWith("UPDATE PROJECTS")) {
+      // SET name = $1, location = $2, category = $3, year = $4, description = $5, images = $6, is_web_visible = $7, status = $8, month = $9 WHERE project_id = $10
+      const id = params[params.length - 1];
+      const project = data.projects.find((p) => p.project_id === id);
+      if (project) {
+        project.name = params[0];
+        project.location = params[1];
+        project.category = params[2];
+        project.year = params[3];
+        project.description = params[4];
+        project.images = params[5] || [];
+        project.is_web_visible = params[6] !== false;
+        if (params[7] !== undefined) project.status = params[7];
+        if (params[8] !== undefined) project.month = params[8];
+        this.writeMockData(data);
+        return { rows: [project] };
+      }
+      return { rows: [] };
     }
     if (cleanSql.startsWith("DELETE FROM PROJECTS")) {
       const id = params[0];

@@ -265,3 +265,75 @@ p, span, a, button, input, textarea, select {
   background: rgba(254, 226, 2, 0.5);
 }
 
+/* ========================================================================= */
+/* OFFICIAL CORPORATE DOCUMENT PRINT ENGINE STYLESHEET                       */
+/* ========================================================================= */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 15mm 15mm;
+  }
+
+  html,
+  body,
+  .dark,
+  .dark body {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-size: 10pt !important;
+    line-height: 1.5 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Dark mode overrides for print */
+  .dark main,
+  .dark article,
+  .dark section,
+  .dark div,
+  .dark p,
+  .dark span,
+  .dark h1,
+  .dark h2,
+  .dark h3,
+  .dark h4,
+  .dark li,
+  .dark td,
+  .dark th {
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
+  }
+
+  .dark thead {
+    background-color: #f3f4f6 !important;
+  }
+
+  .dark tr {
+    border-color: #e5e7eb !important;
+  }
+
+  /* Suppress automatic browser URLs after hyperlinks */
+  a[href]:after {
+    content: none !important;
+  }
+
+  /* Prevent page breaks inside cards, tables, sections and signature blocks */
+  .print-avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Crisp table rendering in print */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th,
+  td {
+    border-color: #d1d5db !important;
+  }
+}
+
+

@@ -70,9 +70,9 @@ export default function WarrantyTicketsTab({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {tickets.map((t) => (
+          {tickets.map((t, idx) => (
             <div
-              key={t.ticket_id}
+              key={t?.ticket_id ? `ticket-${t.ticket_id}-${idx}` : `ticket-idx-${idx}`}
               className="p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm space-y-4 flex flex-col justify-between"
             >
               <div className="space-y-3">

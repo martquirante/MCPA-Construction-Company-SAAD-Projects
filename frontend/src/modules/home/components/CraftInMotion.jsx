@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowRightIcon } from "../../shared/Icons";
+import { useLanguage } from "../../shared/LanguageContext";
 
 const CRAFT_VIDEOS = [
   {
@@ -44,6 +45,8 @@ const CRAFT_VIDEOS = [
 ];
 
 export default function CraftInMotion() {
+  const { language, t } = useLanguage();
+  const isFil = language === "fil";
   const [activeIndex, setActiveIndex] = useState(0);
   const [prevIndex, setPrevIndex] = useState(null);
   const videoRefs = useRef([]);
@@ -117,25 +120,28 @@ export default function CraftInMotion() {
 
       {/* Content Container */}
       <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center">
-        <div className="max-w-2xl text-white">
-          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-white leading-tight">
-            Built by hands.
-            <br />
-            <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 bg-clip-text text-transparent">
-              Perfected by process.
+        <div className="max-w-3xl text-white">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold uppercase tracking-tight text-white leading-tight">
+            <span className="block">
+              {isFil ? "Itinayo ng mga Kamay." : "Built by hands."}
+            </span>
+            <span className="block mt-1 sm:mt-1.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 bg-clip-text text-transparent">
+              {isFil ? "Pinasakdal ng Proseso." : "Perfected by process."}
             </span>
           </h2>
 
-          <p className="mt-4 text-neutral-300 text-base md:text-lg leading-relaxed font-light max-w-lg">
-            Every project is managed with dedicated on-site principals and transparent weekly reporting.
+          <p className="mt-4 text-neutral-300 text-sm sm:text-base md:text-lg leading-relaxed font-light max-w-xl">
+            {isFil
+              ? "Bawat proyekto ay pinamamahalaan ng mga lisensyadong eksperto sa mismong gawaan at may tapat na lingguhang ulat."
+              : "Every project is managed with dedicated on-site principals and transparent weekly reporting."}
           </p>
 
-          <div className="mt-8">
+          <div className="mt-7 sm:mt-8">
             <Link
               href="/process"
-              className="inline-flex items-center gap-3 px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all duration-300 shadow-[0_0_25px_rgba(245,158,11,0.3)] hover:shadow-[0_0_35px_rgba(245,158,11,0.5)] group"
+              className="inline-flex items-center gap-3 px-5 sm:px-6 py-3 sm:py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all duration-300 shadow-[0_0_25px_rgba(245,158,11,0.3)] hover:shadow-[0_0_35px_rgba(245,158,11,0.5)] group"
             >
-              <span>Explore The Process</span>
+              <span>{isFil ? "Tuklasin ang Proseso" : "Explore The Process"}</span>
               <ArrowRightIcon className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>

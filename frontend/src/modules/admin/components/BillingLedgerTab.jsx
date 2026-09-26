@@ -91,10 +91,10 @@ export default function BillingLedgerTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-white/5 font-mono">
-              {billing.map((item) => {
+              {billing.map((item, idx) => {
                 const isPaid = item.status === "Paid";
                 return (
-                  <tr key={item.bill_id} className="hover:bg-neutral-50 dark:hover:bg-white/[0.02] transition-colors">
+                  <tr key={item?.bill_id ? `bill-${item.bill_id}-${idx}` : `bill-idx-${idx}`} className="hover:bg-neutral-50 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="py-4 px-4 font-sans font-semibold text-neutral-900 dark:text-white">
                       {item.milestone_title}
                     </td>

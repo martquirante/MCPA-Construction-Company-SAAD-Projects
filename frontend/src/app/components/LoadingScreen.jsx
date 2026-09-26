@@ -5,27 +5,25 @@ import McpaVectorLogo from "./McpaVectorLogo";
 
 export default function LoadingScreen({ onComplete }) {
   const [progress, setProgress] = useState(0);
-  const [theme, setTheme] = useState(() => {
-    if (typeof window !== "undefined" && window.matchMedia) {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    }
-    return "dark";
-  });
+  const [theme, setTheme] = useState("dark");
   const [animMode, setAnimMode] = useState("draw"); // "draw" (Vector Stroke Draw) | "sweep" (Laser Blade Etch)
   const [isCompleted, setIsCompleted] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [animKey, setAnimKey] = useState(0);
 
-  // Auto-detect browser/OS theme (prefers-color-scheme) & listen for live changes
+  // Auto-detect browser/OS theme (prefers-color-scheme) & listen for live changes after mount
   useEffect(() => {
-    if (typeof window !== "undefined" && window.matchMedia) {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    if (typeof window !== "undefined") {
+      const isHtmlDark = document.documentElement.classList.contains("dark");
+      const mediaQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+      setTheme(isHtmlDark || (mediaQuery ? mediaQuery.matches : true) ? "dark" : "light");
+
       const handleThemeChange = (e) => {
         setTheme(e.matches ? "dark" : "light");
       };
 
-      mediaQuery.addEventListener("change", handleThemeChange);
-      return () => mediaQuery.removeEventListener("change", handleThemeChange);
+      mediaQuery?.addEventListener("change", handleThemeChange);
+      return () => mediaQuery?.removeEventListener("change", handleThemeChange);
     }
   }, []);
 
@@ -111,6 +109,7 @@ export default function LoadingScreen({ onComplete }) {
   return (
     <div
       key={animKey}
+      suppressHydrationWarning
       className={`fixed inset-0 z-[100] flex items-center justify-center w-screen h-screen overflow-hidden select-none transition-all duration-700 ease-out ${
         isFadingOut ? "opacity-0 pointer-events-none scale-105" : "opacity-100"
       } ${

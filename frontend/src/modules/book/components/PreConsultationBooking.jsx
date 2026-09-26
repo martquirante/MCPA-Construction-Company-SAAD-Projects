@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   CheckIcon,
@@ -28,7 +28,23 @@ export default function PreConsultationBooking({ selectedStyle }) {
   const [locationType, setLocationType] = useState("Local"); // "Local" | "OFW"
   const [meetingMode, setMeetingMode] = useState("Online Meeting (Google Meet)"); // "Online Meeting (Google Meet)" | "In-Person Office Visit"
   const [meetingDate, setMeetingDate] = useState("");
-  const [meetingTime, setMeetingTime] = useState("09:00 AM - 10:30 AM");
+  const [meetingTime, setMeetingTime] = useState("09:00 AM - 10:30 AM PHT");
+
+  // Minimum booking date: 24h lead time (tomorrow)
+  const minBookingDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split("T")[0];
+  }, []);
+
+  // Detect user local timezone for international/OFW transparency
+  const userTimezone = useMemo(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Manila";
+    } catch {
+      return "Asia/Manila";
+    }
+  }, []);
   const [preferredStyle, setPreferredStyle] = useState(() => {
     if (selectedStyle) return selectedStyle;
     if (typeof window !== "undefined") {
@@ -495,30 +511,49 @@ export default function PreConsultationBooking({ selectedStyle }) {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                         <div>
-                          <label className="block text-[11px] font-mono uppercase text-neutral-600 dark:text-neutral-300 mb-1">
-                            Preferred Meeting Date
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[11px] font-mono uppercase text-neutral-600 dark:text-neutral-300">
+                              Preferred Meeting Date
+                            </label>
+                            <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-semibold">Min. 24h Advance</span>
+                          </div>
                           <input
                             type="date"
+                            min={minBookingDate}
                             value={meetingDate}
                             onChange={(e) => setMeetingDate(e.target.value)}
                             className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-mono uppercase text-neutral-600 dark:text-neutral-300 mb-1">
-                            Preferred Time Slot
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[11px] font-mono uppercase text-neutral-600 dark:text-neutral-300">
+                              Preferred Time Slot
+                            </label>
+                            <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-semibold">PHT (UTC+8)</span>
+                          </div>
                           <select
                             value={meetingTime}
                             onChange={(e) => setMeetingTime(e.target.value)}
                             className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer"
                           >
-                            <option value="09:00 AM - 10:30 AM">09:00 AM - 10:30 AM (Morning)</option>
-                            <option value="02:00 PM - 03:30 PM">02:00 PM - 03:30 PM (Afternoon)</option>
-                            <option value="07:00 PM - 08:30 PM (OFW Friendly)">07:00 PM - 08:30 PM (Special OFW Evening Slot)</option>
+                            <option value="09:00 AM - 10:30 AM PHT">09:00 AM - 10:30 AM PHT (Morning)</option>
+                            <option value="02:00 PM - 03:30 PM PHT">02:00 PM - 03:30 PM PHT (Afternoon)</option>
+                            <option value="07:00 PM - 08:30 PM PHT (OFW Friendly)">07:00 PM - 08:30 PM PHT (Special OFW Evening Slot)</option>
                           </select>
                         </div>
+                      </div>
+
+                      {/* Timezone & Tamper-Prevention Notice */}
+                      <div className="mt-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 text-[11px] font-mono">
+                        <span className="text-amber-900 dark:text-amber-200">
+                          🇵🇭 Schedules follow <strong>Philippine Standard Time (PHT, UTC+8)</strong>.
+                        </span>
+                        {userTimezone && userTimezone !== "Asia/Manila" && (
+                          <span className="text-neutral-600 dark:text-neutral-300 bg-white/80 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-200 dark:border-neutral-700 text-[10px]">
+                            Your Timezone: <strong className="text-amber-600 dark:text-amber-400">{userTimezone}</strong>
+                          </span>
+                        )}
                       </div>
                     </div>
 

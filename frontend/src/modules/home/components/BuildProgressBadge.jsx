@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { RotateCcwIcon, ArrowDownIcon } from "../../shared/Icons";
+import { useLanguage } from "../../shared/LanguageContext";
 
 export default function BuildProgressBadge({
   progress,
@@ -11,6 +12,7 @@ export default function BuildProgressBadge({
   onReplay,
   onAdvance,
 }) {
+  const { t } = useLanguage();
   const percentage = displayedPct !== undefined ? displayedPct : Math.round(progress * 100);
   const [isDismissed, setIsDismissed] = useState(false);
 
@@ -43,7 +45,7 @@ export default function BuildProgressBadge({
             className="pointer-events-auto inline-flex flex-col items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity duration-300 group cursor-pointer"
           >
             <span className="text-xs font-medium tracking-[0.25em] uppercase text-neutral-200 drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] select-none text-center">
-              Scroll to Continue
+              {t("scrollToContinue")}
             </span>
             <ArrowDownIcon className="w-3.5 h-3.5 text-amber-400 animate-bounce drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] group-hover:translate-y-0.5 transition-transform" />
           </button>
@@ -52,22 +54,22 @@ export default function BuildProgressBadge({
 
       {/* 2. ONCE COMPLETED: REFINED BOTTOM CUE & REPLAY PILL */}
       {isCompleted && (
-        <div className="absolute bottom-10 sm:bottom-6 inset-x-0 z-30 px-6 pointer-events-none transition-all duration-700 ease-out pb-[env(safe-area-inset-bottom,0px)]">
-          <div className="relative flex items-center justify-between min-h-[32px]">
-            {/* Perfectly centered indicator across the entire viewport width */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute bottom-10 sm:bottom-6 inset-x-0 z-30 px-4 sm:px-6 pointer-events-none transition-all duration-700 ease-out pb-[env(safe-area-inset-bottom,0px)]">
+          <div className="relative flex flex-col sm:flex-row items-center justify-center sm:justify-between min-h-[32px] gap-2 sm:gap-0">
+            {/* Centered indicator with safe mobile stacking */}
+            <div className="sm:absolute sm:inset-0 flex items-center justify-center pointer-events-none">
               <button
                 onClick={onAdvance}
                 aria-label="Scroll or click to explore website"
-                className="pointer-events-auto text-xs font-medium tracking-[0.25em] uppercase text-neutral-300 hover:text-amber-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] select-none text-center cursor-pointer transition-colors"
+                className="pointer-events-auto text-xs font-medium tracking-[0.2em] sm:tracking-[0.25em] uppercase text-neutral-300 hover:text-amber-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] select-none text-center cursor-pointer transition-colors"
               >
-                Scroll to Explore
+                {t("scrollExplore")}
               </button>
             </div>
 
             {/* Replay Build pill docked to the right */}
             {onReplay && (
-              <div className="ml-auto pointer-events-auto group/replay">
+              <div className="sm:ml-auto pointer-events-auto group/replay">
                 <button
                   onClick={handleReplay}
                   aria-label="Replay Construction Build Animation"
@@ -78,7 +80,7 @@ export default function BuildProgressBadge({
                   }`}
                 >
                   <RotateCcwIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-300 transition-colors" />
-                  <span>Replay Build</span>
+                  <span>{t("replayBuild")}</span>
                 </button>
               </div>
             )}

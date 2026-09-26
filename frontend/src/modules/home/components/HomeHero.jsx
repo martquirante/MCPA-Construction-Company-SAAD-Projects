@@ -2,9 +2,12 @@
 
 import Image from "next/image";
 import Button from "../../shared/Button";
-import { ChevronDownIcon } from "../../shared/Icons";
+import { ArrowDownIcon } from "../../shared/Icons";
+import { useLanguage } from "../../shared/LanguageContext";
 
 export default function HomeHero() {
+  const { t } = useLanguage();
+
   const scrollToExplore = () => {
     const el = document.getElementById("overview");
     if (el) {
@@ -19,50 +22,70 @@ export default function HomeHero() {
       id="top"
       className="relative w-full h-[100dvh] min-h-[640px] max-h-[1080px] bg-neutral-950 overflow-hidden select-none flex items-center justify-center"
     >
-      {/* 1. Background Responsive House Images */}
+      {/* 1. Background Responsive House Images (Bright Daytime in Light Theme, Twilight in Dark Theme) */}
       <div className="absolute inset-0 z-0">
-        {/* Landscape for Desktop */}
-        <Image
-          src="/assets/hero-residence.jpg"
-          alt="MCPA Luxury Residence"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-center hidden sm:block"
-        />
-        {/* Portrait for Mobile */}
-        <Image
-          src="/assets/hero-residence-mobile.jpg"
-          alt="MCPA Luxury Residence"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-center block sm:hidden"
-        />
+        {/* Desktop Screens */}
+        <div className="absolute inset-0 hidden sm:block">
+          {/* Light Theme: Sunny Daytime Architectural Residence */}
+          <Image
+            src="/assets/hero-residence-day.jpg"
+            alt="MCPA Luxury Modern Residence"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center dark:hidden"
+          />
+          {/* Dark Theme: Twilight / Night Luxury Residence */}
+          <Image
+            src="/assets/hero-residence.jpg"
+            alt="MCPA Luxury Modern Residence"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center hidden dark:block"
+          />
+        </div>
 
-        {/* Cinematic contrast gradient overlay for crisp typography */}
-        <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-neutral-950 via-black/45 to-black/60" />
+        {/* Mobile Screens */}
+        <div className="absolute inset-0 block sm:hidden">
+          {/* Light Theme: Sunny Daytime Architectural Residence */}
+          <Image
+            src="/assets/hero-residence-day-mobile.jpg"
+            alt="MCPA Luxury Modern Residence"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center dark:hidden"
+          />
+          {/* Dark Theme: Twilight / Night Luxury Residence */}
+          <Image
+            src="/assets/hero-residence-mobile.jpg"
+            alt="MCPA Luxury Modern Residence"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center hidden dark:block"
+          />
+        </div>
+
+        {/* Cinematic contrast gradient overlay: subtle in light mode, deep in dark mode */}
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/40 via-black/10 to-black/25 dark:from-black/75 dark:via-black/35 dark:to-black/50 transition-colors duration-500" />
       </div>
 
       {/* 2. Hero Content Overlay */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 md:px-8 text-center flex flex-col items-center">
-        {/* Special Program Cue - Clean Text-Only Typography (No circular icon/pill) */}
-        <p className="text-neutral-300 text-xs sm:text-sm font-medium tracking-[0.25em] uppercase mb-4 select-none drop-shadow-md">
-          Build Now, Pay Later Program Available
-        </p>
-
         {/* Client Core Heading Copy */}
-        <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[1.12] drop-shadow-2xl select-none">
-          Looking to turn your ideas into reality?
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-[1.2] drop-shadow-2xl select-none">
+          {t("heroHeading")}
         </h1>
 
         {/* Client Subtitle Copy */}
-        <p className="mt-5 text-sm sm:text-base md:text-lg text-neutral-200 font-normal leading-relaxed max-w-xl mx-auto drop-shadow-md">
-          Collaborate with us at{" "}
+        <p className="mt-4 text-sm sm:text-base md:text-lg text-neutral-200 font-normal leading-relaxed max-w-2xl mx-auto drop-shadow-md">
+          {t("heroSubPre")}
           <span className="font-semibold text-white">
-            MCPA Construction and Supply
-          </span>{" "}
-          and let&apos;s build your enduring legacy.
+            {t("heroSubBold")}
+          </span>
+          {t("heroSubPost")}
         </p>
 
         {/* Single Centered Call-to-Action Button */}
@@ -71,24 +94,26 @@ export default function HomeHero() {
             href="/book"
             size="lg"
             variant="primary"
-            className="px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-widest shadow-xl shadow-black/30 hover:scale-105 transition-all"
+            className="px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:shadow-amber-500/35 hover:scale-105 active:scale-95 transition-all"
           >
-            Book an Appointment
+            {t("bookAppointment")}
           </Button>
         </div>
       </div>
 
       {/* 3. Bottom Scroll to Explore Indicator */}
-      <button
-        onClick={scrollToExplore}
-        className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 text-neutral-300 hover:text-white transition-colors cursor-pointer group select-none"
-        aria-label="Scroll to explore website content"
-      >
-        <span className="text-[11px] font-mono tracking-[0.25em] uppercase text-neutral-300 group-hover:text-white transition-colors">
-          Scroll to Explore
-        </span>
-        <ChevronDownIcon className="w-4 h-4 text-neutral-400 group-hover:text-white animate-bounce" />
-      </button>
+      <div className="absolute bottom-8 sm:bottom-6 inset-x-0 z-20 flex flex-col items-center justify-center pointer-events-none select-none pb-[env(safe-area-inset-bottom,0px)]">
+        <button
+          onClick={scrollToExplore}
+          aria-label="Scroll to explore website content"
+          className="pointer-events-auto inline-flex flex-col items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity duration-300 group cursor-pointer"
+        >
+          <span className="text-xs font-medium tracking-[0.25em] uppercase text-neutral-200 drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] select-none text-center">
+            {t("scrollExplore")}
+          </span>
+          <ArrowDownIcon className="w-3.5 h-3.5 text-amber-400 animate-bounce drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] group-hover:translate-y-0.5 transition-transform" />
+        </button>
+      </div>
     </section>
   );
 }

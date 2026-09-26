@@ -1,8 +1,11 @@
 "use client";
 
 import ClientNavbar from "@/modules/shared/ClientNavbar";
+import { useLanguage } from "@/modules/shared/LanguageContext";
 
 export default function BookPage() {
+  const { t } = useLanguage();
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white flex flex-col transition-colors duration-500">
       {/* Top Sticky Navigation */}
@@ -11,7 +14,7 @@ export default function BookPage() {
       {/* Clean Blank Space with only Booking text */}
       <main className="flex-1 flex items-center justify-center px-4 py-20 text-center">
         <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold uppercase tracking-widest text-neutral-950 dark:text-white">
-          Booking
+          {t("bookingTitle")}
         </h1>
       </main>
     </div>

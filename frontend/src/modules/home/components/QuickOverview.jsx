@@ -220,7 +220,7 @@ export default function QuickOverview() {
                 href="/book"
                 className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40"
               >
-                <span>Book an Appointment</span>
+                <span>{t("bookAppointment")}</span>
                 <ArrowRightIcon className="w-4 h-4" />
               </Link>
               <Link

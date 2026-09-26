@@ -15,6 +15,7 @@ export const STAGE_LABELS = [
 export function useScrollScrub(containerRef) {
   const isReturning = getReturnToCompletedHome();
   const [currentStep, setCurrentStep] = useState(isReturning ? 3 : 0);
+  const [activePartIndex, setActivePartIndex] = useState(isReturning ? 2 : 0);
   const [progress, setProgress] = useState(isReturning ? 1.0 : 0);
   const [displayedPct, setDisplayedPct] = useState(isReturning ? 100 : 0);
   const [isCompleted, setIsCompleted] = useState(isReturning);
@@ -23,15 +24,32 @@ export function useScrollScrub(containerRef) {
   const [stageName, setStageName] = useState(isReturning ? STAGE_LABELS[3] : STAGE_LABELS[0]);
   const [videoLoaded, setVideoLoaded] = useState(false);
 
-  const videoRef = useRef(null);
+  // Dedicated refs for each of the 3 split MP4 files
+  const video1Ref = useRef(null); // Part 1: Step 0 -> 1 (0% to 33%)
+  const video2Ref = useRef(null); // Part 2: Step 1 -> 2 (33% to 66%)
+  const video3Ref = useRef(null); // Part 3: Step 2 -> 3 (66% to 100%)
+
   const currentStepRef = useRef(isReturning ? 3 : 0);
+  const activePartIndexRef = useRef(isReturning ? 2 : 0);
   const isAnimatingRef = useRef(false);
   const cooldownRef = useRef(false);
-  const rafIdRef = useRef(null);
   const touchStartYRef = useRef(0);
   const touchStartTimeRef = useRef(0);
   const hasCompletedRef = useRef(isReturning);
   const videoFinishedRef = useRef(isReturning);
+
+  const targetStepRef = useRef(isReturning ? 3 : 0);
+  const playRafRef = useRef(null);
+  const watchdogRef = useRef(null);
+  const lastSeekTimeRef = useRef(0);
+  const isProgrammaticScrollRef = useRef(false);
+  const isLowEndRef = useRef(false);
+  const lastDisplayedPctRef = useRef(isReturning ? 100 : 0);
+
+  // Keep activePartIndexRef in sync with state
+  useEffect(() => {
+    activePartIndexRef.current = activePartIndex;
+  }, [activePartIndex]);
 
   // Sync ref with completed state
   useEffect(() => {
@@ -59,14 +77,6 @@ export function useScrollScrub(containerRef) {
     };
   }, []);
 
-  const targetStepRef = useRef(isReturning ? 3 : 0);
-  const playRafRef = useRef(null);
-  const watchdogRef = useRef(null);
-  const lastSeekTimeRef = useRef(0);
-  const isProgrammaticScrollRef = useRef(false);
-  const isLowEndRef = useRef(false);
-  const lastDisplayedPctRef = useRef(isReturning ? 100 : 0);
-
   useEffect(() => {
     return () => {
       if (playRafRef.current) cancelAnimationFrame(playRafRef.current);
@@ -74,7 +84,7 @@ export function useScrollScrub(containerRef) {
     };
   }, []);
 
-  // Detect low-end hardware (<= 4 cores, <= 4GB RAM, or mobile) to tune playback rate and seek throttling
+  // Detect low-end hardware (<= 4 cores, <= 4GB RAM, or mobile)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const nav = window.navigator;
@@ -85,14 +95,23 @@ export function useScrollScrub(containerRef) {
     }
   }, []);
 
-  // Backward interpolation helper for reverse scrolling
-  const scrubBackward = useCallback((startTime, targetTime, targetProg, targetPct) => {
-    const video = videoRef.current;
-    const duration = video?.duration && isFinite(video.duration) ? video.duration : 10.0;
-    const startProg = Math.min(1, Math.max(0, startTime / duration));
-    const startPct = lastDisplayedPctRef.current || Math.round(startProg * 100);
+  // Helper to get video element for a given part index (0, 1, 2)
+  const getVideoEl = useCallback((partIdx) => {
+    if (partIdx === 0) return video1Ref.current;
+    if (partIdx === 1) return video2Ref.current;
+    if (partIdx === 2) return video3Ref.current;
+    return null;
+  }, []);
+
+  // Backward interpolation helper for reverse scrolling within a single part
+  const scrubBackward = useCallback((video, startTime, targetTime, startProg, targetProg, startPct, targetPct, onDone) => {
+    if (!video) {
+      if (onDone) onDone();
+      return;
+    }
+
     const startMs = performance.now();
-    const durationMs = 450;
+    const durationMs = 420;
 
     if (watchdogRef.current) {
       clearTimeout(watchdogRef.current);
@@ -104,29 +123,27 @@ export function useScrollScrub(containerRef) {
         cancelAnimationFrame(playRafRef.current);
         playRafRef.current = null;
       }
-      if (video) {
-        video.pause();
-        try {
-          video.currentTime = targetTime;
-        } catch (e) {}
-      }
+      video.pause();
+      try {
+        video.currentTime = targetTime;
+      } catch (e) {}
       lastDisplayedPctRef.current = targetPct;
       setProgress(targetProg);
       setDisplayedPct(targetPct);
       isAnimatingRef.current = false;
       watchdogRef.current = null;
+      if (onDone) onDone();
     }, durationMs + 200);
 
     const animateScrub = (now) => {
       const elapsed = now - startMs;
       const t = Math.min(1, elapsed / durationMs);
-      const ease = 1 - Math.pow(1 - t, 3);
+      const ease = 1 - Math.pow(1 - t, 3); // Cubic ease-out
 
       const nextTime = Math.max(0.01, startTime + (targetTime - startTime) * ease);
 
-      // Throttle video seeking: 110ms on low-end / mobile to avoid decoder stalls, 75ms on high-end
-      const seekInterval = isLowEndRef.current ? 110 : 75;
-      if (video && (now - lastSeekTimeRef.current > seekInterval || t >= 1)) {
+      const seekInterval = isLowEndRef.current ? 100 : 70;
+      if (now - lastSeekTimeRef.current > seekInterval || t >= 1) {
         lastSeekTimeRef.current = now;
         try {
           video.currentTime = nextTime;
@@ -136,7 +153,6 @@ export function useScrollScrub(containerRef) {
       const nextProg = startProg + (targetProg - startProg) * ease;
       const nextPct = Math.round(startPct + (targetPct - startPct) * ease);
 
-      // Performance optimization: Only update React state when percentage integer changes
       if (nextPct !== lastDisplayedPctRef.current) {
         lastDisplayedPctRef.current = nextPct;
         setDisplayedPct(nextPct);
@@ -150,19 +166,19 @@ export function useScrollScrub(containerRef) {
           clearTimeout(watchdogRef.current);
           watchdogRef.current = null;
         }
-        if (video) {
-          video.pause();
-          try {
-            video.currentTime = targetTime;
-          } catch (e) {}
-        }
+        video.pause();
+        try {
+          video.currentTime = targetTime;
+        } catch (e) {}
         lastDisplayedPctRef.current = targetPct;
         setProgress(targetProg);
         setDisplayedPct(targetPct);
         isAnimatingRef.current = false;
         playRafRef.current = null;
+        if (onDone) onDone();
       }
     };
+
     playRafRef.current = requestAnimationFrame(animateScrub);
   }, []);
 
@@ -174,10 +190,11 @@ export function useScrollScrub(containerRef) {
     if (hasCompletedRef.current && targetStep < 3) {
       return;
     }
+
     const clampedStep = Math.max(0, Math.min(3, targetStep));
+    const prevStep = currentStepRef.current;
     targetStepRef.current = clampedStep;
 
-    // Progress calculation: Steps 0..3 map to milestones [0, 0.33, 0.66, 1.0]
     const milestoneIndex = Math.min(3, clampedStep);
     const targetProgress = MILESTONES[milestoneIndex];
     const targetPercentage = Math.round(targetProgress * 100);
@@ -187,14 +204,6 @@ export function useScrollScrub(containerRef) {
     setCurrentStep(clampedStep);
     setStageName(targetLabel);
 
-    const video = videoRef.current;
-    const duration = video?.duration && isFinite(video.duration) ? video.duration : 10.0;
-    const maxTimestamp = Math.max(0, duration - 0.04);
-    const targetTimestamp = clampedStep >= 3
-      ? maxTimestamp
-      : (clampedStep / 3) * maxTimestamp;
-
-    // If moving back to earlier steps, reset completed flags
     if (clampedStep < 3) {
       setIsCompleted(false);
       setHasCompletedBuild(false);
@@ -206,19 +215,44 @@ export function useScrollScrub(containerRef) {
       clearTimeout(watchdogRef.current);
       watchdogRef.current = null;
     }
+    if (playRafRef.current) {
+      cancelAnimationFrame(playRafRef.current);
+      playRafRef.current = null;
+    }
 
-    if (immediate || !video) {
-      if (playRafRef.current) cancelAnimationFrame(playRafRef.current);
+    // Determine target active part index
+    // Part 0 handles step 0 -> 1
+    // Part 1 handles step 1 -> 2
+    // Part 2 handles step 2 -> 3
+    const targetPart = clampedStep <= 1 ? 0 : clampedStep === 2 ? 1 : 2;
+
+    if (immediate) {
       isAnimatingRef.current = false;
+      setActivePartIndex(targetPart);
       setProgress(targetProgress);
       setDisplayedPct(targetPercentage);
-      if (video) {
-        video.pause();
-        try {
-          video.currentTime = Math.max(0.01, targetTimestamp);
-        } catch (e) {}
-      }
-      if (clampedStep === 3) {
+      lastDisplayedPctRef.current = targetPercentage;
+
+      const v1 = video1Ref.current;
+      const v2 = video2Ref.current;
+      const v3 = video3Ref.current;
+
+      if (clampedStep === 0) {
+        if (v1) { v1.pause(); v1.currentTime = 0.01; }
+        if (v2) { v2.pause(); v2.currentTime = 0.0; }
+        if (v3) { v3.pause(); v3.currentTime = 0.0; }
+      } else if (clampedStep === 1) {
+        if (v1) { v1.pause(); v1.currentTime = Math.max(0.01, (v1.duration || 3.33) - 0.04); }
+        if (v2) { v2.pause(); v2.currentTime = 0.0; }
+        if (v3) { v3.pause(); v3.currentTime = 0.0; }
+      } else if (clampedStep === 2) {
+        if (v1) { v1.pause(); v1.currentTime = Math.max(0.01, (v1.duration || 3.33) - 0.04); }
+        if (v2) { v2.pause(); v2.currentTime = Math.max(0.01, (v2.duration || 3.33) - 0.04); }
+        if (v3) { v3.pause(); v3.currentTime = 0.0; }
+      } else if (clampedStep === 3) {
+        if (v1) { v1.pause(); v1.currentTime = Math.max(0.01, (v1.duration || 3.33) - 0.04); }
+        if (v2) { v2.pause(); v2.currentTime = Math.max(0.01, (v2.duration || 3.33) - 0.04); }
+        if (v3) { v3.pause(); v3.currentTime = Math.max(0.01, (v3.duration || 3.31) - 0.04); }
         setIsCompleted(true);
         setHasCompletedBuild(true);
         hasCompletedRef.current = true;
@@ -227,66 +261,69 @@ export function useScrollScrub(containerRef) {
       return;
     }
 
-    // If already at Step 3 (100% built), video is at final frame
-    const currentVideoTime = video.currentTime || 0;
-    if (clampedStep >= 3 && currentStepRef.current >= 3 && Math.abs(currentVideoTime - targetTimestamp) < 0.1) {
-      if (playRafRef.current) cancelAnimationFrame(playRafRef.current);
-      isAnimatingRef.current = false;
-      setProgress(1.0);
-      setDisplayedPct(100);
-      setIsCompleted(true);
-      setHasCompletedBuild(true);
-      hasCompletedRef.current = true;
-      videoFinishedRef.current = true;
-      video.pause();
-      try {
-        video.currentTime = targetTimestamp;
-      } catch (e) {}
-
-      if (typeof window !== "undefined") {
-        isProgrammaticScrollRef.current = true;
-        const vh = window.innerHeight;
-        window.scrollTo({
-          top: clampedStep * vh,
-          behavior: "instant",
-        });
-        setTimeout(() => {
-          isProgrammaticScrollRef.current = false;
-        }, 300);
-      }
-      return;
-    }
-
-    const isForward = targetTimestamp > currentVideoTime + 0.04;
-
-    if (playRafRef.current) cancelAnimationFrame(playRafRef.current);
     isAnimatingRef.current = true;
 
-    if (isForward) {
-      // 1. FORWARD PLAY: Native hardware-accelerated video playback until exact milestone
-      // Adaptive speed: 1.25x on mobile/low-end devices, 1.45x on desktop for brisk, smooth progression
-      const playbackSpeed = isLowEndRef.current ? 1.25 : 1.45;
-      video.playbackRate = playbackSpeed;
-      const playPromise = video.play();
+    // Check if moving FORWARD or BACKWARD
+    const isForward = clampedStep > prevStep;
 
-      // Dynamic watchdog timeout tailored to distance + safety margin (never kills video prematurely)
-      const travelDistance = Math.abs(targetTimestamp - currentVideoTime);
-      const watchdogMs = Math.max(3500, Math.ceil((travelDistance / playbackSpeed) * 1000) + 1200);
+    if (isForward) {
+      // FORWARD TRANSITION
+      let activeVideo = null;
+      let startProg = 0;
+      let endProg = targetProgress;
+      let startPct = lastDisplayedPctRef.current;
+      let endPct = targetPercentage;
+
+      if (clampedStep === 1) {
+        // Step 0 -> Step 1: Part 1 plays forward to end
+        setActivePartIndex(0);
+        activeVideo = video1Ref.current;
+        startProg = 0.0;
+        endProg = 0.33;
+      } else if (clampedStep === 2) {
+        // Step 1 -> Step 2: Part 2 plays forward to end
+        setActivePartIndex(1);
+        activeVideo = video2Ref.current;
+        startProg = 0.33;
+        endProg = 0.66;
+      } else if (clampedStep === 3) {
+        // Step 2 -> Step 3: Part 3 plays forward to end
+        setActivePartIndex(2);
+        activeVideo = video3Ref.current;
+        startProg = 0.66;
+        endProg = 1.0;
+      }
+
+      if (!activeVideo) {
+        isAnimatingRef.current = false;
+        setProgress(targetProgress);
+        setDisplayedPct(targetPercentage);
+        return;
+      }
+
+      const duration = activeVideo.duration && isFinite(activeVideo.duration) ? activeVideo.duration : 3.33;
+      const targetTime = Math.max(0.01, duration - 0.04);
+      const playbackSpeed = isLowEndRef.current ? 1.25 : 1.45;
+      activeVideo.playbackRate = playbackSpeed;
+
+      const playPromise = activeVideo.play();
+      const travelDistance = Math.max(0.1, targetTime - (activeVideo.currentTime || 0));
+      const watchdogMs = Math.max(3000, Math.ceil((travelDistance / playbackSpeed) * 1000) + 1000);
 
       watchdogRef.current = setTimeout(() => {
         if (playRafRef.current) {
           cancelAnimationFrame(playRafRef.current);
           playRafRef.current = null;
         }
-        if (video) {
-          video.pause();
+        if (activeVideo) {
+          activeVideo.pause();
           try {
-            video.currentTime = targetTimestamp;
+            activeVideo.currentTime = targetTime;
           } catch (e) {}
         }
-        lastDisplayedPctRef.current = targetPercentage;
-        setDisplayedPct(targetPercentage);
-        setProgress(targetProgress);
+        lastDisplayedPctRef.current = endPct;
+        setDisplayedPct(endPct);
+        setProgress(endProg);
         isAnimatingRef.current = false;
         watchdogRef.current = null;
 
@@ -299,34 +336,32 @@ export function useScrollScrub(containerRef) {
       }, watchdogMs);
 
       const monitorForward = () => {
-        const nowTime = video.currentTime;
-        const currentProg = Math.min(targetProgress, Math.max(0, nowTime / duration));
-        const currentPct = Math.min(targetPercentage, Math.round(currentProg * 100));
+        const nowTime = activeVideo.currentTime;
+        const normTime = Math.min(1, Math.max(0, nowTime / duration));
+        const currentProg = startProg + normTime * (endProg - startProg);
+        const currentPct = Math.min(endPct, Math.round(startPct + normTime * (endPct - startPct)));
 
-        // Performance optimization: Only update React state when percentage integer changes
         if (currentPct !== lastDisplayedPctRef.current) {
           lastDisplayedPctRef.current = currentPct;
           setDisplayedPct(currentPct);
           setProgress(currentProg);
         }
 
-        // Check if milestone reached
-        if (nowTime >= targetTimestamp - 0.04 || video.ended) {
+        if (nowTime >= targetTime - 0.04 || activeVideo.ended) {
           if (watchdogRef.current) {
             clearTimeout(watchdogRef.current);
             watchdogRef.current = null;
           }
-          video.pause();
+          activeVideo.pause();
           try {
-            video.currentTime = targetTimestamp;
+            activeVideo.currentTime = targetTime;
           } catch (e) {}
-          lastDisplayedPctRef.current = targetPercentage;
-          setDisplayedPct(targetPercentage);
-          setProgress(targetProgress);
+          lastDisplayedPctRef.current = endPct;
+          setDisplayedPct(endPct);
+          setProgress(endProg);
           isAnimatingRef.current = false;
           playRafRef.current = null;
 
-          // Crucial: Step 3 only reveals completion UI once the house is 100% finished building
           if (clampedStep === 3) {
             setIsCompleted(true);
             setHasCompletedBuild(true);
@@ -334,9 +369,8 @@ export function useScrollScrub(containerRef) {
             videoFinishedRef.current = true;
           }
         } else {
-          // If browser paused playback mid-transition, try to resume
-          if (video.paused && !video.ended && nowTime < targetTimestamp - 0.05) {
-            video.play().catch(() => {});
+          if (activeVideo.paused && !activeVideo.ended && nowTime < targetTime - 0.05) {
+            activeVideo.play().catch(() => {});
           }
           playRafRef.current = requestAnimationFrame(monitorForward);
         }
@@ -348,16 +382,67 @@ export function useScrollScrub(containerRef) {
             playRafRef.current = requestAnimationFrame(monitorForward);
           })
           .catch(() => {
-            // Autoplay blocked fallback: smooth scrub
-            scrubBackward(currentVideoTime, targetTimestamp, targetProgress, targetPercentage);
+            // Autoplay blocked fallback: smooth scrub forward
+            scrubBackward(
+              activeVideo,
+              activeVideo.currentTime || 0.01,
+              targetTime,
+              startProg,
+              endProg,
+              startPct,
+              endPct,
+              () => {
+                if (clampedStep === 3) {
+                  setIsCompleted(true);
+                  setHasCompletedBuild(true);
+                  hasCompletedRef.current = true;
+                  videoFinishedRef.current = true;
+                }
+              }
+            );
           });
       } else {
         playRafRef.current = requestAnimationFrame(monitorForward);
       }
     } else {
-      // 2. BACKWARD SCRUB: Smooth reverse interpolation
-      video.pause();
-      scrubBackward(currentVideoTime, targetTimestamp, targetProgress, targetPercentage);
+      // BACKWARD TRANSITION
+      if (clampedStep === 1 && prevStep === 2) {
+        // Step 2 -> Step 1: Part 2 scrubs back from end to 0.01
+        const v2 = video2Ref.current;
+        if (v2) {
+          v2.pause();
+          const curTime = v2.currentTime || (v2.duration || 3.33) - 0.04;
+          scrubBackward(v2, curTime, 0.01, 0.66, 0.33, 66, 33, () => {
+            setActivePartIndex(0);
+          });
+        } else {
+          setActivePartIndex(0);
+          setProgress(0.33);
+          setDisplayedPct(33);
+          isAnimatingRef.current = false;
+        }
+      } else if (clampedStep === 0 && prevStep === 1) {
+        // Step 1 -> Step 0: Part 1 scrubs back from end to 0.01
+        const v1 = video1Ref.current;
+        if (v1) {
+          v1.pause();
+          const curTime = v1.currentTime || (v1.duration || 3.33) - 0.04;
+          scrubBackward(v1, curTime, 0.01, 0.33, 0.0, 33, 0, () => {
+            setActivePartIndex(0);
+          });
+        } else {
+          setActivePartIndex(0);
+          setProgress(0.0);
+          setDisplayedPct(0);
+          isAnimatingRef.current = false;
+        }
+      } else {
+        // Fallback backward jump
+        setActivePartIndex(targetPart);
+        setProgress(targetProgress);
+        setDisplayedPct(targetPercentage);
+        isAnimatingRef.current = false;
+      }
     }
 
     // Scroll window smoothly to match step position
@@ -381,10 +466,10 @@ export function useScrollScrub(containerRef) {
 
     const curr = currentStepRef.current;
     if (curr < 3 && isAnimatingRef.current) return;
-    const video = videoRef.current;
-    const duration = video?.duration && isFinite(video.duration) ? video.duration : 10.0;
+    const v3 = video3Ref.current;
+    const duration = v3?.duration && isFinite(v3.duration) ? v3.duration : 3.31;
     const maxTimestamp = Math.max(0, duration - 0.04);
-    const isAtEnd = videoFinishedRef.current || (video && video.currentTime >= maxTimestamp - 0.08);
+    const isAtEnd = videoFinishedRef.current || (v3 && v3.currentTime >= maxTimestamp - 0.08);
 
     if (curr < 3) {
       cooldownRef.current = true;
@@ -410,10 +495,10 @@ export function useScrollScrub(containerRef) {
           clearTimeout(watchdogRef.current);
           watchdogRef.current = null;
         }
-        if (video) {
-          video.pause();
+        if (v3) {
+          v3.pause();
           try {
-            video.currentTime = maxTimestamp;
+            v3.currentTime = maxTimestamp;
           } catch (e) {}
         }
         lastDisplayedPctRef.current = 100;
@@ -424,7 +509,6 @@ export function useScrollScrub(containerRef) {
         hasCompletedRef.current = true;
         videoFinishedRef.current = true;
         isAnimatingRef.current = false;
-        // The house is now 100% built! Stay on the completed hero so the user sees the completed house
         return;
       }
 
@@ -477,19 +561,14 @@ export function useScrollScrub(containerRef) {
       if (hasCompletedRef.current || currentStepRef.current >= 3) {
         if (e.deltaY > 25) {
           // Scrolling DOWN
-          // If resting on the completed hero (at or near 3 * vh), advance smoothly into #overview
           if (scrollY <= 3.1 * vh) {
             e.preventDefault();
             nextStep();
           }
-          // If already scrolling through overview or further down, DO NOT preventDefault!
-          // Let native smooth scrolling handle everything naturally!
           return;
         } else if (e.deltaY < -25) {
           // Scrolling UP
-          // If at the top of the completed hero (scrollY <= 3 * vh + 10):
           // User requested: "wag sya ma scroll up pabalik sa video scroll ganun"
-          // Prevent scrolling up into unbuilt stages (0..300vh) and do NOT rewind the video!
           if (scrollY <= 3 * vh + 10) {
             e.preventDefault();
             if (scrollY < 3 * vh) {
@@ -497,10 +576,6 @@ export function useScrollScrub(containerRef) {
             }
             return;
           }
-          // If anywhere in #overview or further down (scrollY > 3 * vh + 10):
-          // User requested: "fix nga ung bug nya na parang rekta agad sa taas ganun??"
-          // DO NOT preventDefault! DO NOT window.scrollTo!
-          // Allow 100% natural, smooth, unhijacked browser scrolling upward!
           return;
         }
         return;
@@ -564,7 +639,6 @@ export function useScrollScrub(containerRef) {
             if (!hasCompletedRef.current && currentStepRef.current < 3) {
               prevStep();
             }
-            // Once completed: let natural touch scrolling happen, no snapping or rewinding!
           }
         }
       }
@@ -573,7 +647,6 @@ export function useScrollScrub(containerRef) {
     // Keyboard controls
     const handleKeyDown = (e) => {
       const scrollY = window.scrollY;
-      const vh = window.innerHeight;
 
       if (!hasCompletedRef.current && currentStepRef.current < 3) {
         if (["ArrowDown", "PageDown", " "].includes(e.key)) {
@@ -585,14 +658,13 @@ export function useScrollScrub(containerRef) {
         }
       } else {
         // Build is completed:
+        const vh = window.innerHeight;
         if (["ArrowDown", "PageDown", " "].includes(e.key) && scrollY <= 3.1 * vh) {
           e.preventDefault();
           nextStep();
         } else if (["ArrowUp", "PageUp"].includes(e.key) && scrollY <= 3.05 * vh) {
           e.preventDefault();
-          // At top of completed hero: stay at completed modern residence (3 * vh)
         }
-        // When scrollY > 3.05 * vh, default smooth arrow/page scroll handles upward movement naturally
       }
     };
 
@@ -629,22 +701,22 @@ export function useScrollScrub(containerRef) {
 
       const heroEnd = 3.6 * vh;
       if (scrollY >= heroEnd) {
-        // Scrolled beyond hero into the rest of the site! Lock completion!
         if (!hasCompletedRef.current) {
           hasCompletedRef.current = true;
           videoFinishedRef.current = true;
           setHasCompletedBuild(true);
           currentStepRef.current = 3;
           setCurrentStep(3);
+          setActivePartIndex(2);
           setProgress(1.0);
           setDisplayedPct(100);
           setStageName(STAGE_LABELS[3]);
           setIsCompleted(true);
-          const video = videoRef.current;
-          if (video && video.duration) {
-            video.pause();
+          const v3 = video3Ref.current;
+          if (v3 && v3.duration) {
+            v3.pause();
             try {
-              video.currentTime = video.duration - 0.04;
+              v3.currentTime = v3.duration - 0.04;
             } catch (e) {}
           }
         }
@@ -671,63 +743,61 @@ export function useScrollScrub(containerRef) {
     };
   }, [goToStep]);
 
-  // Video metadata readiness listener
-  // Video metadata readiness listener
+  // Handle video loaded metadata for all 3 videos
+  const handleVideoLoadedMetadata = useCallback(() => {
+    setVideoLoaded(true);
+    if (isReturning) {
+      const v3 = video3Ref.current;
+      if (v3) {
+        const duration = v3.duration && isFinite(v3.duration) ? v3.duration : 3.31;
+        v3.currentTime = Math.max(0.01, duration - 0.04);
+        v3.pause();
+      }
+    } else {
+      const v1 = video1Ref.current;
+      if (v1 && v1.currentTime < 0.005) {
+        v1.currentTime = 0.01;
+      }
+    }
+  }, [isReturning]);
+
+  // Initial video setup on mount
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    const v1 = video1Ref.current;
+    const v3 = video3Ref.current;
 
     const handleReady = () => {
       setVideoLoaded(true);
       if (isReturning) {
-        const duration = video.duration && isFinite(video.duration) ? video.duration : 10.0;
-        video.currentTime = Math.max(0, duration - 0.04);
-        video.pause();
-      } else if (video.currentTime < 0.005) {
-        video.currentTime = 0.01;
+        if (v3) {
+          const duration = v3.duration && isFinite(v3.duration) ? v3.duration : 3.31;
+          v3.currentTime = Math.max(0.01, duration - 0.04);
+          v3.pause();
+        }
+      } else if (v1 && v1.currentTime < 0.005) {
+        v1.currentTime = 0.01;
       }
     };
 
-    if (video.readyState >= 1) {
+    if (v1 && v1.readyState >= 1) {
       handleReady();
     }
 
-    video.addEventListener("loadedmetadata", handleReady);
-    video.addEventListener("loadeddata", handleReady);
-    video.addEventListener("canplay", handleReady);
+    if (v1) {
+      v1.addEventListener("loadedmetadata", handleReady);
+      v1.addEventListener("canplay", handleReady);
+    }
 
-    const timer = setTimeout(() => {
-      setVideoLoaded(true);
-      if (isReturning) {
-        const duration = video.duration && isFinite(video.duration) ? video.duration : 10.0;
-        video.currentTime = Math.max(0, duration - 0.04);
-        video.pause();
-      } else if (video.currentTime < 0.005) {
-        video.currentTime = 0.01;
-      }
-    }, 500);
+    const timer = setTimeout(handleReady, 500);
 
     return () => {
-      video.removeEventListener("loadedmetadata", handleReady);
-      video.removeEventListener("loadeddata", handleReady);
-      video.removeEventListener("canplay", handleReady);
+      if (v1) {
+        v1.removeEventListener("loadedmetadata", handleReady);
+        v1.removeEventListener("canplay", handleReady);
+      }
       clearTimeout(timer);
     };
   }, [isPortrait, isReturning]);
-
-  const handleVideoLoadedMetadata = useCallback(() => {
-    setVideoLoaded(true);
-    const video = videoRef.current;
-    if (video) {
-      video.pause();
-      if (isReturning) {
-        const duration = video.duration && isFinite(video.duration) ? video.duration : 10.0;
-        video.currentTime = Math.max(0, duration - 0.04);
-      } else if (video.currentTime < 0.005) {
-        video.currentTime = 0.01;
-      }
-    }
-  }, [isReturning]);
 
   // When returning to home page from other routes, immediately position at Step 3 final frame
   useEffect(() => {
@@ -735,13 +805,13 @@ export function useScrollScrub(containerRef) {
       isProgrammaticScrollRef.current = true;
       const vh = window.innerHeight;
       window.scrollTo({ top: 3 * vh, behavior: "instant" });
-      const video = videoRef.current;
-      if (video) {
-        const duration = video.duration && isFinite(video.duration) ? video.duration : 10.0;
-        video.currentTime = Math.max(0, duration - 0.04);
-        video.pause();
+      const v3 = video3Ref.current;
+      if (v3) {
+        const duration = v3.duration && isFinite(v3.duration) ? v3.duration : 3.31;
+        v3.currentTime = Math.max(0.01, duration - 0.04);
+        v3.pause();
       }
-      setReturnToCompletedHome(false);
+      setActivePartIndex(2);
       setTimeout(() => {
         isProgrammaticScrollRef.current = false;
       }, 300);
@@ -766,7 +836,11 @@ export function useScrollScrub(containerRef) {
   }, [goToStep]);
 
   return {
-    videoRef,
+    videoRef: video1Ref, // Backward compatibility
+    video1Ref,
+    video2Ref,
+    video3Ref,
+    activePartIndex,
     currentStep,
     progress,
     displayedPct,

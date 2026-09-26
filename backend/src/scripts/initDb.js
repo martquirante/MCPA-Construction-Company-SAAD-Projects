@@ -50,9 +50,20 @@ async function initializeDatabase() {
         description TEXT,
         images TEXT[],
         is_admin_added BOOLEAN DEFAULT TRUE,
+        is_web_visible BOOLEAN DEFAULT TRUE,
+        status VARCHAR(50) DEFAULT 'completed',
+        month VARCHAR(50) DEFAULT 'January',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
+    
+    // Add columns if not exists (migrations)
+    try {
+      await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_web_visible BOOLEAN DEFAULT TRUE;");
+      await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'completed';");
+      await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS month VARCHAR(50) DEFAULT 'January';");
+    } catch (e) {}
+
     console.log("[OK] Table 'projects' verified/created.");
 
     // 4. Create CLIENT_BRIEFS table (Extended with SAAD Flowchart fields)

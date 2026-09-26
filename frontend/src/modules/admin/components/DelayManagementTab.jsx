@@ -150,8 +150,8 @@ export default function DelayManagementTab({
         </div>
 
         <div className="divide-y divide-neutral-100 dark:divide-white/5">
-          {delays.map((d) => (
-            <div key={d.event_id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {delays.map((d, idx) => (
+            <div key={d?.event_id ? `delay-${d.event_id}-${idx}` : `delay-idx-${idx}`} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold uppercase">

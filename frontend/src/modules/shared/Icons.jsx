@@ -6,6 +6,8 @@ import {
   Menu,
   X,
   ChevronDown,
+  Filter,
+  SlidersHorizontal,
   ArrowRight,
   ShieldCheck,
   ShieldAlert,
@@ -17,10 +19,15 @@ import {
   Trash2,
   UploadCloud,
   Check,
+  Save,
   MapPin,
   Calendar,
   Lock,
   Tag,
+  Maximize2,
+  AlertTriangle,
+  AlertCircle,
+  ZoomIn,
   RotateCcw,
   ArrowLeft,
   ArrowUp,
@@ -70,6 +77,12 @@ import {
   FileText,
   Layers,
   Construction,
+  LayoutDashboard,
+  Search,
+  Copy,
+  XCircle,
+  TrendingUp,
+  Settings,
 } from "lucide-react";
 
 export { default as LordIcon } from "./LordIcon";
@@ -874,5 +887,148 @@ export function TikTokIcon({ className = "w-4 h-4", ...props }) {
         />
       </g>
     </svg>
+  );
+}
+
+export function LayoutDashboardIcon({ className = "w-5 h-5", strokeWidth = 1.75, ...props }) {
+  return (
+    <LayoutDashboard
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 group-hover:scale-105 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function SearchIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <Search
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function CopyIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <Copy
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 hover:scale-105 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function XCircleIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <XCircle
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 hover:scale-105 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function TrendingUpIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <TrendingUp
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 group-hover:-translate-y-0.5 ${className}`}
+      {...props}
+    />
+  );
+}
+
+
+
+export function SettingsIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <Settings
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-300 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function XIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <X
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+
+export function FilterIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <Filter
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function SlidersHorizontalIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <SlidersHorizontal
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function Maximize2Icon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <Maximize2
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function AlertTriangleIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <AlertTriangle
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function AlertCircleIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <AlertCircle
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function ZoomInIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <ZoomIn
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function SaveIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <Save
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
   );
 }

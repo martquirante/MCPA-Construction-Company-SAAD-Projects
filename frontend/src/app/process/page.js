@@ -75,14 +75,14 @@ export default function ProcessPage() {
       title: "Final Quality Inspection & Key Turnover",
       subtitle: "Room-by-room walkthrough and official key handover",
       desc: "The milestone you've waited for. We conduct a thorough room-by-room walkthrough with you, finalize the Certificate of Occupancy, and hand you the keys to your new home.",
-      telemetry: "Official Certificate of Occupancy · Joint Walkthrough · 5-Year Structural Warranty",
+      telemetry: "Official Certificate of Occupancy · Joint Walkthrough · 15-Year Structural Warranty",
       checklist: [
         "Complete tile works, paint, lighting, windows and bathroom fixtures",
         "Detailed room-by-room quality walkthrough with the homeowner",
         "Assistance in securing the official Certificate of Occupancy",
-        "Ceremonial house key turnover, complete house plans & 5-year warranty",
+        "Ceremonial house key turnover, complete house plans & 15-year warranty",
       ],
-      output: "Official Certificate of Occupancy, House Keys & 5-Year Structural Warranty",
+      output: "Official Certificate of Occupancy, House Keys & 15-Year Structural Warranty",
     },
   ];
 
@@ -130,10 +130,9 @@ export default function ProcessPage() {
         {/* Page Hero Header */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 md:mb-20">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold tracking-wider uppercase mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
-              <span>Clear Step-by-Step Progress · Regular Updates</span>
-            </div>
+            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-amber-600 dark:text-amber-400 mb-4 select-none">
+              Clear Step-by-Step Progress · Regular Updates
+            </p>
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
               Our 4-Stage <br />
               <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">

@@ -24,6 +24,7 @@ import {
   InstagramIcon,
   TikTokIcon,
 } from "./Icons";
+import { FileSignature, ShieldCheck, HardHat, ChevronRight } from "lucide-react";
 
 export default function UtilityBar({ show = true, scrolledPastHero = false }) {
   const pathname = usePathname();
@@ -118,28 +119,28 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
       {/* 1. TOP UTILITY ANNOUNCEMENT BAR */}
       <div
         ref={utilityRef}
-        className={`w-full bg-white/90 dark:bg-[#1c1c1e] text-neutral-600 dark:text-neutral-300 border-b border-neutral-200/80 dark:border-white/10 text-[11px] font-sans select-none z-50 transition-all duration-700 ease-out overflow-visible shadow-sm dark:shadow-none ${
+        className={`relative z-50 w-full bg-white dark:bg-black text-neutral-700 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-800 text-[11px] font-sans select-none transition-all duration-700 ease-out shadow-xs ${
           show
-            ? "max-h-10 opacity-100 translate-y-0 pointer-events-auto"
+            ? "max-h-10 opacity-100 translate-y-0 pointer-events-auto overflow-visible"
             : "max-h-0 opacity-0 -translate-y-full pointer-events-none overflow-hidden"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-8 sm:h-9 flex items-center justify-between gap-4">
-          {/* Left: Dynamic Announcement Guarantee (No dot, clean typography) */}
+          {/* Left: Dynamic Announcement Guarantee */}
           <div className="flex items-center min-w-0">
             <div className="flex items-center gap-1.5 truncate">
-              <span className="text-neutral-700 dark:text-neutral-200 font-medium tracking-wide truncate transition-opacity duration-300">
+              <span className="text-neutral-800 dark:text-neutral-200 font-medium tracking-wide truncate transition-opacity duration-300">
                 {currentMessage}
               </span>
             </div>
           </div>
 
-          {/* Right: Actions, Links & Theme Switcher */}
-          <div className="flex items-center gap-3 sm:gap-5 shrink-0 text-neutral-500 dark:text-neutral-400">
+          {/* Right: Actions, Links & Combobox Dropdowns */}
+          <div className="flex items-center gap-3 sm:gap-5 shrink-0 text-neutral-600 dark:text-neutral-400">
             {/* About Us */}
             <button
               onClick={handleAboutClick}
-              className="hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer hidden md:inline-block whitespace-nowrap"
+              className="hover:text-neutral-950 dark:hover:text-white transition-colors cursor-pointer hidden md:inline-block whitespace-nowrap font-medium"
             >
               {t("aboutUs")}
             </button>
@@ -147,14 +148,14 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
             {/* Help Center */}
             <button
               onClick={handleHelpClick}
-              className="hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer hidden md:inline-block whitespace-nowrap"
+              className="hover:text-neutral-950 dark:hover:text-white transition-colors cursor-pointer hidden md:inline-block whitespace-nowrap font-medium"
             >
               {t("helpCenter")}
             </button>
 
-            <span className="hidden md:inline-block w-px h-3 bg-neutral-300 dark:bg-white/15" />
+            <span className="hidden md:inline-block w-px h-3 bg-neutral-300 dark:bg-neutral-800" />
 
-            {/* Language Dropdown (Fully Functional) */}
+            {/* 1. LANGUAGE COMBOBOX (Dropdown floating on top / nakapatong) */}
             <div className="relative">
               <button
                 type="button"
@@ -162,38 +163,45 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                   setLangDropdownOpen(!langDropdownOpen);
                   setThemeDropdownOpen(false);
                 }}
-                className="flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer py-1"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-900 text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer"
                 aria-label="Select Language"
               >
-                <span className="font-medium text-neutral-700 dark:text-neutral-200">
+                <span className="font-semibold text-[11px] tracking-wide">
                   {language === "fil" ? "Filipino" : "English"}
                 </span>
-                <ChevronDownIcon className="w-3 h-3 opacity-70" />
+                <ChevronDownIcon
+                  className={`w-3 h-3 text-neutral-500 dark:text-neutral-400 transition-transform duration-200 ${
+                    langDropdownOpen ? "rotate-180" : ""
+                  }`}
+                />
               </button>
 
               {langDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-36 rounded-xl bg-white/95 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700/80 shadow-xl dark:shadow-2xl py-1 z-50 text-xs backdrop-blur-xl animate-fadeIn">
+                <div
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="absolute right-0 top-full mt-2 w-36 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl py-1 z-[100] text-xs animate-fadeIn"
+                >
                   {[
-                    { key: "en", label: "English", sub: "English" },
-                    { key: "fil", label: "Filipino", sub: "Tagalog" },
+                    { key: "en", label: "English", sub: "EN" },
+                    { key: "fil", label: "Filipino", sub: "FIL" },
                   ].map((langItem) => (
                     <button
                       key={langItem.key}
                       onClick={() => handleSelectLanguage(langItem.key)}
-                      className={`w-full flex items-center justify-between px-3 py-1.5 text-left transition-colors cursor-pointer ${
+                      className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors cursor-pointer ${
                         language === langItem.key
-                          ? "text-amber-400 font-semibold bg-white/5"
-                          : "text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10"
+                          ? "text-amber-500 dark:text-amber-400 font-bold bg-amber-500/10"
+                          : "text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       }`}
                     >
-                      <span>
-                        {langItem.label}{" "}
-                        <span className="text-[10px] text-neutral-500">
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-medium">{langItem.label}</span>
+                        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono">
                           ({langItem.sub})
                         </span>
                       </span>
                       {language === langItem.key && (
-                        <CheckIcon className="w-3 h-3 text-amber-400" />
+                        <CheckIcon className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
                       )}
                     </button>
                   ))}
@@ -201,9 +209,9 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
               )}
             </div>
 
-            <span className="w-px h-3 bg-neutral-300 dark:bg-white/15" />
+            <span className="w-px h-3 bg-neutral-300 dark:bg-neutral-800" />
 
-            {/* 2. THEME DROPDOWN & BUTTONS (With Lucide SVG API Icons, NO EMOJIS) */}
+            {/* 2. THEME COMBOBOX (Dropdown floating on top / nakapatong) */}
             <div className="relative">
               <button
                 type="button"
@@ -211,71 +219,84 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                   setThemeDropdownOpen(!themeDropdownOpen);
                   setLangDropdownOpen(false);
                 }}
-                className="flex items-center gap-1.5 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer py-1"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-900 text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer"
                 aria-label="Select Theme Mode"
               >
-                <span className="font-medium text-neutral-700 dark:text-neutral-200">{t("theme")}</span>
-                <span className="px-1.5 py-0.2 rounded-md bg-neutral-200/80 dark:bg-white/10 text-[9px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">
+                {activeThemeMode === "dark" ? (
+                  <MoonIcon className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
+                ) : (
+                  <SunIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                )}
+                <span className="font-semibold text-[11px] tracking-wide">
                   {currentTheme === "system"
-                    ? activeThemeMode
-                    : currentTheme}
+                    ? `${t("theme")} (Auto)`
+                    : currentTheme === "dark"
+                    ? t("darkTheme")
+                    : t("lightTheme")}
                 </span>
-                <ChevronDownIcon className="w-3 h-3 opacity-70" />
+                <ChevronDownIcon
+                  className={`w-3 h-3 text-neutral-500 dark:text-neutral-400 transition-transform duration-200 ${
+                    themeDropdownOpen ? "rotate-180" : ""
+                  }`}
+                />
               </button>
 
               {themeDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-40 rounded-xl bg-white/95 dark:bg-neutral-900/95 border border-neutral-200 dark:border-neutral-700/90 shadow-xl dark:shadow-2xl py-1.5 z-50 text-xs backdrop-blur-xl animate-fadeIn">
-                  <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-neutral-500 border-b border-neutral-200 dark:border-white/5 mb-1">
+                <div
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="absolute right-0 top-full mt-2 w-44 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl py-1.5 z-[100] text-xs animate-fadeIn"
+                >
+                  <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 border-b border-neutral-100 dark:border-neutral-800 mb-1">
                     {t("appearance")}
                   </div>
 
-                  {/* Light Theme Button (SVG Icon, No Emoji) */}
+                  {/* Light Theme Button */}
                   <button
                     type="button"
                     onClick={() => handleSelectTheme("light")}
                     className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors cursor-pointer ${
                       currentTheme === "light"
-                        ? "text-amber-400 font-bold bg-amber-500/10"
-                        : "text-neutral-700 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10"
+                        ? "text-amber-500 dark:text-amber-400 font-bold bg-amber-500/10"
+                        : "text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <SunIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <SunIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                       <span>{t("lightTheme")}</span>
                     </div>
                     {currentTheme === "light" && (
-                      <CheckIcon className="w-3.5 h-3.5 text-amber-400" />
+                      <CheckIcon className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                     )}
                   </button>
 
-                  {/* Dark Theme Button (SVG Icon, No Emoji) */}
+                  {/* Dark Theme Button */}
                   <button
                     type="button"
                     onClick={() => handleSelectTheme("dark")}
                     className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors cursor-pointer ${
                       currentTheme === "dark"
-                        ? "text-amber-400 font-bold bg-amber-500/10"
-                        : "text-neutral-700 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10"
+                        ? "text-amber-500 dark:text-amber-400 font-bold bg-amber-500/10"
+                        : "text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <MoonIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <MoonIcon className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
                       <span>{t("darkTheme")}</span>
                     </div>
                     {currentTheme === "dark" && (
-                      <CheckIcon className="w-3.5 h-3.5 text-amber-400" />
+                      <CheckIcon className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                     )}
                   </button>
 
-                  {/* System Auto Button (SVG Icon, No Emoji) */}
-                  <div className="my-1 border-t border-neutral-200 dark:border-white/10" />
+                  {/* System Auto Button */}
+                  <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
                   <button
                     type="button"
                     onClick={() => handleSelectTheme("system")}
                     className={`w-full flex items-center justify-between px-3 py-1.5 text-left transition-colors cursor-pointer ${
                       currentTheme === "system"
-                        ? "text-amber-400 font-bold bg-amber-500/10"
-                        : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10"
+                        ? "text-amber-500 dark:text-amber-400 font-bold bg-amber-500/10"
+                        : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -283,7 +304,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                       <span>{t("systemAuto")}</span>
                     </div>
                     {currentTheme === "system" && (
-                      <CheckIcon className="w-3.5 h-3.5 text-amber-400" />
+                      <CheckIcon className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                     )}
                   </button>
                 </div>
@@ -342,7 +363,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
               </button>
             </div>
 
-            {/* Content: Footer Brand Bio (No 5-Year Warranty) */}
+            {/* Content: Footer Brand Bio */}
             <div className="space-y-5 text-neutral-600 dark:text-neutral-300">
               <p className="text-xs sm:text-sm leading-relaxed font-light">
                 {t("aboutBio")}
@@ -395,22 +416,111 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                 </div>
               </div>
 
+              {/* Official Legal & Compliance Documentation */}
+              <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-[11px] uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-semibold">
+                    {t("legalShortcutsTitle")}
+                  </p>
+                  <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-medium">
+                    Art. 1723 · RA 10173
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {/* Terms & 15-Year Warranty */}
+                  <Link
+                    href="/legal/terms"
+                    onClick={() => setAboutModalOpen(false)}
+                    className="group flex flex-col justify-between p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 hover:border-amber-500/60 dark:hover:border-amber-500/60 hover:bg-amber-500/5 transition-all hover:scale-[1.02] shadow-xs cursor-pointer"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="p-1 rounded-md bg-amber-500/10 text-amber-500">
+                          <FileSignature className="w-3.5 h-3.5" />
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all" />
+                      </div>
+                      <span className="text-[11px] font-bold text-neutral-900 dark:text-white block leading-tight">
+                        {t("termsShortcutTitle")}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block leading-tight mt-1">
+                      {t("termsShortcutDesc")}
+                    </span>
+                  </Link>
+
+                  {/* Privacy Policy */}
+                  <Link
+                    href="/legal/privacy"
+                    onClick={() => setAboutModalOpen(false)}
+                    className="group flex flex-col justify-between p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 hover:border-amber-500/60 dark:hover:border-amber-500/60 hover:bg-amber-500/5 transition-all hover:scale-[1.02] shadow-xs cursor-pointer"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="p-1 rounded-md bg-amber-500/10 text-amber-500">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all" />
+                      </div>
+                      <span className="text-[11px] font-bold text-neutral-900 dark:text-white block leading-tight">
+                        {t("privacyShortcutTitle")}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block leading-tight mt-1">
+                      {t("privacyShortcutDesc")}
+                    </span>
+                  </Link>
+
+                  {/* Safety Code */}
+                  <Link
+                    href="/legal/safety"
+                    onClick={() => setAboutModalOpen(false)}
+                    className="group flex flex-col justify-between p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 hover:border-amber-500/60 dark:hover:border-amber-500/60 hover:bg-amber-500/5 transition-all hover:scale-[1.02] shadow-xs cursor-pointer"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="p-1 rounded-md bg-amber-500/10 text-amber-500">
+                          <HardHat className="w-3.5 h-3.5" />
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all" />
+                      </div>
+                      <span className="text-[11px] font-bold text-neutral-900 dark:text-white block leading-tight">
+                        {t("safetyShortcutTitle")}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block leading-tight mt-1">
+                      {t("safetyShortcutDesc")}
+                    </span>
+                  </Link>
+                </div>
+              </div>
+
               {/* Action Buttons */}
-              <div className="pt-3 flex items-center justify-end gap-3 border-t border-neutral-200 dark:border-neutral-800">
-                <button
-                  type="button"
-                  onClick={() => setAboutModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-medium text-xs transition-colors cursor-pointer"
-                >
-                  {language === "fil" ? "Isara" : "Close"}
-                </button>
+              <div className="pt-3 flex items-center justify-between gap-3 border-t border-neutral-200 dark:border-neutral-800">
                 <Link
-                  href="/services"
+                  href="/legal/terms"
                   onClick={() => setAboutModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
+                  className="text-[11px] text-neutral-500 dark:text-neutral-400 hover:text-amber-500 dark:hover:text-amber-400 underline underline-offset-4 transition-colors font-medium"
                 >
-                  {t("viewAllServices")}
+                  {t("viewAllLegalDocs")}
                 </Link>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAboutModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-medium text-xs transition-colors cursor-pointer"
+                  >
+                    {language === "fil" ? "Isara" : "Close"}
+                  </button>
+                  <Link
+                    href="/services"
+                    onClick={() => setAboutModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
+                  >
+                    {t("viewAllServices")}
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -466,6 +576,65 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                   <div className="text-neutral-500 dark:text-neutral-400 text-xs">
                     +63 917 123 4567 / (044) 795 1234
                   </div>
+                </div>
+              </div>
+
+              {/* Legal Documentation & Policies Shortcuts */}
+              <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-semibold">
+                    {t("legalShortcutsTitle")}
+                  </span>
+                  <Link
+                    href="/legal/terms"
+                    onClick={() => setHelpModalOpen(false)}
+                    className="text-[10px] text-amber-500 hover:text-amber-400 font-medium transition-colors"
+                  >
+                    CIAP 102 · Art. 1723
+                  </Link>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Link
+                    href="/legal/terms"
+                    onClick={() => setHelpModalOpen(false)}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 hover:border-amber-500/60 dark:hover:border-amber-500/60 hover:bg-amber-500/5 text-center transition-all group cursor-pointer"
+                  >
+                    <FileSignature className="w-4 h-4 text-amber-500 mb-1 group-hover:scale-110 transition-transform" />
+                    <span className="text-[11px] font-bold text-neutral-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                      {language === "fil" ? "Kasunduan" : "Terms"}
+                    </span>
+                    <span className="text-[9px] text-neutral-500 dark:text-neutral-400 mt-0.5 font-mono">
+                      15-Yr Warranty
+                    </span>
+                  </Link>
+
+                  <Link
+                    href="/legal/privacy"
+                    onClick={() => setHelpModalOpen(false)}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 hover:border-amber-500/60 dark:hover:border-amber-500/60 hover:bg-amber-500/5 text-center transition-all group cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-amber-500 mb-1 group-hover:scale-110 transition-transform" />
+                    <span className="text-[11px] font-bold text-neutral-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                      Privacy
+                    </span>
+                    <span className="text-[9px] text-neutral-500 dark:text-neutral-400 mt-0.5 font-mono">
+                      RA 10173
+                    </span>
+                  </Link>
+
+                  <Link
+                    href="/legal/safety"
+                    onClick={() => setHelpModalOpen(false)}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 hover:border-amber-500/60 dark:hover:border-amber-500/60 hover:bg-amber-500/5 text-center transition-all group cursor-pointer"
+                  >
+                    <HardHat className="w-4 h-4 text-amber-500 mb-1 group-hover:scale-110 transition-transform" />
+                    <span className="text-[11px] font-bold text-neutral-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                      {language === "fil" ? "Kaligtasan" : "Safety"}
+                    </span>
+                    <span className="text-[9px] text-neutral-500 dark:text-neutral-400 mt-0.5 font-mono">
+                      DOLE OSH
+                    </span>
+                  </Link>
                 </div>
               </div>
 

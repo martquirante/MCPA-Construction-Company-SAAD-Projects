@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import ScrollMorph from "../../shared/ScrollMorph";
+import { useLanguage } from "../../shared/LanguageContext";
 import {
   ArrowRightIcon,
   HomeIcon,
@@ -11,34 +12,36 @@ import {
 } from "../../shared/Icons";
 
 export default function ServicesSection() {
+  const { t } = useLanguage();
+
   const services = [
     {
       id: "residential",
       icon: <HomeIcon className="w-8 h-8 text-amber-500" strokeWidth={1.8} />,
-      title: "Custom Residential",
-      tag: "Turnkey Design & Build",
-      desc: "Custom homes designed for your family's daily living. From modern bungalow homes to two-storey family residences with a 5-year structural warranty.",
+      title: t("serviceTurnkeyTitle"),
+      tag: t("serviceTurnkeyTag"),
+      desc: t("serviceTurnkeyDesc"),
     },
     {
       id: "bnpl",
       icon: <BadgePercentIcon className="w-8 h-8 text-amber-500" strokeWidth={1.8} />,
-      title: "Build Now, Pay Later",
-      tag: "Titled Lot Financing",
-      desc: "Special program for titled lot owners across Bulacan and Central Luzon. Build your dream home with flexible payment stages and Pag-IBIG or bank loan assistance.",
+      title: t("serviceBnplTitle"),
+      tag: t("serviceBnplTag"),
+      desc: t("serviceBnplDesc"),
     },
     {
       id: "plans",
       icon: <FileSignatureIcon className="w-8 h-8 text-amber-500" strokeWidth={1.8} />,
-      title: "Signed & Sealed Plans",
-      tag: "Architectural & Engineering",
-      desc: "Complete architectural blueprints and structural calculations prepared by licensed professionals, with full assistance in getting city building permits.",
+      title: t("servicePlansTitle"),
+      tag: t("servicePlansTag"),
+      desc: t("servicePlansDesc"),
     },
     {
       id: "commercial-supply",
       icon: <WarehouseIcon className="w-8 h-8 text-amber-500" strokeWidth={1.8} />,
-      title: "Commercial & Project Supply",
-      tag: "Warehouses & In-House Logistics",
-      desc: "Commercial buildings, steel warehouses, home renovations, and dedicated in-house materials delivered right to your job site.",
+      title: t("serviceSupplyTitle"),
+      tag: t("serviceSupplyTag"),
+      desc: t("serviceSupplyDesc"),
     },
   ];
 
@@ -47,19 +50,19 @@ export default function ServicesSection() {
       <ScrollMorph variant="fade-up" className="mb-16 grid lg:grid-cols-2 gap-8 items-end">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] font-semibold text-amber-600 dark:text-amber-400 mb-3">
-            What We Do
+            {t("whatWeDo")}
           </p>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
-            Services That
+          <h2 className="text-3xl sm:text-4xl md:text-5xl xl:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
+            {t("servicesThat")}
             <br />
             <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
-              Define Eras
+              {t("defineEras")}
             </span>
           </h2>
         </div>
 
         <p className="text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal max-w-md">
-          We build on time and built to last. We work closely with you from initial idea to completed build, creating a home your family can enjoy for generations.
+          {t("servicesSubtitle")}
         </p>
       </ScrollMorph>
 
@@ -99,7 +102,7 @@ export default function ServicesSection() {
                   href="/book"
                   className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition-transform"
                 >
-                  <span>Inquire Now</span>
+                  <span>{t("inquire")}</span>
                   <ArrowRightIcon className="w-3.5 h-3.5" />
                 </Link>
               </div>

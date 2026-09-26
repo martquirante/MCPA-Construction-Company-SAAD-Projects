@@ -163,8 +163,8 @@ export default function AiReceiptScannerTab({
                 No receipt expenses recorded yet. Scan a receipt to log site purchases.
               </div>
             ) : (
-              scanHistory.map((item) => {
-                const itemId = item.expense_id || item.id;
+              scanHistory.map((item, idx) => {
+                const itemId = item.expense_id || item.id || `receipt-${idx}`;
                 const vendor = item.vendor_name || item.vendor || "Hardware Supplier";
                 const total = parseFloat(item.extracted_total || item.total || 0);
                 const itemsDesc = item.raw_ocr_text || item.items || "Hardware supply materials";
@@ -174,7 +174,7 @@ export default function AiReceiptScannerTab({
 
                 return (
                   <div
-                    key={itemId}
+                    key={`expense-${itemId}-${idx}`}
                     className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950/60 border border-neutral-200/80 dark:border-white/5 space-y-1"
                   >
                     <div className="flex items-center justify-between">
