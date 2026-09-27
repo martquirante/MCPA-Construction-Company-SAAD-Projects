@@ -28,10 +28,18 @@ const nextConfig = {
         protocol: "https",
         hostname: "**.supabase.co",
       },
+      {
+        protocol: "https",
+        hostname: "mcpa-backend.vercel.app",
+      },
     ],
   },
   async rewrites() {
-    const backendUrl = process.env.BACKEND_API_URL || "http://localhost:5000";
+    const backendUrl =
+      process.env.BACKEND_API_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "https://mcpa-backend.vercel.app"
+        : "http://localhost:5000");
     return [
       {
         source: "/api/:path*",
