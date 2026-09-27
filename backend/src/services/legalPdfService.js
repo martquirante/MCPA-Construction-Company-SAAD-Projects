@@ -2,6 +2,20 @@ const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
 
+// Statically require standard fonts so Vercel's bundler (NFT) bundles them
+try {
+  require("pdfkit/standard-fonts/Helvetica");
+  require("pdfkit/standard-fonts/HelveticaBold");
+  require("pdfkit/standard-fonts/HelveticaOblique");
+  require("pdfkit/standard-fonts/HelveticaBoldOblique");
+  require("pdfkit/standard-fonts/TimesRoman");
+  require("pdfkit/standard-fonts/TimesBold");
+  require("pdfkit/standard-fonts/TimesItalic");
+  require("pdfkit/standard-fonts/TimesBoldItalic");
+  require("pdfkit/standard-fonts/Courier");
+  require("pdfkit/standard-fonts/CourierBold");
+} catch (_) {}
+
 /**
  * MCPA Construction and Supply - Corporate Legal PDF Generator Service
  * Pure server-side PDF generator using PDFKit.

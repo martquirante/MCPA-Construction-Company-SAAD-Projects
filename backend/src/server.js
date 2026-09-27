@@ -34,8 +34,21 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve local uploads folder statically for dev fallback
-app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
+// -----------------------------------------------------------------------------
+// ROOT STATUS ROUTE
+// -----------------------------------------------------------------------------
+app.get("/", (req, res) => {
+  res.json({
+    status: "ONLINE",
+    message: "MCPA Enterprise Backend API is running successfully.",
+    endpoints: {
+      health: "/api/health",
+      projects: "/api/projects",
+      briefs: "/api/briefs",
+      legalPdf: "/api/legal/pdf/:docType",
+    },
+  });
+});
 
 // -----------------------------------------------------------------------------
 // HEALTH CHECK
