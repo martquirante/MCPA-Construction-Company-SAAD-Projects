@@ -8,10 +8,17 @@ class EmailService {
     this.smtpPass = (process.env.SMTP_APP_PASSWORD || "").replace(/\s+/g, "");
     this.smtpHost = process.env.SMTP_HOST || "";
     this.smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
+    this.resendApiKey = process.env.RESEND_API_KEY || "";
+    this.resendFromEmail = process.env.RESEND_FROM_EMAIL || "MCPA Construction <onboarding@resend.dev>";
+    this.primaryProvider = (process.env.EMAIL_PRIMARY_PROVIDER || "gmail").toLowerCase();
     this.transporter = null;
 
     if (this.smtpEmail && this.smtpPass && !this.smtpEmail.includes("YOUR_")) {
       try {
+        const timeoutOptions = {
+          connectionTimeout: 5000,
+          socketTimeout: 5000,
+        };
         if (this.smtpHost) {
           // Custom SMTP Provider (Outlook, Yahoo, Brevo, SendGrid, etc.)
           this.transporter = nodemailer.createTransport({
@@ -22,6 +29,7 @@ class EmailService {
               user: this.smtpEmail,
               pass: this.smtpPass,
             },
+            ...timeoutOptions,
           });
         } else {
           // Default Gmail Service
@@ -31,11 +39,51 @@ class EmailService {
               user: this.smtpEmail,
               pass: this.smtpPass,
             },
+            ...timeoutOptions,
           });
         }
       } catch (err) {
         console.warn("[EmailService] Nodemailer init warning:", err.message);
       }
+    }
+  }
+
+  /**
+   * Sends email via Resend HTTP REST API
+   * Guaranteed delivery on serverless environments where SMTP ports may be restricted.
+   * @param {string} toEmail Recipient email address
+   * @param {string} subject Email subject line
+   * @param {string} htmlContent Full HTML formatted template
+   */
+  async sendViaResend(toEmail, subject, htmlContent) {
+    if (!this.resendApiKey || this.resendApiKey.includes("YOUR_")) {
+      return false;
+    }
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: this.resendFromEmail,
+          to: [toEmail],
+          subject,
+          html: htmlContent,
+        }),
+      });
+
+      const resData = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(resData.message || `HTTP ${response.status}`);
+      }
+
+      console.log(`\x1b[32m[EmailService] Resend API OTP email successfully delivered to ${toEmail} (ID: ${resData.id})\x1b[0m`);
+      return true;
+    } catch (err) {
+      console.warn(`\x1b[33m[EmailService] Resend API delivery failed (${err.message}).\x1b[0m`);
+      return false;
     }
   }
 
@@ -217,8 +265,8 @@ class EmailService {
 </html>
     `;
 
-    // Attempt real SMTP if configured
-    if (this.transporter) {
+    // 1. Try Primary Provider (Gmail SMTP default)
+    if (this.transporter && this.primaryProvider === "gmail") {
       try {
         const attachments = [];
         if (hasDarkLogo) {
@@ -245,10 +293,34 @@ class EmailService {
         };
 
         await this.transporter.sendMail(mailOptions);
-        console.log(`\x1b[32m[EmailService] Responsive OTP email delivered to ${toEmail}\x1b[0m`);
+        console.log(`\x1b[32m[EmailService] Primary Gmail SMTP OTP delivered to ${toEmail}\x1b[0m`);
         return true;
       } catch (err) {
-        console.warn(`\x1b[33m[EmailService] SMTP delivery failed (${err.message}). Logging code locally...\x1b[0m`);
+        console.warn(`\x1b[33m[EmailService] Primary Gmail SMTP delivery failed (${err.message}). Activating Resend backup failover...\x1b[0m`);
+      }
+    }
+
+    // 2. Try Resend API (Backup Failover or Primary)
+    if (this.resendApiKey) {
+      const resendDelivered = await this.sendViaResend(toEmail, subject, htmlContent);
+      if (resendDelivered) {
+        return true;
+      }
+    }
+
+    // 3. Fallback to Gmail SMTP if primary was Resend
+    if (this.transporter && this.primaryProvider !== "gmail") {
+      try {
+        await this.transporter.sendMail({
+          from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
+          to: toEmail,
+          subject,
+          html: htmlContent,
+        });
+        console.log(`\x1b[32m[EmailService] Gmail SMTP fallback OTP delivered to ${toEmail}\x1b[0m`);
+        return true;
+      } catch (err) {
+        console.warn(`\x1b[33m[EmailService] Gmail SMTP fallback delivery failed (${err.message}).\x1b[0m`);
       }
     }
 

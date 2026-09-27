@@ -1,5 +1,6 @@
 const { BlobServiceClient } = require("@azure/storage-blob");
 const { createClient } = require("@supabase/supabase-js");
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
@@ -10,6 +11,7 @@ class StorageService {
     this.azurePortfolioContainer = process.env.AZURE_CONTAINER_PORTFOLIO || "mcpa-portfolio";
     this.azureBriefsContainer = process.env.AZURE_CONTAINER_BRIEFS || "mcpa-briefs";
 
+    // Supabase Storage
     this.supabaseUrl = process.env.SUPABASE_URL || "";
     this.supabaseKey = process.env.SUPABASE_SECRET_KEY || "";
     this.supabasePortfolioBucket = process.env.SUPABASE_BUCKET_PORTFOLIO || "portfolio";
@@ -21,6 +23,29 @@ class StorageService {
         this.supabaseClient = createClient(this.supabaseUrl, this.supabaseKey);
       } catch (e) {
         console.warn("[StorageService] Supabase client init error:", e.message);
+      }
+    }
+
+    // Neon S3-Compatible Object Storage
+    this.s3Endpoint = process.env.AWS_ENDPOINT_URL_S3 || "";
+    this.s3AccessKeyId = process.env.AWS_ACCESS_KEY_ID || "";
+    this.s3SecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || "";
+    this.s3Region = process.env.AWS_REGION || "ap-southeast-1";
+
+    this.s3Client = null;
+    if (this.s3Endpoint && this.s3AccessKeyId && this.s3SecretAccessKey) {
+      try {
+        this.s3Client = new S3Client({
+          endpoint: this.s3Endpoint,
+          region: this.s3Region,
+          credentials: {
+            accessKeyId: this.s3AccessKeyId,
+            secretAccessKey: this.s3SecretAccessKey,
+          },
+          forcePathStyle: true,
+        });
+      } catch (e) {
+        console.warn("[StorageService] S3 client init error:", e.message);
       }
     }
   }
@@ -38,9 +63,9 @@ class StorageService {
     const uniqueFileName = `${Date.now()}_${crypto.randomBytes(6).toString("hex")}${ext}`;
 
     // ═════════════════════════════════════════════════════════════════
-    // TIER 1: AZURE BLOB STORAGE (PRIMARY)
+    // TIER 1: AZURE BLOB STORAGE (PRIMARY CLOUD STORAGE FOR MEDIA/FILES)
     // ═════════════════════════════════════════════════════════════════
-    if (this.azureConnStr && !this.azureConnStr.includes("YOUR_")) {
+    if (this.azureConnStr && !this.azureConnStr.includes("YOUR_") && !this.azureConnStr.includes("UseDevelopmentStorage=true")) {
       try {
         const containerName = category === "briefs" ? this.azureBriefsContainer : this.azurePortfolioContainer;
         const blobServiceClient = BlobServiceClient.fromConnectionString(this.azureConnStr);
@@ -54,17 +79,17 @@ class StorageService {
           blobHTTPHeaders: { blobContentType: mimeType },
         });
 
-        console.log(`\x1b[32m[StorageService] Azure Blob Upload Success: ${blockBlobClient.url}\x1b[0m`);
+        console.log(`\x1b[32m[StorageService] Azure Blob Upload Success (Primary): ${blockBlobClient.url}\x1b[0m`);
         return blockBlobClient.url;
       } catch (azureErr) {
         console.warn(
-          `\x1b[33m[StorageService] Azure Blob upload failed: ${azureErr.message}. Cascading to Supabase backup...\x1b[0m`
+          `\x1b[33m[StorageService] Azure Blob upload failed: ${azureErr.message}. Cascading to Supabase Storage backup...\x1b[0m`
         );
       }
     }
 
     // ═════════════════════════════════════════════════════════════════
-    // TIER 2: SUPABASE STORAGE (HOT STANDBY)
+    // TIER 2: SUPABASE STORAGE (HOT STANDBY / BACKUP STORAGE)
     // ═════════════════════════════════════════════════════════════════
     if (this.supabaseClient) {
       try {
@@ -84,11 +109,35 @@ class StorageService {
           .from(bucketName)
           .getPublicUrl(uniqueFileName);
 
-        console.log(`\x1b[32m[StorageService] Supabase Storage Upload Success: ${publicUrlData.publicUrl}\x1b[0m`);
+        console.log(`\x1b[32m[StorageService] Supabase Storage Upload Success (Backup): ${publicUrlData.publicUrl}\x1b[0m`);
         return publicUrlData.publicUrl;
       } catch (supaErr) {
         console.warn(
-          `\x1b[33m[StorageService] Supabase upload failed: ${supaErr.message}. Falling back to local storage...\x1b[0m`
+          `\x1b[33m[StorageService] Supabase upload failed: ${supaErr.message}. Cascading to Neon S3 standby...\x1b[0m`
+        );
+      }
+    }
+
+    // ═════════════════════════════════════════════════════════════════
+    // TIER 3: NEON S3-COMPATIBLE OBJECT STORAGE (STANDBY)
+    // ═════════════════════════════════════════════════════════════════
+    if (this.s3Client) {
+      try {
+        const bucketName = category === "briefs" ? "mcpa-briefs" : "mcpa-portfolio";
+        await this.s3Client.send(
+          new PutObjectCommand({
+            Bucket: bucketName,
+            Key: uniqueFileName,
+            Body: buffer,
+            ContentType: mimeType,
+          })
+        );
+        const s3PublicUrl = `${this.s3Endpoint}/${bucketName}/${uniqueFileName}`;
+        console.log(`\x1b[32m[StorageService] Neon S3 Storage Upload Success (Standby): ${s3PublicUrl}\x1b[0m`);
+        return s3PublicUrl;
+      } catch (s3Err) {
+        console.warn(
+          `\x1b[33m[StorageService] Neon S3 upload failed: ${s3Err.message}. Falling back to local storage...\x1b[0m`
         );
       }
     }

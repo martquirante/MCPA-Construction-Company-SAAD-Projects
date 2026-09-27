@@ -30,6 +30,10 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "**.neon.tech",
+      },
+      {
+        protocol: "https",
         hostname: "mcpa-backend.vercel.app",
       },
     ],

@@ -65,6 +65,11 @@ app.get("/api/health", (req, res) => {
     storage: {
       primary: "Azure Blob Storage",
       backup: "Supabase Storage",
+      standby: "Neon S3 Object Storage",
+    },
+    email: {
+      primary: "Gmail SMTP",
+      backup: "Resend API",
     },
   });
 });
@@ -240,7 +245,7 @@ if (!process.env.VERCEL) {
     app.listen(PORT, () => {
       console.log(`\n\x1b[32m[SERVER] MCPA Enterprise Backend listening on http://localhost:${PORT}\x1b[0m`);
       console.log(`[DATABASE] Active DB Provider: \x1b[33m${db.getActiveProviderName()}\x1b[0m`);
-      console.log(`[STORAGE] Cloud Storage: \x1b[36mAzure Blob (Tier 1) -> Supabase Storage (Tier 2)\x1b[0m\n`);
+      console.log(`[STORAGE] Cloud Storage: \x1b[36mAzure Blob (Tier 1 Primary) -> Supabase Storage (Tier 2 Backup) -> Neon S3 (Tier 3 Standby)\x1b[0m\n`);
     });
   });
 } else {

@@ -1,14 +1,41 @@
 const { Pool } = require("pg");
+const { createClient } = require("@supabase/supabase-js");
 const fs = require("fs");
 const path = require("path");
 
 class DbFailoverEngine {
   constructor() {
     this.azureConnStr = process.env.AZURE_POSTGRES_CONNECTION_STRING || "";
-    this.supabaseConnStr = process.env.SUPABASE_CONNECTION_STRING || "";
     this.localConnStr = process.env.LOCAL_DB_CONNECTION || "";
+    
+    // Supabase Credentials
+    this.supabaseUrl = process.env.SUPABASE_URL || "";
+    this.supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "";
+    this.supabaseDbPassword = process.env.SUPABASE_DB_PASSWORD || "";
+
+    // Build Supabase PostgreSQL connection string if password provided or string is set
+    let resolvedSupabaseConn = process.env.SUPABASE_CONNECTION_STRING || "";
+    if (!resolvedSupabaseConn && this.supabaseDbPassword) {
+      resolvedSupabaseConn = `postgres://postgres.dzqqyqothtttccplvvnb:${encodeURIComponent(this.supabaseDbPassword)}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require`;
+    }
+    this.supabaseConnStr = resolvedSupabaseConn;
+
+    // Supabase REST Client
+    this.supabaseClient = null;
+    if (this.supabaseUrl && this.supabaseKey && !this.supabaseUrl.includes("YOUR_")) {
+      try {
+        this.supabaseClient = createClient(this.supabaseUrl, this.supabaseKey);
+      } catch (e) {
+        console.warn("[DbFailoverEngine] Supabase client init warning:", e.message);
+      }
+    }
+
+    // Neon PostgreSQL Credentials (Hot Standby / High Availability)
+    this.neonConnStr = process.env.NEON_CONNECTION_STRING || process.env.DATABASE_URL || "";
+    this.neonPool = null;
 
     this.isFailoverActive = false;
+    this.lastFailoverTimestamp = 0;
     this.isMockActive = false;
     this.consecutiveAzureFailures = 0;
     this.consecutiveAzureSuccesses = 0;
@@ -16,6 +43,7 @@ class DbFailoverEngine {
     this.azurePool = null;
     this.supabasePool = null;
     this.localPool = null;
+    this.useLocalDocker = process.env.USE_LOCAL_DB === "true";
 
     this.initPools();
     this.startHealthCheck();
@@ -39,28 +67,47 @@ class DbFailoverEngine {
   }
 
   initPools() {
-    if (this.azureConnStr) {
-      this.azurePool = this.createPool(this.azureConnStr);
-    }
+    // 1. Primary: Supabase PostgreSQL Cloud Pool
     if (this.supabaseConnStr) {
       this.supabasePool = this.createPool(this.supabaseConnStr);
+      if (this.supabasePool) {
+        console.log(`\x1b[32m[DbFailoverEngine] Supabase PostgreSQL Cloud Pool active (Primary Database)\x1b[0m`);
+      }
     }
-    // On Vercel, localhost is unreachable; skip localPool to prevent 5s connection timeouts
+    // 2. High-Availability Hot Standby: Neon Serverless PostgreSQL Cloud
+    if (this.neonConnStr) {
+      this.neonPool = this.createPool(this.neonConnStr);
+      if (this.neonPool) {
+        console.log(`\x1b[32m[DbFailoverEngine] Neon Serverless PostgreSQL Cloud Pool active (Cloud Hot Standby)\x1b[0m`);
+      }
+    }
+    // 3. Standby: Local PostgreSQL (offline development)
     if (this.localConnStr && !process.env.VERCEL) {
       this.localPool = this.createPool(this.localConnStr);
     }
+    // 4. Azure Pool (if configured)
+    if (this.azureConnStr) {
+      this.azurePool = this.createPool(this.azureConnStr);
+    }
 
-    if (!this.azurePool && !this.supabasePool && !this.localPool) {
-      this.isMockActive = true;
-      console.log("[DbFailoverEngine] No live PostgreSQL connection strings provided. Operating in Local Resilient Mock Storage mode.");
+    if (!this.supabasePool && !this.neonPool && !this.azurePool && !this.localPool) {
+      if (this.supabaseClient) {
+        console.log(`\x1b[36m[DbFailoverEngine] Supabase Cloud active (REST API Engine). Direct PostgreSQL pool standby.\x1b[0m`);
+      } else {
+        this.isMockActive = true;
+        console.log("[DbFailoverEngine] No live PostgreSQL connection strings provided. Operating in Local Resilient Mock Storage mode.");
+      }
     }
   }
 
   getActiveProviderName() {
-    if (this.isMockActive) return "Local Resilient Storage (Dev Mode)";
-    if (this.isFailoverActive) return "Local PostgreSQL (Docker Standby)";
-    if (this.supabasePool) return "Supabase Cloud (Primary Production)";
-    if (this.azurePool) return "Azure Flexible Server (Optional Tier)";
+    if (this.useLocalDocker && this.localPool) return "Local PostgreSQL (Docker Testing & Local Development)";
+    if (!this.isFailoverActive && this.supabasePool) return "Supabase PostgreSQL Cloud (Primary Database)";
+    if (this.isFailoverActive && this.neonPool) return "Neon Serverless PostgreSQL (Standby Backup - Failover Active)";
+    if (this.neonPool && !this.supabasePool) return "Neon Serverless PostgreSQL (Standby Backup - Ready for Failover)";
+    if (this.supabaseClient && !this.isFailoverActive && !this.localPool && !this.azurePool) return "Supabase Cloud (REST Engine / Primary)";
+    if (this.isFailoverActive && this.localPool) return "Local PostgreSQL (Docker Standby)";
+    if (this.azurePool) return "Azure Flexible Server (Standby Tier)";
     if (this.localPool) return "Local PostgreSQL (Docker Local)";
     return "Local Resilient Storage (Dev Mode)";
   }
@@ -68,25 +115,43 @@ class DbFailoverEngine {
   async triggerFailover(reason) {
     if (this.isFailoverActive) return;
     this.isFailoverActive = true;
-    console.warn(`\x1b[33m[WARN] [DbFailoverEngine] AUTOMATIC CLOUD-TO-LOCAL FAILOVER ACTIVATED: ${reason}. Switched active database to Local Docker PostgreSQL.\x1b[0m`);
+    this.lastFailoverTimestamp = Date.now();
+    console.warn(`\x1b[33m[WARN] [DbFailoverEngine] AUTOMATIC CLOUD FAILOVER ACTIVATED: ${reason}. Cascading to Standby Provider.\x1b[0m`);
   }
 
   async triggerFailback() {
     if (!this.isFailoverActive) return;
     this.isFailoverActive = false;
+    this.lastFailoverTimestamp = 0;
     console.log(`\x1b[32m[OK] [DbFailoverEngine] AUTOMATIC FAILBACK RESTORED: Supabase Cloud Primary is verified healthy. Switched active database back to Supabase Cloud.\x1b[0m`);
   }
 
   /**
-   * Main query execution method with automatic failover
+   * Main query execution method with automatic failover & self-healing failback
    */
   async query(text, params = []) {
-    // 1. If Mock Storage is active, delegate to mock handler
-    if (this.isMockActive) {
-      return this.executeMockQuery(text, params);
+    // -1. Local Docker Testing Mode: If USE_LOCAL_DB=true is enabled, prioritize local Docker PostgreSQL
+    if (this.useLocalDocker && this.localPool && !this.isMockActive) {
+      try {
+        const res = await this.localPool.query(text, params);
+        return res;
+      } catch (localErr) {
+        console.error("[DbFailoverEngine] Local Docker query failed:", localErr.message);
+      }
     }
 
-    // 2. Try Supabase Cloud Primary if healthy and configured
+    // 0. Auto-healing Failback Check: If failover was active and 20s have elapsed, test if Supabase is back
+    if (this.isFailoverActive && this.supabasePool && Date.now() - (this.lastFailoverTimestamp || 0) > 20000) {
+      try {
+        await this.supabasePool.query("SELECT 1");
+        await this.triggerFailback();
+      } catch (probeErr) {
+        // Supabase is still recovering, update probe timestamp to prevent query latency
+        this.lastFailoverTimestamp = Date.now();
+      }
+    }
+
+    // 1. Try Supabase Cloud Primary (Direct PostgreSQL Pool)
     if (!this.isFailoverActive && this.supabasePool) {
       try {
         const res = await this.supabasePool.query(text, params);
@@ -100,22 +165,41 @@ class DbFailoverEngine {
       }
     }
 
-    // 3. Try Local Docker PostgreSQL (Hot Standby / Offline Fallback)
-    if (this.localPool) {
+    // 2. Try Neon Serverless PostgreSQL Cloud Pool (High Availability Hot Standby)
+    if (this.neonPool) {
+      try {
+        const res = await this.neonPool.query(text, params);
+        return res;
+      } catch (neonErr) {
+        if (!this.isConnectionError(neonErr)) throw neonErr;
+        console.warn("[DbFailoverEngine] Neon pool query warning:", neonErr.message);
+      }
+    }
+
+    // 3. Try Supabase Cloud REST Client (PostgREST)
+    if (this.supabaseClient && !this.isFailoverActive) {
+      try {
+        const supaRes = await this.executeSupabaseClientQuery(text, params);
+        if (supaRes) return supaRes;
+      } catch (e) {
+        // Fall through to local fallback
+      }
+    }
+
+    // 4. Try Local Docker PostgreSQL (Hot Standby / Offline Fallback)
+    if (this.localPool && !this.isMockActive) {
       try {
         const res = await this.localPool.query(text, params);
         return res;
       } catch (localErr) {
         console.error("[DbFailoverEngine] Local Docker PostgreSQL query failed:", localErr.message);
-        // Fallback to mock storage rather than crashing during defense/demo
         console.warn("[DbFailoverEngine] Falling back to Local Resilient Mock Storage.");
         this.isMockActive = true;
-        return this.executeMockQuery(text, params);
       }
     }
 
-    // 4. Try Azure Pool if configured
-    if (this.azurePool) {
+    // 5. Try Azure Pool if configured
+    if (this.azurePool && !this.isMockActive) {
       try {
         return await this.azurePool.query(text, params);
       } catch (err) {
@@ -123,9 +207,352 @@ class DbFailoverEngine {
       }
     }
 
-    // 5. Final fallback to mock
-    this.isMockActive = true;
+    // 6. Final fallback to resilient mock storage
     return this.executeMockQuery(text, params);
+  }
+
+  /**
+   * Executes queries via Supabase PostgREST REST API when direct PostgreSQL pool is standby
+   * Ensures instant compatibility without requiring raw TCP connections.
+   */
+  async executeSupabaseClientQuery(sql, params) {
+    if (!this.supabaseClient) return null;
+    const cleanSql = sql.trim().toUpperCase();
+
+    try {
+      // 1. SELECT user by email
+      if (cleanSql.includes("FROM USERS") && cleanSql.includes("EMAIL")) {
+        const email = (params[0] || "").toLowerCase();
+        const { data, error } = await this.supabaseClient
+          .from("users")
+          .select("*")
+          .ilike("email", email);
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      // 2. INSERT user
+      if (cleanSql.startsWith("INSERT INTO USERS")) {
+        const { data, error } = await this.supabaseClient
+          .from("users")
+          .insert({
+            email: params[0],
+            password_hash: params[1],
+            full_name: params[2] || "MCPA Administrator",
+            role: params[3] || "admin",
+          })
+          .select();
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      // 3. UPDATE users
+      if (cleanSql.startsWith("UPDATE USERS")) {
+        const email = (params[params.length - 1] || "").toLowerCase();
+        let updatePayload = {};
+        if (cleanSql.includes("PASSWORD_HASH")) {
+          updatePayload = {
+            password_hash: params[0],
+            failed_login_attempts: 0,
+            lockout_enabled: false,
+            lockout_end: null,
+          };
+        } else if (cleanSql.includes("FAILED_LOGIN_ATTEMPTS = 0")) {
+          updatePayload = {
+            failed_login_attempts: 0,
+            lockout_enabled: false,
+            lockout_end: null,
+          };
+        }
+        if (Object.keys(updatePayload).length > 0) {
+          const { data, error } = await this.supabaseClient
+            .from("users")
+            .update(updatePayload)
+            .ilike("email", email)
+            .select();
+          if (error) throw error;
+          return { rows: data || [], rowCount: data ? data.length : 0 };
+        }
+      }
+
+      // 4. Invalidate unused OTPs
+      if (cleanSql.includes("UPDATE OTP_CODES SET IS_USED = TRUE") && cleanSql.includes("PURPOSE = 'PASSWORD_RESET'")) {
+        const email = (params[0] || "").toLowerCase();
+        const { error } = await this.supabaseClient
+          .from("otp_codes")
+          .update({ is_used: true })
+          .ilike("email", email)
+          .eq("purpose", "PASSWORD_RESET");
+        if (error) throw error;
+        return { rowCount: 1 };
+      }
+
+      // 5. INSERT OTP code
+      if (cleanSql.startsWith("INSERT INTO OTP_CODES")) {
+        const { data, error } = await this.supabaseClient
+          .from("otp_codes")
+          .insert({
+            email: (params[0] || "").toLowerCase(),
+            otp_code: params[1],
+            purpose: params[2] || "PASSWORD_RESET",
+            expires_at: new Date(Date.now() + 120 * 1000).toISOString(),
+          })
+          .select();
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      // 6. Verify OTP code
+      if (cleanSql.includes("FROM OTP_CODES") && cleanSql.includes("OTP_CODE")) {
+        const email = (params[0] || "").toLowerCase();
+        const code = params[1];
+        const { data, error } = await this.supabaseClient
+          .from("otp_codes")
+          .select("*")
+          .ilike("email", email)
+          .eq("otp_code", code)
+          .eq("is_used", false)
+          .gt("expires_at", new Date().toISOString())
+          .order("otp_id", { ascending: false })
+          .limit(1);
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      // 7. Mark OTP as used
+      if (cleanSql.includes("UPDATE OTP_CODES SET IS_USED = TRUE WHERE OTP_ID =")) {
+        const otpId = params[0];
+        const { error } = await this.supabaseClient
+          .from("otp_codes")
+          .update({ is_used: true })
+          .eq("otp_id", otpId);
+        if (error) throw error;
+        return { rowCount: 1 };
+      }
+
+      // 8. Projects queries
+      if (cleanSql.includes("FROM PROJECTS") && !cleanSql.startsWith("INSERT") && !cleanSql.startsWith("UPDATE") && !cleanSql.startsWith("DELETE")) {
+        if (cleanSql.includes("COUNT(*)")) {
+          const { count, error } = await this.supabaseClient
+            .from("projects")
+            .select("*", { count: "exact", head: true });
+          if (error) throw error;
+          return { rows: [{ count: count || 0 }] };
+        }
+        if (cleanSql.includes("WHERE PROJECT_ID =")) {
+          const id = params[0];
+          const { data, error } = await this.supabaseClient
+            .from("projects")
+            .select("*")
+            .eq("project_id", id);
+          if (error) throw error;
+          return { rows: data || [], rowCount: data ? data.length : 0 };
+        }
+        const { data, error } = await this.supabaseClient
+          .from("projects")
+          .select("*")
+          .order("project_id", { ascending: false });
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.startsWith("INSERT INTO PROJECTS")) {
+        const { data, error } = await this.supabaseClient
+          .from("projects")
+          .insert({
+            name: params[0],
+            location: params[1],
+            category: params[2],
+            year: params[3],
+            description: params[4],
+            images: params[5] || [],
+            is_admin_added: true,
+            is_web_visible: params[6] !== false,
+            status: params[7] || "completed",
+            month: params[8] || "January",
+          })
+          .select();
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.startsWith("UPDATE PROJECTS")) {
+        const id = params[params.length - 1];
+        const { data, error } = await this.supabaseClient
+          .from("projects")
+          .update({
+            name: params[0],
+            location: params[1],
+            category: params[2],
+            year: params[3],
+            description: params[4],
+            images: params[5] || [],
+            is_web_visible: params[6] !== false,
+            status: params[7],
+            month: params[8],
+          })
+          .eq("project_id", id)
+          .select();
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.startsWith("DELETE FROM PROJECTS")) {
+        const id = params[0];
+        const { error } = await this.supabaseClient
+          .from("projects")
+          .delete()
+          .eq("project_id", id);
+        if (error) throw error;
+        return { rowCount: 1 };
+      }
+
+      // 9. Client briefs queries
+      if (cleanSql.includes("FROM CLIENT_BRIEFS") && !cleanSql.startsWith("INSERT") && !cleanSql.startsWith("UPDATE") && !cleanSql.startsWith("DELETE")) {
+        if (cleanSql.includes("WHERE BRIEF_ID =")) {
+          const id = params[0];
+          const { data, error } = await this.supabaseClient
+            .from("client_briefs")
+            .select("*")
+            .eq("brief_id", id);
+          if (error) throw error;
+          return { rows: data || [], rowCount: data ? data.length : 0 };
+        }
+        const { data, error } = await this.supabaseClient
+          .from("client_briefs")
+          .select("*")
+          .order("brief_id", { ascending: false });
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.startsWith("INSERT INTO CLIENT_BRIEFS")) {
+        const { data, error } = await this.supabaseClient
+          .from("client_briefs")
+          .insert({
+            submission_id: params[0],
+            client_name: params[1],
+            client_email: params[2],
+            client_phone: params[3],
+            project_type: params[4],
+            preferred_style: params[5],
+            budget_range: params[6],
+            lot_status: params[7],
+            lot_area: params[8],
+            target_date: params[9],
+            location: params[10],
+            financing_option: params[11],
+            uploaded_files: params[12] || [],
+            status: params[13] || "Pending Review",
+          })
+          .select();
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.startsWith("UPDATE CLIENT_BRIEFS")) {
+        const id = params[params.length - 1];
+        const { data, error } = await this.supabaseClient
+          .from("client_briefs")
+          .update({ status: params[0] })
+          .eq("brief_id", id)
+          .select();
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.startsWith("DELETE FROM CLIENT_BRIEFS")) {
+        const id = params[0];
+        const { error } = await this.supabaseClient
+          .from("client_briefs")
+          .delete()
+          .eq("brief_id", id);
+        if (error) throw error;
+        return { rowCount: 1 };
+      }
+
+      // 10. Site projects & construction queries
+      if (cleanSql.includes("FROM SITE_PROJECTS")) {
+        const code = params[0];
+        const { data, error } = await this.supabaseClient
+          .from("site_projects")
+          .select("*")
+          .eq("project_code", code);
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.includes("FROM SITE_MILESTONES")) {
+        const code = params[0];
+        const { data, error } = await this.supabaseClient
+          .from("site_milestones")
+          .select("*")
+          .eq("project_code", code)
+          .order("milestone_id", { ascending: true });
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.includes("FROM SITE_PHOTO_LOGS")) {
+        const code = params[0];
+        const { data, error } = await this.supabaseClient
+          .from("site_photo_logs")
+          .select("*")
+          .eq("project_code", code)
+          .order("log_id", { ascending: false });
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.includes("FROM BILLING_LEDGER")) {
+        const code = params[0];
+        const { data, error } = await this.supabaseClient
+          .from("billing_ledger")
+          .select("*")
+          .eq("project_code", code)
+          .order("bill_id", { ascending: true });
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.includes("FROM DELAY_EVENTS")) {
+        const code = params[0];
+        const { data, error } = await this.supabaseClient
+          .from("delay_events")
+          .select("*")
+          .eq("project_code", code)
+          .order("event_id", { ascending: false });
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.includes("FROM WARRANTY_TICKETS")) {
+        const code = params[0];
+        const { data, error } = await this.supabaseClient
+          .from("warranty_tickets")
+          .select("*")
+          .eq("project_code", code)
+          .order("reported_at", { ascending: false });
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      if (cleanSql.includes("FROM EXPENSES_OCR")) {
+        const code = params[0];
+        const { data, error } = await this.supabaseClient
+          .from("expenses_ocr")
+          .select("*")
+          .eq("project_code", code)
+          .order("expense_id", { ascending: false });
+        if (error) throw error;
+        return { rows: data || [], rowCount: data ? data.length : 0 };
+      }
+
+      return null;
+    } catch (e) {
+      // Table missing or schema not ready in Supabase schema cache
+      return null;
+    }
   }
 
   isConnectionError(err) {
