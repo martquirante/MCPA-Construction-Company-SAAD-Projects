@@ -45,7 +45,8 @@ class DbFailoverEngine {
     if (this.supabaseConnStr) {
       this.supabasePool = this.createPool(this.supabaseConnStr);
     }
-    if (this.localConnStr) {
+    // On Vercel, localhost is unreachable; skip localPool to prevent 5s connection timeouts
+    if (this.localConnStr && !process.env.VERCEL) {
       this.localPool = this.createPool(this.localConnStr);
     }
 
@@ -147,6 +148,7 @@ class DbFailoverEngine {
   }
 
   startHealthCheck() {
+    if (process.env.VERCEL) return; // Disable background polling intervals on serverless
     const primaryPool = this.supabasePool || this.azurePool;
     if (!primaryPool) return;
 
@@ -171,21 +173,37 @@ class DbFailoverEngine {
   // Stores users, otps, projects, briefs in a local JSON storage file
   // =========================================================================
   getMockStorageFile() {
-    const dataDir = path.join(__dirname, "../../data");
+    const isVercel = Boolean(process.env.VERCEL);
+    const dataDir = isVercel ? "/tmp" : path.join(__dirname, "../../data");
     if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+      try {
+        fs.mkdirSync(dataDir, { recursive: true });
+      } catch (e) {}
     }
     const filePath = path.join(dataDir, "local_mock_db.json");
     if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(
-        filePath,
-        JSON.stringify({
-          users: [],
-          otp_codes: [],
-          projects: [],
-          client_briefs: [],
-        }, null, 2)
-      );
+      const templatePath = path.join(__dirname, "../../data/local_mock_db.json");
+      if (fs.existsSync(templatePath)) {
+        try {
+          fs.copyFileSync(templatePath, filePath);
+          return filePath;
+        } catch (e) {
+          console.warn("[DbFailoverEngine] Could not copy template mock data:", e.message);
+        }
+      }
+      try {
+        fs.writeFileSync(
+          filePath,
+          JSON.stringify({
+            users: [],
+            otp_codes: [],
+            projects: [],
+            client_briefs: [],
+          }, null, 2)
+        );
+      } catch (e) {
+        console.warn("[DbFailoverEngine] Could not write mock storage file:", e.message);
+      }
     }
     return filePath;
   }

@@ -96,13 +96,29 @@ class StorageService {
     // ═════════════════════════════════════════════════════════════════
     // TIER 3: LOCAL RESILIENT STORAGE (DEVELOPMENT FALLBACK)
     // ═════════════════════════════════════════════════════════════════
-    const uploadsDir = path.join(__dirname, "../../public/uploads", category);
+    const isVercel = Boolean(process.env.VERCEL);
+    const uploadsDir = isVercel
+      ? path.join("/tmp", "uploads", category)
+      : path.join(__dirname, "../../public/uploads", category);
+
     if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+      try {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      } catch (e) {}
     }
 
     const localFilePath = path.join(uploadsDir, uniqueFileName);
-    fs.writeFileSync(localFilePath, buffer);
+    try {
+      fs.writeFileSync(localFilePath, buffer);
+    } catch (e) {
+      console.warn("[StorageService] Local storage write warning:", e.message);
+    }
+
+    // In serverless, if cloud storage isn't configured, encode small images as base64 data URLs
+    if (isVercel && buffer.length < 4 * 1024 * 1024) {
+      const mime = uniqueFileName.endsWith(".png") ? "image/png" : "image/jpeg";
+      return `data:${mime};base64,${buffer.toString("base64")}`;
+    }
 
     const port = process.env.PORT || 5000;
     const localUrl = `http://localhost:${port}/uploads/${category}/${uniqueFileName}`;

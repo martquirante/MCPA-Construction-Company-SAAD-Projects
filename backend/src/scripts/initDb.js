@@ -2,7 +2,15 @@ require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const db = require("../services/dbFailoverEngine");
 
+let isInitialized = false;
+
 async function initializeDatabase() {
+  if (isInitialized) return;
+  if (db.isMockActive) {
+    console.log("[initDb] Mock storage engine active, skipping PostgreSQL schema migration.");
+    isInitialized = true;
+    return;
+  }
   console.log("\n=======================================================");
   console.log("  MCPA CONSTRUCTION & SUPPLY - DATABASE INITIALIZER    ");
   console.log("=======================================================");
@@ -399,6 +407,7 @@ async function initializeDatabase() {
     }
 
     console.log("\n[SUCCESS] Database initialization completed successfully!\n");
+    isInitialized = true;
     return true;
   } catch (err) {
     console.error("[ERROR] Database initialization error:", err.message);
