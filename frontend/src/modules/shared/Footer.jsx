@@ -51,50 +51,10 @@ export default function Footer() {
       className="relative bg-neutral-100 dark:bg-[#080a0e] text-neutral-800 dark:text-neutral-300 border-t border-neutral-200 dark:border-white/10 transition-colors duration-500 overflow-hidden font-sans print:hidden"
     >
       {/* Ambient background glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 max-w-4xl h-48 bg-radial from-amber-500/10 via-amber-500/5 to-transparent pointer-events-none blur-2xl" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 max-w-4xl h-28 bg-radial from-amber-500/10 via-amber-500/5 to-transparent pointer-events-none blur-2xl" />
 
-      {/* 1. PRE-FOOTER TRUST & ACCREDITATION RIBBON */}
-      <ScrollMorph variant="curtain-wipe" duration={750} className="border-b border-neutral-200 dark:border-white/10 bg-neutral-200/40 dark:bg-white/[0.02]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center md:divide-x md:divide-neutral-200 md:dark:divide-white/10">
-            <div className="px-2 sm:px-3">
-              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
-                Direct Supply
-              </p>
-              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5 leading-snug break-words">
-                In-House Materials & Aggregates
-              </p>
-            </div>
-            <div className="px-2 sm:px-3">
-              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
-                Project Delivery
-              </p>
-              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5 leading-snug break-words">
-                Full-Service Design & Build
-              </p>
-            </div>
-            <div className="px-2 sm:px-3">
-              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
-                Financing Programs
-              </p>
-              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5 leading-snug break-words">
-                Build Now, Pay Later (Titled Lot) & Pag-IBIG
-              </p>
-            </div>
-            <div className="px-2 sm:px-3">
-              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-semibold">
-                Engineering Standard
-              </p>
-              <p className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white mt-0.5 leading-snug break-words">
-                Signed & Sealed Plans · Earthquake & Typhoon Ready
-              </p>
-            </div>
-          </div>
-        </div>
-      </ScrollMorph>
-
-      {/* 2. MAIN 4-COLUMN FOOTER CONTENT */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12">
+      {/* MAIN 4-COLUMN FOOTER CONTENT */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-8">
           
           {/* COLUMN 1: BRAND PROFILE & HERITAGE (4 cols) */}
@@ -103,29 +63,32 @@ export default function Footer() {
               <Link
                 href="/"
                 onClick={(e) => {
+                  setReturnToCompletedHome(true);
                   if (typeof window !== "undefined" && window.location.pathname === "/") {
                     e.preventDefault();
+                    window.dispatchEvent(new CustomEvent("mcpa:goto-completed"));
                     const vh = window.innerHeight;
-                    window.scrollTo({ top: 3 * vh, behavior: "instant" });
+                    window.scrollTo({ top: 3 * vh, behavior: "smooth" });
                     window.history.replaceState(null, "", "/");
                     return;
                   }
-                  setReturnToCompletedHome(true);
                 }}
                 className="inline-block mb-5 group"
               >
                 <div className="relative w-48 sm:w-56 h-12 transition-transform duration-300 group-hover:scale-105">
                   <Image
-                    src="/assets/mcpa-logo.png"
+                    src="/assets/mcpa-logo.svg"
                     alt="MCPA Construction and Supply"
                     fill
+                    unoptimized
                     className="object-contain object-left block dark:hidden"
                     sizes="220px"
                   />
                   <Image
-                    src="/assets/logo-white.png"
+                    src="/assets/logo-white.svg"
                     alt="MCPA Construction and Supply"
                     fill
+                    unoptimized
                     className="object-contain object-left hidden dark:block"
                     sizes="220px"
                   />
@@ -190,14 +153,15 @@ export default function Footer() {
                 <Link
                   href="/"
                   onClick={(e) => {
+                    setReturnToCompletedHome(true);
                     if (typeof window !== "undefined" && window.location.pathname === "/") {
                       e.preventDefault();
+                      window.dispatchEvent(new CustomEvent("mcpa:goto-completed"));
                       const vh = window.innerHeight;
-                      window.scrollTo({ top: 3 * vh, behavior: "instant" });
+                      window.scrollTo({ top: 3 * vh, behavior: "smooth" });
                       window.history.replaceState(null, "", "/");
                       return;
                     }
-                    setReturnToCompletedHome(true);
                   }}
                   className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group"
                 >
@@ -384,7 +348,7 @@ export default function Footer() {
 
               {/* Newsletter / Project Briefing Sign Up */}
               <div className="pt-2">
-                <form onSubmit={handleSubscribe} className="space-y-2">
+                <form onSubmit={handleSubscribe} className="space-y-2 w-3/4 sm:w-full">
                   <label htmlFor="footer-newsletter" className="block text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
                     Project Briefings & Updates
                   </label>
@@ -396,7 +360,7 @@ export default function Footer() {
                       placeholder="Enter client email..."
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
-                      className="flex-1 bg-white dark:bg-white/5 border border-neutral-300 dark:border-white/10 focus:border-amber-500/50 rounded-lg px-3 py-2 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 outline-none transition-colors"
+                      className="flex-1 min-w-0 bg-white dark:bg-white/5 border border-neutral-300 dark:border-white/10 focus:border-amber-500/50 rounded-lg px-3 py-2 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 outline-none transition-colors"
                     />
                     <button
                       type="submit"

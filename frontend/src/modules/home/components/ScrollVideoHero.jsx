@@ -44,6 +44,19 @@ export default function ScrollVideoHero({ onCompletionChange }) {
         "/videos/landscape-build-part3.mp4",
       ];
 
+  // High-Resolution WebP posters corresponding to the exact starting frames of each construction phase
+  const posterParts = isPortrait
+    ? [
+        "/assets/poster-portrait-part1.webp",
+        "/assets/poster-portrait-part2.webp",
+        "/assets/poster-portrait-part3.webp",
+      ]
+    : [
+        "/assets/poster-landscape-part1.webp",
+        "/assets/poster-landscape-part2.webp",
+        "/assets/poster-landscape-part3.webp",
+      ];
+
   return (
     <section
       id="top"
@@ -65,7 +78,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
           <video
             ref={video1Ref}
             src={videoParts[0]}
-            poster="/assets/hero-residence.jpg"
+            poster={posterParts[0]}
             playsInline
             muted
             preload="auto"
@@ -74,19 +87,22 @@ export default function ScrollVideoHero({ onCompletionChange }) {
             onLoadedMetadata={handleVideoLoadedMetadata}
             onLoadedData={handleVideoLoadedMetadata}
             onCanPlay={handleVideoLoadedMetadata}
-            className="absolute inset-0 w-full h-full object-cover z-10 [contain:paint] transform-gpu"
+            className={`video-ultra-hd absolute inset-0 w-full h-full object-cover z-10 [contain:paint] transform-gpu transition-opacity duration-300 ${
+              activePartIndex > 0 ? "opacity-0 pointer-events-none" : "opacity-100"
+            }`}
           />
 
           {/* Part 2 (33% to 66%): Excavation -> Framing & Architectural Enclosure */}
           <video
             ref={video2Ref}
             src={videoParts[1]}
+            poster={posterParts[1]}
             playsInline
             muted
             preload="auto"
             disablePictureInPicture
             disableRemotePlayback
-            className={`absolute inset-0 w-full h-full object-cover z-20 [contain:paint] transform-gpu transition-opacity duration-300 ${
+            className={`video-ultra-hd absolute inset-0 w-full h-full object-cover z-20 [contain:paint] transform-gpu transition-opacity duration-300 ${
               activePartIndex >= 1 ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           />
@@ -95,12 +111,13 @@ export default function ScrollVideoHero({ onCompletionChange }) {
           <video
             ref={video3Ref}
             src={videoParts[2]}
+            poster={posterParts[2]}
             playsInline
             muted
             preload="auto"
             disablePictureInPicture
             disableRemotePlayback
-            className={`absolute inset-0 w-full h-full object-cover z-30 [contain:paint] transform-gpu transition-opacity duration-300 ${
+            className={`video-ultra-hd absolute inset-0 w-full h-full object-cover z-30 [contain:paint] transform-gpu transition-opacity duration-300 ${
               activePartIndex >= 2 ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           />
@@ -115,21 +132,21 @@ export default function ScrollVideoHero({ onCompletionChange }) {
             <div className="absolute inset-0 hidden sm:block">
               {/* Light Theme: Sunny Daytime Architectural Residence */}
               <Image
-                src="/assets/hero-residence-day.jpg"
+                src="/assets/hero-residence-day-wide-v2.jpg"
                 alt="MCPA Luxury Residence"
                 fill
                 priority
                 sizes="100vw"
-                className="object-cover object-center dark:hidden"
+                className="object-cover object-[center_35%] dark:hidden"
               />
               {/* Dark Theme: Twilight / Night Luxury Residence */}
               <Image
-                src="/assets/hero-residence.jpg"
+                src="/assets/hero-residence-wide-v2.jpg"
                 alt="MCPA Luxury Residence"
                 fill
                 priority
                 sizes="100vw"
-                className="object-cover object-center hidden dark:block"
+                className="object-cover object-[center_35%] hidden dark:block"
               />
             </div>
 
@@ -156,8 +173,15 @@ export default function ScrollVideoHero({ onCompletionChange }) {
             </div>
           </div>
 
-          {/* Cinematic lighting gradient overlays: luminous & airy in light theme, rich & moody in dark theme */}
-          <div className="absolute inset-0 z-38 pointer-events-none bg-gradient-to-t from-black/35 via-transparent to-transparent dark:from-neutral-950/80 dark:via-black/25 dark:to-transparent transition-colors duration-500" />
+          {/* CPL (Circular Polarizer) & ND Cine Optical Filter Stack */}
+          {/* Layer 1: Atmospheric CPL Sky Deepening & Haze Cut */}
+          <div className="absolute inset-0 z-36 pointer-events-none bg-gradient-to-b from-sky-950/25 via-transparent to-amber-950/20 mix-blend-multiply" />
+
+          {/* Layer 2: Sony S-Cinetone / DJI Golden Hour Optical Warmth */}
+          <div className="absolute inset-0 z-37 pointer-events-none bg-gradient-to-tr from-amber-600/[0.08] via-transparent to-sky-500/[0.05] mix-blend-overlay" />
+
+          {/* Layer 3: Cinema ND Lens Peripheral Vignette (Natural optical corner falloff) */}
+          <div className="absolute inset-0 z-38 pointer-events-none [background:radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.35)_100%)]" />
         </div>
 
         {/* 3. Hero Content Overlay (Always at z-50 in front of videos and images, reveals when completed) */}

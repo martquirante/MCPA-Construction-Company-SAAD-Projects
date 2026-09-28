@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { setReturnToCompletedHome } from "@/modules/home/homeState";
 import ResetPasswordModal from "@/modules/admin/components/ResetPasswordModal";
 import DashboardTab from "@/modules/admin/components/DashboardTab";
 import InquiryPipelineTab from "@/modules/admin/components/InquiryPipelineTab";
@@ -29,14 +30,14 @@ import {
   LayoutDashboardIcon,
   FolderKanbanIcon,
   SettingsIcon,
+  CloseIcon,
 } from "@/modules/shared/Icons";
-import { INITIAL_PROJECTS, deduplicateProjects } from "@/modules/shared/projectsHelper";
+import { INITIAL_PROJECTS, deduplicateProjects, broadcastProjectsChange, subscribeProjectsChange } from "@/modules/shared/projectsHelper";
 
 const DEFAULT_ADMIN_PIN = "mcpa2026";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -51,10 +52,20 @@ export default function AdminPage() {
 
   // Data states
   const [customProjects, setCustomProjects] = useState([]);
-  const [allProjects, setAllProjects] = useState(INITIAL_PROJECTS);
+  const [allProjects, setAllProjects] = useState([]);
   const [clientBriefs, setClientBriefs] = useState([]);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+
+  // Construction & System states
+  const [siteProject, setSiteProject] = useState(null);
+  const [siteMilestones, setSiteMilestones] = useState([]);
+  const [sitePhotos, setSitePhotos] = useState([]);
+  const [billingLedger, setBillingLedger] = useState([]);
+  const [delayEvents, setDelayEvents] = useState([]);
+  const [warrantyTickets, setWarrantyTickets] = useState([]);
+  const [siteExpenses, setSiteExpenses] = useState([]);
+  const [activeDbProvider, setActiveDbProvider] = useState("cloud");
 
   const toggleSidebarCollapse = () => {
     setIsSidebarCollapsed((prev) => {
@@ -70,6 +81,7 @@ export default function AdminPage() {
   const [currentTime, setCurrentTime] = useState("");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState("");
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
   const fetchHealthStatus = async () => {
     try {
@@ -140,11 +152,17 @@ export default function AdminPage() {
           images: p.images || [],
           isAdminAdded: Boolean(p.is_admin_added),
           isWebVisible: p.is_web_visible !== false,
+          featuredOnHome: Boolean(p.featured_on_home),
+          lotArea: p.lot_area,
+          floorArea: p.floor_area,
+          bedrooms: p.bedrooms,
+          bathrooms: p.bathrooms,
+          features: p.features || [],
+          architecturalDetails: p.architectural_details,
         }));
-        const unified = deduplicateProjects(dbProjects, INITIAL_PROJECTS);
-        setCustomProjects(unified.filter((p) => p.isAdminAdded));
-        setAllProjects(unified);
-        localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(unified));
+        setCustomProjects(dbProjects);
+        setAllProjects(dbProjects);
+        localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(dbProjects));
       } else {
         fallbackLoadStoredProjects();
       }
@@ -203,37 +221,54 @@ export default function AdminPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const initAdmin = async () => {
-        const savedAuth =
-          localStorage.getItem("mcpa_admin_authenticated") ||
-          sessionStorage.getItem("mcpa_admin_authenticated");
-        const savedUser =
-          localStorage.getItem("mcpa_admin_user") ||
-          sessionStorage.getItem("mcpa_admin_user");
+        try {
+          const savedAuth =
+            localStorage.getItem("mcpa_admin_authenticated") ||
+            sessionStorage.getItem("mcpa_admin_authenticated");
+          const savedUser =
+            localStorage.getItem("mcpa_admin_user") ||
+            sessionStorage.getItem("mcpa_admin_user");
 
-        if (savedAuth === "true") {
-          setIsAuthenticated(true);
-          if (savedUser) {
-            try {
-              setCurrentUser(JSON.parse(savedUser));
-            } catch (e) {}
+          if (savedAuth === "true") {
+            setIsAuthenticated(true);
+            if (savedUser) {
+              try {
+                setCurrentUser(JSON.parse(savedUser));
+              } catch (e) {}
+            }
           }
+        } catch (e) {
+          console.warn("Auth initialization error:", e);
         }
-        setIsAuthChecking(false);
 
-        const savedCollapsed = localStorage.getItem("mcpa_admin_sidebar_collapsed");
-        if (savedCollapsed !== null) {
-          setIsSidebarCollapsed(savedCollapsed === "true");
-        }
+        try {
+          const savedCollapsed = localStorage.getItem("mcpa_admin_sidebar_collapsed");
+          if (savedCollapsed !== null) {
+            setIsSidebarCollapsed(savedCollapsed === "true");
+          }
+        } catch (e) {}
+
         loadProjectsAndBriefs();
         fetchHealthStatus();
 
+        // Real-time synchronization subscription across tabs
+        const unsubscribeProjects = subscribeProjectsChange(() => {
+          loadProjectsAndBriefs();
+        });
+
         // Theme initialization
-        const pref = getThemePreference();
-        setThemePref(pref);
-        setCurrentThemeMode(document.documentElement.classList.contains("dark") ? "dark" : "light");
+        try {
+          const pref = getThemePreference();
+          setThemePref(pref);
+          setCurrentThemeMode(document.documentElement.classList.contains("dark") ? "dark" : "light");
+        } catch (e) {}
+
+        return () => {
+          if (unsubscribeProjects) unsubscribeProjects();
+        };
       };
 
-      initAdmin();
+      const cleanupPromise = initAdmin();
 
       const handleThemeChange = (e) => {
         if (e?.detail) {
@@ -242,6 +277,11 @@ export default function AdminPage() {
         }
       };
       window.addEventListener("mcpa-theme-change", handleThemeChange);
+
+      // Background silent auto-sync every 15 seconds
+      const syncInterval = setInterval(() => {
+        loadProjectsAndBriefs();
+      }, 15000);
 
       const updateClock = () => {
         const now = new Date();
@@ -261,7 +301,11 @@ export default function AdminPage() {
       const timer = setInterval(updateClock, 10000);
       return () => {
         clearInterval(timer);
+        clearInterval(syncInterval);
         window.removeEventListener("mcpa-theme-change", handleThemeChange);
+        if (cleanupPromise && typeof cleanupPromise.then === "function") {
+          cleanupPromise.then((clean) => typeof clean === "function" && clean());
+        }
       };
     }
   }, []);
@@ -372,6 +416,11 @@ export default function AdminPage() {
   };
 
   const handleLogout = () => {
+    setIsLogoutConfirmOpen(true);
+  };
+
+  const confirmLogout = () => {
+    setIsLogoutConfirmOpen(false);
     setIsAuthenticated(false);
     localStorage.removeItem("mcpa_admin_authenticated");
     sessionStorage.removeItem("mcpa_admin_authenticated");
@@ -381,6 +430,7 @@ export default function AdminPage() {
     sessionStorage.removeItem("mcpa_admin_user");
     setPasswordInput("");
     setCurrentUser(null);
+    setIsMobileSidebarOpen(false);
   };
 
   const showToast = (msg) => {
@@ -394,15 +444,32 @@ export default function AdminPage() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newProject),
+        body: JSON.stringify({
+          ...newProject,
+          featured_on_home: Boolean(newProject.featuredOnHome),
+          lot_area: newProject.lotArea,
+          floor_area: newProject.floorArea,
+          bedrooms: newProject.bedrooms,
+          bathrooms: newProject.bathrooms,
+          features: newProject.features,
+          architectural_details: newProject.architecturalDetails,
+        }),
       });
       const data = await res.json();
       if (data?.success && data?.project) {
+        const p = data.project;
         finalProj = {
           ...newProject,
-          id: data.project.project_id || data.project.id || newProject.id,
-          status: data.project.status || newProject.status,
-          month: data.project.month || newProject.month,
+          id: p.project_id || p.id || newProject.id,
+          status: p.status || newProject.status,
+          month: p.month || newProject.month,
+          featuredOnHome: Boolean(p.featured_on_home),
+          lotArea: p.lot_area,
+          floorArea: p.floor_area,
+          bedrooms: p.bedrooms,
+          bathrooms: p.bathrooms,
+          features: p.features || [],
+          architecturalDetails: p.architectural_details,
         };
       }
     } catch (e) {
@@ -416,19 +483,21 @@ export default function AdminPage() {
     try {
       localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
       showToast(`Successfully published "${finalProj.name}"!`);
+      broadcastProjectsChange();
     } catch (err) {
       console.warn("Error saving project locally:", err);
     }
   };
 
   const handleUpdateProject = async (projectId, updatedProject) => {
-    const updatedCustom = customProjects.map((p) => (p.id === projectId ? updatedProject : p));
+    const updatedCustom = customProjects.map((p) => (p.id === projectId ? { ...p, ...updatedProject } : p));
     setCustomProjects(updatedCustom);
-    const updatedAll = allProjects.map((p) => (p.id === projectId ? updatedProject : p));
+    const updatedAll = allProjects.map((p) => (p.id === projectId ? { ...p, ...updatedProject } : p));
     setAllProjects(updatedAll);
     try {
       localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
       showToast(`Successfully updated "${updatedProject.name}"!`);
+      broadcastProjectsChange();
     } catch (err) {
       console.warn("Error saving project locally:", err);
     }
@@ -437,10 +506,58 @@ export default function AdminPage() {
       await fetch(`/api/projects/${projectId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedProject),
+        body: JSON.stringify({
+          ...updatedProject,
+          featured_on_home: Boolean(updatedProject.featuredOnHome),
+          lot_area: updatedProject.lotArea,
+          floor_area: updatedProject.floorArea,
+          bedrooms: updatedProject.bedrooms,
+          bathrooms: updatedProject.bathrooms,
+          features: updatedProject.features,
+          architectural_details: updatedProject.architecturalDetails,
+        }),
       });
+      broadcastProjectsChange();
     } catch (e) {
       console.warn("Could not update project in backend:", e);
+    }
+  };
+
+  const handleToggleFeaturedProject = async (projectId) => {
+    const target = allProjects.find((p) => String(p.id) === String(projectId));
+    if (!target) return;
+
+    const currentStatus = Boolean(target.featuredOnHome);
+    const newStatus = !currentStatus;
+
+    if (newStatus) {
+      const featuredCount = allProjects.filter((p) => p.featuredOnHome && p.isWebVisible !== false).length;
+      if (featuredCount >= 6) {
+        showToast("Maximum 6 projects can be featured on the Home Page. Please unfeature another project first.");
+        return;
+      }
+    }
+
+    const updatedCustom = customProjects.map((p) => (String(p.id) === String(projectId) ? { ...p, featuredOnHome: newStatus } : p));
+    setCustomProjects(updatedCustom);
+    const updatedAll = allProjects.map((p) => (String(p.id) === String(projectId) ? { ...p, featuredOnHome: newStatus } : p));
+    setAllProjects(updatedAll);
+
+    try {
+      localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
+      showToast(newStatus ? `"${target.name}" is now featured on the Home Page!` : `"${target.name}" removed from Home Page.`);
+      broadcastProjectsChange();
+    } catch (e) {}
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/featured`, { method: "PATCH" });
+      const data = await res.json();
+      if (!data.success && data.message) {
+        showToast(data.message);
+      }
+      broadcastProjectsChange();
+    } catch (e) {
+      console.warn("Could not sync featured status with backend:", e);
     }
   };
 
@@ -453,6 +570,7 @@ export default function AdminPage() {
     try {
       localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
       showToast(`Removed "${projectName}" from portfolio.`);
+      broadcastProjectsChange();
     } catch (err) {
       console.warn("Error updating project list:", err);
     }
@@ -460,6 +578,7 @@ export default function AdminPage() {
     // Sync deletion with Backend
     try {
       await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+      broadcastProjectsChange();
     } catch (e) {
       console.warn("Could not delete from backend:", e);
     }
@@ -614,17 +733,6 @@ export default function AdminPage() {
     }
   };
 
-  // While validating saved session from localStorage, display neutral spinner to prevent flashing login form
-  if (isAuthChecking) {
-    return (
-      <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs font-mono uppercase tracking-wider text-neutral-400">Restoring Admin Console...</p>
-        </div>
-      </div>
-    );
-  }
 
   // =========================================================================
   // 1. SECURITY PIN GATE (For unauthenticated users)
@@ -785,6 +893,7 @@ export default function AdminPage() {
           <div className="mt-6 text-center">
             <Link
               href="/"
+              onClick={() => setReturnToCompletedHome(true)}
               className="inline-flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-mono cursor-pointer"
             >
               <ArrowLeftIcon className="w-3.5 h-3.5" />
@@ -849,22 +958,55 @@ export default function AdminPage() {
       <aside
         className={`fixed lg:sticky top-0 left-0 h-screen ${
           isSidebarCollapsed ? "lg:w-20" : "lg:w-64"
-        } w-64 bg-white dark:bg-[#12141a] border-r border-neutral-200 dark:border-white/5 flex flex-col justify-between z-50 transition-all duration-300 shrink-0 ${
+        } w-[280px] sm:w-72 max-w-[85vw] bg-white dark:bg-[#12141a] border-r border-neutral-200 dark:border-white/5 flex flex-col justify-between z-50 transition-all duration-300 shrink-0 shadow-2xl lg:shadow-none ${
           isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
         {/* Top Brand Section: Real System Logo + Collapse/Expand Toggle */}
-        <div
-          className={`border-b border-neutral-200 dark:border-white/5 transition-all ${
-            isSidebarCollapsed
-              ? "p-3 flex flex-col items-center gap-2.5"
-              : "p-4 flex items-center justify-between gap-3"
-          }`}
-        >
-          {isSidebarCollapsed ? (
-            <>
-              {/* Real System Logo (Compact Emblem/Icon) - Reloads Admin */}
-              <div className="relative flex flex-col items-center group py-1">
+        <div className="border-b border-neutral-200 dark:border-white/5 transition-all p-4">
+          {/* Mobile View: Always Full Logo + Dedicated Close ('X') Button */}
+          <div className="flex lg:hidden items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleAdminReload}
+              title="Reload Admin Console"
+              className="flex items-center gap-2.5 min-w-0 bg-transparent border-0 p-0 cursor-pointer text-left"
+            >
+              <div className="relative w-36 h-9 shrink-0">
+                <Image
+                  src="/assets/mcpa-logo.svg"
+                  alt="MCPA Construction and Supply"
+                  fill
+                  priority
+                  unoptimized
+                  className="object-contain object-left block dark:hidden"
+                  sizes="144px"
+                />
+                <Image
+                  src="/assets/logo-white.svg"
+                  alt="MCPA Construction and Supply"
+                  fill
+                  priority
+                  unoptimized
+                  className="object-contain object-left hidden dark:block"
+                  sizes="144px"
+                />
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              aria-label="Close Sidebar"
+            >
+              <CloseIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Desktop View: Controlled by isSidebarCollapsed */}
+          <div className="hidden lg:flex items-center justify-between w-full">
+            {isSidebarCollapsed ? (
+              <div className="w-full flex flex-col items-center gap-2.5 py-1">
                 <button
                   type="button"
                   onClick={handleAdminReload}
@@ -873,80 +1015,87 @@ export default function AdminPage() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-neutral-500/10 via-transparent to-transparent pointer-events-none" />
                   <Image
-                    src="/assets/mcpa-logo.png"
+                    src="/assets/mcpa-logo.svg"
                     alt="MCPA System Logo"
                     fill
                     priority
+                    unoptimized
                     className="object-contain p-1.5 block dark:hidden"
                     sizes="44px"
                   />
                   <Image
-                    src="/assets/logo-white.png"
+                    src="/assets/logo-white.svg"
                     alt="MCPA System Logo"
                     fill
                     priority
+                    unoptimized
                     className="object-contain p-1.5 hidden dark:block"
                     sizes="44px"
                   />
                 </button>
                 {/* Dynamic Floating Shadow Puddle Underneath */}
                 <div className="w-7 h-1.5 bg-black/25 dark:bg-white/20 rounded-full blur-[2px] mt-1 transition-all animate-floating-shadow pointer-events-none" />
+                <button
+                  onClick={toggleSidebarCollapse}
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-all cursor-pointer mt-1"
+                  title="Expand Navigation (Show Labels)"
+                  aria-label="Expand Sidebar"
+                >
+                  <ChevronRightIcon className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                onClick={toggleSidebarCollapse}
-                className="hidden lg:flex p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-all cursor-pointer"
-                title="Expand Navigation (Show Labels)"
-                aria-label="Expand Sidebar"
-              >
-                <ChevronRightIcon className="w-4 h-4" />
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Real System Logo (Full Brand Banner) - Reloads Admin */}
-              <button
-                type="button"
-                onClick={handleAdminReload}
-                title="Reload Admin Console"
-                className="flex items-center gap-2.5 min-w-0 group bg-transparent border-0 p-0 cursor-pointer text-left"
-              >
-                <div className="relative w-32 sm:w-36 h-9 transition-transform group-hover:scale-105 shrink-0">
-                  <Image
-                    src="/assets/mcpa-logo.png"
-                    alt="MCPA Construction and Supply"
-                    fill
-                    priority
-                    className="object-contain object-left block dark:hidden"
-                    sizes="144px"
-                  />
-                  <Image
-                    src="/assets/logo-white.png"
-                    alt="MCPA Construction and Supply"
-                    fill
-                    priority
-                    className="object-contain object-left hidden dark:block"
-                    sizes="144px"
-                  />
-                </div>
-              </button>
-              <button
-                onClick={toggleSidebarCollapse}
-                className="hidden lg:flex p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                title="Collapse Navigation (Icons Only)"
-                aria-label="Collapse Sidebar"
-              >
-                <ChevronLeftIcon className="w-4 h-4" />
-              </button>
-            </>
-          )}
+            ) : (
+              <div className="flex items-center justify-between w-full gap-3">
+                <button
+                  type="button"
+                  onClick={handleAdminReload}
+                  title="Reload Admin Console"
+                  className="flex items-center gap-2.5 min-w-0 group bg-transparent border-0 p-0 cursor-pointer text-left"
+                >
+                  <div className="relative w-36 h-9 transition-transform group-hover:scale-105 shrink-0">
+                    <Image
+                      src="/assets/mcpa-logo.svg"
+                      alt="MCPA Construction and Supply"
+                      fill
+                      priority
+                      unoptimized
+                      className="object-contain object-left block dark:hidden"
+                      sizes="144px"
+                    />
+                    <Image
+                      src="/assets/logo-white.svg"
+                      alt="MCPA Construction and Supply"
+                      fill
+                      priority
+                      unoptimized
+                      className="object-contain object-left hidden dark:block"
+                      sizes="144px"
+                    />
+                  </div>
+                </button>
+                <button
+                  onClick={toggleSidebarCollapse}
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Collapse Navigation (Icons Only)"
+                  aria-label="Collapse Sidebar"
+                >
+                  <ChevronLeftIcon className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Vertical Navigation Menu Links: Panel Icons */}
         <nav
-          className={`flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden ${
-            isSidebarCollapsed ? "p-2" : "p-3"
+          className={`flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden p-3 ${
+            isSidebarCollapsed ? "lg:p-2" : "lg:p-3"
           }`}
         >
+          <div className="px-1 pb-1 pt-0.5 text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-bold block lg:hidden">
+            Main Menu
+          </div>
+
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -959,10 +1108,10 @@ export default function AdminPage() {
                     setIsMobileSidebarOpen(false);
                   }}
                   title={item.label}
-                  className={`w-full flex items-center rounded-xl text-xs font-mono tracking-wide transition-all cursor-pointer relative ${
+                  className={`w-full flex items-center justify-between px-3.5 py-3 lg:py-2.5 rounded-xl text-xs font-mono tracking-wide transition-all cursor-pointer relative ${
                     isSidebarCollapsed
-                      ? "h-11 justify-center px-0"
-                      : "justify-between px-3.5 py-2.5"
+                      ? "lg:h-11 lg:justify-center lg:px-0"
+                      : "justify-between"
                   } ${
                     isActive
                       ? "bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/20"
@@ -970,8 +1119,8 @@ export default function AdminPage() {
                   }`}
                 >
                   <div
-                    className={`flex items-center min-w-0 ${
-                      isSidebarCollapsed ? "justify-center" : "gap-3"
+                    className={`flex items-center min-w-0 gap-3 ${
+                      isSidebarCollapsed ? "lg:justify-center lg:gap-0" : ""
                     }`}
                   >
                     <Icon
@@ -981,19 +1130,20 @@ export default function AdminPage() {
                           : "text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500"
                       }`}
                     />
-                    {!isSidebarCollapsed && (
-                      <span className="truncate">{item.label}</span>
-                    )}
+                    <span
+                      className={`truncate ${
+                        isSidebarCollapsed ? "block lg:hidden" : "block"
+                      }`}
+                    >
+                      {item.label}
+                    </span>
                   </div>
 
                   {item.badge !== undefined && item.badge > 0 && (
-                    isSidebarCollapsed ? (
-                      <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-amber-500 text-neutral-950 font-bold text-[9px] flex items-center justify-center ring-2 ring-white dark:ring-[#12141a] shadow-xs">
-                        {item.badge}
-                      </span>
-                    ) : (
+                    <>
+                      {/* Mobile Badge */}
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shrink-0 ${
+                        className={`lg:hidden px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shrink-0 ${
                           isActive
                             ? "bg-neutral-950 text-white dark:bg-neutral-950 dark:text-white"
                             : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
@@ -1001,11 +1151,25 @@ export default function AdminPage() {
                       >
                         {item.badge}
                       </span>
-                    )
+
+                      {/* Desktop Badge */}
+                      <span
+                        className={`hidden ${
+                          isSidebarCollapsed
+                            ? "lg:flex absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-amber-500 text-neutral-950 font-bold text-[9px] items-center justify-center ring-2 ring-white dark:ring-[#12141a] shadow-xs"
+                            : "lg:inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shrink-0 " +
+                              (isActive
+                                ? "bg-neutral-950 text-white dark:bg-neutral-950 dark:text-white"
+                                : "bg-amber-500/15 text-amber-700 dark:text-amber-400")
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    </>
                   )}
                 </button>
 
-                {/* Floating Tooltip in Collapsed Mode */}
+                {/* Floating Tooltip in Collapsed Mode (Desktop only) */}
                 {isSidebarCollapsed && (
                   <div className="hidden lg:flex absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono font-medium shadow-2xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 items-center gap-2">
                     <span>{item.label}</span>
@@ -1022,95 +1186,162 @@ export default function AdminPage() {
         </nav>
 
         {/* Bottom User Profile Section & Logout */}
-        <div
-          className={`border-t border-neutral-200 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] ${
-            isSidebarCollapsed ? "p-3 flex flex-col items-center gap-3" : "p-4 space-y-3"
-          }`}
-        >
-          {isSidebarCollapsed ? (
-            <>
-              <div
-                className="relative group cursor-pointer"
-                title={`${currentUser?.name || "Raymart Quirante"} (${currentUser?.role || "ADMIN"})`}
-              >
-                <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
-                  {currentUser?.name
-                    ? currentUser.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()
-                    : "RQ"}
-                </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#12141a] animate-pulse" />
-
-                {/* Tooltip */}
-                <div className="hidden lg:block absolute left-full bottom-0 ml-3 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-2xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                  <p className="font-bold">{currentUser?.name || "Raymart Quirante"}</p>
-                  <p className="text-[10px] text-neutral-400 uppercase">{currentUser?.role || "ADMIN"}</p>
+        <div className="border-t border-neutral-200 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]">
+          {/* Mobile Profile View: Always Full Detail with Safe Area Bottom Spacing */}
+          <div className="lg:hidden p-4 pb-8 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
+                {currentUser?.name
+                  ? currentUser.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()
+                  : "RQ"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                  {currentUser?.name || "Raymart Quirante"}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                    {currentUser?.role || "SUPER ADMIN"}
+                  </span>
                 </div>
               </div>
+            </div>
 
-              <button
-                onClick={handleLogout}
-                title="Log Out"
-                aria-label="Log Out"
-                className="w-10 h-10 flex items-center justify-center rounded-xl text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-neutral-200/60 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 transition-all cursor-pointer group"
-              >
-                <LogOutIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
-                  {currentUser?.name
-                    ? currentUser.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()
-                    : "RQ"}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
-                    {currentUser?.name || "Raymart Quirante"}
-                  </p>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      {currentUser?.role || "SUPER ADMIN"}
-                    </span>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-neutral-200 dark:border-white/10 transition-all cursor-pointer"
+            >
+              <LogOutIcon className="w-4 h-4" />
+              <span>Log Out</span>
+            </button>
+          </div>
+
+          {/* Desktop Profile View: Controlled by isSidebarCollapsed */}
+          <div
+            className={`hidden lg:block ${
+              isSidebarCollapsed ? "p-3 flex flex-col items-center gap-3" : "p-4 space-y-3"
+            }`}
+          >
+            {isSidebarCollapsed ? (
+              <>
+                <div
+                  className="relative group cursor-pointer"
+                  title={`${currentUser?.name || "Raymart Quirante"} (${currentUser?.role || "ADMIN"})`}
+                >
+                  <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
+                    {currentUser?.name
+                      ? currentUser.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()
+                      : "RQ"}
+                  </div>
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#12141a] animate-pulse" />
+
+                  {/* Tooltip */}
+                  <div className="hidden lg:block absolute left-full bottom-0 ml-3 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-2xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                    <p className="font-bold">{currentUser?.name || "Raymart Quirante"}</p>
+                    <p className="text-[10px] text-neutral-400 uppercase">{currentUser?.role || "ADMIN"}</p>
                   </div>
                 </div>
-              </div>
 
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-neutral-200 dark:border-white/10 transition-all cursor-pointer"
-              >
-                <LogOutIcon className="w-3.5 h-3.5" />
-                <span>Log Out</span>
-              </button>
-            </>
-          )}
+                <button
+                  onClick={handleLogout}
+                  title="Log Out"
+                  aria-label="Log Out"
+                  className="w-10 h-10 flex items-center justify-center rounded-xl text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-neutral-200/60 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 transition-all cursor-pointer group"
+                >
+                  <LogOutIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
+                    {currentUser?.name
+                      ? currentUser.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()
+                      : "RQ"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                      {currentUser?.name || "Raymart Quirante"}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                        {currentUser?.role || "SUPER ADMIN"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-neutral-200 dark:border-white/10 transition-all cursor-pointer"
+                >
+                  <LogOutIcon className="w-3.5 h-3.5" />
+                  <span>Log Out</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </aside>
 
       {/* Right Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 h-16 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-md border-b border-neutral-200 dark:border-white/5 px-4 sm:px-6 flex items-center justify-between gap-3 transition-colors">
-          <div className="flex items-center gap-3 min-w-0">
+        <header className="sticky top-0 z-30 h-14 sm:h-16 bg-white/85 dark:bg-[#09090b]/85 backdrop-blur-md border-b border-neutral-200 dark:border-white/5 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 transition-colors select-none">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Hamburger Button for Mobile Drawer */}
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+              className="lg:hidden p-2 rounded-xl text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
               aria-label="Open Sidebar"
             >
               <MenuIcon className="w-5 h-5" />
             </button>
+
+            {/* Mobile Branding & Active Tab Indicator */}
+            <div className="lg:hidden flex items-center gap-2 min-w-0">
+              <div className="relative w-20 h-6 shrink-0">
+                <Image
+                  src="/assets/mcpa-logo.png"
+                  alt="MCPA"
+                  fill
+                  priority
+                  className="object-contain object-left block dark:hidden"
+                  sizes="80px"
+                />
+                <Image
+                  src="/assets/logo-white.png"
+                  alt="MCPA"
+                  fill
+                  priority
+                  className="object-contain object-left hidden dark:block"
+                  sizes="80px"
+                />
+              </div>
+              <span className="text-neutral-300 dark:text-neutral-700 select-none text-xs">/</span>
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 truncate">
+                {currentTabInfo.label}
+              </span>
+            </div>
+
+            {/* Desktop Collapse/Expand Toggle */}
             <button
               onClick={toggleSidebarCollapse}
               className="hidden lg:flex p-2 rounded-xl text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
@@ -1121,7 +1352,7 @@ export default function AdminPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {currentTime && (
               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/5 text-[11px] font-mono text-neutral-600 dark:text-neutral-300">
                 <span>{currentTime}</span>
@@ -1131,7 +1362,7 @@ export default function AdminPage() {
             {/* Console Settings Button */}
             <button
               onClick={() => setIsSettingsModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-white/[0.04] hover:bg-neutral-200 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/5 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-mono text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-white/[0.04] hover:bg-neutral-200 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/5 transition-all cursor-pointer"
               title="Open Admin Settings"
               aria-label="Settings"
             >
@@ -1140,26 +1371,36 @@ export default function AdminPage() {
             </button>
 
             {/* Notification Bell */}
-            <button className="relative p-2 rounded-xl text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer">
+            <button
+              onClick={() => {
+                setActiveTab("briefs");
+                setIsMobileSidebarOpen(false);
+              }}
+              title="View Inquiries"
+              className="relative p-2 rounded-xl text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            >
               <BellIcon className="w-5 h-5" />
               {clientBriefs.filter((b) => !b.status || b.status === "Pending Review").length > 0 && (
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-[#09090b]" />
               )}
             </button>
+
             <Link
               href="/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-white/10 hover:border-amber-500/50"
+              onClick={() => setReturnToCompletedHome(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors p-2 sm:px-3 sm:py-1.5 rounded-lg border border-neutral-300 dark:border-white/10 hover:border-amber-500/50"
+              title="View Public Site"
             >
-              <span className="hidden sm:inline">View Public Site</span>
+              <span className="hidden sm:inline">View Site</span>
               <ExternalLinkIcon className="w-3.5 h-3.5" />
             </Link>
           </div>
         </header>
 
         {/* Main Content Body */}
-        <main className="flex-1 p-4 sm:p-6 max-w-screen-2xl w-full mx-auto">
+        <main className="flex-1 p-3.5 sm:p-6 max-w-screen-2xl w-full mx-auto pb-24 lg:pb-6">
 
         {/* Dashboard Tab */}
         {activeTab === "dashboard" && (
@@ -1193,6 +1434,7 @@ export default function AdminPage() {
             onAddProject={handleAddProject}
             onUpdateProject={handleUpdateProject}
             onDeleteProject={handleDeleteProject}
+            onToggleFeatured={handleToggleFeaturedProject}
             showToast={showToast}
           />
         )}
@@ -1200,12 +1442,103 @@ export default function AdminPage() {
       </main>
       </div>
 
+      {/* Mobile Bottom Navigation Bar (Thumb-Friendly Mobile App Navigation) */}
+      <nav
+        aria-label="Mobile Bottom Navigation"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-[#0e1017]/95 backdrop-blur-xl border-t border-neutral-200/80 dark:border-white/10 px-3 py-2 flex items-center justify-around shadow-2xl transition-all select-none"
+      >
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveTab(item.id);
+                setIsMobileSidebarOpen(false);
+              }}
+              className={`flex-1 flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer relative ${
+                isActive
+                  ? "text-amber-500 font-bold"
+                  : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+              }`}
+            >
+              <div className="relative">
+                <Icon className={`w-5 h-5 transition-transform ${isActive ? "scale-110" : ""}`} />
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-amber-500 text-neutral-950 font-bold text-[8px] flex items-center justify-center ring-2 ring-white dark:ring-[#0e1017]">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+              <span className={`text-[10px] font-mono tracking-tight mt-1 truncate ${isActive ? "font-bold" : "font-medium"}`}>
+                {item.label}
+              </span>
+              {isActive && (
+                <span className="w-1 h-1 rounded-full bg-amber-500 mt-0.5" />
+              )}
+            </button>
+          );
+        })}
+
+        {/* 4th Tab: Full Menu Drawer Trigger */}
+        <button
+          onClick={() => setIsMobileSidebarOpen(true)}
+          className="flex-1 flex flex-col items-center justify-center py-1 px-2 rounded-xl text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all cursor-pointer"
+        >
+          <MenuIcon className="w-5 h-5" />
+          <span className="text-[10px] font-mono tracking-tight mt-1">Menu</span>
+        </button>
+      </nav>
+
       {/* Admin Settings Modal */}
       <AdminSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         onOpenResetPin={() => setIsResetModalOpen(true)}
       />
+
+      {/* Log Out Confirmation Dialog */}
+      {isLogoutConfirmOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
+            onClick={() => setIsLogoutConfirmOpen(false)}
+          />
+
+          {/* Dialog Card */}
+          <div className="relative w-full max-w-sm bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/10 rounded-3xl shadow-2xl p-6 sm:p-7 text-center z-10 animate-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-inner">
+              <LogOutIcon className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-lg font-bold text-neutral-900 dark:text-white tracking-tight">
+              Confirm Log Out
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 leading-relaxed">
+              Are you sure you want to end your active session? You will need your administrator credentials to sign back in.
+            </p>
+
+            <div className="flex items-center gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setIsLogoutConfirmOpen(false)}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 font-mono text-xs font-semibold hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmLogout}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white font-mono text-xs font-bold transition-all shadow-md shadow-rose-600/20 cursor-pointer"
+              >
+                Yes, Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

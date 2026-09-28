@@ -8,8 +8,10 @@ import {
   FolderKanbanIcon,
   LockIcon,
   EyeIcon,
-  EyeOffIcon,
   AlertTriangleIcon,
+  CloseIcon,
+  CameraIcon,
+  RulerIcon,
 } from "../../shared/Icons";
 import { verifyAdminPassword } from "../utils/adminAuth";
 
@@ -19,6 +21,7 @@ export default function ProjectsTab({
   onAddProject,
   onUpdateProject,
   onDeleteProject,
+  onToggleFeatured,
   showToast,
 }) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -61,7 +64,7 @@ export default function ProjectsTab({
     try {
       const isValid = await verifyAdminPassword(deletePassword);
       if (!isValid) {
-        setDeletePasswordError("Incorrect admin password. Please enter the valid admin credential (e.g. mcpa2026).");
+        setDeletePasswordError("Incorrect admin password. Please enter a valid admin credential.");
         setIsVerifyingPassword(false);
         return;
       }
@@ -99,38 +102,114 @@ export default function ProjectsTab({
     setIsEditorOpen(false);
   };
 
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const rawProjects = (allProjects && allProjects.length > 0) ? allProjects : customProjects;
+
+  const categories = ["All", ...Array.from(new Set(rawProjects.map((p) => p.category).filter(Boolean)))];
+
+  const filteredProjects = rawProjects.filter((p) => {
+    const matchesCategory = selectedCategory === "All" || p.category === selectedCategory;
+    const matchesSearch =
+      !searchQuery.trim() ||
+      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const handleToggleVisibility = (project, e) => {
+    e?.stopPropagation();
+    const updated = {
+      ...project,
+      isWebVisible: project.isWebVisible === false ? true : false,
+    };
+    onUpdateProject(project.id, updated);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
-            <FolderKanbanIcon className="w-6 h-6 text-amber-500" />
-            Projects Management
-          </h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+              <FolderKanbanIcon className="w-6 h-6 text-amber-500" />
+              Projects Management ({rawProjects.length})
+            </h2>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+              <span className="text-amber-500 text-xs">★</span>
+              <span>Home: {rawProjects.filter((p) => p.featuredOnHome && p.isWebVisible !== false).length}/6 Selected</span>
+            </span>
+          </div>
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-            Manage your client-facing portfolio showcase.
+            Pick up to 6 projects to showcase on the Home Page. The /projects page displays your complete portfolio.
           </p>
         </div>
         <button
           onClick={handleOpenCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-colors shadow-md shadow-amber-500/20"
+          className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/20 cursor-pointer self-start sm:self-auto hover:scale-102"
         >
           <PlusIcon className="w-4 h-4" />
           Add Project
         </button>
       </div>
 
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        {/* Category Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                selectedCategory === cat
+                  ? "bg-amber-500 text-neutral-950 font-bold shadow-sm"
+                  : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200 dark:border-white/5"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Search Input */}
+        <div className="relative min-w-[220px]">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search projects..."
+            className="w-full px-3.5 py-1.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
+              aria-label="Clear search"
+            >
+              <CloseIcon className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {customProjects.length === 0 ? (
+        {filteredProjects.length === 0 ? (
           <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-neutral-300 dark:border-neutral-800 rounded-2xl bg-white/50 dark:bg-neutral-900/50">
             <FolderKanbanIcon className="w-12 h-12 text-neutral-400 mb-3" />
-            <h3 className="text-lg font-bold text-neutral-700 dark:text-neutral-300">No Custom Projects</h3>
+            <h3 className="text-lg font-bold text-neutral-700 dark:text-neutral-300">
+              {searchQuery || selectedCategory !== "All" ? "No Matching Projects" : "No Projects Found"}
+            </h3>
             <p className="text-sm text-neutral-500 max-w-sm text-center mt-2">
-              You haven't added any custom portfolio projects yet. Click "Add Project" to get started.
+              {searchQuery || selectedCategory !== "All"
+                ? "Try clearing your search query or selecting a different category filter."
+                : "No projects in the database yet. Click \"Add Project\" to create your first portfolio entry."}
             </p>
           </div>
         ) : (
-          customProjects.map((project, idx) => {
+          filteredProjects.map((project, idx) => {
             const projectKey = project?.id ? `proj-${project.id}-${idx}` : `proj-idx-${idx}`;
             return (
               <div
@@ -138,19 +217,44 @@ export default function ProjectsTab({
                 className="group bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:border-amber-500/30 transition-all flex flex-col"
               >
               <div
-                className="h-40 w-full bg-neutral-200 dark:bg-neutral-800 bg-cover bg-center cursor-pointer"
+                className="h-44 w-full bg-neutral-200 dark:bg-neutral-800 bg-cover bg-center cursor-pointer relative"
                 style={{ backgroundImage: `url(${project.images?.[0] || '/assets/placeholder-project.jpg'})` }}
                 onClick={() => handleOpenEdit(project)}
               >
                 <div className="p-3 flex justify-between items-start">
                   <div className="flex flex-col gap-1.5">
-                    <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md border ${
-                      project.isWebVisible !== false
-                        ? "bg-emerald-500/20 text-emerald-100 border-emerald-500/30"
-                        : "bg-rose-500/20 text-rose-100 border-rose-500/30"
-                    }`}>
-                      {project.isWebVisible !== false ? "● LIVE ON CLIENT WEB" : "○ HIDDEN"}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleToggleVisibility(project, e)}
+                      title="Click to toggle website visibility"
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md border cursor-pointer hover:scale-105 transition-transform ${
+                        project.isWebVisible !== false
+                          ? "bg-emerald-500/20 text-emerald-100 border-emerald-500/30"
+                          : "bg-rose-500/20 text-rose-100 border-rose-500/30"
+                      }`}
+                    >
+                      {project.isWebVisible !== false ? "LIVE ON CLIENT WEB" : "HIDDEN"}
+                    </button>
+                    {project.isWebVisible !== false && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onToggleFeatured) {
+                            onToggleFeatured(project.id);
+                          }
+                        }}
+                        title={project.featuredOnHome ? "Featured on Home Page (Click to unfeature)" : "Feature on Home Page (Max 6)"}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md border cursor-pointer hover:scale-105 transition-transform flex items-center gap-1 ${
+                          project.featuredOnHome
+                            ? "bg-amber-500 text-neutral-950 border-amber-400 font-extrabold shadow-amber-500/30"
+                            : "bg-black/60 text-white/80 border-white/10 hover:text-white hover:bg-black/80"
+                        }`}
+                      >
+                        <span>{project.featuredOnHome ? "★" : "☆"}</span>
+                        <span>{project.featuredOnHome ? "ON HOME (MAX 6)" : "ADD TO HOME"}</span>
+                      </button>
+                    )}
                     {project.status && project.status !== "completed" && (
                       <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-amber-500/90 text-neutral-950 backdrop-blur-md shadow-sm w-fit">
                         {project.status === "in_progress" ? "In Progress" : "Planning Phase"}
@@ -165,8 +269,9 @@ export default function ProjectsTab({
                       </span>
                     )}
                     {project.images && project.images.length > 1 && (
-                      <span className="px-1.5 py-0.5 bg-black/50 backdrop-blur-md text-[9px] text-white/90 rounded border border-white/10">
-                        📷 {project.images.length} photos
+                      <span className="px-1.5 py-0.5 bg-black/50 backdrop-blur-md text-[9px] text-white/90 rounded border border-white/10 inline-flex items-center gap-1">
+                        <CameraIcon className="w-3 h-3 text-white/80" />
+                        <span>{project.images.length} photos</span>
                       </span>
                     )}
                   </div>
@@ -174,7 +279,7 @@ export default function ProjectsTab({
               </div>
               
               <div className="p-4 flex flex-col flex-1">
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start mb-1">
                   <h3 
                     className="font-bold text-neutral-900 dark:text-white line-clamp-1 cursor-pointer group-hover:text-amber-500 transition-colors"
                     onClick={() => handleOpenEdit(project)}
@@ -182,16 +287,33 @@ export default function ProjectsTab({
                     {project.name}
                   </h3>
                 </div>
+
+                {/* Architectural Specs Preview Tag */}
+                {(project.lotArea || project.floorArea || project.bedrooms) && (
+                  <div className="flex items-center gap-2 mb-2 text-[10px] text-amber-700 dark:text-amber-400 font-mono">
+                    <span className="inline-flex items-center gap-1">
+                      <RulerIcon className="w-3 h-3 text-amber-500 shrink-0" />
+                      <span>{project.lotArea ? `Lot: ${project.lotArea}` : ""}{project.floorArea ? ` · Floor: ${project.floorArea}` : ""}</span>
+                    </span>
+                  </div>
+                )}
                 
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4 line-clamp-2 flex-1">
                   {project.description}
                 </p>
                 
-                <div className="flex items-center justify-between mt-auto pt-4 border-t border-neutral-100 dark:border-white/5">
+                <div className="flex items-center justify-between mt-auto pt-3 border-t border-neutral-100 dark:border-white/5">
                   <div className="text-[10px] font-mono text-neutral-400">
                     {project.location} • {project.month ? `${project.month} ` : ""}{project.year}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(project)}
+                      className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 hover:text-amber-500 hover:bg-neutral-100 dark:hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Edit
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleOpenDeleteProject(project)}
@@ -256,7 +378,7 @@ export default function ProjectsTab({
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
                   <LockIcon className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Admin Password / PIN *</span>
+                  <span>Password *</span>
                 </label>
                 <span className="text-[10px] text-neutral-400 font-normal">
                   Required for delete
@@ -277,7 +399,7 @@ export default function ProjectsTab({
                       handleConfirmDeleteProject();
                     }
                   }}
-                  placeholder="Enter admin password (e.g. mcpa2026)"
+                  placeholder="Enter admin password"
                   className={`w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border text-xs text-neutral-900 dark:text-white placeholder-neutral-400 transition-colors focus:outline-none ${
                     deletePasswordError
                       ? "border-rose-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"

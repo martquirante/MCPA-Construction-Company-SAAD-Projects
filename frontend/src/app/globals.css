@@ -336,4 +336,38 @@ p, span, a, button, input, textarea, select {
   }
 }
 
+/* Hide top client navbar completely whenever a modal or project preview is active */
+body.modal-open header:has(nav[aria-label="Primary Navigation"]),
+body.modal-open .fixed.top-0.inset-x-0.z-50 {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  transform: translateY(-100%) !important;
+}
 
+/* DJI / Sony S-Cinetone + ND/CPL Polarized Ultra HD Clarity */
+.video-ultra-hd {
+  filter: contrast(1.05) brightness(1.01) saturate(1.10);
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: opacity, transform;
+}
+
+/* Network status banner countdown bar */
+@keyframes shrinkBar {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-shrink-bar {
+  animation: shrinkBar 3s linear forwards;
+}

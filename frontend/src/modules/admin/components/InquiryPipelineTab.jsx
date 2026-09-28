@@ -230,18 +230,21 @@ export default function InquiryPipelineTab({
         {/* Stat Cards Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Pending Review", value: pendingCount, color: "text-amber-700 dark:text-amber-400", bar: "bg-amber-500" },
-            { label: "Meetings Scheduled", value: scheduledCount, color: "text-sky-700 dark:text-sky-400", bar: "bg-sky-500" },
-            { label: "Approved", value: approvedCount, color: "text-emerald-700 dark:text-emerald-400", bar: "bg-emerald-500" },
-            { label: "Rejected", value: rejectedCount, color: "text-rose-700 dark:text-rose-400", bar: "bg-rose-500" },
+            { label: "Pending Review", value: pendingCount, color: "text-amber-600 dark:text-amber-400", bar: "bg-amber-500" },
+            { label: "Meetings Scheduled", value: scheduledCount, color: "text-sky-600 dark:text-sky-400", bar: "bg-sky-500" },
+            { label: "Approved", value: approvedCount, color: "text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500" },
+            { label: "Rejected", value: rejectedCount, color: "text-rose-600 dark:text-rose-400", bar: "bg-rose-500" },
           ].map(({ label, value, color, bar }) => (
-            <div key={label} className="p-4 rounded-2xl bg-white dark:bg-[#131B2E] border border-neutral-200 dark:border-[#1E293B] shadow-sm dark:shadow-none">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">{label}</p>
+            <div
+              key={label}
+              className="p-4 rounded-2xl bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.07] hover:border-neutral-300 dark:hover:border-white/[0.14] transition-all shadow-xs dark:shadow-none"
+            >
+              <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">{label}</p>
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className={`text-2xl font-extrabold tabular-nums ${color}`}>{value}</span>
+                <span className={`text-2xl sm:text-3xl font-bold tabular-nums tracking-tight ${color}`}>{value}</span>
               </div>
-              <div className="mt-2 h-1 w-full rounded-full bg-neutral-200 dark:bg-white/10 overflow-hidden">
-                <div className={`h-full rounded-full ${bar} transition-all`} style={{ width: clientBriefs.length > 0 ? `${Math.min(100, (value / clientBriefs.length) * 100)}%` : "0%" }} />
+              <div className="mt-2.5 h-1 w-full rounded-full bg-neutral-100 dark:bg-white/[0.06] overflow-hidden">
+                <div className={`h-full rounded-full ${bar} transition-all duration-500`} style={{ width: clientBriefs.length > 0 ? `${Math.min(100, (value / clientBriefs.length) * 100)}%` : "0%" }} />
               </div>
             </div>
           ))}
@@ -256,7 +259,7 @@ export default function InquiryPipelineTab({
               placeholder="Search client name, email, project type, location..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 h-[42px] rounded-xl text-xs font-mono bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 transition-colors shadow-xs"
+              className="w-full pl-9 pr-4 py-2.5 h-[42px] rounded-xl text-xs bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.08] text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors shadow-xs"
             />
           </div>
           <StageCombobox
@@ -298,7 +301,7 @@ export default function InquiryPipelineTab({
             />
           )
         ) : (
-          <div className="rounded-2xl border border-neutral-200 dark:border-[#1E293B] bg-white dark:bg-[#131B2E] overflow-hidden shadow-sm dark:shadow-xl">
+          <div className="rounded-2xl border border-neutral-200/90 dark:border-white/[0.07] bg-white dark:bg-[#12141a] overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-neutral-100 dark:bg-white/[0.03] border-b border-neutral-200 dark:border-white/5 text-neutral-500 dark:text-neutral-400 font-mono uppercase tracking-wider">
@@ -408,7 +411,7 @@ export default function InquiryPipelineTab({
             onClick={closeDrawer}
           />
 
-          <div className="fixed right-0 top-0 h-screen w-full max-w-[520px] z-50 flex flex-col bg-white dark:bg-[#0F172A] border-l border-neutral-200 dark:border-[#1E293B] shadow-2xl transition-transform duration-300">
+          <div className="fixed right-0 top-0 h-screen w-full max-w-[520px] z-50 flex flex-col bg-white dark:bg-[#12141a] border-l border-neutral-200/90 dark:border-white/[0.08] shadow-2xl transition-transform duration-300">
             {/* Drawer Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-white/5 shrink-0">
               <div>

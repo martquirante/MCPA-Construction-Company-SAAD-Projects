@@ -515,34 +515,53 @@ function generateLegalPdf(docType = "privacy", lang = "en") {
     else if (activeDocType === "safety") baseName = activeLang === "fil" ? "MCPA_Kodigo_sa_Kaligtasan" : "MCPA_Safety_Code";
     const filename = `${baseName}_${currentYear}.pdf`;
 
-    // ── Document Layout Constants ──────────────────────────────────────────────
-    const PAGE_W = 612, PAGE_H = 792;
-    const ML = 42, MR = 42, MT = 40, MB = 48;
-    const CW = PAGE_W - ML - MR;            // 528 pt content width
-    const FOOTER_Y = PAGE_H - MB + 14;      // footer baseline
-    const BODY_BOTTOM = PAGE_H - MB - 6;    // max body y before new page
+    // ── Document Layout Constants (A4 Paper & 1.5 cm Margins) ──────────────────
+    // A4: 210mm x 297mm = 595.28pt x 841.89pt
+    // 1.5 cm = (1.5 / 2.54) * 72 = 42.52 pt
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+    const ML = 42.52, MR = 42.52, MT = 42.52, MB = 42.52;
+    const CW = PAGE_W - ML - MR;            // 510.24 pt content width
+    const FOOTER_Y = PAGE_H - MB + 14;      // 813.37 pt footer baseline
+    const BODY_BOTTOM = PAGE_H - MB - 10;   // 789.37 pt max body y before page break
 
-    const AMBER   = "#D97706";
-    const AMBER_L = "#FFFBEB";
-    const AMBER_B = "#FDE68A";
-    const NAVY    = "#1E3A5F";
-    const DARK    = "#1F2937";
-    const GRAY    = "#64748B";
-    const TEXT    = "#334155";
+    // ── Formal Monochrome & Grayscale Corporate Palette ────────────────────────
+    const BLACK       = "#0A0A0A"; // Deepest crisp black for headings and primary titles
+    const CHARCOAL    = "#1F2937"; // Strong charcoal for tables, badges and section rules
+    const BODY_TEXT   = "#262626"; // High-contrast, crystal-clear body copy
+    const MUTED_TEXT  = "#525252"; // Supporting metadata, subtitles, and labels
+    const LIGHT_TEXT  = "#737373"; // Captions, running headers, and page numbers
+    const BORDER_DARK = "#171717"; // Formal divider rules and double lines
+    const BORDER_MID  = "#737373"; // Box borders and table headers
+    const BORDER_LGT  = "#E5E5E5"; // Table cell dividers and subtle grid lines
+    const BG_TINT     = "#F5F5F5"; // Subtle background fill for tables, callouts, and boxes
+    const BG_WHITE    = "#FFFFFF";
 
     const logoPath = path.resolve(__dirname, "../../../frontend/public/assets/mcpa-logo.png");
 
     const doc = new PDFDocument({
-      size: "LETTER",
+      size: "A4",
       margins: { top: MT, bottom: MB, left: ML, right: MR },
       bufferPages: true,
       info: {
         Title: `${data.docTitle} - MCPA Construction and Supply`,
         Author: "MCPA Construction and Supply",
         Subject: data.subtitle,
-        Creator: "MCPA Construction Corporate Legal System",
+        Creator: "MCPA Corporate Legal & Compliance Directorate",
       },
     });
+
+    // ── Register True Arial Font (with standard Helvetica fallback) ───────────
+    const hasArial = fs.existsSync("C:/Windows/Fonts/arial.ttf") && fs.existsSync("C:/Windows/Fonts/arialbd.ttf");
+    if (hasArial) {
+      doc.registerFont("Arial", "C:/Windows/Fonts/arial.ttf");
+      doc.registerFont("Arial-Bold", "C:/Windows/Fonts/arialbd.ttf");
+      if (fs.existsSync("C:/Windows/Fonts/ariali.ttf")) {
+        doc.registerFont("Arial-Italic", "C:/Windows/Fonts/ariali.ttf");
+      }
+    }
+    const FONT_REG = hasArial ? "Arial" : "Helvetica";
+    const FONT_BOLD = hasArial ? "Arial-Bold" : "Helvetica-Bold";
+    const FONT_ITALIC = (hasArial && fs.existsSync("C:/Windows/Fonts/ariali.ttf")) ? "Arial-Italic" : "Helvetica-Oblique";
 
     const buffers = [];
     doc.on("data", (c) => buffers.push(c));
@@ -551,122 +570,171 @@ function generateLegalPdf(docType = "privacy", lang = "en") {
 
     // ── Helper Functions ───────────────────────────────────────────────────────
 
-    /** Draw the full page letterhead (Page 1) */
+    /**
+     * Draw the formal corporate letterhead (Page 1)
+     * Strictly styled like an official Philippine corporate legal instrument
+     */
     function drawLetterhead() {
-      // Amber top accent bar
-      doc.save().rect(0, 0, PAGE_W, 5).fill(AMBER).restore();
+      const startY = MT - 10; // Y ~ 32.5
 
-      const startY = 16;
+      // Top formal double rule across full content width
+      doc.save()
+        .strokeColor(BORDER_DARK).lineWidth(1.5)
+        .moveTo(ML, startY).lineTo(ML + CW, startY).stroke()
+        .strokeColor(BORDER_DARK).lineWidth(0.5)
+        .moveTo(ML, startY + 2.5).lineTo(ML + CW, startY + 2.5).stroke()
+        .restore();
 
-      // Logo (left) — fixed width
+      const mastheadY = startY + 8;
+
+      // 1. TOP-LEFT LOGO (Clean rendering of official system logo)
       let logoRenderW = 0;
       try {
         if (fs.existsSync(logoPath)) {
           const logoBuf = fs.readFileSync(logoPath);
-          doc.image(logoBuf, ML, startY, { width: 62 });
-          logoRenderW = 76;
+          doc.image(logoBuf, ML, mastheadY + 1, { width: 80 });
+          logoRenderW = 90;
         }
-      } catch (_) { /* no logo fallback */ }
+      } catch (_) { /* fallback if logo missing */ }
 
-      // Vertical divider after logo
+      // Vertical subtle divider after logo
       const divX = ML + logoRenderW;
       doc.save()
-        .strokeColor("#D1D5DB").lineWidth(0.75)
-        .moveTo(divX, startY + 2)
-        .lineTo(divX, startY + 40)
+        .strokeColor(BORDER_LGT).lineWidth(0.75)
+        .moveTo(divX, mastheadY + 2)
+        .lineTo(divX, mastheadY + 38)
         .stroke().restore();
 
-      // Company name block (right of divider)
-      const nameX = divX + 10;
-      doc.font("Helvetica-Bold").fontSize(13.5).fillColor(NAVY)
-        .text("MCPA CONSTRUCTION AND SUPPLY", nameX, startY + 4, { lineBreak: false });
-      doc.font("Helvetica-Bold").fontSize(7.5).fillColor(AMBER)
-        .text("GENERAL ENGINEERING & BUILDING CONTRACTOR", nameX, startY + 21, { lineBreak: false });
+      // 2. COMPANY IDENTITY BLOCK (Beside the logo)
+      const textX = divX + 10;
 
-      // Contact block (right-aligned) — address & contact only (no headquarters label or credentials)
-      const rW = 195;
-      const rStartX = ML + CW - rW;
-      doc.font("Helvetica").fontSize(7).fillColor(GRAY)
-        .text("2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan 3004", rStartX, startY + 8, { width: rW, align: "right" })
-        .text("Tel: +63 (0949) 775 8239", rStartX, startY + 18, { width: rW, align: "right" })
-        .text("Email: mcpa.construction@gmail.com", rStartX, startY + 28, { width: rW, align: "right" });
+      doc.font(FONT_BOLD).fontSize(12).fillColor(BLACK)
+        .text("MCPA CONSTRUCTION AND SUPPLY", textX, mastheadY + 2, { lineBreak: false });
 
-      // Amber bottom divider rule
-      const divY = startY + 46;
+      doc.font(FONT_BOLD).fontSize(7).fillColor(CHARCOAL)
+        .text("GENERAL ENGINEERING & BUILDING CONTRACTOR", textX, mastheadY + 16, { lineBreak: false });
+
+      doc.font(FONT_REG).fontSize(6.5).fillColor(MUTED_TEXT)
+        .text("Headquarters: 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan 3004, Philippines", textX, mastheadY + 25, { lineBreak: false })
+        .text("National Hotline / Viber: +63 (0949) 775 8239   |   Email: mcpa.construction@gmail.com", textX, mastheadY + 33, { lineBreak: false });
+
+      // 3. FORMAL DOCUMENT CONTROL BOX (Top Right)
+      const ctrlW = 160;
+      const ctrlX = ML + CW - ctrlW;
+      const ctrlH = 39;
+
       doc.save()
-        .strokeColor(AMBER).lineWidth(1.2)
-        .moveTo(ML, divY).lineTo(ML + CW, divY)
-        .stroke().restore();
+        .rect(ctrlX, mastheadY - 1, ctrlW, ctrlH)
+        .fillColor(BG_TINT).fill()
+        .strokeColor(BORDER_DARK).lineWidth(0.75)
+        .rect(ctrlX, mastheadY - 1, ctrlW, ctrlH).stroke()
+        .restore();
 
-      doc.y = divY + 8;
+      const padX = ctrlX + 5;
+      doc.font(FONT_BOLD).fontSize(6).fillColor(BLACK)
+        .text("OFFICIAL LEGAL & COMPLIANCE INSTRUMENT", padX, mastheadY + 2, { width: ctrlW - 10, align: "center" });
+
+      doc.save()
+        .strokeColor(BORDER_DARK).lineWidth(0.5)
+        .moveTo(ctrlX, mastheadY + 11).lineTo(ctrlX + ctrlW, mastheadY + 11).stroke()
+        .restore();
+
+      doc.font(FONT_BOLD).fontSize(6).fillColor(CHARCOAL)
+        .text("DOC CODE: ", padX, mastheadY + 14, { lineBreak: false });
+      doc.font("Courier-Bold").fontSize(6.5).fillColor(BLACK)
+        .text(data.docCode || "MCPA-LEG-DOC", doc.x, mastheadY + 14);
+
+      doc.font(FONT_BOLD).fontSize(6).fillColor(CHARCOAL)
+        .text("EFFECTIVITY: ", padX, mastheadY + 22, { lineBreak: false });
+      doc.font(FONT_REG).fontSize(6).fillColor(BLACK)
+        .text(`Calendar Year ${currentYear} (Certified)`, doc.x, mastheadY + 22);
+
+      doc.font(FONT_BOLD).fontSize(6).fillColor(CHARCOAL)
+        .text("JURISDICTION: ", padX, mastheadY + 30, { lineBreak: false });
+      doc.font(FONT_REG).fontSize(6).fillColor(BLACK)
+        .text("Republic of the Philippines", doc.x, mastheadY + 30);
+
+      // Bottom masthead divider double rule
+      const divY = mastheadY + 45;
+      doc.save()
+        .strokeColor(BORDER_DARK).lineWidth(1.25)
+        .moveTo(ML, divY).lineTo(ML + CW, divY).stroke()
+        .strokeColor(BORDER_DARK).lineWidth(0.5)
+        .moveTo(ML, divY + 2.5).lineTo(ML + CW, divY + 2.5).stroke()
+        .restore();
+
+      doc.y = divY + 9;
     }
 
-    /** Metadata info strip (Document Title | Statutory Instrument) */
-    function drawMetaRow() {
-      const mY = doc.y;
-      const boxH = 28;
+    /** Title & Statutory Instrument strip */
+    function drawTitleBlock() {
+      const curY = doc.y;
 
-      // Outer border
+      // Formal centered Document Title
+      doc.font(FONT_BOLD).fontSize(15).fillColor(BLACK)
+        .text(data.docTitle.toUpperCase(), ML, curY, { width: CW, align: "center", lineGap: 3 });
+
+      doc.font(FONT_ITALIC).fontSize(10).fillColor(MUTED_TEXT)
+        .text(data.subtitle, ML, doc.y + 2, { width: CW, align: "center", lineGap: 2 });
+
+      // Statutory Authority outlined badge (centered formal box with 0.5pt border)
+      const badgeText = `STATUTORY AUTHORITY: ${data.statutoryBadge.toUpperCase()}`;
+      const badgeW = doc.font(FONT_BOLD).fontSize(7.5).widthOfString(badgeText) + 18;
+      const badgeX = ML + (CW - badgeW) / 2;
+      const badgeY = doc.y + 6;
+
       doc.save()
-        .strokeColor("#E2E8F0").lineWidth(0.75)
-        .rect(ML, mY, CW, boxH)
-        .fillColor("#F8FAFC").fillAndStroke()
+        .rect(badgeX, badgeY, badgeW, 15)
+        .fillColor(BG_TINT).fill()
+        .strokeColor(BORDER_MID).lineWidth(0.5)
+        .rect(badgeX, badgeY, badgeW, 15).stroke()
         .restore();
 
-      // Vertical divider
-      const col1W = CW * 0.48;
-      doc.save()
-        .strokeColor("#E2E8F0").lineWidth(0.75)
-        .moveTo(ML + col1W, mY).lineTo(ML + col1W, mY + boxH)
-        .stroke()
-        .restore();
+      doc.font(FONT_BOLD).fontSize(7).fillColor(BLACK)
+        .text(badgeText, badgeX, badgeY + 4, { width: badgeW, align: "center" });
 
-      const padX = 8;
-      const padY = 5;
+      // Formal Corporate Recital statement (12pt / 1.5 line spacing compliant)
+      const recitalY = badgeY + 22;
+      const recitalText = activeLang === "fil"
+        ? "SA KAPANGYARIHAN NG MGA NAKALAGDA: Ang MCPA Construction and Supply, isang rehistradong pangkalahatang kontratista sa inhenyeriya at konstruksyon sa ilalim ng mga batas ng Republika ng Pilipinas, ay opisyal na nagpapatupad at nagpapatibay sa legal na instrumentong ito upang pangasiwaan ang lahat ng kasunduan, pamantayan sa kaligtasan, at pananagutan sa ilalim ng batas."
+        : "KNOW ALL MEN BY THESE PRESENTS: MCPA Construction and Supply, an authorized general engineering contractor operating under the laws of the Republic of the Philippines, hereby officially promulgates and certifies this legal compliance instrument governing all corporate operations, client agreements, construction contracts, and statutory guarantees.";
 
-      // Col 1 — Document Title
-      doc.font("Helvetica").fontSize(6).fillColor(GRAY)
-        .text(activeLang === "fil" ? "PAMAGAT NG DOKUMENTO:" : "DOCUMENT TITLE:", ML + padX, mY + padY);
-      doc.font("Helvetica-Bold").fontSize(8).fillColor(DARK)
-        .text(data.docTitle, ML + padX, doc.y + 1, { width: col1W - padX * 2 });
+      doc.font(FONT_ITALIC).fontSize(9.5).fillColor(MUTED_TEXT)
+        .text(recitalText, ML + 6, recitalY, { width: CW - 12, align: "justify", lineGap: 4, indent: 24 });
 
-      // Col 2 — Statutory Instrument
-      const c2X = ML + col1W + padX;
-      doc.font("Helvetica").fontSize(6).fillColor(GRAY)
-        .text(activeLang === "fil" ? "BATAYANG LEGAL:" : "STATUTORY INSTRUMENT:", c2X, mY + padY);
-      doc.font("Helvetica-Bold").fontSize(8).fillColor(DARK)
-        .text(data.statutoryBadge, c2X, doc.y + 1, { width: CW - col1W - padX * 2 });
-
-      doc.y = mY + boxH + 12;
+      doc.y = doc.y + 8;
     }
 
     /** Slim header for continuation pages */
     function drawContinuationHeader() {
-      // Amber top bar
-      doc.save().rect(0, 0, PAGE_W, 4).fill(AMBER).restore();
+      const hY = MT - 12;
 
-      const hY = 12;
       let contLogoW = 0;
       try {
         if (fs.existsSync(logoPath)) {
           const buf = fs.readFileSync(logoPath);
-          doc.image(buf, ML, hY, { width: 30 });
-          contLogoW = 38;
+          doc.image(buf, ML, hY - 2, { width: 44 });
+          contLogoW = 50;
         }
       } catch (_) {}
 
-      doc.font("Helvetica-Bold").fontSize(8.5).fillColor(NAVY)
-        .text("MCPA CONSTRUCTION AND SUPPLY", ML + contLogoW, hY + 3, { lineBreak: false });
+      // Left: Company Name + Document Code
+      doc.font(FONT_BOLD).fontSize(8).fillColor(BLACK)
+        .text("MCPA CONSTRUCTION AND SUPPLY", ML + contLogoW, hY + 1, { lineBreak: false });
 
-      doc.font("Helvetica").fontSize(7.5).fillColor(GRAY)
-        .text(`  —  ${data.docTitle}`, ML + contLogoW + 165, hY + 4, { lineBreak: false });
+      doc.font(FONT_REG).fontSize(7).fillColor(MUTED_TEXT)
+        .text(`  |  ${data.docCode || "MCPA-LEG-DOC"}`, doc.x, hY + 1.5, { lineBreak: false });
+
+      // Right: Clean official document label
+      doc.font(FONT_BOLD).fontSize(6.5).fillColor(CHARCOAL)
+        .text("OFFICIAL LEGAL INSTRUMENT", ML, hY + 1.5, { width: CW, align: "right", lineBreak: false });
 
       doc.save()
-        .strokeColor(AMBER).lineWidth(0.8)
-        .moveTo(ML, hY + 20).lineTo(ML + CW, hY + 20)
-        .stroke().restore();
+        .strokeColor(BORDER_DARK).lineWidth(0.75)
+        .moveTo(ML, hY + 15).lineTo(ML + CW, hY + 15).stroke()
+        .restore();
 
-      doc.y = hY + 28;
+      doc.y = hY + 24;
     }
 
     /** Ensure space on the page before rendering an element */
@@ -677,34 +745,34 @@ function generateLegalPdf(docType = "privacy", lang = "en") {
       }
     }
 
-    /** Draw official table */
+    /** Draw official formal table */
     function drawTable(tableData) {
       const { headers, rows, colWidths } = tableData;
       const tableW = CW;
-      const actualWidths = colWidths.map(w => (w / 100) * tableW);
-      const rowPad = 4;
-      const headerFontSize = 7.5;
-      const bodyFontSize = 7;
+      const actualWidths = colWidths.map((w) => (w / 100) * tableW);
+      const rowPad = 5;
+      const headerFontSize = 9.5;
+      const bodyFontSize = 9;
 
       // 1. Measure header height
-      let maxHeaderH = 16;
+      let maxHeaderH = 18;
       headers.forEach((h, i) => {
-        doc.font("Helvetica-Bold").fontSize(headerFontSize);
-        const textH = doc.heightOfString(h, { width: actualWidths[i] - 8 });
+        doc.font(FONT_BOLD).fontSize(headerFontSize);
+        const textH = doc.heightOfString(h, { width: actualWidths[i] - 10 });
         if (textH + rowPad * 2 > maxHeaderH) maxHeaderH = textH + rowPad * 2;
       });
 
-      ensureSpace(maxHeaderH + 16);
+      ensureSpace(maxHeaderH + 24);
       const hY = doc.y;
 
-      // Draw header background
-      doc.save().fillColor(NAVY).rect(ML, hY, tableW, maxHeaderH).fill().restore();
+      // Draw formal charcoal header background
+      doc.save().fillColor(CHARCOAL).rect(ML, hY, tableW, maxHeaderH).fill().restore();
 
-      // Draw header cells
+      // Draw header cells in crisp white
       let curX = ML;
       headers.forEach((h, i) => {
-        doc.font("Helvetica-Bold").fontSize(headerFontSize).fillColor("#FFFFFF")
-          .text(h, curX + 4, hY + rowPad, { width: actualWidths[i] - 8, align: i === 2 ? "center" : "left" });
+        doc.font(FONT_BOLD).fontSize(headerFontSize).fillColor(BG_WHITE)
+          .text(h.toUpperCase(), curX + 5, hY + rowPad, { width: actualWidths[i] - 10, align: i === 2 ? "center" : "left" });
         curX += actualWidths[i];
       });
 
@@ -712,26 +780,26 @@ function generateLegalPdf(docType = "privacy", lang = "en") {
 
       // 2. Render rows
       rows.forEach((row, rIdx) => {
-        let maxRowH = 15;
+        let maxRowH = 18;
         row.forEach((cell, cIdx) => {
           const isBold = cIdx === 0 || cIdx === 2;
-          doc.font(isBold ? "Helvetica-Bold" : "Helvetica").fontSize(bodyFontSize);
-          const textH = doc.heightOfString(cell, { width: actualWidths[cIdx] - 8, lineGap: 1 });
+          doc.font(isBold ? FONT_BOLD : FONT_REG).fontSize(bodyFontSize);
+          const textH = doc.heightOfString(cell, { width: actualWidths[cIdx] - 10, lineGap: 2 });
           if (textH + rowPad * 2 > maxRowH) maxRowH = textH + rowPad * 2;
         });
 
-        ensureSpace(maxRowH + 2);
+        ensureSpace(maxRowH + 4);
         const rY = doc.y;
         const isAlt = rIdx % 2 === 1;
 
-        // Background
+        // Subtle alternating row background
         if (isAlt) {
-          doc.save().fillColor("#F8FAFC").rect(ML, rY, tableW, maxRowH).fill().restore();
+          doc.save().fillColor(BG_TINT).rect(ML, rY, tableW, maxRowH).fill().restore();
         }
 
         // Bottom border
         doc.save()
-          .strokeColor("#E2E8F0").lineWidth(0.5)
+          .strokeColor(BORDER_LGT).lineWidth(0.5)
           .moveTo(ML, rY + maxRowH).lineTo(ML + tableW, rY + maxRowH)
           .stroke().restore();
 
@@ -740,72 +808,110 @@ function generateLegalPdf(docType = "privacy", lang = "en") {
         row.forEach((cell, cIdx) => {
           const isFirst = cIdx === 0;
           const isDisb = cIdx === 2;
-          const font = (isFirst || isDisb) ? "Helvetica-Bold" : "Helvetica";
-          const color = isDisb ? AMBER : (isFirst ? DARK : TEXT);
+          const font = (isFirst || isDisb) ? FONT_BOLD : FONT_REG;
+          const color = isFirst || isDisb ? BLACK : BODY_TEXT;
 
           doc.font(font).fontSize(bodyFontSize).fillColor(color)
-            .text(cell, curX + 4, rY + rowPad, { width: actualWidths[cIdx] - 8, align: isDisb ? "center" : "left", lineGap: 1 });
+            .text(cell, curX + 5, rY + rowPad, { width: actualWidths[cIdx] - 10, align: isDisb ? "center" : "left", lineGap: 2 });
           curX += actualWidths[cIdx];
         });
 
         doc.y = rY + maxRowH;
       });
 
-      doc.y += 6;
+      // Bottom boundary table line
+      doc.save()
+        .strokeColor(BORDER_DARK).lineWidth(0.75)
+        .moveTo(ML, doc.y).lineTo(ML + tableW, doc.y).stroke()
+        .restore();
+
+      doc.y += 8;
     }
 
     /** Draw bottom footer on each page */
     function drawFooter(pageNum, totalPages) {
+      // Temporarily clear bottom margin so PDFKit's LineWrapper never triggers an accidental auto-pagebreak
+      const origBottom = doc.page.margins.bottom;
+      doc.page.margins.bottom = 0;
+
       doc.save()
-        .strokeColor(AMBER).lineWidth(0.8)
-        .moveTo(ML, FOOTER_Y - 6).lineTo(ML + CW, FOOTER_Y - 6)
+        .strokeColor(BORDER_DARK).lineWidth(0.75)
+        .moveTo(ML, FOOTER_Y - 5).lineTo(ML + CW, FOOTER_Y - 5)
         .stroke().restore();
 
-      doc.font("Helvetica-Oblique").fontSize(6.5).fillColor(GRAY)
-        .text("BUILDING TODAY. FOR A STRONGER TOMORROW.", ML, FOOTER_Y, { lineBreak: false });
+      // Clean, uncolliding 2-column footer
+      doc.font(FONT_REG).fontSize(7).fillColor(MUTED_TEXT)
+        .text("MCPA CONSTRUCTION AND SUPPLY  |  OFFICIAL CORPORATE LEGAL INSTRUMENT", ML, FOOTER_Y, { lineBreak: false });
 
-      doc.font("Helvetica-Bold").fontSize(6.5).fillColor(DARK)
-        .text(`MCPA CONSTRUCTION AND SUPPLY   |   Page ${pageNum} of ${totalPages}`,
-          ML, FOOTER_Y, { width: CW, align: "right", lineBreak: false });
+      doc.font(FONT_BOLD).fontSize(7).fillColor(CHARCOAL)
+        .text(`Page ${pageNum} of ${totalPages}`, ML, FOOTER_Y, { width: CW, align: "right", lineBreak: false });
+
+      doc.page.margins.bottom = origBottom;
     }
 
     // ── RENDER CONTENT ─────────────────────────────────────────────────────────
 
-    // 1. First Page Letterhead & Metadata
+    // 1. First Page Letterhead & Title Block
     drawLetterhead();
-    drawMetaRow();
+    drawTitleBlock();
 
-    // 2. Sections Loop
+    // 2. Sections Loop (Strictly 12pt Arial with 1.5 line spacing [lineGap: 6])
     data.sections.forEach((sec) => {
-      ensureSpace(32);
+      // Prevent orphan headings (Academic/Research standard widow-orphan control)
+      // Ensure space for Section Title + Divider + at least first paragraph or entire table/callout unit
+      let neededForSectionStart = 150;
+      if (sec.body && sec.body.length > 0) {
+        const firstPara = sec.body[0];
+        const isCallout =
+          firstPara.startsWith("KEY COMMITMENT:") ||
+          firstPara.startsWith("MAHALAGANG PANGAKO:") ||
+          firstPara.startsWith("STATUTORY LIABILITY UNDER ARTICLE 1723:") ||
+          firstPara.startsWith("PANANAGUTAN SA ILALIM NG ARTIKULO 1723:");
+        const paraH = doc
+          .font(isCallout ? FONT_BOLD : FONT_REG)
+          .fontSize(12)
+          .heightOfString(firstPara, {
+            width: isCallout ? CW - 24 : CW,
+            lineGap: 6,
+            indent: isCallout ? 18 : 28,
+          });
+        neededForSectionStart = Math.max(neededForSectionStart, 44 + paraH + (isCallout ? 26 : 14));
+      }
+
+      // If section contains a callout box, require enough room so callout doesn't break right after intro
+      const hasCallout = sec.body && sec.body.some(
+        (p) =>
+          p.startsWith("KEY COMMITMENT:") ||
+          p.startsWith("MAHALAGANG PANGAKO:") ||
+          p.startsWith("STATUTORY LIABILITY UNDER ARTICLE 1723:") ||
+          p.startsWith("PANANAGUTAN SA ILALIM NG ARTIKULO 1723:")
+      );
+      if (hasCallout) {
+        neededForSectionStart = Math.max(neededForSectionStart, 210);
+      }
+
+      // If section contains a table (like BNPL Section 3.0), require room for heading + intro + table
+      if (sec.table) {
+        neededForSectionStart = Math.max(neededForSectionStart, 230);
+      }
+
+      ensureSpace(neededForSectionStart);
 
       const sY = doc.y;
-      const badgeW = 4;
 
-      // Section Amber Marker
+      // Section Title (13pt Bold Arial)
+      doc.font(FONT_BOLD).fontSize(13).fillColor(BLACK)
+        .text(`SECTION ${sec.number} — ${sec.title.toUpperCase()}`, ML, sY, { width: CW });
+
+      // Clean formal divider rule under section title
       doc.save()
-        .rect(ML, sY, badgeW, 14)
-        .fill(AMBER)
+        .strokeColor(BORDER_DARK).lineWidth(0.75)
+        .moveTo(ML, doc.y + 3).lineTo(ML + CW, doc.y + 3).stroke()
         .restore();
 
-      // Section Number
-      doc.font("Helvetica-Bold").fontSize(9).fillColor(AMBER)
-        .text(sec.number, ML + badgeW + 5, sY + 1.5, { lineBreak: false });
+      doc.y += 8;
 
-      // Section Title
-      const numW = doc.widthOfString(sec.number, { fontSize: 9 });
-      doc.font("Helvetica-Bold").fontSize(9).fillColor(NAVY)
-        .text(`  ${sec.title}`, ML + badgeW + 5 + numW, sY + 1.5, { lineBreak: false });
-
-      // Subtle underline
-      doc.save()
-        .strokeColor("#E2E8F0").lineWidth(0.5)
-        .moveTo(ML, sY + 16).lineTo(ML + CW, sY + 16)
-        .stroke().restore();
-
-      doc.y = sY + 20;
-
-      // Section Body Paragraphs
+      // Section Body Paragraphs (12pt Arial, 1.5 Line Spacing [lineGap: 6], First-line Indent)
       sec.body.forEach((para) => {
         const isCallout =
           para.startsWith("KEY COMMITMENT:") ||
@@ -814,42 +920,44 @@ function generateLegalPdf(docType = "privacy", lang = "en") {
           para.startsWith("PANANAGUTAN SA ILALIM NG ARTIKULO 1723:");
 
         if (isCallout) {
-          const innerW = CW - 42;
-          const textH = doc.font("Helvetica-Bold").fontSize(8)
-            .heightOfString(para, { width: innerW, lineGap: 1.5 });
-          const boxH = textH + 14;
+          const innerW = CW - 24;
+          const textH = doc.font(FONT_BOLD).fontSize(12)
+            .heightOfString(para, { width: innerW, lineGap: 6, indent: 18 });
+          const boxH = textH + 16;
 
-          ensureSpace(boxH + 8);
-          const cY = doc.y + 2;
+          ensureSpace(boxH + 10);
+          const cY = doc.y + 3;
 
-          // Background & Border
+          // Formal High-Contrast Legal Box:
+          // 3.5pt solid black left vertical bar + subtle gray background + 0.5pt outer border
           doc.save()
-            .fillColor(AMBER_L).rect(ML, cY, CW, boxH).fill()
-            .strokeColor(AMBER_B).lineWidth(1).rect(ML, cY, CW, boxH).stroke()
+            .rect(ML, cY, CW, boxH).fillColor(BG_TINT).fill()
+            .strokeColor(BORDER_DARK).lineWidth(0.5).rect(ML, cY, CW, boxH).stroke()
+            .rect(ML, cY, 4, boxH).fillColor(BLACK).fill()
             .restore();
 
-          // Left icon bar
-          doc.save().rect(ML, cY, 20, boxH).fill(AMBER).restore();
-          doc.font("Helvetica-Bold").fontSize(10).fillColor("#FFFFFF")
-            .text("\u26A0", ML + 4, cY + boxH / 2 - 6, { lineBreak: false });
+          // Callout text in 12pt bold black, 1.5 line spacing, first line indent
+          doc.font(FONT_BOLD).fontSize(12).fillColor(BLACK)
+            .text(para, ML + 14, cY + 8, { width: innerW, lineGap: 6, align: "justify", indent: 18 });
 
-          // Callout text
-          doc.font("Helvetica-Bold").fontSize(8).fillColor(DARK)
-            .text(para, ML + 28, cY + 7, { width: innerW, lineGap: 1.5, align: "left" });
-
-          doc.y = cY + boxH + 7;
+          doc.y = cY + boxH + 8;
 
         } else if (para.startsWith("•") || para.startsWith("- ")) {
-          ensureSpace(18);
-          doc.font("Helvetica").fontSize(8).fillColor(TEXT)
-            .text(para, ML + 10, doc.y, { width: CW - 10, lineGap: 2, align: "justify" });
-          doc.y += 4;
+          const textH = doc.font(FONT_REG).fontSize(12)
+            .heightOfString(para, { width: CW - 14, lineGap: 6 });
+          ensureSpace(textH + 6);
+          doc.font(FONT_REG).fontSize(12).fillColor(BODY_TEXT)
+            .text(para, ML + 14, doc.y, { width: CW - 14, lineGap: 6, align: "justify" });
+          doc.y += 6;
 
         } else {
-          ensureSpace(20);
-          doc.font("Helvetica").fontSize(8).fillColor(TEXT)
-            .text(para, ML, doc.y, { width: CW, lineGap: 2, align: "justify" });
-          doc.y += 4.5;
+          // Standard Paragraph with MS Word style First-Line Indent (tab: 28pt / ~1cm)
+          const textH = doc.font(FONT_REG).fontSize(12)
+            .heightOfString(para, { width: CW, lineGap: 6, indent: 28 });
+          ensureSpace(textH + 6);
+          doc.font(FONT_REG).fontSize(12).fillColor(BODY_TEXT)
+            .text(para, ML, doc.y, { width: CW, lineGap: 6, align: "justify", indent: 28 });
+          doc.y += 8;
         }
       });
 
@@ -861,22 +969,22 @@ function generateLegalPdf(docType = "privacy", lang = "en") {
       doc.y += 6;
     });
 
-    // 3. Official Attestation & Dual Signatures Block
-    // Tightly budgeted to fit without pushing an empty page
-    ensureSpace(68);
-    doc.y += 2;
+    // 3. Official Attestation, Dual Signatures & Notarial Block (Unified Authentication Unit)
+    // Kept together as an indivisible legal block so signatures and notarial act never orphan
+    ensureSpace(230);
+    doc.y += 4;
 
     doc.save()
-      .strokeColor(DARK).lineWidth(0.75)
-      .moveTo(ML, doc.y).lineTo(ML + CW, doc.y)
-      .stroke().restore();
+      .strokeColor(BORDER_DARK).lineWidth(1)
+      .moveTo(ML, doc.y).lineTo(ML + CW, doc.y).stroke()
+      .restore();
 
-    doc.y += 5;
-    doc.font("Helvetica-Bold").fontSize(7.5).fillColor(DARK)
+    doc.y += 6;
+    doc.font(FONT_BOLD).fontSize(11).fillColor(BLACK)
       .text(
         activeLang === "fil"
           ? "OPISYAL NA SERTIPIKASYON AT PAGPAPATIBAY NG KONTRATISTA"
-          : "OFFICIAL CERTIFICATION & STATUTORY ATTESTATION",
+          : "OFFICIAL STATUTORY ATTESTATION & CORPORATE CERTIFICATION",
         ML, doc.y, { width: CW }
       );
 
@@ -884,39 +992,83 @@ function generateLegalPdf(docType = "privacy", lang = "en") {
       ? "Pinatutunayan at pinagtitibay ng MCPA Construction and Supply na ang lahat ng alituntunin, teknikal na pamantayan, Labinlimang Taong (15-Year) pananagutan sa estruktura alinsunod sa Artikulo 1723 ng Civil Code ng Pilipinas, mga regulasyon ng DOLE sa kaligtasan sa pagtatayo, at mga probisyon sa proteksyon ng datos sa ilalim ng RA 10173 na nakasaad dito ay opisyal, sertipikado, at legal na umiiral sa lahat ng kasunduan, proyekto, at proseso ng turnover."
       : "MCPA Construction and Supply hereby certifies and attests that all operational guidelines, engineering standards, statutory Fifteen (15) Year Structural Warranty obligations pursuant to Article 1723 of the Civil Code of the Philippines, DOLE construction safety mandates, and data governance provisions under Republic Act No. 10173 set forth herein represent official certified instruments governing all active client agreements, project milestones, and turnover executions.";
 
-    doc.y += 2.5;
-    doc.font("Helvetica").fontSize(7).fillColor(GRAY)
-      .text(attestText, ML, doc.y, { width: CW, lineGap: 1.5, align: "justify" });
+    doc.y += 3;
+    doc.font(FONT_REG).fontSize(9.5).fillColor(MUTED_TEXT)
+      .text(attestText, ML, doc.y, { width: CW, lineGap: 4, align: "justify", indent: 24 });
 
-    doc.y += 16; // signature spacing
+    doc.y += 20; // clean breathing space before signature lines
 
-    const sigW = 210;
+    const sigW = 225;
     const sigY = doc.y;
 
-    // Sig 1 — Technical & Engineering Director
+    // Sig 1 — Technical & Engineering Director (Left Column)
     doc.save()
-      .strokeColor(DARK).lineWidth(0.5)
+      .strokeColor(BORDER_DARK).lineWidth(0.5)
       .moveTo(ML, sigY).lineTo(ML + sigW, sigY)
       .stroke().restore();
-    doc.font("Helvetica-Bold").fontSize(7.5).fillColor(DARK)
-      .text("ENGR. / ARCH. TECHNICAL DIRECTOR", ML, sigY + 3, { width: sigW });
-    doc.font("Helvetica").fontSize(6.5).fillColor(GRAY)
-      .text("Directorate of Structural & Technical Standards", ML, doc.y + 1.5, { width: sigW })
-      .text("PRC Licensed Professional · MCPA Construction", ML, doc.y + 1, { width: sigW });
+    doc.font(FONT_BOLD).fontSize(10).fillColor(BLACK)
+      .text("ENGR. / ARCH. TECHNICAL DIRECTOR", ML, sigY + 5, { width: sigW });
+    doc.font(FONT_REG).fontSize(8).fillColor(MUTED_TEXT)
+      .text("Directorate of Structural & Technical Standards", ML, doc.y + 2, { width: sigW })
+      .text("PRC Licensed Professional · MCPA Construction and Supply", ML, doc.y + 1.5, { width: sigW });
 
-    // Sig 2 — Managing General Contractor
+    const leftSigEndY = doc.y;
+
+    // Sig 2 — Managing General Contractor (Right Column)
     const s2X = ML + CW - sigW;
     doc.save()
-      .strokeColor(DARK).lineWidth(0.5)
+      .strokeColor(BORDER_DARK).lineWidth(0.5)
       .moveTo(s2X, sigY).lineTo(s2X + sigW, sigY)
       .stroke().restore();
-    doc.font("Helvetica-Bold").fontSize(7.5).fillColor(DARK)
-      .text("MANAGING GENERAL CONTRACTOR", s2X, sigY + 3, { width: sigW });
-    doc.font("Helvetica").fontSize(6.5).fillColor(GRAY)
-      .text("Executive Operations & Corporate Governance", s2X, doc.y + 1.5, { width: sigW })
-      .text("MCPA Construction and Supply · Plaridel, Bulacan", s2X, doc.y + 1, { width: sigW });
+    doc.font(FONT_BOLD).fontSize(10).fillColor(BLACK)
+      .text("MANAGING GENERAL CONTRACTOR", s2X, sigY + 5, { width: sigW });
+    doc.font(FONT_REG).fontSize(8).fillColor(MUTED_TEXT)
+      .text("Executive Operations & Corporate Governance", s2X, doc.y + 2, { width: sigW })
+      .text("MCPA Construction and Supply · Plaridel, Bulacan", s2X, doc.y + 1.5, { width: sigW });
 
-    // 4. Stamp Footers on Every Buffered Page
+    const rightSigEndY = doc.y;
+    const sigEndY = Math.max(leftSigEndY, rightSigEndY);
+
+    // 4. Sworn Notarial Acknowledgment Box
+    // Positioned safely below the entire dual signature text block
+    const notarialY = sigEndY + 14;
+
+    const juratTitle = "REPUBLIC OF THE PHILIPPINES  )  PROVINCE OF BULACAN, MUNICIPALITY OF PLARIDEL  )  S.S.";
+    const juratTitleH = doc.font(FONT_BOLD).fontSize(6.5).heightOfString(juratTitle, { width: CW - 16 });
+
+    const notarialText = activeLang === "fil"
+      ? "SINUMPAAN AT NILAGDAAN sa aking harapan ngayong taong 2026 sa Plaridel, Bulacan, personal na humarap ang mga kinatawan ng MCPA Construction and Supply na may hawak ng mga balidong ID at nagpatibay na ito ay kanilang malaya at boluntaryong gawa."
+      : "SUBSCRIBED AND SWORN to before me this calendar year 2026 at Plaridel, Bulacan, affiants exhibiting competent evidence of identities, acknowledging this corporate legal instrument as their free and voluntary act and deed.";
+    const juratBodyH = doc.font(FONT_REG).fontSize(6.5).heightOfString(notarialText, { width: CW - 16, lineGap: 1.5, indent: 14 });
+
+    const docLineText = "Doc. No. ______;  Page No. ______;  Book No. ______;  Series of 2026.  [OFFICIAL NOTARIAL SEAL AFFIXED]";
+    const docLineH = doc.font(FONT_BOLD).fontSize(6.5).heightOfString(docLineText, { width: CW - 16 });
+
+    // Dynamic calculated height with comfortable 6pt padding top/bottom and 3-4pt element gaps
+    const notarialH = 6 + juratTitleH + 3 + juratBodyH + 4 + docLineH + 6;
+
+    doc.save()
+      .rect(ML, notarialY, CW, notarialH)
+      .fillColor(BG_TINT).fill()
+      .strokeColor(BORDER_MID).lineWidth(0.5)
+      .rect(ML, notarialY, CW, notarialH).stroke()
+      .restore();
+
+    let curNotaryY = notarialY + 6;
+    doc.font(FONT_BOLD).fontSize(6.5).fillColor(BLACK)
+      .text(juratTitle, ML + 8, curNotaryY, { width: CW - 16 });
+    curNotaryY = doc.y + 3;
+
+    doc.font(FONT_REG).fontSize(6.5).fillColor(MUTED_TEXT)
+      .text(notarialText, ML + 8, curNotaryY, { width: CW - 16, lineGap: 1.5, indent: 14 });
+    curNotaryY = doc.y + 4;
+
+    doc.font(FONT_BOLD).fontSize(6.5).fillColor(CHARCOAL)
+      .text(docLineText, ML + 8, curNotaryY, { width: CW - 16 });
+
+    doc.y = notarialY + notarialH + 6;
+
+    // 5. Stamp Running Footers on Every Buffered Page
     const range = doc.bufferedPageRange();
     console.log(`[LEGAL PDF] ${activeDocType} (${activeLang}) Total Pages: ${range.count}`);
     for (let i = range.start; i < range.start + range.count; i++) {

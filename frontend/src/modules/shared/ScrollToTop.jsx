@@ -17,6 +17,10 @@ export default function ScrollToTop() {
           window.scrollTo({ top: 0, left: 0, behavior: "instant" });
         }
       } else {
+        // Track that the user is visiting a subpage so returning to Home skips the video
+        try {
+          sessionStorage.setItem("mcpa_from_subpage", "true");
+        } catch (e) {}
         // Ensure navigation to subpages always starts at the top of content, never at footer
         window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       }

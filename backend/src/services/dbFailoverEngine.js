@@ -43,7 +43,16 @@ class DbFailoverEngine {
     this.azurePool = null;
     this.supabasePool = null;
     this.localPool = null;
-    this.useLocalDocker = process.env.USE_LOCAL_DB === "true";
+
+    // Strict environment guard: identify production vs localhost development
+    this.isProduction =
+      process.env.NODE_ENV === "production" ||
+      Boolean(process.env.VERCEL) ||
+      Boolean(process.env.VERCEL_ENV) ||
+      Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+
+    // Docker testing mode is ONLY permitted on local machine development
+    this.useLocalDocker = !this.isProduction && process.env.USE_LOCAL_DB === "true";
 
     this.initPools();
     this.startHealthCheck();
@@ -81,8 +90,8 @@ class DbFailoverEngine {
         console.log(`\x1b[32m[DbFailoverEngine] Neon Serverless PostgreSQL Cloud Pool active (Cloud Hot Standby)\x1b[0m`);
       }
     }
-    // 3. Standby: Local PostgreSQL (offline development)
-    if (this.localConnStr && !process.env.VERCEL) {
+    // 3. Standby: Local PostgreSQL (strictly localhost development/testing - completely disabled in production)
+    if (!this.isProduction && this.localConnStr) {
       this.localPool = this.createPool(this.localConnStr);
     }
     // 4. Azure Pool (if configured)
@@ -101,14 +110,15 @@ class DbFailoverEngine {
   }
 
   getActiveProviderName() {
-    if (this.useLocalDocker && this.localPool) return "Local PostgreSQL (Docker Testing & Local Development)";
+    if (!this.isProduction && this.useLocalDocker && this.localPool) return "Local PostgreSQL (Docker Testing & Local Development)";
     if (!this.isFailoverActive && this.supabasePool) return "Supabase PostgreSQL Cloud (Primary Database)";
     if (this.isFailoverActive && this.neonPool) return "Neon Serverless PostgreSQL (Standby Backup - Failover Active)";
     if (this.neonPool && !this.supabasePool) return "Neon Serverless PostgreSQL (Standby Backup - Ready for Failover)";
     if (this.supabaseClient && !this.isFailoverActive && !this.localPool && !this.azurePool) return "Supabase Cloud (REST Engine / Primary)";
-    if (this.isFailoverActive && this.localPool) return "Local PostgreSQL (Docker Standby)";
+    if (!this.isProduction && this.isFailoverActive && this.localPool) return "Local PostgreSQL (Docker Standby)";
     if (this.azurePool) return "Azure Flexible Server (Standby Tier)";
-    if (this.localPool) return "Local PostgreSQL (Docker Local)";
+    if (!this.isProduction && this.localPool) return "Local PostgreSQL (Docker Local)";
+    if (this.isProduction) return "Cloud Database Services Unreachable";
     return "Local Resilient Storage (Dev Mode)";
   }
 
@@ -130,8 +140,8 @@ class DbFailoverEngine {
    * Main query execution method with automatic failover & self-healing failback
    */
   async query(text, params = []) {
-    // -1. Local Docker Testing Mode: If USE_LOCAL_DB=true is enabled, prioritize local Docker PostgreSQL
-    if (this.useLocalDocker && this.localPool && !this.isMockActive) {
+    // -1. Local Docker Testing Mode: (Only allowed on localhost if USE_LOCAL_DB=true is enabled)
+    if (!this.isProduction && this.useLocalDocker && this.localPool && !this.isMockActive) {
       try {
         const res = await this.localPool.query(text, params);
         return res;
@@ -186,7 +196,16 @@ class DbFailoverEngine {
       }
     }
 
-    // 4. Try Local Docker PostgreSQL (Hot Standby / Offline Fallback)
+    // ═════════════════════════════════════════════════════════════════════
+    // PRODUCTION ENVIRONMENT GUARD: STRICT ZERO LOCAL FALLBACK IN PRODUCTION
+    // ═════════════════════════════════════════════════════════════════════
+    if (this.isProduction) {
+      throw new Error(
+        `[DbFailoverEngine] Cloud Database Outage: Primary (Supabase) and Standby (Neon) failed to respond. Local Docker and Dev Mock fallbacks are strictly prohibited in production.`
+      );
+    }
+
+    // 4. Try Local Docker PostgreSQL (ONLY on local machine when testing)
     if (this.localPool && !this.isMockActive) {
       try {
         const res = await this.localPool.query(text, params);
@@ -207,7 +226,7 @@ class DbFailoverEngine {
       }
     }
 
-    // 6. Final fallback to resilient mock storage
+    // 6. Final fallback to resilient mock storage (Development only)
     return this.executeMockQuery(text, params);
   }
 

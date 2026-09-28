@@ -83,9 +83,42 @@ import {
   XCircle,
   TrendingUp,
   Settings,
+  Globe,
+  Lightbulb,
+  Ruler,
 } from "lucide-react";
 
 export { default as LordIcon } from "./LordIcon";
+
+export function GlobeIcon({ className = "w-5 h-5", strokeWidth = 1.75, ...props }) {
+  return (
+    <Globe
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function LightbulbIcon({ className = "w-5 h-5", strokeWidth = 1.75, ...props }) {
+  return (
+    <Lightbulb
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function RulerIcon({ className = "w-5 h-5", strokeWidth = 1.75, ...props }) {
+  return (
+    <Ruler
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
 
 export function DraftingCompassIcon({ className = "w-5 h-5", strokeWidth = 1.75, ...props }) {
   return (

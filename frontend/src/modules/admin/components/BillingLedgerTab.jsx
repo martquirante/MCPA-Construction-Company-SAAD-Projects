@@ -5,9 +5,10 @@ import Image from "next/image";
 import {
   CheckIcon,
   ShieldCheckIcon,
-  LockIcon,
   ExternalLinkIcon,
   PlusIcon,
+  CheckCircle2Icon,
+  CloseIcon,
 } from "@/modules/shared/Icons";
 
 export default function BillingLedgerTab({
@@ -140,8 +141,9 @@ export default function BillingLedgerTab({
                     </td>
                     <td className="py-4 px-4 text-right">
                       {isPaid ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">
-                          ✓ Verified ({item.paid_date})
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] inline-flex items-center gap-1">
+                          <CheckCircle2Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span>Verified ({item.paid_date})</span>
                         </span>
                       ) : (
                         <button
@@ -171,9 +173,10 @@ export default function BillingLedgerTab({
               </h4>
               <button
                 onClick={() => setSelectedProofUrl(null)}
-                className="text-neutral-400 hover:text-white cursor-pointer"
+                className="p-1 rounded-lg text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                aria-label="Close"
               >
-                ✕
+                <CloseIcon className="w-4 h-4" />
               </button>
             </div>
             <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-700">

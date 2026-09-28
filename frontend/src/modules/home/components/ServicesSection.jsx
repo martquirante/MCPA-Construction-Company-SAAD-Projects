@@ -66,11 +66,11 @@ export default function ServicesSection() {
         </p>
       </ScrollMorph>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-3">
         {services.map((item, idx) => (
           <ScrollMorph
             key={item.id}
-            variant="shutter-rise"
+            variant="card"
             delay={idx * 140}
             duration={850}
             className="h-full"

@@ -20,7 +20,12 @@ export function useScrollScrub(containerRef) {
   const [displayedPct, setDisplayedPct] = useState(isReturning ? 100 : 0);
   const [isCompleted, setIsCompleted] = useState(isReturning);
   const [hasCompletedBuild, setHasCompletedBuild] = useState(isReturning);
-  const [isPortrait, setIsPortrait] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.innerHeight > window.innerWidth;
+    }
+    return false;
+  });
   const [stageName, setStageName] = useState(isReturning ? STAGE_LABELS[3] : STAGE_LABELS[0]);
   const [videoLoaded, setVideoLoaded] = useState(false);
 
@@ -104,14 +109,14 @@ export function useScrollScrub(containerRef) {
   }, []);
 
   // Backward interpolation helper for reverse scrolling within a single part
-  const scrubBackward = useCallback((video, startTime, targetTime, startProg, targetProg, startPct, targetPct, onDone) => {
+  const scrubBackward = useCallback((video, startTime, targetTime, startProg, targetProg, startPct, targetPct, onDone, customDurationMs) => {
     if (!video) {
       if (onDone) onDone();
       return;
     }
 
     const startMs = performance.now();
-    const durationMs = 420;
+    const durationMs = customDurationMs || 420;
 
     if (watchdogRef.current) {
       clearTimeout(watchdogRef.current);
@@ -204,12 +209,13 @@ export function useScrollScrub(containerRef) {
     setCurrentStep(clampedStep);
     setStageName(targetLabel);
 
-    if (clampedStep < 3) {
-      setIsCompleted(false);
-      setHasCompletedBuild(false);
-      hasCompletedRef.current = false;
-      videoFinishedRef.current = false;
-    }
+    // At the start of any step transition, the build is not yet completed.
+    // Completed state is ONLY unlocked when Part 3 finishes playing to the end in finishAnimation()
+    // or if immediate is true (handled in the immediate block below).
+    setIsCompleted(false);
+    setHasCompletedBuild(false);
+    hasCompletedRef.current = false;
+    videoFinishedRef.current = false;
 
     if (watchdogRef.current) {
       clearTimeout(watchdogRef.current);
@@ -301,21 +307,52 @@ export function useScrollScrub(containerRef) {
         return;
       }
 
-      const duration = activeVideo.duration && isFinite(activeVideo.duration) ? activeVideo.duration : 3.33;
-      const targetTime = Math.max(0.01, duration - 0.04);
-      const playbackSpeed = isLowEndRef.current ? 1.25 : 1.45;
+      // Reset start time if video had already reached end or was scrubbed forward
+      if (activeVideo.currentTime > 0.05 && activeVideo.currentTime >= (activeVideo.duration || 3.3) - 0.1) {
+        try {
+          activeVideo.currentTime = 0.01;
+        } catch (e) {}
+      }
+
+      const duration = activeVideo.duration && isFinite(activeVideo.duration) && activeVideo.duration > 0
+        ? activeVideo.duration
+        : 3.32;
+      const targetTime = Math.max(0.01, duration - 0.02);
+      // Play at natural cinematic 1.0x speed so every construction detail is fully visible
+      const playbackSpeed = 1.0;
       activeVideo.playbackRate = playbackSpeed;
 
-      const playPromise = activeVideo.play();
-      const travelDistance = Math.max(0.1, targetTime - (activeVideo.currentTime || 0));
-      const watchdogMs = Math.max(3000, Math.ceil((travelDistance / playbackSpeed) * 1000) + 1000);
+      let stallTimer = null;
+      const handleBufferStall = () => {
+        if (!stallTimer) {
+          stallTimer = setTimeout(finishAnimation, 4000);
+        }
+      };
+      const handlePlaying = () => {
+        if (stallTimer) {
+          clearTimeout(stallTimer);
+          stallTimer = null;
+        }
+      };
 
-      watchdogRef.current = setTimeout(() => {
+      const finishAnimation = () => {
+        if (stallTimer) {
+          clearTimeout(stallTimer);
+          stallTimer = null;
+        }
+        if (watchdogRef.current) {
+          clearTimeout(watchdogRef.current);
+          watchdogRef.current = null;
+        }
         if (playRafRef.current) {
           cancelAnimationFrame(playRafRef.current);
           playRafRef.current = null;
         }
         if (activeVideo) {
+          activeVideo.removeEventListener("waiting", handleBufferStall);
+          activeVideo.removeEventListener("stalled", handleBufferStall);
+          activeVideo.removeEventListener("playing", handlePlaying);
+          activeVideo.removeEventListener("error", handleBufferStall);
           activeVideo.pause();
           try {
             activeVideo.currentTime = targetTime;
@@ -324,16 +361,39 @@ export function useScrollScrub(containerRef) {
         lastDisplayedPctRef.current = endPct;
         setDisplayedPct(endPct);
         setProgress(endProg);
-        isAnimatingRef.current = false;
-        watchdogRef.current = null;
 
         if (clampedStep === 3) {
           setIsCompleted(true);
           setHasCompletedBuild(true);
           hasCompletedRef.current = true;
           videoFinishedRef.current = true;
+          setReturnToCompletedHome(true);
+
+          // Lock scroll for 1200ms after build completion
+          // to absorb any residual wheel/touch momentum so the user can appreciate the finished house
+          cooldownRef.current = true;
+          setTimeout(() => {
+            cooldownRef.current = false;
+          }, 1200);
+        } else {
+          cooldownRef.current = true;
+          setTimeout(() => {
+            cooldownRef.current = false;
+          }, 400);
         }
-      }, watchdogMs);
+
+        isAnimatingRef.current = false;
+      };
+
+      activeVideo.addEventListener("waiting", handleBufferStall);
+      activeVideo.addEventListener("stalled", handleBufferStall);
+      activeVideo.addEventListener("playing", handlePlaying);
+      activeVideo.addEventListener("error", finishAnimation, { once: true });
+
+      const playPromise = activeVideo.play();
+      const travelDistance = Math.max(0.1, targetTime - (activeVideo.currentTime || 0));
+      const watchdogMs = Math.ceil((travelDistance / playbackSpeed) * 1000) + 2000;
+      watchdogRef.current = setTimeout(finishAnimation, watchdogMs);
 
       const monitorForward = () => {
         const nowTime = activeVideo.currentTime;
@@ -347,27 +407,8 @@ export function useScrollScrub(containerRef) {
           setProgress(currentProg);
         }
 
-        if (nowTime >= targetTime - 0.04 || activeVideo.ended) {
-          if (watchdogRef.current) {
-            clearTimeout(watchdogRef.current);
-            watchdogRef.current = null;
-          }
-          activeVideo.pause();
-          try {
-            activeVideo.currentTime = targetTime;
-          } catch (e) {}
-          lastDisplayedPctRef.current = endPct;
-          setDisplayedPct(endPct);
-          setProgress(endProg);
-          isAnimatingRef.current = false;
-          playRafRef.current = null;
-
-          if (clampedStep === 3) {
-            setIsCompleted(true);
-            setHasCompletedBuild(true);
-            hasCompletedRef.current = true;
-            videoFinishedRef.current = true;
-          }
+        if (nowTime >= targetTime - 0.02 || activeVideo.ended) {
+          finishAnimation();
         } else {
           if (activeVideo.paused && !activeVideo.ended && nowTime < targetTime - 0.05) {
             activeVideo.play().catch(() => {});
@@ -382,7 +423,7 @@ export function useScrollScrub(containerRef) {
             playRafRef.current = requestAnimationFrame(monitorForward);
           })
           .catch(() => {
-            // Autoplay blocked fallback: smooth scrub forward
+            // Autoplay blocked fallback or low power mode: smooth scrub forward
             scrubBackward(
               activeVideo,
               activeVideo.currentTime || 0.01,
@@ -392,13 +433,9 @@ export function useScrollScrub(containerRef) {
               startPct,
               endPct,
               () => {
-                if (clampedStep === 3) {
-                  setIsCompleted(true);
-                  setHasCompletedBuild(true);
-                  hasCompletedRef.current = true;
-                  videoFinishedRef.current = true;
-                }
-              }
+                finishAnimation();
+              },
+              2000
             );
           });
       } else {
@@ -460,64 +497,38 @@ export function useScrollScrub(containerRef) {
   }, [scrubBackward]);
 
   // Advance to next milestone (0 -> 33% -> 66% -> 100% -> 4th scroll enters homepage #overview)
-  // Guarantees the video is 100% finished/built BEFORE transitioning to the homepage
+  // Guarantees each video part is 100% finished and the house is fully built BEFORE transitioning to the homepage
   const nextStep = useCallback(() => {
-    if (cooldownRef.current) return;
+    // 1. If video is currently animating, DO NOT skip or cancel the video!
+    // The user must be allowed to watch each construction stage from start to finish without skipping.
+    if (isAnimatingRef.current) {
+      return;
+    }
+
+    if (cooldownRef.current) {
+      return;
+    }
 
     const curr = currentStepRef.current;
-    if (curr < 3 && isAnimatingRef.current) return;
-    const v3 = video3Ref.current;
-    const duration = v3?.duration && isFinite(v3.duration) ? v3.duration : 3.31;
-    const maxTimestamp = Math.max(0, duration - 0.04);
-    const isAtEnd = videoFinishedRef.current || (v3 && v3.currentTime >= maxTimestamp - 0.08);
 
+    // 2. If in build sequence (0 -> 1, 1 -> 2, 2 -> 3):
     if (curr < 3) {
       cooldownRef.current = true;
       setTimeout(() => {
         cooldownRef.current = false;
-      }, 350);
+      }, 500);
       goToStep(curr + 1);
     } else {
-      // 4th scroll / Step 3 interaction:
-      // If the video has NOT finished playing to 100% yet:
-      // Must ensure the video completes and the house is fully built BEFORE going to home screen!
-      if (!isAtEnd || isAnimatingRef.current) {
-        cooldownRef.current = true;
-        setTimeout(() => {
-          cooldownRef.current = false;
-        }, 450);
-
-        if (playRafRef.current) {
-          cancelAnimationFrame(playRafRef.current);
-          playRafRef.current = null;
-        }
-        if (watchdogRef.current) {
-          clearTimeout(watchdogRef.current);
-          watchdogRef.current = null;
-        }
-        if (v3) {
-          v3.pause();
-          try {
-            v3.currentTime = maxTimestamp;
-          } catch (e) {}
-        }
-        lastDisplayedPctRef.current = 100;
-        setDisplayedPct(100);
-        setProgress(1.0);
-        setIsCompleted(true);
-        setHasCompletedBuild(true);
-        hasCompletedRef.current = true;
-        videoFinishedRef.current = true;
-        isAnimatingRef.current = false;
+      // 3. Step 3 (Completed Residence):
+      // Only transition to homepage AFTER the house is verified 100% completed!
+      if (!hasCompletedRef.current) {
         return;
       }
 
-      // Video IS verified 100% completed and house is fully built!
-      // Smoothly enter the rest of the website (#overview)
       cooldownRef.current = true;
       setTimeout(() => {
         cooldownRef.current = false;
-      }, 600);
+      }, 800);
 
       const overviewEl = document.getElementById("overview");
       if (overviewEl) {
@@ -529,23 +540,12 @@ export function useScrollScrub(containerRef) {
     }
   }, [goToStep]);
 
-  // Step back to previous milestone (only active during initial construction stages before completion)
+  // Step back to previous milestone (locked: build progress is strictly forward-only until 100% completion)
   const prevStep = useCallback(() => {
-    // Lock reverse once build is completed (Step 3) - user requested "wag sya ma scroll up pabalik sa video scroll"
-    if (currentStepRef.current >= 3 || hasCompletedRef.current) {
-      return;
-    }
-    if (cooldownRef.current) return;
-    cooldownRef.current = true;
-    setTimeout(() => {
-      cooldownRef.current = false;
-    }, 350);
-
-    const curr = currentStepRef.current;
-    if (curr > 0) {
-      goToStep(curr - 1);
-    }
-  }, [goToStep]);
+    // Locked: User requested "naka lock na ung scroll up rito like ung progress dyan is need matapos nalang"
+    // Progress must strictly move forward (0% -> 33% -> 66% -> 100%) without unbuilding/reversing
+    return;
+  }, []);
 
   // Interactive gestures: Desktop Wheel, Mobile Touch Swipe, and Keyboard
   useEffect(() => {
@@ -556,40 +556,53 @@ export function useScrollScrub(containerRef) {
     const handleWheel = (e) => {
       const scrollY = window.scrollY;
       const vh = window.innerHeight;
+      const isInHero = scrollY <= 3.15 * vh;
 
-      // CASE 1: Build is completed (Step 3 reached or site completed)
-      if (hasCompletedRef.current || currentStepRef.current >= 3) {
-        if (e.deltaY > 25) {
-          // Scrolling DOWN
-          if (scrollY <= 3.1 * vh) {
-            e.preventDefault();
-            nextStep();
-          }
-          return;
-        } else if (e.deltaY < -25) {
-          // Scrolling UP
-          // User requested: "wag sya ma scroll up pabalik sa video scroll ganun"
-          if (scrollY <= 3 * vh + 10) {
-            e.preventDefault();
+      // When the user is within the Hero section (Steps 0, 1, 2, or 3):
+      if (isInHero) {
+        // Prevent default on ALL wheel events within the hero so native page scroll CANNOT leak
+        e.preventDefault();
+
+        // CASE 1: Build is completed (Step 3 reached AND house is 100% completed)
+        if (hasCompletedRef.current && currentStepRef.current >= 3) {
+          if (e.deltaY > 0) {
+            // Scrolling DOWN towards homepage #overview
+            if (!cooldownRef.current && !isAnimatingRef.current) {
+              if (Math.abs(e.deltaY) > 15) {
+                nextStep();
+              }
+            }
+          } else {
+            // Scrolling UP: Locked! Prevent scroll up into unbuilt stages
             if (scrollY < 3 * vh) {
               window.scrollTo({ top: 3 * vh, behavior: "instant" });
             }
-            return;
           }
           return;
+        }
+
+        // CASE 2: During initial build sequence (Steps 0..2 or Step 3 still playing)
+        // Upward scroll is completely locked so progress is strictly forward-only
+        if (e.deltaY > 0) {
+          // Scrolling DOWN: advance to next stage if allowed
+          if (!isAnimatingRef.current && !cooldownRef.current) {
+            if (Math.abs(e.deltaY) > 15) {
+              nextStep();
+            }
+          }
+        } else {
+          // Locked: Upward scroll prevented, progress must finish forward
         }
         return;
       }
 
-      // CASE 2: During initial build sequence (Steps 0..2)
-      if (e.deltaY > 25) {
+      // CASE 3: User is in the Homepage (#overview or below, scrollY > 3.15 * vh)
+      // If user scrolls UP from homepage back to the top of the hero:
+      if (e.deltaY < 0 && scrollY <= 3.25 * vh) {
+        // Stop cleanly at 3 * vh (the completed residence screen)
         e.preventDefault();
-        nextStep();
-      } else if (e.deltaY < -25) {
-        e.preventDefault();
-        if (currentStepRef.current > 0) {
-          prevStep();
-        }
+        window.scrollTo({ top: 3 * vh, behavior: "smooth" });
+        return;
       }
     };
 
@@ -604,9 +617,10 @@ export function useScrollScrub(containerRef) {
     const handleTouchMove = (e) => {
       const scrollY = window.scrollY;
       const vh = window.innerHeight;
+      const isInHero = scrollY <= 3.15 * vh;
 
-      // Inside hero build sequence, prevent runaway native scroll only before completion
-      if (!hasCompletedRef.current && currentStepRef.current < 3 && scrollY <= 3.05 * vh) {
+      // Inside hero section before 4th scroll transitions to overview, prevent runaway native scroll
+      if (isInHero) {
         const target = e.target;
         if (target && target.closest && (target.closest("button") || target.closest("a") || target.closest("input"))) {
           return;
@@ -620,8 +634,9 @@ export function useScrollScrub(containerRef) {
     const handleTouchEnd = (e) => {
       const scrollY = window.scrollY;
       const vh = window.innerHeight;
+      const isInHero = scrollY <= 3.15 * vh;
 
-      if (e.changedTouches.length === 1) {
+      if (e.changedTouches.length === 1 && isInHero) {
         const endY = e.changedTouches[0].clientY;
         const deltaY = touchStartYRef.current - endY;
 
@@ -629,16 +644,11 @@ export function useScrollScrub(containerRef) {
         if (Math.abs(deltaY) > 28) {
           if (deltaY > 0) {
             // Swiped UP = advance to next stage / scroll down
-            if (!hasCompletedRef.current && currentStepRef.current < 3) {
-              nextStep();
-            } else if (scrollY <= 3.1 * vh) {
+            if (!isAnimatingRef.current && !cooldownRef.current) {
               nextStep();
             }
           } else {
-            // Swiped DOWN = scroll up / back to previous stage
-            if (!hasCompletedRef.current && currentStepRef.current < 3) {
-              prevStep();
-            }
+            // Swiped DOWN (attempting scroll up) - locked during build sequence
           }
         }
       }
@@ -647,23 +657,25 @@ export function useScrollScrub(containerRef) {
     // Keyboard controls
     const handleKeyDown = (e) => {
       const scrollY = window.scrollY;
+      const vh = window.innerHeight;
+      const isInHero = scrollY <= 3.15 * vh;
 
-      if (!hasCompletedRef.current && currentStepRef.current < 3) {
-        if (["ArrowDown", "PageDown", " "].includes(e.key)) {
-          e.preventDefault();
-          nextStep();
-        } else if (["ArrowUp", "PageUp"].includes(e.key) && currentStepRef.current > 0) {
-          e.preventDefault();
-          prevStep();
-        }
-      } else {
-        // Build is completed:
-        const vh = window.innerHeight;
-        if (["ArrowDown", "PageDown", " "].includes(e.key) && scrollY <= 3.1 * vh) {
-          e.preventDefault();
-          nextStep();
-        } else if (["ArrowUp", "PageUp"].includes(e.key) && scrollY <= 3.05 * vh) {
-          e.preventDefault();
+      if (isInHero) {
+        if (!hasCompletedRef.current) {
+          if (["ArrowDown", "PageDown", " "].includes(e.key)) {
+            e.preventDefault();
+            nextStep();
+          } else if (["ArrowUp", "PageUp"].includes(e.key)) {
+            e.preventDefault();
+          }
+        } else {
+          // Build is completed:
+          if (["ArrowDown", "PageDown", " "].includes(e.key)) {
+            e.preventDefault();
+            nextStep();
+          } else if (["ArrowUp", "PageUp"].includes(e.key)) {
+            e.preventDefault();
+          }
         }
       }
     };
@@ -688,38 +700,21 @@ export function useScrollScrub(containerRef) {
     let scrollTimeout = null;
 
     const handleScroll = () => {
+      if (isAnimatingRef.current || isProgrammaticScrollRef.current) return;
       const scrollY = window.scrollY;
       const vh = window.innerHeight;
 
       // When build is completed: prevent scrolling up above 3 * vh into unbuilt video stages
-      if (hasCompletedRef.current || currentStepRef.current >= 3) {
+      if (hasCompletedRef.current) {
         if (!isProgrammaticScrollRef.current && scrollY < 3 * vh - 8) {
           window.scrollTo({ top: 3 * vh, behavior: "instant" });
         }
         return;
       }
 
-      const heroEnd = 3.6 * vh;
-      if (scrollY >= heroEnd) {
-        if (!hasCompletedRef.current) {
-          hasCompletedRef.current = true;
-          videoFinishedRef.current = true;
-          setHasCompletedBuild(true);
-          currentStepRef.current = 3;
-          setCurrentStep(3);
-          setActivePartIndex(2);
-          setProgress(1.0);
-          setDisplayedPct(100);
-          setStageName(STAGE_LABELS[3]);
-          setIsCompleted(true);
-          const v3 = video3Ref.current;
-          if (v3 && v3.duration) {
-            v3.pause();
-            try {
-              v3.currentTime = v3.duration - 0.04;
-            } catch (e) {}
-          }
-        }
+      // During initial build: If scroll position drifted past 3.05 * vh before build is completed, pin back to current step
+      if (!hasCompletedRef.current && scrollY > 3.05 * vh) {
+        window.scrollTo({ top: currentStepRef.current * vh, behavior: "instant" });
         return;
       }
 
@@ -817,6 +812,23 @@ export function useScrollScrub(containerRef) {
       }, 300);
     }
   }, [isReturning]);
+
+  // Listen for navigation event to jump directly to completed residence screen
+  useEffect(() => {
+    const handleGotoCompleted = () => {
+      goToStep(3, true);
+      setReturnToCompletedHome(true);
+      if (typeof window !== "undefined") {
+        const vh = window.innerHeight;
+        window.scrollTo({ top: 3 * vh, behavior: "smooth" });
+      }
+    };
+
+    window.addEventListener("mcpa:goto-completed", handleGotoCompleted);
+    return () => {
+      window.removeEventListener("mcpa:goto-completed", handleGotoCompleted);
+    };
+  }, [goToStep]);
 
   // Replay build functionality
   const replayBuild = useCallback(() => {

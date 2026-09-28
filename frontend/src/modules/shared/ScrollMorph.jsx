@@ -74,7 +74,7 @@ export default function ScrollMorph({
             ? "perspective(1200px) translateY(0px) rotateX(0deg) skewY(0deg)"
             : "perspective(1200px) translateY(55px) rotateX(10deg) skewY(-0.5deg)",
           clipPath: isVisible
-            ? "inset(0% 0% 0% 0% round 1rem)"
+            ? "inset(-24px -24px -24px -24px round 1.5rem)"
             : "inset(12% 0% 0% 0% round 1rem)",
           filter: isVisible ? "blur(0px)" : "blur(2px)",
         };

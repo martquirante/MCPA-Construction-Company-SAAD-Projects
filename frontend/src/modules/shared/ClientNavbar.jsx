@@ -14,6 +14,7 @@ import {
   SunIcon,
   MoonIcon,
 } from "./Icons";
+import { WifiOff } from "lucide-react";
 import UtilityBar from "./UtilityBar";
 import { getThemePreference, setThemePreference } from "./SystemThemeSync";
 import { useLanguage } from "./LanguageContext";
@@ -27,6 +28,35 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
   const [scrolledPastHero, setScrolledPastHero] = useState(!isHome);
   const [announcementState, setAnnouncementState] = useState({ route: pathname, dismissed: false });
   const announcementDismissed = announcementState.route === pathname && announcementState.dismissed;
+  const [isModalActive, setIsModalActive] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (typeof navigator !== "undefined") setIsOnline(navigator.onLine);
+    const handleOff = () => setIsOnline(false);
+    const handleOn = () => setIsOnline(true);
+    window.addEventListener("offline", handleOff);
+    window.addEventListener("online", handleOn);
+    return () => {
+      window.removeEventListener("offline", handleOff);
+      window.removeEventListener("online", handleOn);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkModal = () => {
+      setIsModalActive(document.body.classList.contains("modal-open"));
+    };
+
+    checkModal();
+    const observer = new MutationObserver(checkModal);
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!isHome) {
@@ -66,14 +96,15 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
 
   const handleNavClick = (e, href) => {
     if (href === "/") {
+      setReturnToCompletedHome(true);
       if (typeof window !== "undefined" && window.location.pathname === "/") {
         e.preventDefault();
+        window.dispatchEvent(new CustomEvent("mcpa:goto-completed"));
         const vh = window.innerHeight;
-        window.scrollTo({ top: 3 * vh, behavior: "instant" });
+        window.scrollTo({ top: 3 * vh, behavior: "smooth" });
         window.history.replaceState(null, "", "/");
         return;
       }
-      setReturnToCompletedHome(true);
     } else if (href.startsWith("/#") || href.startsWith("#")) {
       const targetId = href.replace("/#", "").replace("#", "");
       if (typeof window !== "undefined" && window.location.pathname === "/") {
@@ -99,7 +130,13 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
 
   return (
     <>
-      <div className="fixed top-0 inset-x-0 z-50 transition-all duration-700 select-none print:hidden">
+      <div
+        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 select-none print:hidden ${
+          isModalActive
+            ? "opacity-0 -translate-y-full pointer-events-none invisible"
+            : "opacity-100 translate-y-0"
+        }`}
+      >
         {/* Top Utility Announcement Bar (ShopRave Inspired) */}
         <div className="relative z-50">
           <UtilityBar
@@ -129,20 +166,22 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
             >
               <div className="relative w-36 sm:w-44 md:w-52 h-10 transition-transform duration-300 group-hover:scale-105">
                 <Image
-                  src="/assets/logo-white.png"
+                  src="/assets/logo-white.svg"
                   alt="MCPA Construction and Supply"
                   fill
                   priority
+                  unoptimized
                   className={`object-contain object-left ${
                     isHome && !isCompleted ? "block drop-shadow-md" : "hidden dark:block"
                   }`}
                   sizes="(max-width: 768px) 180px, 220px"
                 />
                 <Image
-                  src="/assets/mcpa-logo.png"
+                  src="/assets/mcpa-logo.svg"
                   alt="MCPA Construction and Supply"
                   fill
                   priority
+                  unoptimized
                   className={`object-contain object-left ${
                     isHome && !isCompleted ? "hidden" : "block dark:hidden"
                   }`}
@@ -200,6 +239,19 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
               >
                 {t("bookAppointment")}
               </Link>
+            )}
+
+            {/* Automatic Offline Indicator Pill (kusa lumalabas kapag nawalan ng net) */}
+            {!isOnline && (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/40 text-red-600 dark:text-red-400 text-xs font-bold animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.4)] select-none"
+                title={language === "fil" ? "Walang koneksyon sa internet" : "No internet connection"}
+              >
+                <WifiOff className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline font-mono uppercase tracking-wider text-[11px]">
+                  {language === "fil" ? "Offline" : "Offline"}
+                </span>
+              </div>
             )}
 
             {/* Client Portal Link Button: Unblurred clear glass circle */}

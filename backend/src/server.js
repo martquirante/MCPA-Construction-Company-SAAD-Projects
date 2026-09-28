@@ -110,6 +110,7 @@ app.get("/api/auth/me", (req, res) => authController.me(req, res));
 app.get("/api/projects", (req, res) => projectsController.getAll(req, res));
 app.post("/api/projects", upload.single("image"), (req, res) => projectsController.create(req, res));
 app.put("/api/projects/:id", upload.single("image"), (req, res) => projectsController.update(req, res));
+app.patch("/api/projects/:id/featured", (req, res) => projectsController.toggleFeatured(req, res));
 app.delete("/api/projects/:id", (req, res) => projectsController.delete(req, res));
 
 // -----------------------------------------------------------------------------

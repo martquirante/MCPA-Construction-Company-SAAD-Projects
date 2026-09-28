@@ -104,7 +104,7 @@ export default function CraftInMotion() {
             loop
             playsInline
             preload="auto"
-            className={`absolute inset-0 w-full h-full object-cover select-none pointer-events-none transition-opacity duration-[1500ms] ease-in-out ${
+            className={`absolute inset-0 w-full h-full object-cover select-none pointer-events-none transition-opacity duration-[1500ms] ease-in-out contrast-[1.06] saturate-[1.12] brightness-[1.03] ${
               isActive
                 ? "opacity-100 z-[2]"
                 : isPrev
@@ -115,8 +115,9 @@ export default function CraftInMotion() {
         );
       })}
 
-      {/* Cinematic Dark Gradient Tint Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/90 via-neutral-950/65 to-neutral-950/85 pointer-events-none z-10" />
+      {/* Cinematic Precision Gradient Overlay - Protects left text while letting the 4K video shine on the right */}
+      <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/90 via-neutral-950/45 to-neutral-950/15 pointer-events-none z-10" />
+      <div className="absolute inset-0 bg-gradient-to-b from-neutral-950/40 via-transparent to-neutral-950/60 pointer-events-none z-10" />
 
       {/* Content Container */}
       <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center">

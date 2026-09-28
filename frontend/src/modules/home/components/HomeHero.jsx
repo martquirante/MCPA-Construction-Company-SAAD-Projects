@@ -28,21 +28,21 @@ export default function HomeHero() {
         <div className="absolute inset-0 hidden sm:block">
           {/* Light Theme: Sunny Daytime Architectural Residence */}
           <Image
-            src="/assets/hero-residence-day.jpg"
+            src="/assets/hero-residence-day-wide-v2.jpg"
             alt="MCPA Luxury Modern Residence"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-center dark:hidden"
+            className="object-cover object-[center_35%] dark:hidden"
           />
           {/* Dark Theme: Twilight / Night Luxury Residence */}
           <Image
-            src="/assets/hero-residence.jpg"
+            src="/assets/hero-residence-wide-v2.jpg"
             alt="MCPA Luxury Modern Residence"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-center hidden dark:block"
+            className="object-cover object-[center_35%] hidden dark:block"
           />
         </div>
 

@@ -43,16 +43,18 @@ export const metadata = {
   ],
   icons: {
     icon: [
-      { url: "/icon.png?v=2", sizes: "512x512", type: "image/png" },
-      { url: "/favicon.ico?v=2", sizes: "any" },
+      { url: "/icon.svg?v=3", type: "image/svg+xml" },
+      { url: "/icon.png?v=3", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico?v=3", sizes: "any" },
     ],
-    shortcut: "/icon.png?v=2",
-    apple: "/icon.png?v=2",
+    shortcut: "/icon.svg?v=3",
+    apple: "/icon.png?v=3",
   },
 };
 
 import ScrollToTop from "@/modules/shared/ScrollToTop";
 import SystemThemeSync from "@/modules/shared/SystemThemeSync";
+import NetworkStatusBar from "@/modules/shared/NetworkStatusBar";
 import { LanguageProvider } from "@/modules/shared/LanguageContext";
 
 export default function RootLayout({ children }) {
@@ -63,33 +65,18 @@ export default function RootLayout({ children }) {
       className={`${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased font-sans`}
     >
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap"
-          rel="stylesheet"
-        />
-        <script
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var pref = localStorage.getItem('mcpa-theme');
-                  var isDark = pref === 'dark' || (!pref || pref === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  if (isDark) {
-                    document.documentElement.classList.add('dark');
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                  }
-                } catch (e) {}
-              })();
-            `,
+            __html: `(function(){try{var p=localStorage.getItem('mcpa-theme');var d=p==='dark'||(!p||p==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}catch(e){}})();`,
           }}
         />
       </head>
       <body suppressHydrationWarning className="min-h-full flex flex-col">
         <Script src="https://cdn.lordicon.com/lordicon.js" strategy="afterInteractive" />
         <LanguageProvider>
+          <NetworkStatusBar />
           <SystemThemeSync />
           <ScrollToTop />
           {children}

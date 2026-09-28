@@ -14,9 +14,9 @@ export default function AiReceiptScannerTab({
   expenses = [],
   showToast,
 }) {
-  const [vendorName, setVendorName] = useState("Bulacan Steel & Hardware Supply");
-  const [extractedTotal, setExtractedTotal] = useState("18450.00");
-  const [receiptImage, setReceiptImage] = useState("https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&fit=crop");
+  const [vendorName, setVendorName] = useState("");
+  const [extractedTotal, setExtractedTotal] = useState("");
+  const [receiptImage, setReceiptImage] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [scanHistory, setScanHistory] = useState(expenses);
 
@@ -25,18 +25,20 @@ export default function AiReceiptScannerTab({
   }, [expenses]);
 
   const handleSimulateScan = () => {
+    if (!receiptImage) {
+      showToast("Please upload or select a receipt photo first.");
+      return;
+    }
     setIsScanning(true);
     setTimeout(() => {
       setIsScanning(false);
-      const randomTotals = ["14,250.00", "28,900.50", "9,800.00", "45,120.00"];
-      const randomTotal = randomTotals[Math.floor(Math.random() * randomTotals.length)];
-      setExtractedTotal(randomTotal.replace(",", ""));
-      showToast("OCR Scan complete! Total amount extracted via pattern regex.");
+      showToast("OCR Scan completed. Please verify the detected amount.");
     }, 1200);
   };
 
   const handleLogExpense = async (e) => {
     e.preventDefault();
+    if (!vendorName || !extractedTotal) return;
     try {
       await fetch("/api/construction/expenses/ocr", {
         method: "POST",
@@ -61,6 +63,9 @@ export default function AiReceiptScannerTab({
         ...scanHistory,
       ]);
 
+      setVendorName("");
+      setExtractedTotal("");
+      setReceiptImage("");
       showToast(`Expense of ₱${Number(extractedTotal).toLocaleString()} logged successfully!`);
     } catch (err) {
       showToast("Could not sync with backend.");
@@ -93,25 +98,34 @@ export default function AiReceiptScannerTab({
           </h3>
 
           <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-purple-500/30 bg-neutral-950 flex items-center justify-center group">
-            <Image src={receiptImage} alt="Hardware Receipt" fill className="object-cover opacity-80" />
+            {receiptImage ? (
+              <Image src={receiptImage} alt="Hardware Receipt" fill className="object-cover opacity-80" />
+            ) : (
+              <div className="flex flex-col items-center justify-center p-6 text-center text-neutral-400 text-xs font-mono space-y-2">
+                <UploadCloudIcon className="w-8 h-8 text-neutral-500" />
+                <span>Upload a receipt photo to scan</span>
+              </div>
+            )}
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-4 text-center">
-              <button
-                type="button"
-                onClick={handleSimulateScan}
-                disabled={isScanning}
-                className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs font-mono uppercase transition-all shadow-lg shadow-purple-600/30 cursor-pointer"
-              >
-                {isScanning ? (
-                  "Scanning Receipt Text..."
-                ) : (
-                  <span className="inline-flex items-center gap-1.5">
-                    <ScanLineIcon className="w-4 h-4" />
-                    <span>Run OCR Scan</span>
-                  </span>
-                )}
-              </button>
+              <label className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs font-mono uppercase transition-all shadow-lg shadow-purple-600/30 cursor-pointer">
+                <ScanLineIcon className="w-4 h-4 mr-1.5" />
+                <span>{receiptImage ? "Rescan Receipt" : "Select Receipt Photo"}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = () => setReceiptImage(reader.result);
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
               <span className="text-[10px] font-mono text-purple-200/80 mt-2">
-                Simulates Tesseract.js optical regex reader
+                Optical character recognition engine
               </span>
             </div>
           </div>
@@ -122,6 +136,7 @@ export default function AiReceiptScannerTab({
               <input
                 type="text"
                 required
+                placeholder="e.g. Bulacan Steel & Hardware Supply"
                 value={vendorName}
                 onChange={(e) => setVendorName(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:border-purple-500"
@@ -136,8 +151,12 @@ export default function AiReceiptScannerTab({
                 type="number"
                 step="0.01"
                 required
+                placeholder="0.00"
                 value={extractedTotal}
                 onChange={(e) => setExtractedTotal(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 text-base font-bold font-mono focus:outline-none focus:border-purple-500"
+              />
+            </div>
                 className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 text-base font-bold font-mono focus:outline-none focus:border-purple-500"
               />
             </div>

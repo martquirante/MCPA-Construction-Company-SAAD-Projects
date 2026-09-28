@@ -20,10 +20,11 @@ import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 import MetricCard3D from "@/modules/admin/components/MetricCard3D";
 
 const PROJECT_STAGE_COLORS = {
-  "Residential": "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30",
-  "Commercial": "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30",
-  "Industrial": "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
-  "Renovation": "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+  "Residential": "bg-amber-500/10 text-amber-300/90 border-amber-500/20",
+  "Commercial": "bg-white/[0.05] text-neutral-300 border-white/10",
+  "Industrial": "bg-neutral-800/80 text-neutral-300 border-neutral-700/60",
+  "Renovation": "bg-stone-500/15 text-stone-300 border-stone-500/25",
+  "Modern Zen": "bg-white/[0.05] text-neutral-300 border-white/10",
 };
 
 function MeetingTypeBadge({ mode }) {
@@ -35,14 +36,14 @@ function MeetingTypeBadge({ mode }) {
 
   if (isOnline) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 dark:text-sky-300 text-[11px] font-medium whitespace-nowrap">
         <VideoIcon className="w-3 h-3" />
         Google Meet
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 text-[11px] font-medium whitespace-nowrap">
       <MapPinIcon className="w-3 h-3" />
       Face-to-Face
     </span>
@@ -63,12 +64,6 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
     .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0))
     .slice(0, 5);
   const featuredProjects = allProjects.slice(0, 3);
-  const mockProgress = [68, 34, 92];
-  const mockStages = [
-    "Structural Framing & 2nd Floor Slab",
-    "Foundation & Ground Floor Columns",
-    "Final Finishing & Punchlisting",
-  ];
 
   return (
     <div className="space-y-6">
@@ -76,19 +71,19 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
         <h2 className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
           Dashboard Overview
         </h2>
-        <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400 mt-0.5">
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
           MCPA Construction Admin Console — Live Operations Summary
         </p>
       </div>
 
-      {/* 3D Interactive Perspective Metric Cards (Drive&Go Design Architecture) */}
+      {/* 3D Interactive Perspective Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard3D
           label="New Inquiries"
           value={pendingCount}
           sub="Awaiting review"
           accentColor="#F59E0B"
-          glowColor="rgba(245, 158, 11, 0.28)"
+          glowColor="rgba(245, 158, 11, 0.2)"
           icon={ClipboardListIcon}
           onClick={() => onNavigateTab?.("briefs")}
         />
@@ -96,8 +91,8 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
           label="Scheduled Meetings"
           value={scheduledCount}
           sub="With meeting link"
-          accentColor="#0284C7"
-          glowColor="rgba(14, 165, 233, 0.28)"
+          accentColor="#38BDF8"
+          glowColor="rgba(56, 189, 248, 0.2)"
           icon={CalendarIcon}
           onClick={() => onNavigateTab?.("briefs")}
         />
@@ -106,7 +101,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
           value={allProjects.length}
           sub="Live on portfolio"
           accentColor="#10B981"
-          glowColor="rgba(16, 185, 129, 0.28)"
+          glowColor="rgba(16, 185, 129, 0.2)"
           icon={BuildingIcon}
           onClick={() => onNavigateTab?.("projects")}
         />
@@ -114,8 +109,8 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
           label="Action Required"
           value={needsActionCount}
           sub="Needs response"
-          accentColor="#F43F5E"
-          glowColor="rgba(244, 63, 94, 0.28)"
+          accentColor="#FB7185"
+          glowColor="rgba(251, 113, 133, 0.2)"
           icon={BellIcon}
           onClick={() => onNavigateTab?.("briefs")}
         />
@@ -124,8 +119,8 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <div className="xl:col-span-3 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-wider font-mono">Active Portfolio Projects</h3>
-            <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">{allProjects.length} total</span>
+            <h3 className="text-sm font-semibold text-neutral-900 dark:text-white tracking-tight">Active Portfolio Projects</h3>
+            <span className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">{allProjects.length} total</span>
           </div>
 
           {featuredProjects.length === 0 ? (
@@ -140,28 +135,50 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
           ) : (
             <div className="space-y-3">
               {featuredProjects.map((project, idx) => {
-                const progress = mockProgress[idx] ?? 50;
-                const stage = mockStages[idx] ?? "In Progress";
-                const categoryColor = PROJECT_STAGE_COLORS[project.category] || "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700";
+                const progress = typeof project.progress === "number"
+                  ? project.progress
+                  : (project.status === "completed" ? 100 : (project.status === "in_progress" ? 60 : 30));
+                const stage = project.stage || (
+                  project.status === "completed"
+                    ? "Turned Over & Complete"
+                    : project.status === "in_progress"
+                    ? "Under Construction"
+                    : "Planning & Design Phase"
+                );
+                const categoryColor = PROJECT_STAGE_COLORS[project.category] || "bg-neutral-100 dark:bg-white/[0.04] text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-white/10";
                 return (
-                  <div key={project?.id ? `feat-${project.id}-${idx}` : `feat-idx-${idx}`} className="p-5 rounded-2xl bg-white dark:bg-[#131B2E] border border-neutral-200 dark:border-[#1E293B] shadow-sm dark:shadow-none space-y-3">
+                  <div
+                    key={project?.id ? `feat-${project.id}-${idx}` : `feat-idx-${idx}`}
+                    className="p-5 rounded-2xl bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.07] hover:border-neutral-300 dark:hover:border-white/[0.12] transition-colors shadow-xs space-y-3.5"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-bold text-sm text-neutral-900 dark:text-white truncate">{project.name}</p>
+                        <p className="font-semibold text-sm text-neutral-900 dark:text-white tracking-tight truncate">{project.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <MapPinIcon className="w-3 h-3 text-neutral-400 shrink-0" />
-                          <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 truncate">{project.location}</span>
+                          <MapPinIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                          <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{project.location}</span>
                         </div>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono uppercase shrink-0 ${categoryColor}`}>{project.category}</span>
+                      <span className={`px-2.5 py-0.5 rounded-md border text-[11px] font-medium tracking-wide shrink-0 ${categoryColor}`}>
+                        {project.category}
+                      </span>
                     </div>
                     <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[10px] font-mono">
-                        <span className="text-neutral-500 dark:text-neutral-400 uppercase">{stage}</span>
-                        <span className={`font-bold ${progress >= 80 ? "text-emerald-600 dark:text-emerald-400" : progress >= 50 ? "text-amber-600 dark:text-amber-400" : "text-sky-600 dark:text-sky-400"}`}>{progress}%</span>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-neutral-500 dark:text-neutral-400 font-medium">{stage}</span>
+                        <span className="font-semibold text-neutral-800 dark:text-neutral-200 tabular-nums">{progress}%</span>
                       </div>
-                      <div className="h-1.5 w-full rounded-full bg-neutral-200 dark:bg-white/10 overflow-hidden">
-                        <div className={`h-full rounded-full transition-all duration-700 ${progress >= 80 ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : progress >= 50 ? "bg-gradient-to-r from-amber-500 to-amber-400" : "bg-gradient-to-r from-sky-500 to-sky-400"}`} style={{ width: `${progress}%` }} />
+                      <div className="h-1.5 w-full rounded-full bg-neutral-100 dark:bg-white/[0.06] overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${
+                            progress >= 80
+                              ? "bg-amber-500"
+                              : progress >= 50
+                              ? "bg-amber-500/90"
+                              : "bg-neutral-400 dark:bg-neutral-500"
+                          }`}
+                          style={{ width: `${progress}%` }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -172,8 +189,8 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
 
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-wider font-mono">Recent Inquiries</h3>
-              <span className="text-[10px] font-mono text-neutral-500 uppercase">{clientBriefs.length} total</span>
+              <h3 className="text-sm font-semibold text-neutral-900 dark:text-white tracking-tight">Recent Inquiries</h3>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">{clientBriefs.length} total</span>
             </div>
             {recentActivity.length === 0 ? (
               <AdminEmptyState
@@ -185,22 +202,30 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
                 size={64}
               />
             ) : (
-              <div className="rounded-2xl border border-neutral-200 dark:border-[#1E293B] bg-white dark:bg-[#131B2E] overflow-hidden divide-y divide-neutral-100 dark:divide-white/5">
+              <div className="rounded-2xl border border-neutral-200/90 dark:border-white/[0.07] bg-white dark:bg-[#12141a] overflow-hidden divide-y divide-neutral-100 dark:divide-white/[0.05] shadow-xs">
                 {recentActivity.map((brief, idx) => {
                   const status = brief.status || "Pending Review";
                   const isPending = status === "Pending Review";
                   const isApproved = status === "Approved / Accepted";
                   const briefKey = brief?.id ? `${brief.id}-${idx}` : `brief-act-${idx}`;
                   return (
-                    <div key={briefKey} className="flex items-center gap-3 px-4 py-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 uppercase">
+                    <div key={briefKey} className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-white/[0.02] transition-colors">
+                      <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 font-semibold text-xs flex items-center justify-center shrink-0 uppercase">
                         {brief.clientName?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate">{brief.clientName}</p>
-                        <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 truncate">{brief.projectType || "Consultation Request"} — {brief.location || "Location TBD"}</p>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{brief.projectType || "Consultation Request"} — {brief.location || "Location TBD"}</p>
                       </div>
-                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${isApproved ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400" : isPending ? "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-400" : "bg-sky-500/15 border-sky-500/30 text-sky-700 dark:text-sky-400"}`}>{status}</span>
+                      <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                        isApproved
+                          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                          : isPending
+                          ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                          : "bg-sky-500/10 border-sky-500/20 text-sky-400"
+                      }`}>
+                        {status}
+                      </span>
                     </div>
                   );
                 })}
@@ -211,7 +236,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
 
         <div className="xl:col-span-2 space-y-4">
           <div className="space-y-3">
-            <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-wider font-mono">Scheduled Consultations</h3>
+            <h3 className="text-sm font-semibold text-neutral-900 dark:text-white tracking-tight">Scheduled Consultations</h3>
             {upcomingMeetings.length === 0 ? (
               <AdminEmptyState
                 iconSrc="https://cdn.lordicon.com/abfverha.json"
@@ -224,23 +249,31 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
             ) : (
               <div className="space-y-3">
                 {upcomingMeetings.map((brief, idx) => (
-                  <div key={brief?.id ? `${brief.id}-${idx}` : `brief-meet-${idx}`} className="p-4 rounded-2xl bg-white dark:bg-[#131B2E] border border-neutral-200 dark:border-[#1E293B] shadow-sm dark:shadow-none space-y-2.5">
+                  <div
+                    key={brief?.id ? `${brief.id}-${idx}` : `brief-meet-${idx}`}
+                    className="p-4 rounded-2xl bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.07] shadow-xs space-y-2.5"
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">{brief.clientName}</p>
-                        <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 truncate mt-0.5">{brief.projectType || "Consultation"}</p>
+                        <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate">{brief.clientName}</p>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">{brief.projectType || "Consultation"}</p>
                       </div>
                       <MeetingTypeBadge mode={brief.meetingMode} />
                     </div>
-                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300">
-                      <CalendarIcon className="w-3 h-3 text-neutral-400 shrink-0" />
+                    <div className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+                      <CalendarIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                       <span>{brief.meetingDate}{brief.meetingTime && ` — ${brief.meetingTime}`}</span>
                     </div>
                     {brief.meetingLink && (
-                      <a href={brief.meetingLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 w-full justify-center px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] uppercase font-mono transition-colors">
-                        <VideoIcon className="w-3 h-3" />
+                      <a
+                        href={brief.meetingLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 w-full justify-center px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold text-xs transition-colors shadow-xs"
+                      >
+                        <VideoIcon className="w-3.5 h-3.5" />
                         Join Meeting
-                        <ArrowRightIcon className="w-3 h-3" />
+                        <ArrowRightIcon className="w-3.5 h-3.5" />
                       </a>
                     )}
                   </div>
@@ -249,28 +282,28 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
             )}
           </div>
 
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 dark:border-amber-500/15 space-y-3">
+          <div className="p-5 rounded-2xl bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.07] shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase font-mono tracking-wider">Inquiry Summary</h3>
-              <TrendingUpIcon className="w-4 h-4 text-amber-500" />
+              <h3 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Inquiry Summary</h3>
+              <TrendingUpIcon className="w-4 h-4 text-neutral-400" />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {[
                 { label: "Total Inquiries", value: clientBriefs.length, color: "text-neutral-900 dark:text-white" },
-                { label: "Pending Review", value: pendingCount, color: "text-amber-700 dark:text-amber-400" },
-                { label: "Meetings Set", value: scheduledCount, color: "text-sky-700 dark:text-sky-400" },
-                { label: "Approved", value: approvedCount, color: "text-emerald-700 dark:text-emerald-400" },
+                { label: "Pending Review", value: pendingCount, color: "text-amber-600 dark:text-amber-400" },
+                { label: "Meetings Set", value: scheduledCount, color: "text-sky-600 dark:text-sky-400" },
+                { label: "Approved", value: approvedCount, color: "text-emerald-600 dark:text-emerald-400" },
               ].map(({ label, value, color }) => (
-                <div key={label} className="flex items-center justify-between text-xs font-mono">
+                <div key={label} className="flex items-center justify-between text-xs">
                   <span className="text-neutral-600 dark:text-neutral-400">{label}</span>
-                  <span className={`font-bold ${color}`}>{value}</span>
+                  <span className={`font-semibold tabular-nums ${color}`}>{value}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-white dark:bg-[#131B2E] border border-neutral-200 dark:border-[#1E293B] shadow-sm dark:shadow-none space-y-3">
-            <h3 className="text-xs font-bold text-neutral-900 dark:text-white uppercase font-mono tracking-wider">
+          <div className="p-5 rounded-2xl bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.07] shadow-xs space-y-3">
+            <h3 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
               MCPA Headquarters
             </h3>
             <div className="space-y-1">
@@ -280,26 +313,26 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
                 target="_blank"
                 rel="noopener noreferrer"
                 title="View MCPA Headquarters on Google Maps"
-                className="flex items-center justify-between p-2 -mx-2 rounded-xl text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
+                className="flex items-center justify-between p-2.5 -mx-2.5 rounded-xl text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <MapPinIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 shrink-0 transition-colors" />
                   <span className="truncate group-hover:underline underline-offset-2">Tabang, Plaridel, Bulacan</span>
                 </div>
-                <ExternalLinkIcon className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0 ml-1 text-neutral-400 group-hover:text-amber-500" />
+                <ExternalLinkIcon className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100 transition-opacity shrink-0 ml-1 text-neutral-400 group-hover:text-amber-500" />
               </a>
 
               {/* Phone -> Call */}
               <a
                 href="tel:09497758239"
                 title="Call MCPA Headquarters ((0949) 775 8239)"
-                className="flex items-center justify-between p-2 -mx-2 rounded-xl text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
+                className="flex items-center justify-between p-2.5 -mx-2.5 rounded-xl text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <PhoneIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 shrink-0 transition-colors" />
                   <span className="truncate group-hover:underline underline-offset-2">(0949) 775 8239</span>
                 </div>
-                <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold shrink-0">
+                <span className="text-[10px] font-medium text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider shrink-0">
                   Call
                 </span>
               </a>
@@ -308,13 +341,13 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
               <a
                 href="mailto:mcpa.construction@gmail.com?subject=Inquiry%20-%20MCPA%20Construction"
                 title="Email mcpa.construction@gmail.com"
-                className="flex items-center justify-between p-2 -mx-2 rounded-xl text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
+                className="flex items-center justify-between p-2.5 -mx-2.5 rounded-xl text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <MailIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 shrink-0 transition-colors" />
                   <span className="truncate group-hover:underline underline-offset-2">mcpa.construction@gmail.com</span>
                 </div>
-                <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold shrink-0">
+                <span className="text-[10px] font-medium text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider shrink-0">
                   Email
                 </span>
               </a>

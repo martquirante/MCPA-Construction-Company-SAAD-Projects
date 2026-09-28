@@ -3,6 +3,7 @@
 import Link from "next/link";
 import ClientNavbar from "@/modules/shared/ClientNavbar";
 import Footer from "@/modules/shared/Footer";
+import { setReturnToCompletedHome } from "@/modules/home/homeState";
 import {
   HomeIcon,
   BadgePercentIcon,
@@ -125,7 +126,11 @@ export default function ServicesPage() {
         {/* Breadcrumb Navigation */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
           <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-            <Link href="/" className="hover:text-amber-500 transition-colors">
+            <Link
+              href="/"
+              onClick={() => setReturnToCompletedHome(true)}
+              className="hover:text-amber-500 transition-colors"
+            >
               Home
             </Link>
             <span>/</span>

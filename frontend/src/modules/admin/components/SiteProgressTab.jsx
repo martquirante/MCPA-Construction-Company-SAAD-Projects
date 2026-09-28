@@ -12,6 +12,7 @@ import {
   PlusIcon,
   RefreshCwIcon,
   CameraIcon,
+  CloseIcon,
 } from "@/modules/shared/Icons";
 
 export default function SiteProgressTab({
@@ -26,7 +27,7 @@ export default function SiteProgressTab({
   const [photoTitle, setPhotoTitle] = useState("");
   const [photoCaption, setPhotoCaption] = useState("");
   const [photoInspector, setPhotoInspector] = useState("Engr. Raymart Quirante, CE");
-  const [photoUrl, setPhotoUrl] = useState("https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=800&fit=crop");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [is360, setIs360] = useState(false);
   const [active360Viewer, setActive360Viewer] = useState(false);
 
@@ -240,12 +241,18 @@ export default function SiteProgressTab({
               <span className="text-[11px] font-mono text-purple-300">Click &amp; drag to explore site</span>
             </div>
             <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-white/10 group">
-              <Image
-                src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&fit=crop"
-                alt="360 Panorama"
-                fill
-                className="object-cover cursor-grab active:cursor-grabbing hover:scale-105 transition-transform duration-500"
-              />
+              {(photos.find((p) => p.is_360)?.image_url || project?.panorama_url || photos[0]?.image_url) ? (
+                <Image
+                  src={photos.find((p) => p.is_360)?.image_url || project?.panorama_url || photos[0]?.image_url}
+                  alt="360 Panorama"
+                  fill
+                  className="object-cover cursor-grab active:cursor-grabbing hover:scale-105 transition-transform duration-500"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-500 text-xs font-mono">
+                  No 360° Panorama uploaded for this project yet.
+                </div>
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
               <div className="absolute bottom-4 left-4 text-xs font-mono text-white flex items-center gap-1">
                 <MapPinIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -313,9 +320,10 @@ export default function SiteProgressTab({
               </div>
               <button
                 onClick={() => setActivePhotoModal(false)}
-                className="p-1.5 rounded-lg text-neutral-400 hover:text-white cursor-pointer"
+                className="p-1.5 rounded-lg text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                aria-label="Close"
               >
-                ✕
+                <CloseIcon className="w-4 h-4" />
               </button>
             </div>
 

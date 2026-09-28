@@ -70,9 +70,18 @@ async function initializeDatabase() {
       await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_web_visible BOOLEAN DEFAULT TRUE;");
       await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'completed';");
       await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS month VARCHAR(50) DEFAULT 'January';");
+      await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS lot_area VARCHAR(50);");
+      await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS floor_area VARCHAR(50);");
+      await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS bedrooms VARCHAR(50);");
+      await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS bathrooms VARCHAR(50);");
+      await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS features TEXT[];");
+      await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS architectural_details TEXT;");
+      await db.query("ALTER TABLE projects ADD COLUMN IF NOT EXISTS featured_on_home BOOLEAN DEFAULT FALSE;");
+      // Ensure all seeded and custom projects are manageable by admin
+      await db.query("UPDATE projects SET is_admin_added = TRUE WHERE is_admin_added IS NULL OR is_admin_added = FALSE;");
     } catch (e) {}
 
-    console.log("[OK] Table 'projects' verified/created.");
+    console.log("[OK] Table 'projects' verified/created with architectural specifications.");
 
     // 4. Create CLIENT_BRIEFS table (Extended with SAAD Flowchart fields)
     await db.query(`
@@ -336,60 +345,134 @@ async function initializeDatabase() {
         console.log("[OK] Seeded sample live project 'MCPA-PLR-2024' with milestones, photos, and billing ledger.");
       }
 
-      // Seed Portfolio Projects if empty
-      const checkProjectsCount = await db.query("SELECT COUNT(*) FROM projects");
-      if (parseInt(checkProjectsCount.rows[0].count, 10) === 0) {
-        const initialProjects = [
-          {
-            name: "The Meridian Modern Residence",
-            location: "Tabang, Plaridel, Bulacan",
-            year: "2024",
-            category: "Residential",
-            description: "Two-storey contemporary home with cantilevered balcony, reinforced concrete framing, perimeter fence, and complete turnkey architectural finishing.",
-            images: ["https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1200&h=800&fit=crop&auto=format"],
-          },
-          {
-            name: "Tabang Commercial Complex",
-            location: "Tabang, Plaridel",
-            year: "2024",
-            category: "Commercial",
-            description: "Commercial facility and supply yard featuring high-spec structural steel trusses, modern storefront facades, and heavy-duty logistics access.",
-            images: ["https://images.unsplash.com/photo-1706164971302-e30c0640cc3b?w=800&h=1200&fit=crop&auto=format"],
-          },
-          {
-            name: "Grand Royale Executive Villa",
-            location: "Malolos, Bulacan",
-            year: "2023",
-            category: "Luxury Villa",
-            description: "Custom two-storey luxury home built with signed & sealed plans, bespoke granite finishes, premium fixtures, and a 5-year structural warranty.",
-            images: ["https://images.unsplash.com/photo-1762811054947-605b20298615?w=800&h=600&fit=crop&auto=format"],
-          },
-          {
-            name: "North Industrial Logistics Hub",
-            location: "Guiguinto, Bulacan",
-            year: "2024",
-            category: "Commercial",
-            description: "Large-span logistics warehouse and administration annex featuring seismic foundation ties and high-load industrial flooring.",
-            images: ["https://images.unsplash.com/photo-1783490244502-cd5f236e3780?w=1400&h=700&fit=crop&auto=format"],
-          },
-          {
-            name: "Pampanga Zen Sanctuary",
-            location: "Pulilan, Bulacan",
-            year: "2024",
-            category: "Modern Zen",
-            description: "Minimalist Japanese-inspired residence featuring natural timber accents, central dry gravel courtyard, and passive natural cross-ventilation.",
-            images: ["https://images.unsplash.com/photo-1679364297777-1db77b6199be?w=800&h=600&fit=crop&auto=format"],
-          },
-        ];
+      // Seed or Enrich Portfolio Projects with architectural specifications
+      const richProjects = [
+        {
+          name: "The Meridian Modern Residence",
+          location: "Tabang, Plaridel, Bulacan",
+          year: "2024",
+          month: "October",
+          category: "Residential",
+          status: "completed",
+          lot_area: "240 sq.m.",
+          floor_area: "210 sq.m.",
+          bedrooms: "4 Bedrooms",
+          bathrooms: "3 Bathrooms",
+          description: "Two-storey contemporary home with cantilevered balcony, reinforced concrete framing, perimeter fence, and complete turnkey architectural finishing.",
+          architectural_details: "A two-storey contemporary masterpiece engineered for natural airflow and daylighting. Built with Grade 60 PNS rebars and 3000 PSI ready-mix concrete, featuring high-spec porcelain tiles, custom mahogany cabinetry, and complete municipal occupancy permits.",
+          features: ["Cantilevered Second-Floor Balcony", "Seismic-Resilient Reinforced Concrete", "Signed & Sealed PRC Blueprints", "Turnkey Architectural Finishes", "2-Car Covered Carport", "15-Year Structural Warranty"],
+          images: [
+            "https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1200&h=800&fit=crop&auto=format",
+            "https://images.unsplash.com/photo-1785746730462-74049651fa26?w=1200&h=800&fit=crop&auto=format",
+            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&h=800&fit=crop&auto=format"
+          ],
+        },
+        {
+          name: "Tabang Commercial Complex",
+          location: "Tabang, Plaridel, Bulacan",
+          year: "2024",
+          month: "June",
+          category: "Commercial",
+          status: "completed",
+          lot_area: "650 sq.m.",
+          floor_area: "520 sq.m.",
+          bedrooms: "Commercial Units",
+          bathrooms: "6 Commercial Toilets",
+          description: "Commercial facility and supply yard featuring high-spec structural steel trusses, modern storefront facades, and heavy-duty logistics access.",
+          architectural_details: "Engineered for high-volume commercial foot traffic and heavy supply storage. Structural design highlights include wide open floor spans without interior obstructive columns and reinforced concrete approach pavement.",
+          features: ["High-Spec Structural Steel Trusses", "Heavy-Duty Logistics Loading Bay", "Tempered Commercial Glass Storefronts", "Seismic Foundation Ties", "Fire Protection Sprinkler System", "Dedicated Customer Parking"],
+          images: [
+            "https://images.unsplash.com/photo-1706164971302-e30c0640cc3b?w=800&h=1200&fit=crop&auto=format",
+            "https://images.unsplash.com/photo-1783490244502-cd5f236e3780?w=800&h=1200&fit=crop&auto=format"
+          ],
+        },
+        {
+          name: "Grand Royale Executive Villa",
+          location: "Malolos, Bulacan",
+          year: "2023",
+          month: "March",
+          category: "Luxury Villa",
+          status: "completed",
+          lot_area: "400 sq.m.",
+          floor_area: "360 sq.m.",
+          bedrooms: "5 Bedrooms",
+          bathrooms: "4.5 Bathrooms",
+          description: "Custom two-storey luxury home built with signed & sealed plans, bespoke granite finishes, premium fixtures, and a 15-year structural warranty.",
+          architectural_details: "An executive luxury estate built inside an exclusive Malolos subdivision. Combines modern brutalist concrete lines with warm travertine stone and custom mood lighting for an enduring residential presence.",
+          features: ["Bespoke Granite & Italian Marble", "Double-Height Great Room Ceiling", "Private Lanai & Alfresco Dining", "Smart Home Automation Ready", "Master Suite with Walk-In Closet", "15-Year Structural Warranty"],
+          images: [
+            "https://images.unsplash.com/photo-1762811054947-605b20298615?w=800&h=600&fit=crop&auto=format",
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop&auto=format"
+          ],
+        },
+        {
+          name: "North Industrial Logistics Hub",
+          location: "Guiguinto, Bulacan",
+          year: "2024",
+          month: "November",
+          category: "Commercial",
+          status: "completed",
+          lot_area: "1,200 sq.m.",
+          floor_area: "980 sq.m.",
+          bedrooms: "Offices & Quarters",
+          bathrooms: "4 Industrial Restrooms",
+          description: "Large-span logistics warehouse and administration annex featuring seismic foundation ties and high-load industrial flooring.",
+          architectural_details: "Designed for high-capacity logistics and distribution with seamless highway access to NLEX. Constructed using MCPA direct supply aggregates and precision steel truss fabrication.",
+          features: ["Heavy-Duty 6-Inch Reinforced Slab", "Dual-Bay Container Truck Access", "High-Bay LED Industrial Illumination", "Mezzanine Administrative Office", "Complete LGU Industrial Permits", "In-House Steel Fabrication"],
+          images: [
+            "https://images.unsplash.com/photo-1783490244502-cd5f236e3780?w=1400&h=700&fit=crop&auto=format",
+            "https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1400&h=700&fit=crop&auto=format"
+          ],
+        },
+        {
+          name: "Pampanga Zen Sanctuary",
+          location: "Pulilan, Bulacan",
+          year: "2024",
+          month: "January",
+          category: "Modern Zen",
+          status: "completed",
+          lot_area: "300 sq.m.",
+          floor_area: "250 sq.m.",
+          bedrooms: "4 Bedrooms",
+          bathrooms: "3 Bathrooms",
+          description: "Minimalist Japanese-inspired residence featuring natural timber accents, central dry gravel courtyard, and passive natural cross-ventilation.",
+          architectural_details: "A serene sanctuary inspired by Japanese minimalism and tropical Philippine bioclimatic architecture. Features an interior dry gravel courtyard that brings sunlight into the dining and family rooms while maximizing natural cooling.",
+          features: ["Minimalist Japanese Zen Courtyard", "Natural Timber Accents & Trellises", "Passive Natural Cross-Ventilation", "Climate-Resilient Deep Overhangs", "Build Now Pay Later Financed", "Energy-Efficient Low-E Glazing"],
+          images: [
+            "https://images.unsplash.com/photo-1679364297777-1db77b6199be?w=800&h=600&fit=crop&auto=format",
+            "https://images.unsplash.com/photo-1657346088167-b982455bf29a?w=800&h=600&fit=crop&auto=format"
+          ],
+        },
+      ];
 
-        for (const p of initialProjects) {
+      for (const p of richProjects) {
+        const existing = await db.query("SELECT project_id FROM projects WHERE name = $1", [p.name]);
+        if (existing.rows && existing.rows.length > 0) {
+          // Update missing specifications & ensure admin access
           await db.query(
-            "INSERT INTO projects (name, location, year, category, description, images, is_admin_added) VALUES ($1, $2, $3, $4, $5, $6, FALSE)",
-            [p.name, p.location, p.year, p.category, p.description, p.images]
+            `UPDATE projects SET 
+              lot_area = COALESCE(lot_area, $1),
+              floor_area = COALESCE(floor_area, $2),
+              bedrooms = COALESCE(bedrooms, $3),
+              bathrooms = COALESCE(bathrooms, $4),
+              features = COALESCE(features, $5),
+              architectural_details = COALESCE(architectural_details, $6),
+              is_admin_added = TRUE,
+              is_web_visible = TRUE,
+              month = COALESCE(month, $7),
+              status = COALESCE(status, $8)
+             WHERE name = $9`,
+            [p.lot_area, p.floor_area, p.bedrooms, p.bathrooms, p.features, p.architectural_details, p.month, p.status, p.name]
+          );
+        } else {
+          await db.query(
+            `INSERT INTO projects (name, location, year, month, category, status, lot_area, floor_area, bedrooms, bathrooms, description, architectural_details, features, images, is_admin_added, is_web_visible)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE, TRUE)`,
+            [p.name, p.location, p.year, p.month, p.category, p.status, p.lot_area, p.floor_area, p.bedrooms, p.bathrooms, p.description, p.architectural_details, p.features, p.images]
           );
         }
-        console.log("[OK] Seeded real MCPA portfolio projects into 'projects' table.");
       }
+      console.log("[OK] Enriched MCPA portfolio projects with architectural specifications in 'projects' table.");
 
       // Seed Initial OCR Expenses if empty
       const checkOcrCount = await db.query("SELECT COUNT(*) FROM expenses_ocr WHERE project_code = 'MCPA-PLR-2024'");

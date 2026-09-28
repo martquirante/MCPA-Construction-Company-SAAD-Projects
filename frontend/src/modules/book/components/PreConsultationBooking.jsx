@@ -15,6 +15,7 @@ import {
   WarehouseIcon,
   HammerIcon,
   VideoIcon,
+  GlobeIcon,
 } from "../../shared/Icons";
 
 export default function PreConsultationBooking({ selectedStyle }) {
@@ -155,8 +156,7 @@ export default function PreConsultationBooking({ selectedStyle }) {
 
         {/* Section Header */}
         <div className="relative z-10 max-w-3xl mb-12">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs font-mono tracking-widest uppercase mb-4 border border-amber-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+          <div className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs font-mono tracking-widest uppercase mb-4 border border-amber-500/20">
             <span>Pre-Consultation Booking · Full-Service Design & Build</span>
           </div>
 
@@ -546,8 +546,9 @@ export default function PreConsultationBooking({ selectedStyle }) {
 
                       {/* Timezone & Tamper-Prevention Notice */}
                       <div className="mt-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 text-[11px] font-mono">
-                        <span className="text-amber-900 dark:text-amber-200">
-                          🇵🇭 Schedules follow <strong>Philippine Standard Time (PHT, UTC+8)</strong>.
+                        <span className="text-amber-900 dark:text-amber-200 inline-flex items-center gap-1.5">
+                          <GlobeIcon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span>Schedules follow <strong>Philippine Standard Time (PHT, UTC+8)</strong>.</span>
                         </span>
                         {userTimezone && userTimezone !== "Asia/Manila" && (
                           <span className="text-neutral-600 dark:text-neutral-300 bg-white/80 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-200 dark:border-neutral-700 text-[10px]">

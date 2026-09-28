@@ -165,6 +165,7 @@ export default function QuickOverview() {
       {/* 3. PORTFOLIO · SELECTED WORKS                                             */}
       {/* ========================================================================= */}
       <PortfolioSection
+        isHomePage={true}
         onSelectProjectForInquiry={(styleName) => setInquiredStyle(styleName)}
       />
 
@@ -188,7 +189,7 @@ export default function QuickOverview() {
       {/* ========================================================================= */}
       <section
         id="contact"
-        className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
+        className="pt-20 md:pt-28 pb-12 md:pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
       >
         <ScrollMorph
           variant="portal-expand"

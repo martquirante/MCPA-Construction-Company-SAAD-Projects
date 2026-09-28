@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ArrowRightIcon, MapPinIcon, CalendarIcon, TrashIcon } from "../../shared/Icons";
 import { useLanguage } from "../../shared/LanguageContext";
 
-export default function ProjectCard({ project, onInquire, onDelete }) {
+export default function ProjectCard({ project, onInquire, onDelete, onOpenDetails }) {
   const { t } = useLanguage();
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -33,9 +33,10 @@ export default function ProjectCard({ project, onInquire, onDelete }) {
 
   return (
     <div
+      onClick={() => onOpenDetails?.(project)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group relative rounded-2xl sm:rounded-3xl overflow-hidden border border-neutral-200/80 dark:border-neutral-800/80 hover:border-amber-500/60 dark:hover:border-amber-500/60 transition-all duration-500 shadow-md hover:shadow-2xl hover:shadow-neutral-300/60 dark:hover:shadow-amber-500/10 hover:-translate-y-1.5 flex flex-col justify-between min-h-[450px] sm:min-h-[480px] bg-white dark:bg-neutral-950 backdrop-blur-sm select-none"
+      className="group relative rounded-2xl sm:rounded-3xl overflow-hidden border border-neutral-200/80 dark:border-neutral-800/80 hover:border-amber-500/60 dark:hover:border-amber-500/60 transition-all duration-500 shadow-md hover:shadow-2xl hover:shadow-neutral-300/60 dark:hover:shadow-amber-500/10 hover:-translate-y-1.5 flex flex-col justify-between min-h-[450px] sm:min-h-[480px] bg-white dark:bg-neutral-950 backdrop-blur-sm select-none cursor-pointer"
     >
       {/* 1. Full-Card Background Image Carousel */}
       <div className="absolute inset-0 z-0 overflow-hidden bg-neutral-100 dark:bg-neutral-950">
@@ -171,7 +172,10 @@ export default function ProjectCard({ project, onInquire, onDelete }) {
         <div className="mt-5 pt-4 border-t border-neutral-200 dark:border-white/15 flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => onInquire?.(project)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onInquire?.(project);
+            }}
             className="inline-flex items-center gap-2 text-xs font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 group/link transition-colors cursor-pointer"
           >
             <span>{t("inquireStyle")}</span>

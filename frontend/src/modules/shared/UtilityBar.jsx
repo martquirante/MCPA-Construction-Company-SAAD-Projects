@@ -24,7 +24,15 @@ import {
   InstagramIcon,
   TikTokIcon,
 } from "./Icons";
-import { FileSignature, ShieldCheck, HardHat, ChevronRight } from "lucide-react";
+import {
+  FileSignature,
+  ShieldCheck,
+  HardHat,
+  ChevronRight,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+} from "lucide-react";
 
 export default function UtilityBar({ show = true, scrolledPastHero = false }) {
   const pathname = usePathname();
@@ -38,6 +46,13 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
   // Dropdown states
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  const [networkDropdownOpen, setNetworkDropdownOpen] = useState(false);
+
+  // Network connectivity status
+  const [isOnline, setIsOnline] = useState(true);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+  const [pingLatency, setPingLatency] = useState(null);
+  const [lastCheckedTime, setLastCheckedTime] = useState(null);
 
   // Modals
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
@@ -54,6 +69,71 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
     }, 6000);
     return () => clearInterval(timer);
   }, [announcementList.length]);
+
+  // Network online/offline event listeners
+  const checkLiveConnection = async () => {
+    setIsCheckingConnection(true);
+    const start = Date.now();
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const res = await fetch("http://localhost:5000/api/health", {
+        method: "GET",
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      const latency = Date.now() - start;
+      if (res.ok) {
+        setIsOnline(true);
+        setPingLatency(latency);
+      } else {
+        setIsOnline(false);
+        setPingLatency(null);
+      }
+    } catch (_) {
+      if (typeof navigator !== "undefined" && navigator.onLine) {
+        setIsOnline(true);
+        setPingLatency(Date.now() - start);
+      } else {
+        setIsOnline(false);
+        setPingLatency(null);
+      }
+    } finally {
+      setIsCheckingConnection(false);
+      setLastCheckedTime(
+        new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (typeof navigator !== "undefined") {
+      setIsOnline(navigator.onLine);
+    }
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setPingLatency(null);
+    };
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      checkLiveConnection();
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   // Sync theme with SystemThemeSync
   useEffect(() => {
@@ -83,6 +163,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
       if (utilityRef.current && !utilityRef.current.contains(e.target)) {
         setThemeDropdownOpen(false);
         setLangDropdownOpen(false);
+        setNetworkDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -125,18 +206,21 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
             : "max-h-0 opacity-0 -translate-y-full pointer-events-none overflow-hidden"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-8 sm:h-9 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-8 sm:h-9 flex items-center justify-between gap-2 sm:gap-4">
           {/* Left: Dynamic Announcement Guarantee */}
-          <div className="flex items-center min-w-0">
-            <div className="flex items-center gap-1.5 truncate">
-              <span className="text-neutral-800 dark:text-neutral-200 font-medium tracking-wide truncate transition-opacity duration-300">
+          <div className="flex items-center min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 truncate w-full">
+              <span 
+                className="text-neutral-800 dark:text-neutral-200 font-medium tracking-wide truncate transition-opacity duration-300 text-[10.5px] sm:text-[11px]"
+                title={currentMessage}
+              >
                 {currentMessage}
               </span>
             </div>
           </div>
 
           {/* Right: Actions, Links & Combobox Dropdowns */}
-          <div className="flex items-center gap-3 sm:gap-5 shrink-0 text-neutral-600 dark:text-neutral-400">
+          <div className="flex items-center gap-1.5 sm:gap-4 shrink-0 text-neutral-600 dark:text-neutral-400">
             {/* About Us */}
             <button
               onClick={handleAboutClick}
@@ -153,7 +237,109 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
               {t("helpCenter")}
             </button>
 
-            <span className="hidden md:inline-block w-px h-3 bg-neutral-300 dark:bg-neutral-800" />
+            {/* 0. LIVE NETWORK STATUS BUTTON & POPOVER */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setNetworkDropdownOpen(!networkDropdownOpen);
+                  setLangDropdownOpen(false);
+                  setThemeDropdownOpen(false);
+                  if (!networkDropdownOpen && isOnline && pingLatency === null) {
+                    checkLiveConnection();
+                  }
+                }}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 rounded-md transition-all cursor-pointer font-medium text-[10.5px] sm:text-[11px] ${
+                  isOnline
+                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/25"
+                    : "bg-red-500/15 text-red-600 dark:text-red-400 hover:bg-red-500/25 border border-red-500/35 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                }`}
+                aria-label="Network Status Indicator"
+                title={isOnline ? t("connectedCloud") : t("disconnectedCloud")}
+              >
+                {isOnline ? (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                    <Wifi className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span className="hidden sm:inline font-semibold tracking-wide">
+                      {t("online")}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                    </span>
+                    <WifiOff className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                    <span className="font-bold tracking-wide">
+                      {t("offline")}
+                    </span>
+                  </>
+                )}
+              </button>
+
+              {networkDropdownOpen && (
+                <div
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl p-3.5 z-[100] text-xs animate-fadeIn"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800 mb-2.5">
+                    <div className="flex items-center gap-1.5 font-bold text-neutral-900 dark:text-white">
+                      {isOnline ? (
+                        <Wifi className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <WifiOff className="w-4 h-4 text-red-500" />
+                      )}
+                      <span>{t("networkStatus")}</span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
+                        isOnline
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                          : "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30"
+                      }`}
+                    >
+                      {isOnline ? t("online") : t("offline")}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed mb-3">
+                    {isOnline ? t("connectionHealthy") : t("connectionLost")}
+                  </p>
+
+                  {isOnline && pingLatency !== null && (
+                    <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-800/60 p-2 rounded-xl border border-neutral-200 dark:border-neutral-700/60 mb-3">
+                      <span>Server Latency:</span>
+                      <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                        {pingLatency} ms
+                      </span>
+                    </div>
+                  )}
+
+                  {lastCheckedTime && (
+                    <div className="text-[10px] text-neutral-400 dark:text-neutral-500 mb-3 font-mono">
+                      Last verified: {lastCheckedTime}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={checkLiveConnection}
+                    disabled={isCheckingConnection}
+                    className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[11px] tracking-wide flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isCheckingConnection ? "animate-spin" : ""}`} />
+                    <span>{isCheckingConnection ? t("checkingConnection") : t("testConnection")}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <span className="w-px h-3 bg-neutral-300 dark:bg-neutral-800" />
 
             {/* 1. LANGUAGE COMBOBOX (Dropdown floating on top / nakapatong) */}
             <div className="relative">
@@ -163,11 +349,12 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                   setLangDropdownOpen(!langDropdownOpen);
                   setThemeDropdownOpen(false);
                 }}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-900 text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer"
+                className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-900 text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer"
                 aria-label="Select Language"
               >
                 <span className="font-semibold text-[11px] tracking-wide">
-                  {language === "fil" ? "Filipino" : "English"}
+                  <span className="sm:hidden">{language === "fil" ? "FIL" : "EN"}</span>
+                  <span className="hidden sm:inline">{language === "fil" ? "Filipino" : "English"}</span>
                 </span>
                 <ChevronDownIcon
                   className={`w-3 h-3 text-neutral-500 dark:text-neutral-400 transition-transform duration-200 ${
@@ -209,10 +396,11 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
               )}
             </div>
 
-            <span className="w-px h-3 bg-neutral-300 dark:bg-neutral-800" />
+            {/* Separator before Theme - hidden on mobile */}
+            <span className="hidden sm:inline-block w-px h-3 bg-neutral-300 dark:bg-neutral-800" />
 
-            {/* 2. THEME COMBOBOX (Dropdown floating on top / nakapatong) */}
-            <div className="relative">
+            {/* 2. THEME COMBOBOX - hidden on mobile, full dropdown on desktop */}
+            <div className="relative hidden sm:block">
               <button
                 type="button"
                 onClick={() => {

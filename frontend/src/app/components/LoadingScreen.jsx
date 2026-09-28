@@ -49,6 +49,11 @@ export default function LoadingScreen({ onComplete }) {
   }, [onComplete]);
 
   const handleSkip = useCallback(() => {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("mcpa_initial_loaded", "true");
+      } catch (e) {}
+    }
     setIsFadingOut(true);
     setTimeout(() => {
       onCompleteRef.current?.();
@@ -80,6 +85,11 @@ export default function LoadingScreen({ onComplete }) {
         setProgress(100);
         setIsCompleted(true);
         clearInterval(timer);
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.setItem("mcpa_initial_loaded", "true");
+          } catch (e) {}
+        }
         setTimeout(() => {
           setIsFadingOut(true);
           setTimeout(() => {

@@ -43,7 +43,7 @@ export default function MetricCard3D({
   value,
   sub,
   accentColor = "#F59E0B",
-  glowColor = "rgba(245, 158, 11, 0.25)",
+  glowColor = "rgba(245, 158, 11, 0.15)",
   icon: Icon,
   onClick,
 }) {
@@ -67,15 +67,15 @@ export default function MetricCard3D({
       const centerX = rect.width / 2;
       const centerY = rect.height / 2;
 
-      // Normalize [-1, +1] mapped to ±12deg rotation
+      // Normalize [-1, +1] mapped to ±8deg rotation for subtle, elegant depth
       const normX = (relX - centerX) / centerX;
       const normY = (relY - centerY) / centerY;
 
-      setTilt({ x: normY * -12, y: normX * 12 });
+      setTilt({ x: normY * -8, y: normX * 8 });
       setGlare({
         x: (relX / rect.width) * 100,
         y: (relY / rect.height) * 100,
-        opacity: 0.25,
+        opacity: 0.18,
       });
     });
   }, []);
@@ -106,19 +106,19 @@ export default function MetricCard3D({
       onClick={handleClick}
       className={`group relative rounded-2xl p-5 border transition-all cursor-pointer overflow-hidden select-none flex flex-col justify-between ${
         hovered
-          ? "border-neutral-300 dark:border-white/20 bg-white/95 dark:bg-[#141b2a]"
-          : "border-neutral-200/90 dark:border-white/10 bg-white dark:bg-[#0f1522]"
+          ? "border-neutral-300 dark:border-white/[0.14] bg-white dark:bg-[#16181f]"
+          : "border-neutral-200/90 dark:border-white/[0.07] bg-white dark:bg-[#12141a]"
       }`}
       style={{
         transform: hovered
-          ? `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(1.025) translateZ(8px)`
-          : `perspective(1000px) rotateX(0deg) rotateY(0deg) scale(${clicked ? 0.97 : 1}) translateZ(0px)`,
+          ? `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(1.02) translateZ(6px)`
+          : `perspective(1000px) rotateX(0deg) rotateY(0deg) scale(${clicked ? 0.98 : 1}) translateZ(0px)`,
         transition: hovered
           ? "transform 0.08s ease-out, border-color 0.2s ease, box-shadow 0.25s ease, background 0.2s ease"
-          : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.35s ease, background 0.3s ease",
+          : "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.35s ease, background 0.3s ease",
         boxShadow: hovered
-          ? `0 20px 40px -15px ${glowColor}, 0 0 0 1px ${accentColor}40`
-          : "0 4px 14px -4px rgba(0,0,0,0.06), 0 2px 6px -2px rgba(0,0,0,0.04)",
+          ? `0 14px 28px -12px rgba(0,0,0,0.5), 0 0 0 1px ${accentColor}20`
+          : "0 2px 6px -2px rgba(0, 0, 0, 0.2)",
         willChange: "transform",
         transformStyle: "preserve-3d",
       }}
@@ -127,33 +127,33 @@ export default function MetricCard3D({
       <div
         className="absolute inset-0 pointer-events-none rounded-2xl z-20 transition-opacity duration-300"
         style={{
-          background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,${glare.opacity}) 0%, rgba(255,255,255,0) 65%)`,
+          background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,${glare.opacity * 0.4}) 0%, rgba(255,255,255,0) 65%)`,
           opacity: hovered ? 1 : 0,
         }}
       />
 
       {/* Top ambient shine reflection */}
       <div
-        className="absolute top-0 inset-x-0 h-1/2 rounded-t-2xl pointer-events-none z-10 opacity-70 dark:opacity-35"
+        className="absolute top-0 inset-x-0 h-1/2 rounded-t-2xl pointer-events-none z-10 opacity-40 dark:opacity-20"
         style={{
-          background: "linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%)",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%)",
         }}
       />
 
       {/* Card Content with 3D Depth Layering */}
       <div className="relative z-30 flex flex-col justify-between h-full gap-3">
         <div className="flex items-start justify-between">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-500 dark:text-neutral-400 leading-tight font-bold">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400 leading-tight">
             {label}
           </span>
           {Icon && (
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-transform duration-200 group-hover:scale-110 shadow-xs"
+              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-transform duration-200 group-hover:scale-105"
               style={{
-                backgroundColor: `${accentColor}18`,
-                borderColor: `${accentColor}35`,
+                backgroundColor: `${accentColor}12`,
+                borderColor: `${accentColor}25`,
                 color: accentColor,
-                transform: hovered ? "translateZ(12px)" : "translateZ(0)",
+                transform: hovered ? "translateZ(8px)" : "translateZ(0)",
               }}
             >
               <Icon className="w-4 h-4" />
@@ -163,13 +163,16 @@ export default function MetricCard3D({
 
         <div
           className="flex items-baseline gap-2 transition-transform duration-200"
-          style={{ transform: hovered ? "translateZ(10px)" : "translateZ(0)" }}
+          style={{ transform: hovered ? "translateZ(6px)" : "translateZ(0)" }}
         >
-          <span className="text-3xl sm:text-4xl font-extrabold text-neutral-900 dark:text-white tabular-nums leading-none tracking-tight">
+          <span
+            className="text-3xl sm:text-4xl font-bold tabular-nums leading-none tracking-tight"
+            style={{ color: accentColor }}
+          >
             <AnimatedNumber value={value} />
           </span>
           {sub && (
-            <span className="text-xs text-neutral-500 dark:text-neutral-400 font-mono leading-tight">
+            <span className="text-xs text-neutral-500 dark:text-neutral-400 leading-tight">
               {sub}
             </span>
           )}

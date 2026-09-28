@@ -15,7 +15,7 @@ export default function DelayManagementTab({
   showToast,
 }) {
   const [category, setCategory] = useState("Weather / Monsoon Rain");
-  const [daysDelayed, setDaysDelayed] = useState("7");
+  const [daysDelayed, setDaysDelayed] = useState("1");
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -56,12 +56,12 @@ export default function DelayManagementTab({
           <div className="flex items-center gap-3 shrink-0">
             <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-xs font-mono">
               <span className="text-[10px] text-neutral-400 block uppercase">Original Target</span>
-              <span className="font-bold text-neutral-900 dark:text-white">{project?.original_turnover || "Nov 15, 2024"}</span>
+              <span className="font-bold text-neutral-900 dark:text-white">{project?.original_turnover || "Pending Schedule"}</span>
             </div>
             <span className="text-neutral-400 font-bold">&rarr;</span>
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-mono text-rose-700 dark:text-rose-400">
               <span className="text-[10px] text-rose-500 dark:text-rose-400 block uppercase">Revised Target</span>
-              <span className="font-bold">{project?.revised_turnover || "Nov 28, 2024"}</span>
+              <span className="font-bold">{project?.revised_turnover || "Pending Schedule"}</span>
             </div>
           </div>
         </div>

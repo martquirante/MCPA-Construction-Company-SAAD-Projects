@@ -19,6 +19,7 @@ import {
   LockIcon,
   EyeIcon,
   EyeOffIcon,
+  LightbulbIcon,
 } from "../../shared/Icons";
 import { verifyAdminPassword } from "../utils/adminAuth";
 
@@ -58,6 +59,13 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     status: "completed",
     description: "",
     isWebVisible: true,
+    featuredOnHome: false,
+    lotArea: "",
+    floorArea: "",
+    bedrooms: "",
+    bathrooms: "",
+    featuresText: "",
+    architecturalDetails: "",
   });
 
   // Images state
@@ -116,6 +124,10 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
   useEffect(() => {
     if (initialData) {
       const isPreset = PRESET_CATEGORIES.includes(initialData.category);
+      const rawFeatures = Array.isArray(initialData.features)
+        ? initialData.features.join(", ")
+        : initialData.features || "";
+
       setFormData({
         name: initialData.name || "",
         location: initialData.location || "",
@@ -126,6 +138,13 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
         status: initialData.status || "completed",
         description: initialData.description || "",
         isWebVisible: initialData.isWebVisible !== false,
+        featuredOnHome: Boolean(initialData.featuredOnHome || initialData.featured_on_home),
+        lotArea: initialData.lotArea || initialData.lot_area || "",
+        floorArea: initialData.floorArea || initialData.floor_area || "",
+        bedrooms: initialData.bedrooms || "",
+        bathrooms: initialData.bathrooms || "",
+        featuresText: rawFeatures,
+        architecturalDetails: initialData.architecturalDetails || initialData.architectural_details || "",
       });
       setExistingImages(Array.isArray(initialData.images) ? initialData.images : []);
     } else {
@@ -139,6 +158,13 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
         status: "completed",
         description: "",
         isWebVisible: true,
+        featuredOnHome: false,
+        lotArea: "",
+        floorArea: "",
+        bedrooms: "",
+        bathrooms: "",
+        featuresText: "",
+        architecturalDetails: "",
       });
       setExistingImages([]);
     }
@@ -202,6 +228,31 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, fullscreenImage, photoToDelete, showSaveConfirm, friendlyError, existingImages, newPreviews]);
+
+  const descriptionRef = useRef(null);
+  const archDetailsRef = useRef(null);
+
+  const autoResize = (target) => {
+    if (!target) return;
+    target.style.height = "auto";
+    target.style.height = `${Math.max(target.scrollHeight, 60)}px`;
+  };
+
+  const handleTextareaChange = (e) => {
+    handleChange(e);
+    autoResize(e.target);
+  };
+
+  // Auto-resize on open or when form data is populated
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        if (descriptionRef.current) autoResize(descriptionRef.current);
+        if (archDetailsRef.current) autoResize(archDetailsRef.current);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, formData.description, formData.architecturalDetails]);
 
   if (!isOpen) return null;
 
@@ -320,7 +371,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     try {
       const isValid = await verifyAdminPassword(deletePassword);
       if (!isValid) {
-        setDeletePasswordError("Incorrect admin password. Please enter the valid admin credential (e.g. mcpa2026).");
+        setDeletePasswordError("Incorrect admin password. Please enter a valid admin credential.");
         setIsVerifyingPassword(false);
         return;
       }
@@ -433,12 +484,20 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
         await new Promise((r) => setTimeout(r, 450));
       }
 
-      const finalImages = [...existingImages, ...uploadedUrls];
+      const parsedFeatures = formData.featuresText
+        ? formData.featuresText.split(",").map((f) => f.trim()).filter(Boolean)
+        : [];
 
       onSave({
         ...formData,
         category: finalCategory,
         images: finalImages,
+        lotArea: formData.lotArea?.trim() || null,
+        floorArea: formData.floorArea?.trim() || null,
+        bedrooms: formData.bedrooms?.trim() || null,
+        bathrooms: formData.bathrooms?.trim() || null,
+        features: parsedFeatures,
+        architecturalDetails: formData.architecturalDetails?.trim() || null,
       });
     } catch (err) {
       console.error("Failed to save project:", err);
@@ -649,13 +708,113 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 Description
               </label>
               <textarea
+                ref={descriptionRef}
                 name="description"
                 value={formData.description}
-                onChange={handleChange}
+                onChange={handleTextareaChange}
                 rows={3}
                 placeholder="Brief project details, architectural materials, lot size, or scope..."
-                className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors resize-none"
+                className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-all resize-none overflow-hidden"
               />
+            </div>
+
+            {/* Architectural & Engineering Specifications */}
+            <div className="p-4 rounded-2xl border border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-neutral-900/40 space-y-4">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Architectural & Engineering Specifications
+                </h4>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Detailed specs displayed in the project details overlay modal on your website
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1">
+                    Lot Area
+                  </label>
+                  <input
+                    type="text"
+                    name="lotArea"
+                    value={formData.lotArea}
+                    onChange={handleChange}
+                    placeholder="e.g. 240 sq.m."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1">
+                    Floor Area
+                  </label>
+                  <input
+                    type="text"
+                    name="floorArea"
+                    value={formData.floorArea}
+                    onChange={handleChange}
+                    placeholder="e.g. 210 sq.m."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1">
+                    Bedrooms
+                  </label>
+                  <input
+                    type="text"
+                    name="bedrooms"
+                    value={formData.bedrooms}
+                    onChange={handleChange}
+                    placeholder="e.g. 4 Bedrooms"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1">
+                    Bathrooms
+                  </label>
+                  <input
+                    type="text"
+                    name="bathrooms"
+                    value={formData.bathrooms}
+                    onChange={handleChange}
+                    placeholder="e.g. 3 Bathrooms"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1">
+                  Features & Scope Delivered (Comma-separated)
+                </label>
+                <input
+                  type="text"
+                  name="featuresText"
+                  value={formData.featuresText}
+                  onChange={handleChange}
+                  placeholder="e.g. Reinforced Concrete Framing, 2-Car Garage, Modern Balcony, Tempered Glass Railings"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1">
+                  Engineering & Structural Compliance Notes
+                </label>
+                <textarea
+                  ref={archDetailsRef}
+                  name="architecturalDetails"
+                  value={formData.architecturalDetails}
+                  onChange={handleTextareaChange}
+                  rows={2}
+                  placeholder="e.g. Grade 60 Rebars, 3000 PSI Ready-Mix, Signed & Sealed PRC Blueprints..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none resize-none overflow-hidden transition-all"
+                />
+              </div>
             </div>
 
             {/* Visibility Toggle */}
@@ -688,6 +847,40 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                   type="checkbox"
                   name="isWebVisible"
                   checked={formData.isWebVisible}
+                  onChange={handleChange}
+                  className="sr-only peer"
+                />
+                <div className="w-14 h-7 bg-neutral-300 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-500"></div>
+              </label>
+            </div>
+
+            {/* Feature on Home Page Toggle */}
+            <div className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-white/5 rounded-2xl">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-500 font-bold text-sm">★</span>
+                  <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
+                    Feature on Home Page
+                  </h4>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      formData.featuredOnHome
+                        ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-extrabold"
+                        : "bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400"
+                    }`}
+                  >
+                    {formData.featuredOnHome ? "Featured (Home)" : "Projects Page Only"}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                  Feature this project in the curated 6-project showcase on the Homepage. (Max 6 projects total).
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  name="featuredOnHome"
+                  checked={formData.featuredOnHome}
                   onChange={handleChange}
                   className="sr-only peer"
                 />
@@ -1019,7 +1212,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
                   <LockIcon className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Admin Password / PIN *</span>
+                  <span>Password *</span>
                 </label>
                 <span className="text-[10px] text-neutral-400 font-normal">
                   Required for delete
@@ -1040,7 +1233,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                       handleConfirmDeletePhoto();
                     }
                   }}
-                  placeholder="Enter admin password (e.g. mcpa2026)"
+                  placeholder="Enter admin password"
                   className={`w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border text-xs text-neutral-900 dark:text-white placeholder-neutral-400 transition-colors focus:outline-none ${
                     deletePasswordError
                       ? "border-rose-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
@@ -1162,7 +1355,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                     formData.isWebVisible ? "text-emerald-500" : "text-neutral-400"
                   }`}
                 >
-                  {formData.isWebVisible ? "● Live on Client Web" : "○ Hidden (Draft)"}
+                  {formData.isWebVisible ? "Live on Client Web" : "Hidden (Draft)"}
                 </span>
               </div>
             </div>
@@ -1261,7 +1454,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             {/* Friendly Non-IT Tip Box */}
             {friendlyError.tip && (
               <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300/90 flex items-start gap-2.5">
-                <span className="text-base leading-none">💡</span>
+                <LightbulbIcon className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                 <div className="leading-relaxed">
                   <strong className="font-bold">Tip:</strong> {friendlyError.tip}
                 </div>

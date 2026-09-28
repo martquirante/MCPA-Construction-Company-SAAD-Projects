@@ -8,7 +8,7 @@ import { getReturnToCompletedHome, consumeReturnToCompletedHome } from "@/module
 
 export default function Home() {
   const router = useRouter();
-  // Only skip intro loading screen if explicitly navigating back to Home from a subpage
+  // Only skip intro loading screen if user explicitly clicked a 'Home' link
   const shouldReturnToCompleted = getReturnToCompletedHome();
   const [showLoading, setShowLoading] = useState(!shouldReturnToCompleted);
 
@@ -24,16 +24,19 @@ export default function Home() {
       }
 
       const isCompleted = getReturnToCompletedHome();
-      // If returning to Home from explicit link click, position directly at the completed residence screen (Step 3)
+
+      // If returning to Home because a 'Home' link was clicked, position directly at the completed residence screen (Step 3)
       if (isCompleted || shouldReturnToCompleted) {
         setShowLoading(false);
         const vh = window.innerHeight;
         window.scrollTo({ top: 3 * vh, behavior: "instant" });
-        // Consume the flag so subsequent reloads or fresh visits start from Step 0 with the videos
+        // Consume the flag so that a subsequent page reload or fresh visit starts from Step 0 with the videos
         setTimeout(() => {
           consumeReturnToCompletedHome();
-        }, 400);
+        }, 500);
       } else {
+        // Unang beses binuksan OR na-reload: start at Step 0 with the video animation
+        setShowLoading(true);
         window.scrollTo(0, 0);
       }
     }
