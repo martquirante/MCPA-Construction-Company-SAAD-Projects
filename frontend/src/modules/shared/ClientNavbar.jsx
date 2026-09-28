@@ -14,7 +14,7 @@ import {
   SunIcon,
   MoonIcon,
 } from "./Icons";
-import { WifiOff } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import UtilityBar from "./UtilityBar";
 import { getThemePreference, setThemePreference } from "./SystemThemeSync";
 import { useLanguage } from "./LanguageContext";
@@ -30,12 +30,41 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
   const announcementDismissed = announcementState.route === pathname && announcementState.dismissed;
   const [isModalActive, setIsModalActive] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+  const [pingLatency, setPingLatency] = useState(null);
+
+  const checkMobileConnection = async () => {
+    setIsCheckingConnection(true);
+    const start = Date.now();
+    try {
+      const res = await fetch("/api/health", { method: "GET", cache: "no-store" });
+      const lat = Date.now() - start;
+      if (res.ok) {
+        setIsOnline(true);
+        setPingLatency(lat);
+      } else {
+        setIsOnline(false);
+        setPingLatency(null);
+      }
+    } catch (_) {
+      setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
+      setPingLatency(null);
+    } finally {
+      setIsCheckingConnection(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (typeof navigator !== "undefined") setIsOnline(navigator.onLine);
-    const handleOff = () => setIsOnline(false);
-    const handleOn = () => setIsOnline(true);
+    const handleOff = () => {
+      setIsOnline(false);
+      setPingLatency(null);
+    };
+    const handleOn = () => {
+      setIsOnline(true);
+      checkMobileConnection();
+    };
     window.addEventListener("offline", handleOff);
     window.addEventListener("online", handleOn);
     return () => {
@@ -397,6 +426,40 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
                 Filipino
               </button>
             </div>
+          </div>
+
+          {/* Mobile Network Status Row */}
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10">
+            <div className="flex flex-col text-left">
+              <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                {language === "fil" ? "Koneksyon" : "Network Status"}
+              </span>
+              {isOnline && pingLatency !== null && (
+                <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
+                  {pingLatency}ms latency
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={checkMobileConnection}
+              disabled={isCheckingConnection}
+              title={language === "fil" ? "Pindutin para i-check ang koneksyon" : "Tap to test connection"}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
+                isOnline
+                  ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+                  : "text-red-600 dark:text-red-400 bg-red-500/10 hover:bg-red-500/20 font-semibold"
+              }`}
+            >
+              {isCheckingConnection ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : isOnline ? (
+                <Wifi className="w-3.5 h-3.5" />
+              ) : (
+                <WifiOff className="w-3.5 h-3.5" />
+              )}
+              <span>{isOnline ? "Online" : "Offline"}</span>
+            </button>
           </div>
 
           {/* Mobile Social Links */}

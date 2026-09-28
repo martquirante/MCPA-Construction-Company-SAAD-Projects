@@ -7,6 +7,7 @@ import ProjectCard from "./ProjectCard";
 import ProjectDetailsModal from "./ProjectDetailsModal";
 import ScrollMorph from "../../shared/ScrollMorph";
 import { ArrowRightIcon } from "../../shared/Icons";
+import LordIcon from "../../shared/LordIcon";
 import { deduplicateProjects, subscribeProjectsChange } from "../../shared/projectsHelper";
 
 export default function PortfolioSection({
@@ -197,36 +198,97 @@ export default function PortfolioSection({
       </ScrollMorph>
 
       {/* Projects Grid: Auto-balancing layout with responsive centering */}
-      <div className={getGridClasses(count)}>
-        {displayProjects.map((project, idx) => {
-          const cardVariant =
-            idx % 3 === 0
-              ? "fan-left"
-              : idx % 3 === 1
-              ? "isometric-pop"
-              : "fan-right";
+      {count === 0 ? (
+        <ScrollMorph variant="fade-up" className="max-w-xl mx-auto py-12 px-4 text-center">
+          <div className="relative overflow-hidden rounded-3xl border border-dashed border-neutral-300 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] backdrop-blur-md p-8 sm:p-12 flex flex-col items-center justify-center shadow-lg">
+            {/* Subtle ambient amber backdrop glow */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
 
-          return (
-            <div key={project.id ?? `project-${idx}`} className={getCardWrapperClasses(count, idx)}>
-              <ScrollMorph
-                variant={cardVariant}
-                delay={(idx % 3) * 130}
-                duration={800}
-                className="h-full w-full"
-              >
-                <ProjectCard
-                  project={project}
-                  onInquire={handleInquire}
-                  onOpenDetails={(p) => setSelectedProjectForModal(p)}
+            {/* Animated Lordicon from CDN API */}
+            <div className="relative mb-5">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 dark:border-amber-500/25 flex items-center justify-center shadow-inner">
+                <LordIcon
+                  src="https://cdn.lordicon.com/wzwygmng.json"
+                  size={72}
+                  trigger="loop"
+                  colors="primary:#d97706,secondary:#f59e0b"
                 />
-              </ScrollMorph>
+              </div>
             </div>
-          );
-        })}
-      </div>
+
+            {/* Badge */}
+            <span className="inline-block px-3 py-1 mb-3 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold uppercase tracking-wider">
+              {activeCategory !== "All" ? "Category Filter" : "Portfolio In Progress"}
+            </span>
+
+            {/* Title */}
+            <h3 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight uppercase">
+              {activeCategory !== "All"
+                ? `No ${activeCategory} Projects Found`
+                : "Architectural Showcase In Progress"}
+            </h3>
+
+            {/* Description */}
+            <p className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 max-w-sm mx-auto leading-relaxed">
+              {activeCategory !== "All"
+                ? `We are currently curating architectural builds for ${activeCategory}. Try selecting 'All' or explore our full catalog.`
+                : "Our structural engineering and architectural portfolio is actively being updated with new residential and commercial builds."}
+            </p>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              {activeCategory !== "All" ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveCategory("All")}
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-amber-500/20 cursor-pointer hover:scale-102"
+                >
+                  View All Categories
+                </button>
+              ) : (
+                <Link
+                  href="/book"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-amber-500/20 cursor-pointer hover:scale-102"
+                >
+                  <span>Book Consultation</span>
+                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                </Link>
+              )}
+            </div>
+          </div>
+        </ScrollMorph>
+      ) : (
+        <div className={getGridClasses(count)}>
+          {displayProjects.map((project, idx) => {
+            const cardVariant =
+              idx % 3 === 0
+                ? "fan-left"
+                : idx % 3 === 1
+                ? "isometric-pop"
+                : "fan-right";
+
+            return (
+              <div key={project.id ?? `project-${idx}`} className={getCardWrapperClasses(count, idx)}>
+                <ScrollMorph
+                  variant={cardVariant}
+                  delay={(idx % 3) * 130}
+                  duration={800}
+                  className="h-full w-full"
+                >
+                  <ProjectCard
+                    project={project}
+                    onInquire={handleInquire}
+                    onOpenDetails={(p) => setSelectedProjectForModal(p)}
+                  />
+                </ScrollMorph>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Call to Action: Direct user to dedicated /projects page if on homepage */}
-      {isHomePage && (
+      {isHomePage && visibleProjects.length > 0 && (
         <div className="mt-14 sm:mt-16 flex flex-col items-center justify-center text-center">
           <Link
             href="/projects"

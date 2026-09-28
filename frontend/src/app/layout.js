@@ -16,14 +16,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "MCPA Construction and Supply",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://mcpa-construction.vercel.app"),
+  title: {
+    default: "MCPA Construction and Supply | Design and Build Contractor Bulacan",
+    template: "%s | MCPA Construction and Supply",
+  },
   description:
-    "Looking to turn your ideas into reality? MCPA Construction and Supply is a full-service design and build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, signed and sealed plans, and turnkey construction supply across Bulacan, Metro Manila, and Central Luzon.",
+    "Looking to turn your ideas into reality? MCPA Construction and Supply is a premier design-and-build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, signed and sealed plans, and turnkey construction supply across Bulacan, Metro Manila, and Central Luzon.",
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "MCPA Construction and Supply",
+    title: "MCPA Construction and Supply | Design and Build Contractor Bulacan",
     description:
       "Full-service design and build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, and turnkey construction supply.",
+    url: "https://mcpa-construction.vercel.app",
     siteName: "MCPA Construction and Supply",
+    locale: "en_PH",
     type: "website",
   },
   twitter: {
@@ -35,11 +44,12 @@ export const metadata = {
   keywords: [
     "MCPA Construction and Supply",
     "Design and Build Contractor Bulacan",
-    "Build Now Pay Later Program",
-    "Design and Build Bulacan",
+    "Bulacan Construction Company",
     "Plaridel Bulacan Contractor",
+    "Build Now Pay Later Program",
     "Signed and Sealed Architectural Plans",
     "House Construction Bulacan",
+    "Commercial Building Contractor Bulacan",
   ],
   icons: {
     icon: [
@@ -70,6 +80,38 @@ export default function RootLayout({ children }) {
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var p=localStorage.getItem('mcpa-theme');var d=p==='dark'||(!p||p==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}catch(e){}})();`,
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "GeneralContractor",
+              "name": "MCPA Construction and Supply",
+              "image": "https://mcpa-construction.vercel.app/icon.png",
+              "url": "https://mcpa-construction.vercel.app",
+              "telephone": "+63-917-123-4567",
+              "priceRange": "₱₱₱",
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "Plaridel",
+                "addressLocality": "Plaridel",
+                "addressRegion": "Bulacan",
+                "postalCode": "3004",
+                "addressCountry": "PH"
+              },
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 14.8872,
+                "longitude": 120.8572
+              },
+              "sameAs": [
+                "https://www.facebook.com/MCPA.ConstructionandSupply/",
+                "https://www.instagram.com/mcpa.constructionandsupply/",
+                "https://www.tiktok.com/@mcpa.construction"
+              ]
+            })
           }}
         />
       </head>

@@ -237,8 +237,8 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
               {t("helpCenter")}
             </button>
 
-            {/* 0. LIVE NETWORK STATUS BUTTON & POPOVER */}
-            <div className="relative">
+            {/* 0. LIVE NETWORK STATUS BUTTON & POPOVER (Desktop/Tablet; Mobile is in hamburger menu) */}
+            <div className="relative hidden sm:block">
               <button
                 type="button"
                 onClick={() => {
@@ -249,33 +249,25 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                     checkLiveConnection();
                   }
                 }}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 rounded-md transition-all cursor-pointer font-medium text-[10.5px] sm:text-[11px] ${
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors cursor-pointer text-[11px] font-medium ${
                   isOnline
-                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/25"
-                    : "bg-red-500/15 text-red-600 dark:text-red-400 hover:bg-red-500/25 border border-red-500/35 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                    ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                    : "text-red-600 dark:text-red-400 hover:bg-red-500/10 font-semibold"
                 }`}
                 aria-label="Network Status Indicator"
                 title={isOnline ? t("connectedCloud") : t("disconnectedCloud")}
               >
                 {isOnline ? (
                   <>
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                    </span>
-                    <Wifi className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <span className="hidden sm:inline font-semibold tracking-wide">
+                    <Wifi className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline tracking-wide">
                       {t("online")}
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                    </span>
-                    <WifiOff className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
-                    <span className="font-bold tracking-wide">
+                    <WifiOff className="w-3.5 h-3.5" />
+                    <span className="tracking-wide">
                       {t("offline")}
                     </span>
                   </>
@@ -297,10 +289,10 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                       <span>{t("networkStatus")}</span>
                     </div>
                     <span
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-md font-semibold uppercase ${
                         isOnline
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                          : "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                          : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
                       }`}
                     >
                       {isOnline ? t("online") : t("offline")}
@@ -339,7 +331,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
               )}
             </div>
 
-            <span className="w-px h-3 bg-neutral-300 dark:bg-neutral-800" />
+            <span className="hidden sm:inline-block w-px h-3 bg-neutral-300 dark:bg-neutral-800" />
 
             {/* 1. LANGUAGE COMBOBOX (Dropdown floating on top / nakapatong) */}
             <div className="relative">

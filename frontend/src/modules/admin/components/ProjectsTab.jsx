@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ProjectEditorModal from "./ProjectEditorModal";
+import AdminEmptyState from "./AdminEmptyState";
 import {
   PlusIcon,
   TrashIcon,
@@ -197,16 +198,42 @@ export default function ProjectsTab({
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredProjects.length === 0 ? (
-          <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-neutral-300 dark:border-neutral-800 rounded-2xl bg-white/50 dark:bg-neutral-900/50">
-            <FolderKanbanIcon className="w-12 h-12 text-neutral-400 mb-3" />
-            <h3 className="text-lg font-bold text-neutral-700 dark:text-neutral-300">
-              {searchQuery || selectedCategory !== "All" ? "No Matching Projects" : "No Projects Found"}
-            </h3>
-            <p className="text-sm text-neutral-500 max-w-sm text-center mt-2">
-              {searchQuery || selectedCategory !== "All"
-                ? "Try clearing your search query or selecting a different category filter."
-                : "No projects in the database yet. Click \"Add Project\" to create your first portfolio entry."}
-            </p>
+          <div className="col-span-full">
+            {searchQuery || selectedCategory !== "All" ? (
+              <AdminEmptyState
+                iconSrc="https://cdn.lordicon.com/msoeawqm.json"
+                badgeText="No Filter Matches"
+                title="No Matching Projects"
+                description={`No projects found matching "${searchQuery || selectedCategory}". Try clearing your search query or selecting a different category filter.`}
+                actionButton={
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory("All");
+                    }}
+                    className="px-4 py-2 bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                  >
+                    Clear Filters
+                  </button>
+                }
+              />
+            ) : (
+              <AdminEmptyState
+                iconSrc="https://cdn.lordicon.com/wzwygmng.json"
+                badgeText="Portfolio Standby"
+                title="No Projects in Portfolio"
+                description='No projects in the database yet. Click "Add Project" to create your first portfolio entry.'
+                actionButton={
+                  <button
+                    onClick={handleOpenCreate}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/20 cursor-pointer hover:scale-102"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Add First Project
+                  </button>
+                }
+              />
+            )}
           </div>
         ) : (
           filteredProjects.map((project, idx) => {
