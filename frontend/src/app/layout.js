@@ -26,6 +26,11 @@ export const metadata = {
   alternates: {
     canonical: "/",
   },
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
   openGraph: {
     title: "MCPA Construction and Supply | Design and Build Contractor Bulacan",
     description:
