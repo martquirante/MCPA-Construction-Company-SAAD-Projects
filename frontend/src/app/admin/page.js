@@ -492,7 +492,18 @@ export default function AdminPage() {
 
   const handleUpdateProject = async (projectId, updatedProject) => {
     try {
-      const res = await fetch(`/api/projects/${projectId}`, {
+      // 1. Resolve true numeric database ID if current ID is a client temporary string
+      let targetId = projectId;
+      if (typeof targetId === "string" && (targetId.startsWith("PROJ-") || isNaN(parseInt(targetId, 10)))) {
+        const matched = allProjects.find(
+          (p) => p.name && updatedProject.name && p.name.trim().toLowerCase() === updatedProject.name.trim().toLowerCase() && !String(p.id).startsWith("PROJ-")
+        );
+        if (matched && matched.id && !isNaN(parseInt(matched.id, 10))) {
+          targetId = matched.id;
+        }
+      }
+
+      let res = await fetch(`/api/projects/${targetId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -506,14 +517,20 @@ export default function AdminPage() {
           architectural_details: updatedProject.architecturalDetails,
         }),
       });
+
+      // If PUT fails because project was not found in DB yet (e.g. was cached locally), fall back to POST create
+      if (res.status === 404 || (res.status >= 400 && String(targetId).startsWith("PROJ-"))) {
+        return await handleAddProject(updatedProject);
+      }
+
       const data = await res.json();
       if (!res.ok || !data?.success) {
         throw new Error(data?.message || `Server returned error (${res.status})`);
       }
 
-      const updatedCustom = customProjects.map((p) => (String(p.id) === String(projectId) ? { ...p, ...updatedProject } : p));
+      const updatedCustom = customProjects.map((p) => (String(p.id) === String(projectId) || String(p.id) === String(targetId) ? { ...p, ...updatedProject } : p));
       setCustomProjects(updatedCustom);
-      const updatedAll = allProjects.map((p) => (String(p.id) === String(projectId) ? { ...p, ...updatedProject } : p));
+      const updatedAll = allProjects.map((p) => (String(p.id) === String(projectId) || String(p.id) === String(targetId) ? { ...p, ...updatedProject } : p));
       setAllProjects(updatedAll);
       localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
       showToast(`Successfully updated "${updatedProject.name}"!`);

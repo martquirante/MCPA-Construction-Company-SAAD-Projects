@@ -530,15 +530,25 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
         architecturalDetails: formData.architecturalDetails?.trim() || null,
       });
 
-      if (saveResult === false) {
-        throw new Error("Unable to save project to portfolio database. Please check your network connection and try again.");
+      if (saveResult === false || saveResult?.success === false) {
+        throw new Error(
+          saveResult?.error ||
+          "Unable to complete save to the portfolio database. Please try again."
+        );
       }
     } catch (err) {
       console.error("Failed to save project:", err);
+      const isNetworkError = err.message && (
+        err.message.toLowerCase().includes("network") ||
+        err.message.toLowerCase().includes("offline") ||
+        err.message.toLowerCase().includes("failed to fetch")
+      );
       setFriendlyError({
         title: "Could Not Complete Save",
         message: err.message || "An issue occurred while saving the project.",
-        tip: "Please check your internet connection and try saving again. Your form details and uploaded photos are safely preserved.",
+        tip: isNetworkError
+          ? "Please check your internet connection and try saving again. Your form details and uploaded photos are safely preserved."
+          : "Your form details and uploaded photos are safely preserved in this window. You can make adjustments and try saving again.",
         type: "error",
       });
     } finally {

@@ -93,9 +93,9 @@ export default function ProjectsTab({
   const handleSaveProject = async (projectData) => {
     if (editingProject) {
       const res = await onUpdateProject(editingProject.id, projectData);
-      if (res && res.success === false) return false;
+      if (res && res.success === false) return res;
       setIsEditorOpen(false);
-      return true;
+      return { success: true };
     } else {
       const newProject = {
         ...projectData,
@@ -103,9 +103,9 @@ export default function ProjectsTab({
         isAdminAdded: true,
       };
       const res = await onAddProject(newProject);
-      if (res && res.success === false) return false;
+      if (res && res.success === false) return res;
       setIsEditorOpen(false);
-      return true;
+      return { success: true };
     }
   };
 

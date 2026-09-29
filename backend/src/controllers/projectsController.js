@@ -99,7 +99,11 @@ class ProjectsController {
   async delete(req, res) {
     try {
       const { id } = req.params;
-      await db.query("DELETE FROM projects WHERE project_id = $1", [parseInt(id, 10)]);
+      const numId = parseInt(String(id).replace(/\D/g, ""), 10);
+      if (isNaN(numId)) {
+        return res.status(400).json({ message: "Invalid project ID." });
+      }
+      await db.query("DELETE FROM projects WHERE project_id = $1", [numId]);
       return res.json({ success: true, message: "Project removed." });
     } catch (err) {
       console.error("[ProjectsController.delete] Error:", err);
@@ -110,7 +114,11 @@ class ProjectsController {
   async toggleFeatured(req, res) {
     try {
       const { id } = req.params;
-      const check = await db.query("SELECT * FROM projects WHERE project_id = $1", [parseInt(id, 10)]);
+      const numId = parseInt(String(id).replace(/\D/g, ""), 10);
+      if (isNaN(numId)) {
+        return res.status(400).json({ message: "Invalid project ID." });
+      }
+      const check = await db.query("SELECT * FROM projects WHERE project_id = $1", [numId]);
       if (check.rows.length === 0) {
         return res.status(404).json({ message: "Project not found." });
       }
@@ -132,7 +140,7 @@ class ProjectsController {
 
       const result = await db.query(
         "UPDATE projects SET featured_on_home = $1 WHERE project_id = $2 RETURNING *",
-        [newFeatured, parseInt(id, 10)]
+        [newFeatured, numId]
       );
 
       return res.json({
@@ -192,28 +200,43 @@ class ProjectsController {
         imageList = [uploadedUrl, ...imageList];
       }
 
-      // Check if project exists
-      const check = await db.query("SELECT * FROM projects WHERE project_id = $1", [parseInt(id, 10)]);
-      if (check.rows.length === 0) {
-        return res.status(404).json({ message: "Project not found." });
+      // Check if project exists by ID or by name fallback
+      const numId = parseInt(String(id).replace(/\D/g, ""), 10);
+      let check;
+      if (!isNaN(numId)) {
+        check = await db.query("SELECT * FROM projects WHERE project_id = $1", [numId]);
       }
 
+      if ((!check || check.rows.length === 0) && name) {
+        check = await db.query(
+          "SELECT * FROM projects WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1",
+          [name]
+        );
+      }
+
+      if (!check || check.rows.length === 0) {
+        return res.status(404).json({ message: "Project not found in database." });
+      }
+
+      const existingRecord = check.rows[0];
+      const targetProjectId = existingRecord.project_id;
+
       const isWebVisible = is_web_visible === 'false' || is_web_visible === false ? false : true;
-      const projectStatus = status || check.rows[0].status || "completed";
-      const projectMonth = month || check.rows[0].month || "January";
+      const projectStatus = status || existingRecord.status || "completed";
+      const projectMonth = month || existingRecord.month || "January";
 
       const finalFeaturedHome = featured_on_home !== undefined
         ? (featured_on_home === 'true' || featured_on_home === true)
         : (is_featured_home !== undefined
           ? (is_featured_home === 'true' || is_featured_home === true)
-          : Boolean(check.rows[0].featured_on_home));
+          : Boolean(existingRecord.featured_on_home));
 
-      const finalLotArea = lot_area !== undefined ? lot_area : check.rows[0].lot_area;
-      const finalFloorArea = floor_area !== undefined ? floor_area : check.rows[0].floor_area;
-      const finalBedrooms = bedrooms !== undefined ? bedrooms : check.rows[0].bedrooms;
-      const finalBathrooms = bathrooms !== undefined ? bathrooms : check.rows[0].bathrooms;
-      const finalFeatures = features !== undefined ? featureList : check.rows[0].features || [];
-      const finalArchDetails = architectural_details !== undefined ? architectural_details : check.rows[0].architectural_details;
+      const finalLotArea = lot_area !== undefined ? lot_area : existingRecord.lot_area;
+      const finalFloorArea = floor_area !== undefined ? floor_area : existingRecord.floor_area;
+      const finalBedrooms = bedrooms !== undefined ? bedrooms : existingRecord.bedrooms;
+      const finalBathrooms = bathrooms !== undefined ? bathrooms : existingRecord.bathrooms;
+      const finalFeatures = features !== undefined ? featureList : existingRecord.features || [];
+      const finalArchDetails = architectural_details !== undefined ? architectural_details : existingRecord.architectural_details;
 
       const result = await db.query(
         `UPDATE projects 
@@ -238,7 +261,7 @@ class ProjectsController {
           finalFeatures,
           finalArchDetails,
           finalFeaturedHome,
-          parseInt(id, 10)
+          targetProjectId
         ]
       );
 
