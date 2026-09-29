@@ -207,17 +207,17 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
         )}
 
         {/* Action Button CTA & Bottom-Right Photo Indicators */}
-        <div className="mt-5 pt-4 border-t border-neutral-200 dark:border-white/15 flex items-center justify-between gap-3">
+        <div className="mt-4 sm:mt-5 pt-3 sm:pt-4 border-t border-neutral-200 dark:border-white/15 flex items-center justify-between gap-2 sm:gap-3">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onInquire?.(project);
             }}
-            className="inline-flex items-center gap-2 text-xs font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 group/link transition-colors cursor-pointer shrink-0"
+            className="inline-flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 group/link transition-colors cursor-pointer shrink-0"
           >
             <span className="whitespace-nowrap">{t("inquireStyle")}</span>
-            <ArrowRightIcon className="w-3.5 h-3.5 transition-transform duration-300 group-hover/link:translate-x-1 shrink-0" />
+            <ArrowRightIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform duration-300 group-hover/link:translate-x-1 shrink-0" />
           </button>
 
           {/* Photo Indicators / Carousel Navigation */}
@@ -225,7 +225,7 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
             images.length <= 6 ? (
               /* Up to 6 photos: Sleek pill dashes */
               <div
-                className="flex items-center gap-1.5 shrink-0 py-1"
+                className="flex items-center gap-1 sm:gap-1.5 shrink-0 py-0.5 sm:py-1"
                 title={`${images.length} photos available`}
               >
                 {images.map((_, idx) => (
@@ -241,10 +241,10 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
                     className="cursor-pointer py-1 px-0.5 border-0 bg-transparent group/bar focus:outline-none flex items-center"
                   >
                     <div
-                      className={`h-1 rounded-full transition-all duration-300 ${
+                      className={`h-0.5 sm:h-1 rounded-full transition-all duration-300 ${
                         idx === activeImageIdx
-                          ? "w-4 bg-amber-500 dark:bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]"
-                          : "w-2 bg-neutral-400/60 dark:bg-white/35 group-hover/bar:bg-neutral-600 dark:group-hover/bar:bg-white/70"
+                          ? "w-3 sm:w-4 bg-amber-500 dark:bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]"
+                          : "w-1.5 sm:w-2 bg-neutral-400/60 dark:bg-white/35 group-hover/bar:bg-neutral-600 dark:group-hover/bar:bg-white/70"
                       }`}
                     />
                   </button>
@@ -253,7 +253,7 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
             ) : (
               /* More than 6 photos (e.g. 42 photos): Luxury interactive pill counter */
               <div
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-900/50 dark:bg-white/10 hover:bg-neutral-900/70 dark:hover:bg-white/15 backdrop-blur-md border border-neutral-300/30 dark:border-white/15 text-white shadow-xs transition-all shrink-0 select-none"
+                className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-neutral-900/60 dark:bg-white/10 hover:bg-neutral-900/80 dark:hover:bg-white/15 backdrop-blur-md border border-neutral-300/30 dark:border-white/15 text-white shadow-xs transition-all shrink-0 select-none"
                 onClick={(e) => e.stopPropagation()}
                 title={`${images.length} photos in portfolio`}
               >
@@ -267,12 +267,12 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
                   aria-label="Previous photo"
                   className="p-0.5 rounded-full hover:bg-white/20 text-white/70 hover:text-amber-400 transition-colors cursor-pointer"
                 >
-                  <ChevronLeftIcon className="w-3 h-3" />
+                  <ChevronLeftIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 </button>
 
-                <div className="flex items-center gap-1 px-1">
-                  <CameraIcon className="w-3 h-3 text-amber-400 shrink-0" />
-                  <span className="text-[11px] font-mono font-bold tracking-tight text-white tabular-nums">
+                <div className="flex items-center gap-1 px-0.5 sm:px-1">
+                  <CameraIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 shrink-0" />
+                  <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-tight text-white tabular-nums">
                     {activeImageIdx + 1}
                     <span className="text-white/60 font-normal"> / {images.length}</span>
                   </span>
@@ -288,7 +288,7 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
                   aria-label="Next photo"
                   className="p-0.5 rounded-full hover:bg-white/20 text-white/70 hover:text-amber-400 transition-colors cursor-pointer"
                 >
-                  <ChevronRightIcon className="w-3 h-3" />
+                  <ChevronRightIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 </button>
               </div>
             )

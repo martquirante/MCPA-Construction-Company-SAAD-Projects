@@ -276,7 +276,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
 
                 {/* Photo Counter Pill */}
                 {images.length > 1 && (
-                  <div className="absolute bottom-3 right-3 px-3 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-xs font-mono font-medium border border-white/10 z-20 flex items-center justify-center">
+                  <div className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[11px] sm:text-xs font-mono font-medium border border-white/10 z-20 flex items-center justify-center">
                     <span>{activePhotoIdx + 1} / {images.length}</span>
                   </div>
                 )}
