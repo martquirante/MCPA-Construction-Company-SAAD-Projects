@@ -476,9 +476,9 @@ export default function AdminPage() {
       console.warn("Could not sync project to backend:", e);
     }
 
-    const updatedCustom = [finalProj, ...customProjects.filter((p) => p.id !== newProject.id && p.id !== finalProj.id)];
+    const updatedCustom = [finalProj, ...customProjects.filter((p) => String(p.id) !== String(newProject.id) && String(p.id) !== String(finalProj.id))];
     setCustomProjects(updatedCustom);
-    const updatedAll = [finalProj, ...allProjects.filter((p) => p.id !== newProject.id && p.id !== finalProj.id)];
+    const updatedAll = [finalProj, ...allProjects.filter((p) => String(p.id) !== String(newProject.id) && String(p.id) !== String(finalProj.id))];
     setAllProjects(updatedAll);
     try {
       localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
@@ -490,9 +490,9 @@ export default function AdminPage() {
   };
 
   const handleUpdateProject = async (projectId, updatedProject) => {
-    const updatedCustom = customProjects.map((p) => (p.id === projectId ? { ...p, ...updatedProject } : p));
+    const updatedCustom = customProjects.map((p) => (String(p.id) === String(projectId) ? { ...p, ...updatedProject } : p));
     setCustomProjects(updatedCustom);
-    const updatedAll = allProjects.map((p) => (p.id === projectId ? { ...p, ...updatedProject } : p));
+    const updatedAll = allProjects.map((p) => (String(p.id) === String(projectId) ? { ...p, ...updatedProject } : p));
     setAllProjects(updatedAll);
     try {
       localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));

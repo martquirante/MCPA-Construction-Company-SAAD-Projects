@@ -513,6 +513,8 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
         ? formData.featuresText.split(",").map((f) => f.trim()).filter(Boolean)
         : [];
 
+      const finalImages = [...(Array.isArray(existingImages) ? existingImages : []), ...uploadedUrls];
+
       onSave({
         ...formData,
         category: finalCategory,
