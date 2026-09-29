@@ -22,6 +22,7 @@ import {
   LightbulbIcon,
 } from "../../shared/Icons";
 import { verifyAdminPassword } from "../utils/adminAuth";
+import { compressImageFile } from "../../shared/imageUtils";
 
 const PRESET_CATEGORIES = [
   "Residential",
@@ -435,50 +436,74 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
       if (newFiles.length > 0) {
         setIsUploading(true);
         setUploadProgress(0);
-        setUploadStatusText(`Preparing ${newFiles.length} ${newFiles.length === 1 ? "photo" : "photos"} for upload...`);
+        setUploadStatusText(`Optimizing ${newFiles.length} ${newFiles.length === 1 ? "photo" : "photos"} for web...`);
 
-        // Real-time 0-100% progress tracking via XMLHttpRequest
-        uploadedUrls = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          const uploadFormData = new FormData();
-          newFiles.forEach((file) => {
-            uploadFormData.append("files", file);
+        // 1. Client-side web compression (scales down 4K/raw phone photos to web-optimal 1920px max, ~300KB)
+        const compressedFiles = [];
+        for (let i = 0; i < newFiles.length; i++) {
+          const comp = await compressImageFile(newFiles[i]);
+          compressedFiles.push(comp);
+          const prepPercent = Math.round(((i + 1) / newFiles.length) * 30);
+          setUploadProgress(prepPercent);
+          setUploadStatusText(`Optimizing photo ${i + 1} of ${newFiles.length}...`);
+        }
+
+        // 2. Upload in safe chunks of 2 files to guarantee request stays < 2MB (well under Vercel's 4.5MB ceiling)
+        const BATCH_SIZE = 2;
+        const totalBatches = Math.ceil(compressedFiles.length / BATCH_SIZE);
+        const allUrls = [];
+
+        for (let b = 0; b < totalBatches; b++) {
+          const batchFiles = compressedFiles.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE);
+          setUploadStatusText(`Uploading photos (${b + 1}/${totalBatches})...`);
+
+          const batchUrls = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const uploadFormData = new FormData();
+            batchFiles.forEach((file) => {
+              uploadFormData.append("files", file);
+            });
+
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const batchBase = 30 + Math.round((b / totalBatches) * 65);
+                const batchProg = Math.round((event.loaded / event.total) * (65 / totalBatches));
+                const currentPercent = Math.min(batchBase + batchProg, 98);
+                setUploadProgress(currentPercent);
+              }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                  const res = JSON.parse(xhr.responseText);
+                  if (res.success && Array.isArray(res.urls)) {
+                    resolve(res.urls);
+                  } else {
+                    reject(new Error(res.message || "Unable to process the server response."));
+                  }
+                } catch (e) {
+                  reject(new Error("Invalid response received from server. Please try again."));
+                }
+              } else {
+                reject(new Error(`Server error (${xhr.status}): Could not upload photos.`));
+              }
+            };
+
+            xhr.onerror = () => {
+              reject(new Error("A network connection error occurred while uploading photos."));
+            };
+
+            xhr.open("POST", "/api/upload-multiple?category=portfolio");
+            xhr.send(uploadFormData);
           });
 
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              const percent = Math.min(Math.round((event.loaded / event.total) * 100), 99);
-              setUploadProgress(percent);
-              setUploadStatusText(`Uploading photos... ${percent}%`);
-            }
-          };
+          allUrls.push(...batchUrls);
+        }
 
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                const res = JSON.parse(xhr.responseText);
-                if (res.success && Array.isArray(res.urls)) {
-                  setUploadProgress(100);
-                  setUploadStatusText("Photos uploaded successfully! Saving project...");
-                  resolve(res.urls);
-                } else {
-                  reject(new Error(res.message || "Unable to process the server response."));
-                }
-              } catch (e) {
-                reject(new Error("Invalid response received from server. Please try again."));
-              }
-            } else {
-              reject(new Error(`Server error (${xhr.status}): Could not upload photos.`));
-            }
-          };
-
-          xhr.onerror = () => {
-            reject(new Error("A network connection error occurred while uploading photos."));
-          };
-
-          xhr.open("POST", "/api/upload-multiple?category=portfolio");
-          xhr.send(uploadFormData);
-        });
+        uploadedUrls = allUrls;
+        setUploadProgress(100);
+        setUploadStatusText("Photos uploaded successfully! Saving project...");
 
         // Give a brief moment for the 100% indicator to be seen
         await new Promise((r) => setTimeout(r, 450));

@@ -12,6 +12,7 @@ import {
   TagIcon,
   LockIcon,
 } from "../../shared/Icons";
+import { compressImageFile } from "../../shared/imageUtils";
 
 export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
   const [title, setTitle] = useState("");
@@ -80,8 +81,9 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
 
     // Upload to Cloud Storage in background (Azure Primary -> Supabase Backup)
     try {
+      const optimizedFile = await compressImageFile(file);
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", optimizedFile);
       const res = await fetch("/api/upload?category=portfolio", {
         method: "POST",
         body: formData,
