@@ -30,6 +30,17 @@ export default function ScrollVideoHero({ onCompletionChange }) {
     }
   }, [isCompleted, onCompletionChange]);
 
+  // Force media reload when orientation changes between portrait and landscape
+  useEffect(() => {
+    [video1Ref, video2Ref, video3Ref].forEach((ref) => {
+      if (ref?.current) {
+        try {
+          ref.current.load();
+        } catch (_) {}
+      }
+    });
+  }, [isPortrait, video1Ref, video2Ref, video3Ref]);
+
   // Responsive video selection: high-definition portrait on mobile, cinematic landscape on desktop
   // 3 distinct sequential MP4 files for glitch-free loading on Vercel and mobile devices
   const videoParts = isPortrait
@@ -67,6 +78,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
       <div className="sticky top-0 w-full h-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none [contain:layout_paint]">
         {/* 1. Interactive Video Canvas / Player Stack */}
         <div
+          key={isPortrait ? "portrait-player-stack" : "landscape-player-stack"}
           onClick={() => {
             if (!isCompleted) {
               nextStep();
@@ -76,6 +88,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
         >
           {/* Part 1 (0% to 33%): Ground Zero & Site Layout -> Excavation & Structural Foundation */}
           <video
+            key={isPortrait ? "portrait-v1" : "landscape-v1"}
             ref={video1Ref}
             src={videoParts[0]}
             poster={posterParts[0]}
@@ -94,6 +107,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
 
           {/* Part 2 (33% to 66%): Excavation -> Framing & Architectural Enclosure */}
           <video
+            key={isPortrait ? "portrait-v2" : "landscape-v2"}
             ref={video2Ref}
             src={videoParts[1]}
             poster={posterParts[1]}
@@ -109,6 +123,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
 
           {/* Part 3 (66% to 100%): Framing -> Modern Residence 100% Completed */}
           <video
+            key={isPortrait ? "portrait-v3" : "landscape-v3"}
             ref={video3Ref}
             src={videoParts[2]}
             poster={posterParts[2]}
@@ -128,8 +143,8 @@ export default function ScrollVideoHero({ onCompletionChange }) {
               isCompleted ? "opacity-100" : "opacity-0"
             }`}
           >
-            {/* Desktop Screens */}
-            <div className="absolute inset-0 hidden sm:block">
+            {/* Desktop / Landscape Screens */}
+            <div className={`absolute inset-0 ${isPortrait ? "hidden" : "hidden sm:block"}`}>
               {/* Light Theme: Sunny Daytime Architectural Residence */}
               <Image
                 src="/assets/hero-residence-day-wide-v2.jpg"
@@ -150,8 +165,8 @@ export default function ScrollVideoHero({ onCompletionChange }) {
               />
             </div>
 
-            {/* Mobile Screens */}
-            <div className="absolute inset-0 block sm:hidden">
+            {/* Mobile / Portrait Screens */}
+            <div className={`absolute inset-0 ${isPortrait ? "block" : "block sm:hidden"}`}>
               {/* Light Theme: Sunny Daytime Architectural Residence */}
               <Image
                 src="/assets/hero-residence-day-mobile.jpg"

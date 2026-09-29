@@ -17,6 +17,7 @@ export const translations = {
     theme: "Theme",
     appearance: "Select Appearance",
     lightTheme: "Light Theme",
+    darkTheme: "Dark Theme",
     systemAuto: "System Auto",
     networkStatus: "Network Status",
     online: "Online",
@@ -144,6 +145,7 @@ export const translations = {
     theme: "Tema",
     appearance: "Pumili ng Tema",
     lightTheme: "Maliwanag na Tema",
+    darkTheme: "Madilim na Tema",
     systemAuto: "Awtomatikong Tema",
     networkStatus: "Katayuan ng Network",
     online: "Online",
@@ -1228,16 +1230,28 @@ const LanguageContext = createContext({
 });
 
 export function LanguageProvider({ children }) {
-  const [language, setLanguageState] = useState("en");
+  const [language, setLanguageState] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("mcpa-lang");
+        if (saved === "fil" || saved === "en") {
+          return saved;
+        }
+      } catch (e) {}
+    }
+    return "en";
+  });
 
   // Read saved preference from localStorage on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("mcpa-lang");
-      if (saved === "fil" || saved === "en") {
-        setLanguageState(saved);
-      }
-    } catch (e) {}
+    requestAnimationFrame(() => {
+      try {
+        const saved = localStorage.getItem("mcpa-lang");
+        if (saved === "fil" || saved === "en") {
+          setLanguageState(saved);
+        }
+      } catch (e) {}
+    });
   }, []);
 
   // Listen to language changes and activate DOM translator

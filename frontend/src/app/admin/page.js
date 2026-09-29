@@ -139,7 +139,7 @@ export default function AdminPage() {
         fetch("/api/construction/projects/MCPA-PLR-2024").then((r) => r.json()),
       ]);
 
-      if (projRes.status === "fulfilled" && projRes.value?.success && projRes.value.projects?.length > 0) {
+      if (projRes.status === "fulfilled" && projRes.value?.success && Array.isArray(projRes.value.projects)) {
         const dbProjects = projRes.value.projects.map((p) => ({
           id: p.project_id || p.id,
           name: p.name,
@@ -562,9 +562,9 @@ export default function AdminPage() {
   };
 
   const handleDeleteProject = async (projectId, projectName) => {
-    const updatedCustom = customProjects.filter((p) => p.id !== projectId);
+    const updatedCustom = customProjects.filter((p) => String(p.id) !== String(projectId));
     setCustomProjects(updatedCustom);
-    const updatedAll = allProjects.filter((p) => p.id !== projectId);
+    const updatedAll = allProjects.filter((p) => String(p.id) !== String(projectId));
     setAllProjects(updatedAll);
 
     try {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Wifi, WifiOff, CheckCircle2, X, RefreshCw } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Wifi, WifiOff, Signal, SignalZero, X, RefreshCw } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
 
 export default function NetworkStatusBar() {
@@ -12,16 +12,58 @@ export default function NetworkStatusBar() {
   const [showBanner, setShowBanner] = useState(false);
   const [isRestored, setIsRestored] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const detectConnectionType = useCallback(() => {
+    if (typeof navigator === "undefined") return "wifi";
+    const conn =
+      navigator.connection ||
+      navigator.mozConnection ||
+      navigator.webkitConnection;
+
+    if (conn) {
+      if (conn.type === "cellular") {
+        return "cellular";
+      }
+      if (conn.type === "wifi" || conn.type === "ethernet") {
+        return "wifi";
+      }
+      const isMobile =
+        typeof window !== "undefined" &&
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      if (isMobile && conn.effectiveType && conn.type !== "wifi" && conn.type !== "ethernet") {
+        return "cellular";
+      }
+    }
+
+    return "wifi";
+  }, []);
+
+  const [connectionType, setConnectionType] = useState(detectConnectionType);
   const timerRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Listen for connection changes (e.g. WiFi <-> Cellular Data)
+    const conn =
+      navigator.connection ||
+      navigator.mozConnection ||
+      navigator.webkitConnection;
+
+    const handleConnectionChange = () => {
+      setConnectionType(detectConnectionType());
+    };
+
+    if (conn && conn.addEventListener) {
+      conn.addEventListener("change", handleConnectionChange);
+    }
+
     // Check initial online status
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setIsOnline(false);
-      setIsRestored(false);
-      setShowBanner(true);
+      requestAnimationFrame(() => {
+        setIsOnline(false);
+        setIsRestored(false);
+        setShowBanner(true);
+      });
     }
 
     const handleOffline = () => {
@@ -29,21 +71,22 @@ export default function NetworkStatusBar() {
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
+      setConnectionType(detectConnectionType());
       setIsOnline(false);
       setIsRestored(false);
       setShowBanner(true);
     };
 
     const handleOnline = () => {
+      setConnectionType(detectConnectionType());
       setIsOnline(true);
       setIsRestored(true);
       setShowBanner(true);
 
-      // Auto-hide the emerald green restored banner after exactly 3 seconds
+      // Auto-hide the restored toast after exactly 3 seconds
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         setShowBanner(false);
-        setIsRestored(false);
         timerRef.current = null;
       }, 3000);
     };
@@ -68,27 +111,32 @@ export default function NetworkStatusBar() {
       window.removeEventListener("online", handleOnline);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleVisibilityChange);
+      if (conn && conn.removeEventListener) {
+        conn.removeEventListener("change", handleConnectionChange);
+      }
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [isOnline]);
+  }, [isOnline, detectConnectionType]);
 
   const handleManualRetry = async () => {
     setIsRetrying(true);
     try {
       if (typeof navigator !== "undefined" && navigator.onLine) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2500);
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
         try {
-          await fetch("http://localhost:5000/api/health", {
-            method: "GET",
+          await fetch("/api/health", {
+            method: "HEAD",
             cache: "no-store",
             signal: controller.signal,
-          });
+          }).catch(() => {});
         } catch (_) {
-          // Fallback to navigator.onLine if backend is on another host
+          // Fallback gracefully
         } finally {
           clearTimeout(timeoutId);
         }
+
+        setConnectionType(detectConnectionType());
         setIsOnline(true);
         setIsRestored(true);
         setShowBanner(true);
@@ -96,10 +144,10 @@ export default function NetworkStatusBar() {
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
           setShowBanner(false);
-          setIsRestored(false);
           timerRef.current = null;
         }, 3000);
       } else {
+        setConnectionType(detectConnectionType());
         setIsOnline(false);
         setIsRestored(false);
         setShowBanner(true);
@@ -110,7 +158,10 @@ export default function NetworkStatusBar() {
   };
 
   const handleDismiss = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     setShowBanner(false);
   };
 
@@ -118,100 +169,84 @@ export default function NetworkStatusBar() {
     <aside
       aria-label="Network Status Announcement"
       role="status"
-      aria-live="assertive"
-      className={`fixed top-0 inset-x-0 z-[99999] transition-all duration-500 ease-in-out transform ${
+      aria-live="polite"
+      className={`fixed bottom-5 sm:bottom-7 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-[99999] flex justify-center pointer-events-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         showBanner
-          ? "translate-y-0 opacity-100 shadow-2xl"
-          : "-translate-y-full opacity-0 pointer-events-none"
+          ? "opacity-100 translate-y-0 scale-100"
+          : "opacity-0 translate-y-6 scale-95 pointer-events-none"
       }`}
     >
       <div
-        className={`relative w-full py-2.5 px-4 sm:px-6 flex flex-col justify-center transition-colors duration-500 text-white ${
+        className={`pointer-events-auto w-full sm:w-auto max-w-lg flex items-center justify-between gap-3 sm:gap-4 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-neutral-900/95 dark:bg-neutral-950/95 text-neutral-100 backdrop-blur-xl border transition-colors duration-300 select-none ${
           isRestored
-            ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 border-b border-emerald-400/50 shadow-emerald-950/40"
-            : "bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 border-b border-rose-400/40 shadow-red-950/40"
+            ? "border-emerald-500/30 shadow-[0_12px_40px_rgba(16,185,129,0.18)]"
+            : "border-rose-500/30 shadow-[0_12px_40px_rgba(244,63,94,0.18)]"
         }`}
       >
-        <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-3 text-xs sm:text-sm font-medium">
-          {/* Status Icon & Message */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            {isRestored ? (
-              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white/20 shrink-0 shadow-xs">
-                <CheckCircle2 className="w-4 h-4 text-white" />
-              </div>
+        {/* Left: Icon according to WiFi / ISP vs Cellular Mobile Data (No dots, no checkmarks) */}
+        <div
+          className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border transition-colors ${
+            isRestored
+              ? "bg-emerald-500/15 border-emerald-500/25 text-emerald-400"
+              : "bg-rose-500/15 border-rose-500/25 text-rose-400"
+          }`}
+        >
+          {isRestored ? (
+            connectionType === "cellular" ? (
+              <Signal className="w-4 h-4 text-emerald-400" />
             ) : (
-              <div className="relative flex items-center justify-center w-6 h-6 rounded-full bg-white/20 shrink-0 shadow-xs">
-                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400" />
-                </span>
-                <WifiOff className="w-3.5 h-3.5 text-white" />
-              </div>
-            )}
-
-            <div className="truncate">
-              {isRestored ? (
-                <span className="font-semibold tracking-wide drop-shadow-xs">
-                  {t("networkRestoredBanner") ||
-                    (isFil
-                      ? "Naibalik na ang koneksyon sa internet! Online ka na muli."
-                      : "Internet connection restored! You are back online.")}
-                </span>
-              ) : (
-                <span className="font-semibold tracking-wide drop-shadow-xs">
-                  {t("networkOfflineBanner") ||
-                    (isFil
-                      ? "Walang koneksyon sa internet. Pakisuri ang iyong network."
-                      : "No internet connection. Please check your network.")}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Right Action / Countdown / Close */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {isRestored ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-[11px] font-mono tracking-wider uppercase text-emerald-100 font-semibold shadow-xs">
-                <Wifi className="w-3 h-3 text-emerald-200" />
-                <span>Online (3s)</span>
-              </span>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleManualRetry}
-                  disabled={isRetrying}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/25 hover:bg-black/40 text-[11px] font-semibold tracking-wide transition-colors cursor-pointer border border-white/20 shadow-xs disabled:opacity-50"
-                  title={isFil ? "Subukang kumonekta muli" : "Retry connection"}
-                >
-                  <RefreshCw className={`w-3 h-3 ${isRetrying ? "animate-spin" : ""}`} />
-                  <span className="hidden xs:inline">{isFil ? "Subukan Muli" : "Retry"}</span>
-                </button>
-
-                <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/25 text-[11px] font-mono tracking-wider uppercase text-amber-200 font-semibold shadow-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                  <span>{isFil ? "Offline" : "Offline"}</span>
-                </span>
-              </>
-            )}
-
-            <button
-              type="button"
-              onClick={handleDismiss}
-              aria-label="Dismiss Network Alert"
-              className="p-1 rounded-md bg-white/10 hover:bg-white/25 text-white transition-colors cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
+              <Wifi className="w-4 h-4 text-emerald-400" />
+            )
+          ) : connectionType === "cellular" ? (
+            <SignalZero className="w-4 h-4 text-rose-400" />
+          ) : (
+            <WifiOff className="w-4 h-4 text-rose-400" />
+          )}
         </div>
 
-        {/* 3-second shrinking countdown progress bar when connection is restored */}
-        {isRestored && (
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/20 overflow-hidden">
-            <div className="h-full bg-white/80 animate-shrink-bar" />
-          </div>
-        )}
+        {/* Center: Clean Status Message */}
+        <div className="flex-1 min-w-0 pr-1 text-xs sm:text-sm font-medium leading-tight">
+          {isRestored ? (
+            <span className="text-emerald-100 font-semibold tracking-tight">
+              {t("networkRestoredBanner") ||
+                (isFil
+                  ? "Naibalik na ang koneksyon sa internet! Online ka na muli."
+                  : "Internet connection restored! You are back online.")}
+            </span>
+          ) : (
+            <span className="text-rose-100 font-medium tracking-tight">
+              {t("networkOfflineBanner") ||
+                (isFil
+                  ? "Walang koneksyon sa internet. Pakisuri ang iyong network."
+                  : "No internet connection. Please check your network.")}
+            </span>
+          )}
+        </div>
+
+        {/* Right Actions: Retry button (when offline) & subtle Dismiss button */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {!isRestored && (
+            <button
+              type="button"
+              onClick={handleManualRetry}
+              disabled={isRetrying}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-xs font-semibold text-white tracking-wide transition-all cursor-pointer border border-white/10 shadow-xs disabled:opacity-50"
+              title={isFil ? "Subukang kumonekta muli" : "Retry connection"}
+            >
+              <RefreshCw className={`w-3 h-3 ${isRetrying ? "animate-spin" : ""}`} />
+              <span className="hidden xs:inline">{isFil ? "Subukan Muli" : "Retry"}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleDismiss}
+            aria-label="Dismiss Network Alert"
+            className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </aside>
   );

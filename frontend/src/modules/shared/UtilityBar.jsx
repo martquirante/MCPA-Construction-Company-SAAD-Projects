@@ -29,9 +29,6 @@ import {
   ShieldCheck,
   HardHat,
   ChevronRight,
-  Wifi,
-  WifiOff,
-  RefreshCw,
 } from "lucide-react";
 
 export default function UtilityBar({ show = true, scrolledPastHero = false }) {
@@ -40,19 +37,18 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
   const { language, setLanguage, t } = useLanguage();
 
   const [isDismissed, setIsDismissed] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState("system");
-  const [activeThemeMode, setActiveThemeMode] = useState("dark"); // actual rendered mode: "dark" or "light"
+  const [currentTheme, setCurrentTheme] = useState(() => {
+    if (typeof window === "undefined") return "system";
+    return getThemePreference();
+  });
+  const [activeThemeMode, setActiveThemeMode] = useState(() => {
+    if (typeof document === "undefined") return "dark";
+    return document.documentElement.classList.contains("dark") ? "dark" : "light";
+  });
 
   // Dropdown states
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
-  const [networkDropdownOpen, setNetworkDropdownOpen] = useState(false);
-
-  // Network connectivity status
-  const [isOnline, setIsOnline] = useState(true);
-  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
-  const [pingLatency, setPingLatency] = useState(null);
-  const [lastCheckedTime, setLastCheckedTime] = useState(null);
 
   // Modals
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
@@ -70,80 +66,9 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
     return () => clearInterval(timer);
   }, [announcementList.length]);
 
-  // Network online/offline event listeners
-  const checkLiveConnection = async () => {
-    setIsCheckingConnection(true);
-    const start = Date.now();
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-      const res = await fetch("http://localhost:5000/api/health", {
-        method: "GET",
-        cache: "no-store",
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      const latency = Date.now() - start;
-      if (res.ok) {
-        setIsOnline(true);
-        setPingLatency(latency);
-      } else {
-        setIsOnline(false);
-        setPingLatency(null);
-      }
-    } catch (_) {
-      if (typeof navigator !== "undefined" && navigator.onLine) {
-        setIsOnline(true);
-        setPingLatency(Date.now() - start);
-      } else {
-        setIsOnline(false);
-        setPingLatency(null);
-      }
-    } finally {
-      setIsCheckingConnection(false);
-      setLastCheckedTime(
-        new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-      );
-    }
-  };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    if (typeof navigator !== "undefined") {
-      setIsOnline(navigator.onLine);
-    }
-
-    const handleOffline = () => {
-      setIsOnline(false);
-      setPingLatency(null);
-    };
-
-    const handleOnline = () => {
-      setIsOnline(true);
-      checkLiveConnection();
-    };
-
-    window.addEventListener("offline", handleOffline);
-    window.addEventListener("online", handleOnline);
-
-    return () => {
-      window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("online", handleOnline);
-    };
-  }, []);
-
   // Sync theme with SystemThemeSync
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    const pref = getThemePreference();
-    setCurrentTheme(pref);
-    setActiveThemeMode(
-      document.documentElement.classList.contains("dark") ? "dark" : "light"
-    );
 
     const handleThemeChange = (e) => {
       if (e?.detail) {
@@ -163,7 +88,6 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
       if (utilityRef.current && !utilityRef.current.contains(e.target)) {
         setThemeDropdownOpen(false);
         setLangDropdownOpen(false);
-        setNetworkDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -195,32 +119,39 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
 
   const currentMessage = announcementList[messageIndex] || announcementList[0] || "";
 
+  // Auto-adjust font size and line height on mobile when the announcement is long
+  const isVeryLong = currentMessage.length > 70;
+  const isLong = currentMessage.length > 50;
+  const mobileTextClass = isVeryLong
+    ? "text-[9.5px] xs:text-[10px] sm:text-[11px] leading-[1.25] sm:leading-normal"
+    : isLong
+    ? "text-[10px] xs:text-[10.5px] sm:text-[11px] leading-snug sm:leading-normal"
+    : "text-[10.5px] sm:text-[11px] leading-normal";
+
   return (
     <>
       {/* 1. TOP UTILITY ANNOUNCEMENT BAR */}
       <div
         ref={utilityRef}
-        className={`relative z-50 w-full bg-white dark:bg-black text-neutral-700 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-800 text-[11px] font-sans select-none transition-all duration-700 ease-out shadow-xs ${
+        className={`relative z-50 w-full bg-white dark:bg-black text-neutral-700 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-800 text-[11px] font-sans select-none transition-all duration-500 ease-out shadow-xs ${
           show
-            ? "max-h-10 opacity-100 translate-y-0 pointer-events-auto overflow-visible"
+            ? "max-h-32 opacity-100 translate-y-0 pointer-events-auto overflow-visible"
             : "max-h-0 opacity-0 -translate-y-full pointer-events-none overflow-hidden"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-8 sm:h-9 flex items-center justify-between gap-2 sm:gap-4">
-          {/* Left: Dynamic Announcement Guarantee */}
-          <div className="flex items-center min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 truncate w-full">
-              <span 
-                className="text-neutral-800 dark:text-neutral-200 font-medium tracking-wide truncate transition-opacity duration-300 text-[10.5px] sm:text-[11px]"
-                title={currentMessage}
-              >
-                {currentMessage}
-              </span>
-            </div>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-[32px] sm:h-9 py-1 sm:py-0 flex items-center justify-between gap-2 sm:gap-4">
+          {/* Left: Dynamic Announcement Guarantee - auto-adjusts size & wraps on mobile so full text is readable */}
+          <div className="flex items-center min-w-0 flex-1 py-0.5">
+            <span 
+              className={`text-neutral-800 dark:text-neutral-200 font-medium tracking-tight sm:tracking-wide whitespace-normal sm:whitespace-nowrap break-words transition-all duration-300 ${mobileTextClass}`}
+              title={currentMessage}
+            >
+              {currentMessage}
+            </span>
           </div>
 
           {/* Right: Actions, Links & Combobox Dropdowns */}
-          <div className="flex items-center gap-1.5 sm:gap-4 shrink-0 text-neutral-600 dark:text-neutral-400">
+          <div className="flex items-center gap-1.5 sm:gap-4 shrink-0 text-neutral-600 dark:text-neutral-400 self-center">
             {/* About Us */}
             <button
               onClick={handleAboutClick}
@@ -237,101 +168,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
               {t("helpCenter")}
             </button>
 
-            {/* 0. LIVE NETWORK STATUS BUTTON & POPOVER (Desktop/Tablet; Mobile is in hamburger menu) */}
-            <div className="relative hidden sm:block">
-              <button
-                type="button"
-                onClick={() => {
-                  setNetworkDropdownOpen(!networkDropdownOpen);
-                  setLangDropdownOpen(false);
-                  setThemeDropdownOpen(false);
-                  if (!networkDropdownOpen && isOnline && pingLatency === null) {
-                    checkLiveConnection();
-                  }
-                }}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors cursor-pointer text-[11px] font-medium ${
-                  isOnline
-                    ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
-                    : "text-red-600 dark:text-red-400 hover:bg-red-500/10 font-semibold"
-                }`}
-                aria-label="Network Status Indicator"
-                title={isOnline ? t("connectedCloud") : t("disconnectedCloud")}
-              >
-                {isOnline ? (
-                  <>
-                    <Wifi className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline tracking-wide">
-                      {t("online")}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-3.5 h-3.5" />
-                    <span className="tracking-wide">
-                      {t("offline")}
-                    </span>
-                  </>
-                )}
-              </button>
-
-              {networkDropdownOpen && (
-                <div
-                  onMouseDown={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl p-3.5 z-[100] text-xs animate-fadeIn"
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800 mb-2.5">
-                    <div className="flex items-center gap-1.5 font-bold text-neutral-900 dark:text-white">
-                      {isOnline ? (
-                        <Wifi className="w-4 h-4 text-emerald-500" />
-                      ) : (
-                        <WifiOff className="w-4 h-4 text-red-500" />
-                      )}
-                      <span>{t("networkStatus")}</span>
-                    </div>
-                    <span
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded-md font-semibold uppercase ${
-                        isOnline
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                          : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
-                      }`}
-                    >
-                      {isOnline ? t("online") : t("offline")}
-                    </span>
-                  </div>
-
-                  <p className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed mb-3">
-                    {isOnline ? t("connectionHealthy") : t("connectionLost")}
-                  </p>
-
-                  {isOnline && pingLatency !== null && (
-                    <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-800/60 p-2 rounded-xl border border-neutral-200 dark:border-neutral-700/60 mb-3">
-                      <span>Server Latency:</span>
-                      <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                        {pingLatency} ms
-                      </span>
-                    </div>
-                  )}
-
-                  {lastCheckedTime && (
-                    <div className="text-[10px] text-neutral-400 dark:text-neutral-500 mb-3 font-mono">
-                      Last verified: {lastCheckedTime}
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={checkLiveConnection}
-                    disabled={isCheckingConnection}
-                    className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[11px] tracking-wide flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isCheckingConnection ? "animate-spin" : ""}`} />
-                    <span>{isCheckingConnection ? t("checkingConnection") : t("testConnection")}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <span className="hidden sm:inline-block w-px h-3 bg-neutral-300 dark:bg-neutral-800" />
+            <span className="hidden md:inline-block w-px h-3 bg-neutral-300 dark:bg-neutral-800" />
 
             {/* 1. LANGUAGE COMBOBOX (Dropdown floating on top / nakapatong) */}
             <div className="relative">

@@ -445,34 +445,41 @@ async function initializeDatabase() {
         },
       ];
 
-      for (const p of richProjects) {
-        const existing = await db.query("SELECT project_id FROM projects WHERE name = $1", [p.name]);
-        if (existing.rows && existing.rows.length > 0) {
-          // Update missing specifications & ensure admin access
-          await db.query(
-            `UPDATE projects SET 
-              lot_area = COALESCE(lot_area, $1),
-              floor_area = COALESCE(floor_area, $2),
-              bedrooms = COALESCE(bedrooms, $3),
-              bathrooms = COALESCE(bathrooms, $4),
-              features = COALESCE(features, $5),
-              architectural_details = COALESCE(architectural_details, $6),
-              is_admin_added = TRUE,
-              is_web_visible = TRUE,
-              month = COALESCE(month, $7),
-              status = COALESCE(status, $8)
-             WHERE name = $9`,
-            [p.lot_area, p.floor_area, p.bedrooms, p.bathrooms, p.features, p.architectural_details, p.month, p.status, p.name]
-          );
-        } else {
-          await db.query(
-            `INSERT INTO projects (name, location, year, month, category, status, lot_area, floor_area, bedrooms, bathrooms, description, architectural_details, features, images, is_admin_added, is_web_visible)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE, TRUE)`,
-            [p.name, p.location, p.year, p.month, p.category, p.status, p.lot_area, p.floor_area, p.bedrooms, p.bathrooms, p.description, p.architectural_details, p.features, p.images]
-          );
+      // Seed Portfolio Projects only ONCE during initial database setup.
+      // Use system_metadata lock to ensure deleted projects stay permanently deleted on server restarts/cold starts.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS system_metadata (
+          key VARCHAR(100) PRIMARY KEY,
+          value TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+
+      const seededCheck = await db.query(
+        "SELECT value FROM system_metadata WHERE key = 'portfolio_projects_seeded'"
+      );
+      const hasBeenSeeded = seededCheck.rows && seededCheck.rows.length > 0;
+
+      if (!hasBeenSeeded) {
+        const countRes = await db.query("SELECT COUNT(*) FROM projects");
+        const currentCount = parseInt(countRes.rows[0].count, 10);
+
+        if (currentCount === 0) {
+          for (const p of richProjects) {
+            await db.query(
+              `INSERT INTO projects (name, location, year, month, category, status, lot_area, floor_area, bedrooms, bathrooms, description, architectural_details, features, images, is_admin_added, is_web_visible)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE, TRUE)`,
+              [p.name, p.location, p.year, p.month, p.category, p.status, p.lot_area, p.floor_area, p.bedrooms, p.bathrooms, p.description, p.architectural_details, p.features, p.images]
+            );
+          }
+          console.log("[OK] Initial seed for portfolio projects completed.");
         }
+        await db.query(
+          "INSERT INTO system_metadata (key, value) VALUES ('portfolio_projects_seeded', 'true') ON CONFLICT (key) DO NOTHING"
+        );
+      } else {
+        console.log("[initDb] Portfolio projects already initialized. Skipping re-seed so deleted projects remain deleted.");
       }
-      console.log("[OK] Enriched MCPA portfolio projects with architectural specifications in 'projects' table.");
 
       // Seed Initial OCR Expenses if empty
       const checkOcrCount = await db.query("SELECT COUNT(*) FROM expenses_ocr WHERE project_code = 'MCPA-PLR-2024'");

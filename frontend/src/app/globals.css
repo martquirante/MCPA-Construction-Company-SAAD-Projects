@@ -358,16 +358,4 @@ body.modal-open .fixed.top-0.inset-x-0.z-50 {
   will-change: opacity, transform;
 }
 
-/* Network status banner countdown bar */
-@keyframes shrinkBar {
-  from {
-    width: 100%;
-  }
-  to {
-    width: 0%;
-  }
-}
 
-.animate-shrink-bar {
-  animation: shrinkBar 3s linear forwards;
-}

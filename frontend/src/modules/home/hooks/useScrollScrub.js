@@ -22,7 +22,10 @@ export function useScrollScrub(containerRef) {
   const [hasCompletedBuild, setHasCompletedBuild] = useState(isReturning);
   const [isPortrait, setIsPortrait] = useState(() => {
     if (typeof window !== "undefined") {
-      return window.innerHeight > window.innerWidth;
+      return (
+        window.innerHeight > window.innerWidth ||
+        (window.matchMedia && window.matchMedia("(orientation: portrait)").matches)
+      );
     }
     return false;
   });
@@ -68,17 +71,31 @@ export function useScrollScrub(containerRef) {
   useEffect(() => {
     const checkOrientation = () => {
       if (typeof window !== "undefined") {
-        setIsPortrait(window.innerHeight > window.innerWidth);
+        const portrait =
+          window.innerHeight > window.innerWidth ||
+          (window.matchMedia && window.matchMedia("(orientation: portrait)").matches);
+        setIsPortrait((prev) => (prev !== portrait ? portrait : prev));
       }
     };
 
-    checkOrientation();
+    requestAnimationFrame(checkOrientation);
     window.addEventListener("resize", checkOrientation);
     window.addEventListener("orientationchange", checkOrientation);
+
+    let mql = null;
+    if (typeof window !== "undefined" && window.matchMedia) {
+      mql = window.matchMedia("(orientation: portrait)");
+      if (mql?.addEventListener) {
+        mql.addEventListener("change", checkOrientation);
+      }
+    }
 
     return () => {
       window.removeEventListener("resize", checkOrientation);
       window.removeEventListener("orientationchange", checkOrientation);
+      if (mql?.removeEventListener) {
+        mql.removeEventListener("change", checkOrientation);
+      }
     };
   }, []);
 
@@ -797,19 +814,21 @@ export function useScrollScrub(containerRef) {
   // When returning to home page from other routes, immediately position at Step 3 final frame
   useEffect(() => {
     if (isReturning && typeof window !== "undefined") {
-      isProgrammaticScrollRef.current = true;
-      const vh = window.innerHeight;
-      window.scrollTo({ top: 3 * vh, behavior: "instant" });
-      const v3 = video3Ref.current;
-      if (v3) {
-        const duration = v3.duration && isFinite(v3.duration) ? v3.duration : 3.31;
-        v3.currentTime = Math.max(0.01, duration - 0.04);
-        v3.pause();
-      }
-      setActivePartIndex(2);
-      setTimeout(() => {
-        isProgrammaticScrollRef.current = false;
-      }, 300);
+      requestAnimationFrame(() => {
+        isProgrammaticScrollRef.current = true;
+        const vh = window.innerHeight;
+        window.scrollTo({ top: 3 * vh, behavior: "instant" });
+        const v3 = video3Ref.current;
+        if (v3) {
+          const duration = v3.duration && isFinite(v3.duration) ? v3.duration : 3.31;
+          v3.currentTime = Math.max(0.01, duration - 0.04);
+          v3.pause();
+        }
+        setActivePartIndex(2);
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 300);
+      });
     }
   }, [isReturning]);
 

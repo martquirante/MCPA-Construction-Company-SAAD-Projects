@@ -80,13 +80,6 @@ export default function RootLayout({ children }) {
       className={`${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased font-sans`}
     >
       <head>
-        <Script
-          id="theme-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var p=localStorage.getItem('mcpa-theme');var d=p==='dark'||(!p||p==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}catch(e){}})();`,
-          }}
-        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

@@ -9,6 +9,7 @@ import {
   FolderKanbanIcon,
   LockIcon,
   EyeIcon,
+  EyeOffIcon,
   AlertTriangleIcon,
   CloseIcon,
   CameraIcon,

@@ -822,7 +822,7 @@ class DbFailoverEngine {
     }
     if (cleanSql.startsWith("DELETE FROM PROJECTS")) {
       const id = params[0];
-      data.projects = data.projects.filter((p) => p.project_id !== id);
+      data.projects = data.projects.filter((p) => String(p.project_id) !== String(id));
       this.writeMockData(data);
       return { rowCount: 1 };
     }
