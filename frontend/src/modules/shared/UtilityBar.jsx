@@ -37,14 +37,19 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
   const { language, setLanguage, t } = useLanguage();
 
   const [isDismissed, setIsDismissed] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState(() => {
-    if (typeof window === "undefined") return "system";
-    return getThemePreference();
-  });
-  const [activeThemeMode, setActiveThemeMode] = useState(() => {
-    if (typeof document === "undefined") return "dark";
-    return document.documentElement.classList.contains("dark") ? "dark" : "light";
-  });
+  const [currentTheme, setCurrentTheme] = useState("system");
+  const [activeThemeMode, setActiveThemeMode] = useState("dark");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      setCurrentTheme(getThemePreference());
+      if (typeof document !== "undefined") {
+        setActiveThemeMode(document.documentElement.classList.contains("dark") ? "dark" : "light");
+      }
+    } catch (_) {}
+  }, []);
 
   // Dropdown states
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
@@ -232,6 +237,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
             <div className="relative hidden sm:block">
               <button
                 type="button"
+                suppressHydrationWarning
                 onClick={() => {
                   setThemeDropdownOpen(!themeDropdownOpen);
                   setLangDropdownOpen(false);
@@ -244,7 +250,7 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                 ) : (
                   <SunIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 )}
-                <span className="font-semibold text-[11px] tracking-wide">
+                <span suppressHydrationWarning className="font-semibold text-[11px] tracking-wide">
                   {currentTheme === "system"
                     ? `${t("theme")} (Auto)`
                     : currentTheme === "dark"
