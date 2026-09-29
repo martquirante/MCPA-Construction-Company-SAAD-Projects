@@ -456,54 +456,43 @@ export default function AdminPage() {
         }),
       });
       const data = await res.json();
-      if (data?.success && data?.project) {
-        const p = data.project;
-        finalProj = {
-          ...newProject,
-          id: p.project_id || p.id || newProject.id,
-          status: p.status || newProject.status,
-          month: p.month || newProject.month,
-          featuredOnHome: Boolean(p.featured_on_home),
-          lotArea: p.lot_area,
-          floorArea: p.floor_area,
-          bedrooms: p.bedrooms,
-          bathrooms: p.bathrooms,
-          features: p.features || [],
-          architecturalDetails: p.architectural_details,
-        };
+      if (!res.ok || !data?.success || !data?.project) {
+        throw new Error(data?.message || `Failed to save project (HTTP ${res.status})`);
       }
-    } catch (e) {
-      console.warn("Could not sync project to backend:", e);
-    }
 
-    const updatedCustom = [finalProj, ...customProjects.filter((p) => String(p.id) !== String(newProject.id) && String(p.id) !== String(finalProj.id))];
-    setCustomProjects(updatedCustom);
-    const updatedAll = [finalProj, ...allProjects.filter((p) => String(p.id) !== String(newProject.id) && String(p.id) !== String(finalProj.id))];
-    setAllProjects(updatedAll);
-    try {
+      const p = data.project;
+      finalProj = {
+        ...newProject,
+        id: p.project_id || p.id,
+        status: p.status || newProject.status,
+        month: p.month || newProject.month,
+        featuredOnHome: Boolean(p.featured_on_home),
+        lotArea: p.lot_area,
+        floorArea: p.floor_area,
+        bedrooms: p.bedrooms,
+        bathrooms: p.bathrooms,
+        features: p.features || [],
+        architecturalDetails: p.architectural_details,
+      };
+
+      const updatedCustom = [finalProj, ...customProjects.filter((p) => String(p.id) !== String(newProject.id) && String(p.id) !== String(finalProj.id))];
+      setCustomProjects(updatedCustom);
+      const updatedAll = [finalProj, ...allProjects.filter((p) => String(p.id) !== String(newProject.id) && String(p.id) !== String(finalProj.id))];
+      setAllProjects(updatedAll);
       localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
       showToast(`Successfully published "${finalProj.name}"!`);
       broadcastProjectsChange();
-    } catch (err) {
-      console.warn("Error saving project locally:", err);
+      return { success: true, project: finalProj };
+    } catch (e) {
+      console.error("Could not sync project to backend:", e);
+      showToast(`Save Error: ${e.message}`);
+      return { success: false, error: e.message };
     }
   };
 
   const handleUpdateProject = async (projectId, updatedProject) => {
-    const updatedCustom = customProjects.map((p) => (String(p.id) === String(projectId) ? { ...p, ...updatedProject } : p));
-    setCustomProjects(updatedCustom);
-    const updatedAll = allProjects.map((p) => (String(p.id) === String(projectId) ? { ...p, ...updatedProject } : p));
-    setAllProjects(updatedAll);
     try {
-      localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
-      showToast(`Successfully updated "${updatedProject.name}"!`);
-      broadcastProjectsChange();
-    } catch (err) {
-      console.warn("Error saving project locally:", err);
-    }
-
-    try {
-      await fetch(`/api/projects/${projectId}`, {
+      const res = await fetch(`/api/projects/${projectId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -517,9 +506,23 @@ export default function AdminPage() {
           architectural_details: updatedProject.architecturalDetails,
         }),
       });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.message || `Server returned error (${res.status})`);
+      }
+
+      const updatedCustom = customProjects.map((p) => (String(p.id) === String(projectId) ? { ...p, ...updatedProject } : p));
+      setCustomProjects(updatedCustom);
+      const updatedAll = allProjects.map((p) => (String(p.id) === String(projectId) ? { ...p, ...updatedProject } : p));
+      setAllProjects(updatedAll);
+      localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(updatedAll));
+      showToast(`Successfully updated "${updatedProject.name}"!`);
       broadcastProjectsChange();
+      return { success: true };
     } catch (e) {
-      console.warn("Could not update project in backend:", e);
+      console.error("Could not update project in backend:", e);
+      showToast(`Update Error: ${e.message}`);
+      return { success: false, error: e.message };
     }
   };
 

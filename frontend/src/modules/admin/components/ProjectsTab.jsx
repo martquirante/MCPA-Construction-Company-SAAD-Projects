@@ -90,18 +90,23 @@ export default function ProjectsTab({
     setIsEditorOpen(true);
   };
 
-  const handleSaveProject = (projectData) => {
+  const handleSaveProject = async (projectData) => {
     if (editingProject) {
-      onUpdateProject(editingProject.id, projectData);
+      const res = await onUpdateProject(editingProject.id, projectData);
+      if (res && res.success === false) return false;
+      setIsEditorOpen(false);
+      return true;
     } else {
       const newProject = {
         ...projectData,
-        id: `PROJ-${Date.now()}`, // Temporary ID, will be replaced by DB ID later
+        id: `PROJ-${Date.now()}`,
         isAdminAdded: true,
       };
-      onAddProject(newProject);
+      const res = await onAddProject(newProject);
+      if (res && res.success === false) return false;
+      setIsEditorOpen(false);
+      return true;
     }
-    setIsEditorOpen(false);
   };
 
   const [selectedCategory, setSelectedCategory] = useState("All");

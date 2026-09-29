@@ -455,7 +455,8 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
 
         for (let b = 0; b < totalBatches; b++) {
           const batchFiles = compressedFiles.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE);
-          setUploadStatusText(`Uploading photos (${b + 1}/${totalBatches})...`);
+          const uploadedSoFar = Math.min((b + 1) * BATCH_SIZE, compressedFiles.length);
+          setUploadStatusText(`Uploading photos ${uploadedSoFar} of ${compressedFiles.length} (Batch ${b + 1}/${totalBatches})...`);
 
           const batchUrls = await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -515,7 +516,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
 
       const finalImages = [...(Array.isArray(existingImages) ? existingImages : []), ...uploadedUrls];
 
-      onSave({
+      setUploadStatusText("Saving project details to portfolio database...");
+
+      const saveResult = await onSave({
         ...formData,
         category: finalCategory,
         images: finalImages,
@@ -526,12 +529,16 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
         features: parsedFeatures,
         architecturalDetails: formData.architecturalDetails?.trim() || null,
       });
+
+      if (saveResult === false) {
+        throw new Error("Unable to save project to portfolio database. Please check your network connection and try again.");
+      }
     } catch (err) {
       console.error("Failed to save project:", err);
       setFriendlyError({
         title: "Could Not Complete Save",
         message: err.message || "An issue occurred while saving the project.",
-        tip: "Please check your internet connection and try saving again. Your form details are safely preserved.",
+        tip: "Please check your internet connection and try saving again. Your form details and uploaded photos are safely preserved.",
         type: "error",
       });
     } finally {
