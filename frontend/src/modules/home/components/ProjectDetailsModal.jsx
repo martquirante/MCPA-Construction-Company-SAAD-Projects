@@ -182,7 +182,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                   </span>
                 )}
               </div>
-              <h2 className="text-lg sm:text-2xl font-extrabold text-neutral-950 dark:text-white truncate tracking-tight">
+              <h2 className="text-lg sm:text-2xl font-extrabold text-neutral-950 dark:text-white break-words leading-snug tracking-tight">
                 {project.name}
               </h2>
             </div>
@@ -320,43 +320,55 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
               )}
             </div>
 
-          {/* 2. Key Specs Grid */}
+          {/* 2. Key Specs Grid with Auto-adjusting Typography */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/5">
-              <span className="block text-[10px] uppercase font-bold tracking-wider text-neutral-500 dark:text-neutral-400">
-                Lot Area
-              </span>
-              <p className="text-sm sm:text-base font-extrabold text-neutral-900 dark:text-white mt-0.5">
-                {project.lotArea || "Custom Lot"}
-              </p>
-            </div>
+            {[
+              {
+                label: "Lot Area",
+                value: project.lotArea || "Custom Lot",
+              },
+              {
+                label: "Floor Area",
+                value: project.floorArea || "Turnkey Space",
+              },
+              {
+                label: "Rooms & Bath",
+                value: project.bedrooms
+                  ? `${project.bedrooms} · ${project.bathrooms || "Baths"}`
+                  : "Multi-Zone Layout",
+              },
+              {
+                label: "Site Location",
+                value: project.location || "Central Luzon",
+              },
+            ].map((spec, i) => {
+              const strVal = String(spec.value || "");
+              const len = strVal.length;
+              // Auto-adjust font size, line-height and layout based on content length
+              const fontSizeClass =
+                len > 24
+                  ? "text-[11px] sm:text-xs md:text-[13px] leading-snug"
+                  : len > 15
+                  ? "text-xs sm:text-sm leading-snug"
+                  : "text-sm sm:text-base leading-tight";
 
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/5">
-              <span className="block text-[10px] uppercase font-bold tracking-wider text-neutral-500 dark:text-neutral-400">
-                Floor Area
-              </span>
-              <p className="text-sm sm:text-base font-extrabold text-neutral-900 dark:text-white mt-0.5">
-                {project.floorArea || "Turnkey Space"}
-              </p>
-            </div>
-
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/5">
-              <span className="block text-[10px] uppercase font-bold tracking-wider text-neutral-500 dark:text-neutral-400">
-                Rooms & Bath
-              </span>
-              <p className="text-sm sm:text-base font-extrabold text-neutral-900 dark:text-white mt-0.5">
-                {project.bedrooms ? `${project.bedrooms} · ${project.bathrooms || "Baths"}` : "Multi-Zone Layout"}
-              </p>
-            </div>
-
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/5">
-              <span className="block text-[10px] uppercase font-bold tracking-wider text-neutral-500 dark:text-neutral-400">
-                Site Location
-              </span>
-              <p className="text-sm sm:text-base font-extrabold text-neutral-900 dark:text-white mt-0.5 truncate" title={project.location}>
-                {project.location || "Central Luzon"}
-              </p>
-            </div>
+              return (
+                <div
+                  key={i}
+                  className="p-3 sm:p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/5 hover:border-amber-500/25 transition-all flex flex-col justify-between min-h-[76px] sm:min-h-[86px]"
+                >
+                  <span className="block text-[10px] uppercase font-bold tracking-wider text-neutral-500 dark:text-neutral-400 select-none">
+                    {spec.label}
+                  </span>
+                  <p
+                    className={`font-extrabold text-neutral-900 dark:text-white mt-1 break-words ${fontSizeClass}`}
+                    title={spec.value}
+                  >
+                    {spec.value}
+                  </p>
+                </div>
+              );
+            })}
           </div>
 
           {/* 3. Engineering & Structural Standards Box */}
@@ -407,12 +419,16 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
 
         {/* Modal Footer / Call to Action */}
         <div className="px-5 sm:px-7 py-4 border-t border-neutral-200 dark:border-white/10 bg-neutral-50/80 dark:bg-neutral-900/60 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-            <MapPinIcon className="w-3.5 h-3.5 text-amber-500" />
-            <span>{project.location}</span>
-            <span>•</span>
-            <CalendarIcon className="w-3.5 h-3.5 text-neutral-400" />
-            <span>Completed {project.month ? `${project.month} ` : ""}{project.year}</span>
+          <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
+            <span className="inline-flex items-center gap-1.5 break-words">
+              <MapPinIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span>{project.location}</span>
+            </span>
+            <span className="text-neutral-400 dark:text-neutral-600">•</span>
+            <span className="inline-flex items-center gap-1.5 shrink-0">
+              <CalendarIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+              <span>Completed {project.month ? `${project.month} ` : ""}{project.year}</span>
+            </span>
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
