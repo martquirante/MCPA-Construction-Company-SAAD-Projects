@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { ArrowRightIcon, MapPinIcon, CalendarIcon, TrashIcon } from "../../shared/Icons";
+import {
+  ArrowRightIcon,
+  MapPinIcon,
+  CalendarIcon,
+  TrashIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CameraIcon,
+} from "../../shared/Icons";
 import { useLanguage } from "../../shared/LanguageContext";
 
 export default function ProjectCard({ project, onInquire, onDelete, onOpenDetails }) {
@@ -62,6 +70,36 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
 
         {/* Cinematic Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-white/25 via-55% to-transparent dark:from-neutral-950 dark:via-neutral-950/75 dark:via-45% dark:to-neutral-950/20 pointer-events-none transition-opacity duration-500 group-hover:from-white/95 group-hover:via-white/35 dark:group-hover:from-neutral-950/98 dark:group-hover:via-neutral-950/80" />
+
+        {/* Floating Prev/Next Carousel Arrows on Hover */}
+        {images.length > 1 && (
+          <div className="absolute inset-x-2.5 top-1/2 -translate-y-1/2 z-20 flex items-center justify-between pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveImageIdx((prev) => (prev - 1 + images.length) % images.length);
+              }}
+              title="Previous photo"
+              aria-label="Previous photo"
+              className="w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 flex items-center justify-center pointer-events-auto transition-all shadow-md hover:scale-110 active:scale-95 cursor-pointer"
+            >
+              <ChevronLeftIcon className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveImageIdx((prev) => (prev + 1) % images.length);
+              }}
+              title="Next photo"
+              aria-label="Next photo"
+              className="w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 flex items-center justify-center pointer-events-auto transition-all shadow-md hover:scale-110 active:scale-95 cursor-pointer"
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 2. Top Card Header Overlay: Status, Category Badge & Admin Actions */}
@@ -176,40 +214,84 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
               e.stopPropagation();
               onInquire?.(project);
             }}
-            className="inline-flex items-center gap-2 text-xs font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 group/link transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 text-xs font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 group/link transition-colors cursor-pointer shrink-0"
           >
-            <span>{t("inquireStyle")}</span>
-            <ArrowRightIcon className="w-3.5 h-3.5 transition-transform duration-300 group-hover/link:translate-x-1" />
+            <span className="whitespace-nowrap">{t("inquireStyle")}</span>
+            <ArrowRightIcon className="w-3.5 h-3.5 transition-transform duration-300 group-hover/link:translate-x-1 shrink-0" />
           </button>
 
-          {/* Clean Photo Indicators without background pill ("mga maliit na guhit lang") */}
+          {/* Photo Indicators / Carousel Navigation */}
           {images.length > 1 && (
-            <div
-              className="flex items-center gap-1.5 shrink-0 py-1"
-              title={`${images.length} photos available`}
-            >
-              {images.map((_, idx) => (
+            images.length <= 6 ? (
+              /* Up to 6 photos: Sleek pill dashes */
+              <div
+                className="flex items-center gap-1.5 shrink-0 py-1"
+                title={`${images.length} photos available`}
+              >
+                {images.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveImageIdx(idx);
+                    }}
+                    title={`Photo ${idx + 1} of ${images.length}`}
+                    aria-label={`Show photo ${idx + 1}`}
+                    className="cursor-pointer py-1 px-0.5 border-0 bg-transparent group/bar focus:outline-none flex items-center"
+                  >
+                    <div
+                      className={`h-1 rounded-full transition-all duration-300 ${
+                        idx === activeImageIdx
+                          ? "w-4 bg-amber-500 dark:bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]"
+                          : "w-2 bg-neutral-400/60 dark:bg-white/35 group-hover/bar:bg-neutral-600 dark:group-hover/bar:bg-white/70"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              /* More than 6 photos (e.g. 42 photos): Luxury interactive pill counter */
+              <div
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-900/50 dark:bg-white/10 hover:bg-neutral-900/70 dark:hover:bg-white/15 backdrop-blur-md border border-neutral-300/30 dark:border-white/15 text-white shadow-xs transition-all shrink-0 select-none"
+                onClick={(e) => e.stopPropagation()}
+                title={`${images.length} photos in portfolio`}
+              >
                 <button
-                  key={idx}
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setActiveImageIdx(idx);
+                    setActiveImageIdx((prev) => (prev - 1 + images.length) % images.length);
                   }}
-                  title={`Photo ${idx + 1} of ${images.length}`}
-                  aria-label={`Show photo ${idx + 1}`}
-                  className="cursor-pointer py-1 px-0.5 border-0 bg-transparent group/bar focus:outline-none flex items-center"
+                  title="Previous photo"
+                  aria-label="Previous photo"
+                  className="p-0.5 rounded-full hover:bg-white/20 text-white/70 hover:text-amber-400 transition-colors cursor-pointer"
                 >
-                  <div
-                    className={`h-1 rounded-full transition-all duration-300 ${
-                      idx === activeImageIdx
-                        ? "w-4 bg-amber-500 dark:bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]"
-                        : "w-2 bg-neutral-400/60 dark:bg-white/35 group-hover/bar:bg-neutral-600 dark:group-hover/bar:bg-white/70"
-                    }`}
-                  />
+                  <ChevronLeftIcon className="w-3 h-3" />
                 </button>
-              ))}
-            </div>
+
+                <div className="flex items-center gap-1 px-1">
+                  <CameraIcon className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span className="text-[11px] font-mono font-bold tracking-tight text-white tabular-nums">
+                    {activeImageIdx + 1}
+                    <span className="text-white/60 font-normal"> / {images.length}</span>
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveImageIdx((prev) => (prev + 1) % images.length);
+                  }}
+                  title="Next photo"
+                  aria-label="Next photo"
+                  className="p-0.5 rounded-full hover:bg-white/20 text-white/70 hover:text-amber-400 transition-colors cursor-pointer"
+                >
+                  <ChevronRightIcon className="w-3 h-3" />
+                </button>
+              </div>
+            )
           )}
         </div>
       </div>
