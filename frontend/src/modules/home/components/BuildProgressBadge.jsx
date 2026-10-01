@@ -47,7 +47,7 @@ export default function BuildProgressBadge({
             <span className="text-xs font-medium tracking-[0.25em] uppercase text-neutral-200 drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] select-none text-center">
               {t("scrollToContinue")}
             </span>
-            <ArrowDownIcon className="w-3.5 h-3.5 text-amber-400 animate-bounce drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] group-hover:translate-y-0.5 transition-transform" />
+            <ArrowDownIcon className="w-3.5 h-3.5 text-amber-400 drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] dark:drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]" />
           </button>
         </div>
       )}

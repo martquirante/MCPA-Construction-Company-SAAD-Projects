@@ -110,13 +110,11 @@ export default function AdminSettingsModal({
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Modal Dialog Card */}
-      <div className="relative w-full max-w-xl rounded-3xl bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden transition-all duration-300 z-10 flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-xl rounded-[8px] bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/[0.08] shadow-2xl overflow-hidden transition-all duration-300 z-10 flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-200 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-              <SettingsIcon className="w-5 h-5" />
-            </div>
+            <SettingsIcon className="w-6 h-6 text-amber-500 dark:text-amber-400 shrink-0" />
             <div>
               <h2 className="text-base font-bold text-neutral-900 dark:text-white">
                 Admin Console Settings
@@ -128,7 +126,7 @@ export default function AdminSettingsModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            className="p-2 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
             aria-label="Close Settings"
           >
             <XIcon className="w-5 h-5" />
@@ -137,7 +135,7 @@ export default function AdminSettingsModal({
 
         {/* Saved Toast Alert */}
         {savedNotice && (
-          <div className="mx-6 mt-4 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-mono flex items-center gap-2 animate-in fade-in duration-200">
+          <div className="mx-6 mt-4 p-2.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-mono flex items-center gap-2 animate-in fade-in duration-200">
             <CheckIcon className="w-4 h-4 text-amber-600 shrink-0" />
             <span className="font-bold">{savedNotice}</span>
           </div>
@@ -146,7 +144,7 @@ export default function AdminSettingsModal({
         {/* Scrollable Content Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-neutral-800 dark:text-neutral-200">
           {/* SECTION 1: THEME TOGGLE SWITCH */}
-          <div className="p-5 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-4">
+          <div className="p-5 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <span className="text-[10px] font-mono uppercase tracking-widest text-amber-600 dark:text-amber-400 font-bold">
@@ -203,19 +201,17 @@ export default function AdminSettingsModal({
               <button
                 type="button"
                 onClick={() => handleSelectMode("light")}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-28 relative ${
+                className={`p-3.5 rounded-[6px] border text-left transition-colors cursor-pointer flex flex-col justify-between h-28 relative ${
                   themePref === "light"
-                    ? "border-amber-500 bg-amber-500/10 shadow-md shadow-amber-500/10 ring-2 ring-amber-500/20"
+                    ? "border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/30"
                     : "border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900/60 hover:border-amber-500/40"
                 }`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <div className="w-7 h-7 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center">
-                    <SunIcon className="w-4 h-4" />
-                  </div>
+                  <SunIcon className="w-5 h-5 text-amber-500" />
                   {themePref === "light" && (
-                    <span className="w-4 h-4 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center text-[10px] font-bold">
-                      <CheckIcon className="w-3 h-3" />
+                    <span className="w-4 h-4 rounded-[2px] bg-amber-500 text-neutral-950 flex items-center justify-center text-[10px] font-bold">
+                      <CheckIcon className="w-3 h-3 stroke-[3]" />
                     </span>
                   )}
                 </div>
@@ -233,19 +229,17 @@ export default function AdminSettingsModal({
               <button
                 type="button"
                 onClick={() => handleSelectMode("dark")}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-28 relative ${
+                className={`p-3.5 rounded-[6px] border text-left transition-colors cursor-pointer flex flex-col justify-between h-28 relative ${
                   themePref === "dark"
-                    ? "border-amber-500 bg-amber-500/10 shadow-md shadow-amber-500/10 ring-2 ring-amber-500/20"
+                    ? "border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/30"
                     : "border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900/60 hover:border-amber-500/40"
                 }`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <div className="w-7 h-7 rounded-xl bg-neutral-900 dark:bg-white/10 text-amber-400 flex items-center justify-center">
-                    <MoonIcon className="w-4 h-4" />
-                  </div>
+                  <MoonIcon className="w-5 h-5 text-amber-400" />
                   {themePref === "dark" && (
-                    <span className="w-4 h-4 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center text-[10px] font-bold">
-                      <CheckIcon className="w-3 h-3" />
+                    <span className="w-4 h-4 rounded-[2px] bg-amber-500 text-neutral-950 flex items-center justify-center text-[10px] font-bold">
+                      <CheckIcon className="w-3 h-3 stroke-[3]" />
                     </span>
                   )}
                 </div>
@@ -263,19 +257,17 @@ export default function AdminSettingsModal({
               <button
                 type="button"
                 onClick={() => handleSelectMode("system")}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-28 relative ${
+                className={`p-3.5 rounded-[6px] border text-left transition-colors cursor-pointer flex flex-col justify-between h-28 relative ${
                   themePref === "system"
-                    ? "border-amber-500 bg-amber-500/10 shadow-md shadow-amber-500/10 ring-2 ring-amber-500/20"
+                    ? "border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/30"
                     : "border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900/60 hover:border-amber-500/40"
                 }`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <div className="w-7 h-7 rounded-xl bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                    <MonitorIcon className="w-4 h-4" />
-                  </div>
+                  <MonitorIcon className="w-5 h-5 text-sky-500" />
                   {themePref === "system" && (
-                    <span className="w-4 h-4 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center text-[10px] font-bold">
-                      <CheckIcon className="w-3 h-3" />
+                    <span className="w-4 h-4 rounded-[2px] bg-amber-500 text-neutral-950 flex items-center justify-center text-[10px] font-bold">
+                      <CheckIcon className="w-3 h-3 stroke-[3]" />
                     </span>
                   )}
                 </div>
@@ -284,7 +276,7 @@ export default function AdminSettingsModal({
                     <p className="text-xs font-bold text-neutral-900 dark:text-white">
                       System Auto
                     </p>
-                    <span className="px-1 py-0.2 rounded bg-neutral-200 dark:bg-white/10 text-[9px] font-mono text-neutral-600 dark:text-neutral-400">
+                    <span className="px-1 py-0.2 rounded-[2px] bg-neutral-200 dark:bg-white/10 text-[9px] font-mono text-neutral-600 dark:text-neutral-400">
                       Default
                     </span>
                   </div>
@@ -329,7 +321,7 @@ export default function AdminSettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-bold font-mono text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors cursor-pointer"
+            className="px-5 py-2 rounded-[4px] bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-bold font-mono text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors cursor-pointer"
           >
             Done
           </button>
@@ -338,3 +330,5 @@ export default function AdminSettingsModal({
     </div>
   );
 }
+
+

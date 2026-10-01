@@ -75,12 +75,12 @@ export default function AiReceiptScannerTab({
   return (
     <div className="space-y-6">
       {/* Overview Banner */}
-      <div className="p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm space-y-3">
+      <div className="p-6 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-sm space-y-3">
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-mono font-bold uppercase">
+          <span className="text-[11px] font-mono font-bold uppercase tracking-[0.14em] text-purple-600 dark:text-purple-400">
             Machine Learning &amp; AI Integration
           </span>
-          <span className="text-xs font-mono text-neutral-400">Feature 8: OCR Hardware Slip Reader</span>
+          <span className="text-xs font-mono text-neutral-400">• Feature 8: OCR Hardware Slip Reader</span>
         </div>
         <h2 className="text-xl font-bold text-neutral-900 dark:text-white uppercase tracking-tight">
           AI-Powered Construction Receipt Scanner (OCR)
@@ -92,12 +92,12 @@ export default function AiReceiptScannerTab({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Scanner & Input Card */}
-        <div className="p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm space-y-4">
+        <div className="p-6 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-sm space-y-4">
           <h3 className="text-sm font-bold uppercase font-mono text-neutral-900 dark:text-white">
             Receipt Optical Scanner
           </h3>
 
-          <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-purple-500/30 bg-neutral-950 flex items-center justify-center group">
+          <div className="relative aspect-video w-full rounded-[4px] overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-950 flex items-center justify-center group">
             {receiptImage ? (
               <Image src={receiptImage} alt="Hardware Receipt" fill className="object-cover opacity-80" />
             ) : (
@@ -107,7 +107,7 @@ export default function AiReceiptScannerTab({
               </div>
             )}
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-4 text-center">
-              <label className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs font-mono uppercase transition-all shadow-lg shadow-purple-600/30 cursor-pointer">
+              <label className="inline-flex items-center justify-center px-5 py-2.5 rounded-[4px] bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs font-mono uppercase tracking-wider transition-all shadow-sm cursor-pointer">
                 <ScanLineIcon className="w-4 h-4 mr-1.5" />
                 <span>{receiptImage ? "Rescan Receipt" : "Select Receipt Photo"}</span>
                 <input
@@ -139,7 +139,7 @@ export default function AiReceiptScannerTab({
                 placeholder="e.g. Bulacan Steel & Hardware Supply"
                 value={vendorName}
                 onChange={(e) => setVendorName(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:border-purple-500"
+                className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:border-purple-500"
               />
             </div>
 
@@ -154,16 +154,13 @@ export default function AiReceiptScannerTab({
                 placeholder="0.00"
                 value={extractedTotal}
                 onChange={(e) => setExtractedTotal(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 text-base font-bold font-mono focus:outline-none focus:border-purple-500"
-              />
-            </div>
-                className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 text-base font-bold font-mono focus:outline-none focus:border-purple-500"
+                className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 text-base font-bold font-mono focus:outline-none focus:border-purple-500"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs font-mono uppercase transition-all cursor-pointer shadow-md shadow-purple-600/25"
+              className="w-full py-3 rounded-[4px] bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs font-mono uppercase tracking-wider transition-all cursor-pointer shadow-sm"
             >
               Log Expense to Project Ledger
             </button>
@@ -171,7 +168,7 @@ export default function AiReceiptScannerTab({
         </div>
 
         {/* Scan History Ledger */}
-        <div className="p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm space-y-4">
+        <div className="p-6 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-sm space-y-4">
           <h3 className="text-sm font-bold uppercase font-mono text-neutral-900 dark:text-white">
             Recent OCR Scanned Expenses
           </h3>
@@ -194,7 +191,7 @@ export default function AiReceiptScannerTab({
                 return (
                   <div
                     key={`expense-${itemId}-${idx}`}
-                    className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950/60 border border-neutral-200/80 dark:border-white/5 space-y-1"
+                    className="p-4 rounded-[4px] bg-neutral-50 dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/[0.08] space-y-1"
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-neutral-900 dark:text-white font-sans">

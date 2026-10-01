@@ -163,12 +163,12 @@ export default function PortfolioSection({
       {/* Header */}
       <ScrollMorph variant="fade-up" className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div className="max-w-2xl">
-          <p className="text-xs uppercase tracking-[0.2em] font-semibold text-amber-600 dark:text-amber-400 mb-3">
-            {isHomePage ? "Portfolio · Selected Works" : "Portfolio · Full Architecture Catalog"}
-          </p>
+          <div className="inline-flex items-center text-[10px] sm:text-xs uppercase tracking-[0.2em] font-mono font-bold text-amber-600 dark:text-amber-400 mb-3 select-none">
+            <span>{isHomePage ? "Portfolio · Selected Works" : "Portfolio · Full Architecture Catalog"}</span>
+          </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
             Built to{" "}
-            <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
+            <span className="text-amber-500 dark:text-amber-400">
               Last Centuries
             </span>
           </h2>
@@ -184,10 +184,10 @@ export default function PortfolioSection({
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wider uppercase transition-all duration-300 cursor-pointer ${
+                className={`px-4 py-2 rounded-[6px] text-xs font-semibold tracking-wider uppercase transition-[background-color,border-color,color] duration-150 cursor-pointer ${
                   activeCategory === cat
-                    ? "bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/20"
-                    : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white border border-neutral-200 dark:border-neutral-800"
+                    ? "bg-amber-500 text-neutral-950 font-bold"
+                    : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/40"
                 }`}
               >
                 {cat}
@@ -200,25 +200,20 @@ export default function PortfolioSection({
       {/* Projects Grid: Auto-balancing layout with responsive centering */}
       {count === 0 ? (
         <ScrollMorph variant="fade-up" className="max-w-xl mx-auto py-12 px-4 text-center">
-          <div className="relative overflow-hidden rounded-3xl border border-dashed border-neutral-300 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] backdrop-blur-md p-8 sm:p-12 flex flex-col items-center justify-center shadow-lg">
-            {/* Subtle ambient amber backdrop glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
-
+          <div className="relative overflow-hidden rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0f1117] p-8 sm:p-12 flex flex-col items-center justify-center shadow-sm">
             {/* Animated Lordicon from CDN API */}
             <div className="relative mb-5">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 dark:border-amber-500/25 flex items-center justify-center shadow-inner">
-                <LordIcon
+              <LordIcon
                   src="https://cdn.lordicon.com/wzwygmng.json"
                   size={72}
                   trigger="loop"
                   colors="primary:#d97706,secondary:#f59e0b"
                 />
-              </div>
             </div>
 
             {/* Badge */}
-            <span className="inline-block px-3 py-1 mb-3 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold uppercase tracking-wider">
-              {activeCategory !== "All" ? "Category Filter" : "Portfolio In Progress"}
+            <span className="inline-flex items-center px-2.5 py-1 mb-3 rounded-[4px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/25 text-[10px] font-mono font-bold uppercase tracking-[0.12em]">
+              <span>{activeCategory !== "All" ? "Category Filter" : "Portfolio In Progress"}</span>
             </span>
 
             {/* Title */}
@@ -298,7 +293,7 @@ export default function PortfolioSection({
             <ArrowRightIcon className="w-4 h-4 text-neutral-950 group-hover:translate-x-1.5 transition-transform" />
           </Link>
           <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400 font-mono">
-            Curated showcase · Click to view full portfolio & architectural floor plans
+            Curated showcase Â· Click to view full portfolio & architectural floor plans
           </p>
         </div>
       )}
@@ -313,3 +308,4 @@ export default function PortfolioSection({
     </section>
   );
 }
+

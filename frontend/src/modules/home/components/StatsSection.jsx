@@ -65,12 +65,10 @@ export default function StatsSection() {
             duration={750}
             className="h-full"
           >
-            <div className="relative overflow-hidden text-left flex flex-col group p-5 sm:p-6 rounded-2xl bg-white dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 hover:shadow-[0_10px_30px_rgba(245,158,11,0.12)] transition-all duration-500 backdrop-blur-sm shadow-xs h-full">
-              {/* Ambient gold bottom line on hover */}
-              <div className="absolute bottom-0 inset-x-4 h-[2px] bg-gradient-to-r from-transparent via-amber-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="relative overflow-hidden text-left flex flex-col group p-5 sm:p-6 rounded-[10px] bg-white dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/45 transition-[border-color,box-shadow] duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.08)] h-full">
 
               {/* Title / Value + Suffix */}
-              <div className="group-hover:translate-x-0.5 transition-transform duration-300">
+              <div>
                 {stat.custom ? (
                   stat.render()
                 ) : (
@@ -86,11 +84,11 @@ export default function StatsSection() {
               </div>
 
               {/* Label */}
-              <p className="mt-2.5 text-xs sm:text-sm uppercase tracking-wider font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
+              <p className="mt-2.5 text-xs sm:text-sm uppercase tracking-wider font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors duration-150">
                 {stat.label}
               </p>
 
-              {/* Description directly under label with no gap */}
+              {/* Description */}
               <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 font-normal leading-snug">
                 {stat.desc}
               </p>

@@ -66,7 +66,7 @@ function highlightMatches(node, query) {
         return (
           <mark
             key={index}
-            className="bg-yellow-300 dark:bg-yellow-400 text-neutral-950 font-bold px-1 py-0.5 rounded shadow-xs"
+            className="bg-amber-400/30 text-amber-950 dark:text-amber-300 font-semibold px-1 py-0.5 rounded-[2px]"
           >
             {part}
           </mark>
@@ -232,7 +232,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
           <p>
             Ang aming mga pamamaraan sa paghawak ng datos ay mahigpit na sumusunod sa <strong>Batas Republika Blg. 10173</strong>, na kilala bilang <em>Data Privacy Act of 2012 (DPA)</em>, ang mga Alituntunin at Regulasyong Pampatupad nito (IRR), at lahat ng opisyal na sirkular na inilabas ng <strong>National Privacy Commission (NPC)</strong> ng Pilipinas.
           </p>
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-neutral-800 dark:text-neutral-200 text-xs">
+          <div className="p-3.5 rounded-[4px] bg-amber-500/10 border border-amber-500/25 text-neutral-800 dark:text-neutral-200 text-xs">
             <span className="font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider block mb-1">
               Mahalagang Pangako:
             </span>
@@ -247,7 +247,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
           <p>
             Our data protection practices strictly adhere to the provisions of <strong>Republic Act No. 10173</strong>, otherwise known as the <em>Data Privacy Act of 2012 (DPA)</em>, its Implementing Rules and Regulations (IRR), and all relevant circulars issued by the <strong>National Privacy Commission (NPC)</strong> of the Philippines.
           </p>
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-neutral-800 dark:text-neutral-200 text-xs">
+          <div className="p-3.5 rounded-[4px] bg-amber-500/10 border border-amber-500/25 text-neutral-800 dark:text-neutral-200 text-xs">
             <span className="font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider block mb-1">
               Key Commitment:
             </span>
@@ -266,16 +266,16 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             Upang maayos na maisagawa ang disenyong arkitektural, kalkulasyong pang-inhenyeriya, aplikasyon para sa Municipal Building Permit, at financing sa ilalim ng aming programang <strong>Build Now, Pay Later (BNPL)</strong>, kinokolekta namin ang mga sumusunod na kategorya ng datos:
           </p>
 
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <div className="overflow-x-auto rounded-[4px] border border-neutral-200 dark:border-white/10">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-neutral-100 dark:bg-neutral-800/70 text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
+              <thead className="bg-neutral-100 dark:bg-white/[0.04] text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
                 <tr>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Kategorya ng Datos</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Mga Partikular na Impormasyon</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Layunin sa Paggamit</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Kategorya ng Datos</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Mga Partikular na Impormasyon</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Layunin sa Paggamit</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 text-neutral-700 dark:text-neutral-300">
+              <tbody className="divide-y divide-neutral-200 dark:divide-white/10 text-neutral-700 dark:text-neutral-300">
                 <tr>
                   <td className="p-3 font-semibold text-neutral-900 dark:text-white">Pagkakakilanlan at Kontak</td>
                   <td className="p-3">Buong pangalan, katayuang sibil, tirahan, numero ng telepono/mobile, Viber account, email, at opisyal na ID ng gobyerno (Pasaporte, UMID, Driver&apos;s License, PhilID).</td>
@@ -306,13 +306,13 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             To properly execute architectural design, civil engineering calculations, municipal building permit applications, and construction financing under our <strong>Build Now, Pay Later (BNPL)</strong> program, we collect the following classifications of information:
           </p>
 
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <div className="overflow-x-auto rounded-[4px] border border-neutral-200 dark:border-white/10">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-neutral-100 dark:bg-neutral-800/70 text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
+              <thead className="bg-neutral-100 dark:bg-white/[0.04] text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
                 <tr>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Data Category</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Specific Items Collected</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Operational Purpose</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Data Category</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Specific Items Collected</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Operational Purpose</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 text-neutral-700 dark:text-neutral-300">
@@ -398,7 +398,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             Pinangangalagaan namin ang inyong impormasyon nang may mataas na antas ng pagiging kumpidensyal. Ibinabahagi lamang ito sa mga sumusunod na awtorisadong partido kung kinakailangan sa inyong proyekto:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Mga Lisensyadong Propesyonal
               </span>
@@ -406,7 +406,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 Mga PRC-licensed Architects, Civil/Structural Engineers, at Master Plumbers na pumipirma at nagtatatak (dry-seal) sa inyong mga blueprints.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Tanggapan ng Building Official (Munisipyo)
               </span>
@@ -414,7 +414,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 Engineering departments ng Plaridel, Malolos, Guiguinto, Balagtas, at iba pang LGU para sa Building Permits at Certificate of Occupancy.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Awtorisadong Institusyong Pinansyal
               </span>
@@ -422,7 +422,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 Pag-IBIG Fund (HDMF) at mga partner commercial bank para sa inspeksyon at pagpapalabas ng loan alinsunod sa nakasulat na pahintulot ng kliyente.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Mga Ahensya ng Pamahalaan
               </span>
@@ -438,7 +438,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             Your personal information is handled with the highest level of confidentiality. Data is shared strictly on a need-to-know basis with the following verified entities:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Licensed Design Professionals
               </span>
@@ -446,7 +446,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 PRC-licensed Architects, Civil/Structural Engineers, Master Plumbers, and Professional Electrical Engineers who sign and seal your blueprints.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Municipal Building Officials (LGUs)
               </span>
@@ -454,7 +454,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 Engineering departments of Plaridel, Malolos, Guiguinto, Balagtas, and respective LGUs for Building Permits and Certificates of Occupancy.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Authorized Financing Institutions
               </span>
@@ -462,7 +462,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 Pag-IBIG Fund (HDMF) or accredited partner commercial banks for verified milestone inspection and loan release with written client authorization.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Government Compliance Agencies
               </span>
@@ -531,7 +531,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
       number: "7.0",
       title: isFil ? "Makipag-ugnayan sa Data Protection Officer" : "Data Protection Officer (DPO) Contact",
       content: isFil ? (
-        <div className="p-4 rounded-xl bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/70 text-xs space-y-2">
+        <div className="p-4 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10 text-xs space-y-2">
           <p className="font-semibold text-neutral-900 dark:text-white">
             Para sa mga katanungan, kahilingan sa datos, o alalahanin sa inyong privacy, maaaring makipag-ugnayan sa aming compliance desk:
           </p>
@@ -566,7 +566,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
           </div>
         </div>
       ) : (
-        <div className="p-4 rounded-xl bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/70 text-xs space-y-2">
+        <div className="p-4 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10 text-xs space-y-2">
           <p className="font-semibold text-neutral-900 dark:text-white">
             For inquiries, data access requests, or privacy concerns, contact our designated compliance desk:
           </p>
@@ -682,17 +682,17 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             Upang masiguro ang kapayapaan ng isip ng bawat may-ari ng bahay, nagpapatupad ang MCPA ng malinaw na bayaran batay sa natapos na yugto (milestone-based billing). Sa ilalim ng aming programang <strong>Build Now, Pay Later (BNPL)</strong> para sa mga may tituladong lote, hindi nagbabayad nang maaga ang kliyente sa trabahong hindi pa nasusuri. Ang bawat disbursement ay katumbas ng aktwal na natapos na yugto ng bahay:
           </p>
 
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <div className="overflow-x-auto rounded-[4px] border border-neutral-200 dark:border-white/10">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-neutral-100 dark:bg-neutral-800/70 text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
+              <thead className="bg-neutral-100 dark:bg-white/[0.04] text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
                 <tr>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Yugto ng Proyekto</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Aktwal na Saklaw ng Trabaho</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Bahagdan (%)</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Kailangan sa Pag-apruba</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Yugto ng Proyekto</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Aktwal na Saklaw ng Trabaho</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Bahagdan (%)</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Kailangan sa Pag-apruba</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 text-neutral-700 dark:text-neutral-300">
+              <tbody className="divide-y divide-neutral-200 dark:divide-white/10 text-neutral-700 dark:text-neutral-300">
                 <tr>
                   <td className="p-3 font-semibold text-neutral-900 dark:text-white">Yugto 1: Mobilisasyon</td>
                   <td className="p-3">Site layout, bakod ng site, barracks ng trabahador, at paghuhukay sa pundasyon.</td>
@@ -739,17 +739,17 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             To provide homeowners with complete peace of mind, MCPA implements a transparent, milestone-based billing schedule under our <strong>Build Now, Pay Later (BNPL)</strong> program:
           </p>
 
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <div className="overflow-x-auto rounded-[4px] border border-neutral-200 dark:border-white/10">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-neutral-100 dark:bg-neutral-800/70 text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
+              <thead className="bg-neutral-100 dark:bg-white/[0.04] text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
                 <tr>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Milestone Stage</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Physical Scope Covered</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Disbursement %</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Sign-Off Requirement</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Milestone Stage</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Physical Scope Covered</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Disbursement %</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Sign-Off Requirement</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 text-neutral-700 dark:text-neutral-300">
+              <tbody className="divide-y divide-neutral-200 dark:divide-white/10 text-neutral-700 dark:text-neutral-300">
                 <tr>
                   <td className="p-3 font-semibold text-neutral-900 dark:text-white">Phase 1: Mobilization</td>
                   <td className="p-3">Site layout, temporary facility setup, perimeter enclosure, earthworks & foundation excavation.</td>
@@ -838,7 +838,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
           <p className="text-xs text-neutral-600 dark:text-neutral-400">
             Sa ilalim ng Artikulo 1723 ng Civil Code, ang lisensyadong arkitekto at civil/structural engineer na pumirma at nagtatak (signed & sealed) sa mga plano, katuwang ang kontratista (MCPA Construction and Supply), ay may legal na pananagutan (statutory liability) sa loob ng labinlimang (15) taon mula sa pagkatapos ng gusali laban sa anumang pagbagsak o depekto sa estruktura dulot ng depekto sa plano, depekto sa lupa, o mahinang kalidad ng materyales. Ang pagtanggap sa gusali sa araw ng turnover ay hindi nagpapawalang-bisa sa proteksyong ito sa ilalim ng batas.
           </p>
-          <div className="p-3.5 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60 text-xs space-y-2">
+          <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10 text-xs space-y-2">
             <span className="font-semibold text-neutral-900 dark:text-white block">
               Saklaw ng 15-Taong Structural Warranty:
             </span>
@@ -865,7 +865,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
           <p className="text-xs text-neutral-600 dark:text-neutral-400">
             Under Article 1723, the licensed architect and civil/structural engineer who drafted and signed & sealed the plans, along with the contractor (MCPA Construction and Supply), hold statutory liability for fifteen (15) years from the completion of the structure for collapse or structural defects resulting from defects in plans and specifications, defects in the ground, construction defects, or the use of inferior materials. Acceptance of the building does not waive this statutory cause of action under Philippine law.
           </p>
-          <div className="p-3.5 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60 text-xs space-y-2">
+          <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10 text-xs space-y-2">
             <span className="font-semibold text-neutral-900 dark:text-white block">
               15-Year Warranty Coverage Includes:
             </span>
@@ -928,7 +928,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
           <p>
             Lahat ng patakaran sa site ay sumusunod sa <strong>Department of Labor and Employment (DOLE) Department Order No. 13, Series of 1998 (DO 13-98)</strong> ukol sa <em>Occupational Safety and Health in the Construction Industry</em>, at sa <strong>Batas Republika Blg. 11058</strong> (OSH Standards).
           </p>
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-neutral-800 dark:text-neutral-200 text-xs">
+          <div className="p-3.5 rounded-[4px] bg-amber-500/10 border border-amber-500/25 text-neutral-800 dark:text-neutral-200 text-xs">
             <span className="font-semibold text-amber-600 dark:text-amber-400 block mb-1">
               DOLE Construction Safety Program (CSHP):
             </span>
@@ -943,7 +943,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
           <p>
             Our site safety protocols comply fully with <strong>Department of Labor and Employment (DOLE) Department Order No. 13, Series of 1998 (DO 13-98)</strong>, <em>Guidelines Governing Occupational Safety and Health in the Construction Industry</em>, and <strong>Republic Act No. 11058</strong> (OSH Standards).
           </p>
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-neutral-800 dark:text-neutral-200 text-xs">
+          <div className="p-3.5 rounded-[4px] bg-amber-500/10 border border-amber-500/25 text-neutral-800 dark:text-neutral-200 text-xs">
             <span className="font-semibold text-amber-600 dark:text-amber-400 block mb-1">
               DOLE Construction Safety Program (CSHP):
             </span>
@@ -962,16 +962,16 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             Ipinatutupad ng MCPA ang mahigpit na patakarang <strong>&quot;Walang PPE, Bawal Pumasok&quot; (No PPE, No Entry)</strong>. Lahat ng manggagawa, inhenyero, bisita, at may-ari ng bahay ay kailangang magsuot ng tamang safety gear bago pumasok sa bakod ng konstruksyon:
           </p>
 
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <div className="overflow-x-auto rounded-[4px] border border-neutral-200 dark:border-white/10">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-neutral-100 dark:bg-neutral-800/70 text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
+              <thead className="bg-neutral-100 dark:bg-white/[0.04] text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
                 <tr>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Uri ng Kagamitan</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Pamantayan sa Kaligtasan</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Patakaran at Kulay sa Site</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Uri ng Kagamitan</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Pamantayan sa Kaligtasan</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Patakaran at Kulay sa Site</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 text-neutral-700 dark:text-neutral-300">
+              <tbody className="divide-y divide-neutral-200 dark:divide-white/10 text-neutral-700 dark:text-neutral-300">
                 <tr>
                   <td className="p-3 font-semibold text-neutral-900 dark:text-white">Safety Hard Hat</td>
                   <td className="p-3">ANSI Z89.1 / OSHS Type I, Class E & G</td>
@@ -1007,16 +1007,16 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             MCPA enforces a strict <strong>&quot;No PPE, No Entry&quot;</strong> rule. All workers, engineers, subcontractor personnel, and authorized project visitors must wear standard-compliant protective gear before crossing the jobsite perimeter:
           </p>
 
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <div className="overflow-x-auto rounded-[4px] border border-neutral-200 dark:border-white/10">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-neutral-100 dark:bg-neutral-800/70 text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
+              <thead className="bg-neutral-100 dark:bg-white/[0.04] text-neutral-900 dark:text-white uppercase font-mono tracking-wider text-[10px]">
                 <tr>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Equipment Type</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Compliance Standard</th>
-                  <th className="p-3 border-b border-neutral-200 dark:border-neutral-800">Site Specification</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Equipment Type</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Compliance Standard</th>
+                  <th className="p-3 border-b border-neutral-200 dark:border-white/10">Site Specification</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 text-neutral-700 dark:text-neutral-300">
+              <tbody className="divide-y divide-neutral-200 dark:divide-white/10 text-neutral-700 dark:text-neutral-300">
                 <tr>
                   <td className="p-3 font-semibold text-neutral-900 dark:text-white">Safety Hard Hats</td>
                   <td className="p-3">ANSI Z89.1 / OSHS Type I, Class E & G</td>
@@ -1144,7 +1144,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             Ang bawat jobsite ng MCPA ay may nakalatag na Emergency Response Plan (ERP) na nakikipag-ugnayan sa mga lokal na ahensya ng kalamidad at pagsaklolo:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Patakaran sa Bagyo at Panahon
               </span>
@@ -1152,7 +1152,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 Awtomatikong ititigil ang trabaho sa itaas at pagpapatakbo ng crane sa oras na magtaas ang PAGASA ng Tropical Cyclone Wind Signal (TCWS) No. 2 o higit pa. Agad na itatali at seselyuhan ang lahat ng maluwag na materyales.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 First-Aid Station sa Site
               </span>
@@ -1160,7 +1160,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 Bawat site ay may kompletong first-aid kit at may sinanay na First Aider (Philippine Red Cross certified) na nakabantay sa oras ng trabaho.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Fire Safety at Hot Work Permit
               </span>
@@ -1168,7 +1168,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 May nakahandang ABC dry chemical fire extinguishers na hindi lalayo sa 10 metro mula sa anumang lugar kung saan nagpuputol o nagwewelding. May pormal na permit bago simulan ang welding.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Direktang Linya sa Saklolo
               </span>
@@ -1184,7 +1184,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             Every MCPA jobsite maintains an active Emergency Response Plan (ERP) coordinated with local disaster management and rescue offices:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Typhoon & Weather Protocol
               </span>
@@ -1192,7 +1192,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 Automatic suspension of height and crane operations upon PAGASA Tropical Cyclone Wind Signal (TCWS) No. 2. All loose materials and formworks secured immediately.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Certified First-Aid Stations
               </span>
@@ -1200,7 +1200,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 Each jobsite is equipped with an industrial first-aid station and a Philippine Red Cross-trained first aider present throughout working hours.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Fire Safety & Hot Work Permits
               </span>
@@ -1208,7 +1208,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 Operating dry chemical ABC fire extinguishers stationed within 10 meters of any welding or cutting area. Formal Hot Work Permit required prior to torch cutting.
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/60">
+            <div className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
               <span className="font-semibold text-neutral-900 dark:text-white block text-xs mb-1">
                 Local Emergency Links
               </span>
@@ -1274,7 +1274,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
       <main className="min-h-screen bg-neutral-50 dark:bg-[#07090c] text-neutral-900 dark:text-neutral-100 pt-24 pb-20 font-sans transition-colors duration-300 print:min-h-0 print:bg-white print:text-black print:pt-0 print:pb-0 print:m-0">
         
         {/* 1. DOCUMENT HEADER & BREADCRUMBS */}
-        <section className="border-b border-neutral-200 dark:border-neutral-800/80 bg-white dark:bg-neutral-950/60 backdrop-blur-md print:hidden">
+        <section className="border-b border-neutral-200 dark:border-white/10 bg-white dark:bg-[#07090c] print:hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-400 mb-4">
@@ -1297,7 +1297,8 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               {/* Document Identity */}
               <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-mono font-semibold mb-3">
+                <div className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold uppercase tracking-[0.14em] text-amber-600 dark:text-amber-400 mb-2.5 select-none">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                   <Award className="w-3.5 h-3.5" />
                   <span>{currentDocMeta.regulatoryBadge}</span>
                 </div>
@@ -1315,7 +1316,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                   href={`/api/legal/pdf/${activeDoc}?lang=${isFil ? "fil" : "en"}`}
                   download
                   onClick={handleDownloadPdf}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono uppercase tracking-wider text-xs transition-colors shadow-xs cursor-pointer"
                   title={isFil ? "I-download ang Opisyal na PDF (May Awtomatikong File Name)" : "Download Official PDF (With Automatic File Name)"}
                 >
                   {downloadingDoc ? (
@@ -1331,11 +1332,10 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                   )}
                 </a>
 
-
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 text-xs font-medium transition-colors shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[4px] bg-white dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 hover:bg-neutral-100 dark:hover:bg-white/[0.08] text-neutral-700 dark:text-neutral-200 text-xs font-mono uppercase tracking-wider transition-colors shadow-xs cursor-pointer"
                   title={isFil ? "Kopyahin ang Link ng Dokumento" : "Copy Document Link"}
                 >
                   {copiedLink ? (
@@ -1356,28 +1356,28 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             </div>
 
             {/* Document Metadata Strip */}
-            <div className="mt-6 pt-5 border-t border-neutral-200/80 dark:border-neutral-800/80 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
+            <div className="mt-6 pt-5 border-t border-neutral-200 dark:border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
               <div>
-                <span className="text-neutral-400 dark:text-neutral-500 block text-[10px] uppercase">
+                <span className="text-neutral-400 dark:text-neutral-500 block text-[10px] uppercase font-mono tracking-wider">
                   {isFil ? "Hurisdiksyon" : "Jurisdiction"}
                 </span>
-                <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                <span className="font-semibold text-neutral-800 dark:text-neutral-200 font-mono text-xs">
                   {isFil ? "Republika ng Pilipinas" : "Republic of the Philippines"}
                 </span>
               </div>
               <div>
-                <span className="text-neutral-400 dark:text-neutral-500 block text-[10px] uppercase">
+                <span className="text-neutral-400 dark:text-neutral-500 block text-[10px] uppercase font-mono tracking-wider">
                   {isFil ? "Opisyal na Kontratista" : "Official Contractor"}
                 </span>
-                <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                <span className="font-semibold text-neutral-800 dark:text-neutral-200 font-mono text-xs">
                   MCPA Construction &amp; Supply
                 </span>
               </div>
               <div>
-                <span className="text-neutral-400 dark:text-neutral-500 block text-[10px] uppercase">
+                <span className="text-neutral-400 dark:text-neutral-500 block text-[10px] uppercase font-mono tracking-wider">
                   {isFil ? "Pangunahing Tanggapan" : "Headquarters"}
                 </span>
-                <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                <span className="font-semibold text-neutral-800 dark:text-neutral-200 font-mono text-xs">
                   Plaridel, Bulacan
                 </span>
               </div>
@@ -1386,7 +1386,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
         </section>
 
         {/* 2. DOCUMENT SELECTOR TABS */}
-        <section className="sticky top-[56px] sm:top-[64px] z-40 bg-white/95 dark:bg-[#07090c]/95 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800 shadow-xs print:hidden">
+        <section className="sticky top-[56px] sm:top-[64px] z-40 bg-white/95 dark:bg-[#07090c]/95 backdrop-blur-md border-b border-neutral-200 dark:border-white/10 shadow-xs print:hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-4 overflow-x-auto py-2.5 no-scrollbar">
               <div className="flex items-center gap-2 shrink-0">
@@ -1397,10 +1397,10 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                     <button
                       key={doc.id}
                       onClick={() => switchDocument(doc.id)}
-                      className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer whitespace-nowrap ${
+                      className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-[4px] text-xs font-mono uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
                         isActive
-                          ? "bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/20"
-                          : "bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                          ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
+                          : "bg-neutral-100 dark:bg-white/[0.04] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-white/[0.08] border border-neutral-200/60 dark:border-white/5"
                       }`}
                     >
                       <Icon className="w-4 h-4 shrink-0" />
@@ -1418,7 +1418,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                   placeholder={isFil ? `Maghanap sa ${currentDocMeta.title}...` : `Search ${currentDocMeta.title}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-8 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
+                  className="w-full pl-8 pr-8 py-1.5 rounded-[4px] bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all font-mono"
                 />
                 {searchQuery.trim() && (
                   <button
@@ -1443,8 +1443,8 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-[132px] print:hidden">
               
               {/* Table of Contents Card */}
-              <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-5 shadow-xs">
-                <div className="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-800 mb-3">
+              <div className="rounded-[6px] bg-white dark:bg-[#0c0e12] border border-neutral-200 dark:border-white/10 p-5 shadow-xs">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-white/10 mb-3">
                   <div className="flex items-center gap-2">
                     <ScrollText className="w-4 h-4 text-amber-500" />
                     <span className="text-xs font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
@@ -1464,10 +1464,10 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                       key={sec.id}
                       href={`#${sec.id}`}
                       onClick={() => setActiveSectionId(sec.id)}
-                      className={`flex items-start gap-2 px-2.5 py-1.5 rounded-lg transition-colors group ${
+                      className={`flex items-start gap-2 px-2.5 py-1.5 rounded-[4px] transition-colors group ${
                         activeSectionId === sec.id
-                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold"
-                          : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold"
+                          : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04]"
                       }`}
                     >
                       <span className="font-mono text-neutral-400 group-hover:text-amber-500 shrink-0">
@@ -1480,7 +1480,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
               </div>
 
               {/* Contractor & Legal Help Card */}
-              <div className="rounded-2xl bg-neutral-100 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 p-5 space-y-3 text-xs">
+              <div className="rounded-[6px] bg-white dark:bg-[#0c0e12] border border-neutral-200 dark:border-white/10 p-5 space-y-3.5 text-xs shadow-xs">
                 <div className="flex items-center gap-2 text-neutral-900 dark:text-white font-semibold">
                   <FileCheck2 className="w-4 h-4 text-amber-500" />
                   <span>{isFil ? "Opisyal na Tanggapan ng Kontratista" : "Official Contractor Desk"}</span>
@@ -1523,7 +1523,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 <div className="pt-2">
                   <Link
                     href="/book"
-                    className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
+                    className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider font-mono transition-colors shadow-xs"
                   >
                     <span>{isFil ? "Kumonsulta sa MCPA" : "Consult with MCPA"}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -1533,7 +1533,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
             </aside>
 
             {/* RIGHT MAIN CONTENT: The Complete Legal Document */}
-            <article className="lg:col-span-8 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-10 shadow-sm space-y-10 print:col-span-12 print:w-full print:border-none print:shadow-none print:p-0 print:m-0 print:space-y-6 print:bg-white print:text-black">
+            <article className="lg:col-span-8 bg-white dark:bg-[#0c0e12] border border-neutral-200 dark:border-white/10 rounded-[6px] p-6 sm:p-10 lg:p-12 shadow-xs space-y-10 print:col-span-12 print:w-full print:border-none print:shadow-none print:p-0 print:m-0 print:space-y-6 print:bg-white print:text-black">
               
               {/* ========================================================================= */}
               {/* 1. PRINT-ONLY OFFICIAL CORPORATE LETTERHEAD (Authentic Contractor Document) */}
@@ -1594,8 +1594,8 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
               </div>
 
               {/* Document Banner */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200 dark:border-neutral-700/60 flex items-start gap-4 print:hidden">
-                <currentDocMeta.icon className="w-6 h-6 text-amber-500 shrink-0 mt-1" />
+              <div className="p-4 sm:p-5 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10 flex items-start gap-4 print:hidden">
+                <currentDocMeta.icon className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <h2 className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white">
                     {isFil ? `Patalastas sa ${currentDocMeta.title}` : `${currentDocMeta.title} Notice`}
@@ -1610,17 +1610,17 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
 
               {/* Active Search Results Feedback Banner */}
               {searchQuery.trim() && (
-                <div className="p-3 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-300 print:hidden">
+                <div className="p-3 sm:p-4 rounded-[4px] bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-300 print:hidden">
                   <div className="flex items-center gap-2">
                     <Search className="w-4 h-4 text-amber-500 shrink-0" />
                     <span>
                       {isFil ? (
                         <>
-                          May <strong>{filteredSections.length}</strong> na seksyong natagpuan para sa &ldquo;<span className="bg-yellow-300 dark:bg-yellow-400 text-neutral-950 px-1 py-0.5 rounded font-bold">{searchQuery}</span>&rdquo;
+                          May <strong>{filteredSections.length}</strong> na seksyong natagpuan para sa &ldquo;<span className="bg-amber-400/30 text-amber-950 dark:text-amber-300 px-1 py-0.5 rounded-[2px] font-semibold font-mono">{searchQuery}</span>&rdquo;
                         </>
                       ) : (
                         <>
-                          Found <strong>{filteredSections.length}</strong> matching {filteredSections.length === 1 ? "section" : "sections"} for &ldquo;<span className="bg-yellow-300 dark:bg-yellow-400 text-neutral-950 px-1 py-0.5 rounded font-bold">{searchQuery}</span>&rdquo;
+                          Found <strong>{filteredSections.length}</strong> matching {filteredSections.length === 1 ? "section" : "sections"} for &ldquo;<span className="bg-amber-400/30 text-amber-950 dark:text-amber-300 px-1 py-0.5 rounded-[2px] font-semibold font-mono">{searchQuery}</span>&rdquo;
                         </>
                       )}
                     </span>
@@ -1628,7 +1628,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                   <button
                     type="button"
                     onClick={() => setSearchQuery("")}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors cursor-pointer shrink-0 shadow-xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase font-mono tracking-wider transition-colors cursor-pointer shrink-0 shadow-xs"
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>{isFil ? "Alisin ang filter" : "Clear filter"}</span>
@@ -1657,10 +1657,10 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                   <section
                     key={sec.id}
                     id={sec.id}
-                    className="scroll-mt-36 pt-4 border-t first:border-t-0 border-neutral-100 dark:border-neutral-800/80 space-y-4 print:pt-4 print:border-t print:border-neutral-300 print:break-inside-avoid print:page-break-inside-avoid"
+                    className="scroll-mt-36 pt-4 border-t first:border-t-0 border-neutral-200/80 dark:border-white/10 space-y-4 print:pt-4 print:border-t print:border-neutral-300 print:break-inside-avoid print:page-break-inside-avoid"
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-xs font-bold print:bg-neutral-200 print:text-neutral-900 print:border print:border-neutral-400">
+                      <span className="px-2 py-0.5 rounded-[3px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono text-xs font-bold print:bg-neutral-200 print:text-neutral-900 print:border print:border-neutral-400">
                         {highlightMatches(sec.number, searchQuery)}
                       </span>
                       <h3 className="text-lg sm:text-xl font-bold text-neutral-950 dark:text-white tracking-tight print:text-black print:text-sm">

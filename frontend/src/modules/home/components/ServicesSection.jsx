@@ -49,13 +49,13 @@ export default function ServicesSection() {
     <section id="services" className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-neutral-200 dark:border-neutral-800">
       <ScrollMorph variant="fade-up" className="mb-16 grid lg:grid-cols-2 gap-8 items-end">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] font-semibold text-amber-600 dark:text-amber-400 mb-3">
-            {t("whatWeDo")}
-          </p>
+          <div className="inline-flex items-center text-[10px] sm:text-xs uppercase tracking-[0.2em] font-mono font-bold text-amber-600 dark:text-amber-400 mb-3 select-none">
+            <span>{t("whatWeDo")}</span>
+          </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl xl:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
             {t("servicesThat")}
             <br />
-            <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
+            <span className="text-amber-500 dark:text-amber-400">
               {t("defineEras")}
             </span>
           </h2>
@@ -75,12 +75,10 @@ export default function ServicesSection() {
             duration={850}
             className="h-full"
           >
-            <div className="group relative overflow-hidden rounded-2xl p-8 bg-white dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 transition-all duration-300 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 backdrop-blur-sm h-full">
-              {/* Top ambient shimmer beam on hover */}
-              <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-500/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="group relative overflow-hidden rounded-[10px] p-8 bg-white dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/45 transition-[border-color,box-shadow] duration-200 flex flex-col justify-between shadow-[0_2px_8px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.08)] h-full">
 
               <div>
-                <div className="mb-6 p-3 w-fit rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 group-hover:scale-110 transition-transform">
+                <div className="mb-6">
                   {item.icon}
                 </div>
 
@@ -88,7 +86,7 @@ export default function ServicesSection() {
                   {item.tag}
                 </span>
 
-                <h3 className="text-xl font-bold tracking-tight text-neutral-950 dark:text-white mt-2 mb-3 group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
+                <h3 className="text-xl font-bold tracking-tight text-neutral-950 dark:text-white mt-2 mb-3 group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors duration-150">
                   {item.title}
                 </h3>
 
@@ -100,7 +98,7 @@ export default function ServicesSection() {
               <div className="mt-8 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
                 <Link
                   href="/book"
-                  className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition-transform"
+                  className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors duration-150"
                 >
                   <span>{t("inquire")}</span>
                   <ArrowRightIcon className="w-3.5 h-3.5" />

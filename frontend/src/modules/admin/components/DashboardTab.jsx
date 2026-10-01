@@ -36,14 +36,14 @@ function MeetingTypeBadge({ mode }) {
 
   if (isOnline) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 dark:text-sky-300 text-[11px] font-medium whitespace-nowrap">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[4px] bg-sky-500/10 border border-sky-500/25 text-sky-700 dark:text-sky-300 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
         <VideoIcon className="w-3 h-3" />
         Google Meet
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 text-[11px] font-medium whitespace-nowrap">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[4px] bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
       <MapPinIcon className="w-3 h-3" />
       Face-to-Face
     </span>
@@ -63,7 +63,16 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
   const recentActivity = [...clientBriefs]
     .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0))
     .slice(0, 5);
-  const featuredProjects = allProjects.slice(0, 3);
+  const inProgressProjects = allProjects.filter((p) => {
+    const status = (p.status || "").toLowerCase();
+    const stage = (p.stage || "").toLowerCase();
+    const progress = typeof p.progress === "number" ? p.progress : 0;
+    if (status === "completed" || stage.includes("complete") || stage.includes("turned over") || progress >= 100) {
+      return false;
+    }
+    return status === "in_progress" || stage.includes("construction") || stage.includes("ongoing") || (progress > 0 && progress < 100);
+  });
+  const featuredProjects = inProgressProjects.slice(0, 4);
 
   return (
     <div className="space-y-6">
@@ -97,9 +106,9 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
           onClick={() => onNavigateTab?.("briefs")}
         />
         <MetricCard3D
-          label="Active Projects"
-          value={allProjects.length}
-          sub="Live on portfolio"
+          label="In-Progress Projects"
+          value={inProgressProjects.length}
+          sub="Active on site"
           accentColor="#10B981"
           glowColor="rgba(16, 185, 129, 0.2)"
           icon={BuildingIcon}
@@ -119,16 +128,16 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <div className="xl:col-span-3 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-neutral-900 dark:text-white tracking-tight">Active Portfolio Projects</h3>
-            <span className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">{allProjects.length} total</span>
+            <h3 className="text-sm font-semibold text-neutral-900 dark:text-white tracking-tight">Active In-Progress Projects</h3>
+            <span className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums font-mono">{inProgressProjects.length} in progress</span>
           </div>
 
           {featuredProjects.length === 0 ? (
             <AdminEmptyState
               iconSrc="https://cdn.lordicon.com/wzwygmng.json"
               badgeText="Portfolio Standby"
-              title="No Active Projects"
-              description="Active structural and architectural construction builds will be showcased here."
+              title="No In-Progress Projects"
+              description="Active in-progress construction projects will be showcased here."
               compact
               size={64}
             />
@@ -149,7 +158,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
                 return (
                   <div
                     key={project?.id ? `feat-${project.id}-${idx}` : `feat-idx-${idx}`}
-                    className="p-5 rounded-2xl bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.07] hover:border-neutral-300 dark:hover:border-white/[0.12] transition-colors shadow-xs space-y-3.5"
+                    className="p-5 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] hover:border-amber-500/40 dark:hover:border-amber-500/40 transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-3.5"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -159,14 +168,14 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
                           <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{project.location}</span>
                         </div>
                       </div>
-                      <span className={`px-2.5 py-0.5 rounded-md border text-[11px] font-medium tracking-wide shrink-0 ${categoryColor}`}>
+                      <span className={`px-2.5 py-0.5 rounded-[4px] font-mono border text-[10px] uppercase font-medium tracking-wider shrink-0 ${categoryColor}`}>
                         {project.category}
                       </span>
                     </div>
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-neutral-500 dark:text-neutral-400 font-medium">{stage}</span>
-                        <span className="font-semibold text-neutral-800 dark:text-neutral-200 tabular-nums">{progress}%</span>
+                        <span className="font-semibold text-neutral-800 dark:text-neutral-200 tabular-nums font-mono">{progress}%</span>
                       </div>
                       <div className="h-1.5 w-full rounded-full bg-neutral-100 dark:bg-white/[0.06] overflow-hidden">
                         <div
@@ -202,7 +211,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
                 size={64}
               />
             ) : (
-              <div className="rounded-2xl border border-neutral-200/90 dark:border-white/[0.07] bg-white dark:bg-[#12141a] overflow-hidden divide-y divide-neutral-100 dark:divide-white/[0.05] shadow-xs">
+              <div className="rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0f1117] overflow-hidden divide-y divide-neutral-100 dark:divide-white/[0.05] shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
                 {recentActivity.map((brief, idx) => {
                   const status = brief.status || "Pending Review";
                   const isPending = status === "Pending Review";
@@ -210,19 +219,19 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
                   const briefKey = brief?.id ? `${brief.id}-${idx}` : `brief-act-${idx}`;
                   return (
                     <div key={briefKey} className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-white/[0.02] transition-colors">
-                      <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 font-semibold text-xs flex items-center justify-center shrink-0 uppercase">
+                      <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 font-semibold text-xs flex items-center justify-center shrink-0 uppercase font-mono">
                         {brief.clientName?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate">{brief.clientName}</p>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{brief.projectType || "Consultation Request"} — {brief.location || "Location TBD"}</p>
                       </div>
-                      <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                      <span className={`shrink-0 px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-bold uppercase border ${
                         isApproved
-                          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                          ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-400"
                           : isPending
-                          ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
-                          : "bg-sky-500/10 border-sky-500/20 text-sky-400"
+                          ? "bg-amber-500/10 border-amber-500/25 text-amber-700 dark:text-amber-400"
+                          : "bg-sky-500/10 border-sky-500/25 text-sky-700 dark:text-sky-400"
                       }`}>
                         {status}
                       </span>
@@ -251,7 +260,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
                 {upcomingMeetings.map((brief, idx) => (
                   <div
                     key={brief?.id ? `${brief.id}-${idx}` : `brief-meet-${idx}`}
-                    className="p-4 rounded-2xl bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.07] shadow-xs space-y-2.5"
+                    className="p-4 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -260,7 +269,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
                       </div>
                       <MeetingTypeBadge mode={brief.meetingMode} />
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+                    <div className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300 font-mono">
                       <CalendarIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                       <span>{brief.meetingDate}{brief.meetingTime && ` — ${brief.meetingTime}`}</span>
                     </div>
@@ -269,7 +278,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
                         href={brief.meetingLink}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 w-full justify-center px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold text-xs transition-colors shadow-xs"
+                        className="inline-flex items-center gap-1.5 w-full justify-center px-3 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-colors shadow-xs"
                       >
                         <VideoIcon className="w-3.5 h-3.5" />
                         Join Meeting
@@ -282,7 +291,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
             )}
           </div>
 
-          <div className="p-5 rounded-2xl bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.07] shadow-xs space-y-3">
+          <div className="p-5 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Inquiry Summary</h3>
               <TrendingUpIcon className="w-4 h-4 text-neutral-400" />
@@ -302,7 +311,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.07] shadow-xs space-y-3">
+          <div className="p-5 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-3">
             <h3 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
               MCPA Headquarters
             </h3>
@@ -313,7 +322,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
                 target="_blank"
                 rel="noopener noreferrer"
                 title="View MCPA Headquarters on Google Maps"
-                className="flex items-center justify-between p-2.5 -mx-2.5 rounded-xl text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
+                className="flex items-center justify-between p-2.5 -mx-2.5 rounded-[4px] text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <MapPinIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 shrink-0 transition-colors" />
@@ -326,7 +335,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
               <a
                 href="tel:09497758239"
                 title="Call MCPA Headquarters ((0949) 775 8239)"
-                className="flex items-center justify-between p-2.5 -mx-2.5 rounded-xl text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
+                className="flex items-center justify-between p-2.5 -mx-2.5 rounded-[4px] text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <PhoneIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 shrink-0 transition-colors" />
@@ -341,7 +350,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
               <a
                 href="mailto:mcpa.construction@gmail.com?subject=Inquiry%20-%20MCPA%20Construction"
                 title="Email mcpa.construction@gmail.com"
-                className="flex items-center justify-between p-2.5 -mx-2.5 rounded-xl text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
+                className="flex items-center justify-between p-2.5 -mx-2.5 rounded-[4px] text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-white/[0.04] transition-all group cursor-pointer"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <MailIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 shrink-0 transition-colors" />

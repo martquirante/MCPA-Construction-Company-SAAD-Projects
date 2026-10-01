@@ -42,28 +42,30 @@ export default function ProjectsPage() {
 
         {/* Consultation Call To Action Banner */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 md:mt-24">
-          <div className="relative overflow-hidden rounded-3xl bg-white dark:bg-[#121622] border border-neutral-200 dark:border-white/10 p-8 sm:p-12 text-center text-neutral-900 dark:text-white shadow-xl shadow-neutral-200/50 dark:shadow-2xl transition-colors duration-300">
-            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/[0.08] via-amber-500/[0.03] to-transparent dark:from-amber-500/15 dark:via-amber-500/5 pointer-events-none" />
-            <span className="inline-block px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[11px] font-bold uppercase tracking-wider mb-4">
-              Turnkey Design & Build
-            </span>
-            <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-neutral-950 dark:text-white">
+          <div className="relative overflow-hidden rounded-[6px] bg-neutral-950 text-white border border-neutral-800 dark:border-white/[0.08] p-8 sm:p-12 text-center shadow-[0_16px_40px_rgba(0,0,0,0.3)] transition-colors duration-300">
+            {/* Top Amber Reference Accent */}
+            <div className="absolute top-0 inset-x-0 h-1 bg-amber-500" />
+
+            <div className="inline-flex items-center justify-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-400 mb-4 select-none">
+              <span>Turnkey Design &amp; Build</span>
+            </div>
+            <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white leading-tight">
               Ready to construct your modern sanctuary?
             </h3>
-            <p className="mt-3 text-sm md:text-base text-neutral-600 dark:text-neutral-300 max-w-xl mx-auto leading-relaxed">
+            <p className="mt-3 text-sm md:text-base text-neutral-300 max-w-xl mx-auto leading-relaxed font-normal">
               Schedule a pre-consultation session to review lot feasibility, custom architectural floor plans, and flexible financing timelines.
             </p>
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
               <Link
                 href="/book"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-[0.08em] transition-colors shadow-[0_2px_8px_rgba(245,158,11,0.25)] cursor-pointer"
               >
                 <span>Schedule a Consultation</span>
                 <ArrowRightIcon className="w-4 h-4" />
               </Link>
               <Link
                 href="/services"
-                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 rounded-xl border border-neutral-300 dark:border-white/15 hover:bg-neutral-100 dark:hover:bg-white/5 text-neutral-800 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[4px] border border-neutral-700 bg-neutral-900/60 hover:bg-neutral-800 text-neutral-200 hover:text-white text-xs font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer"
               >
                 <span>Explore Services</span>
               </Link>
@@ -77,3 +79,4 @@ export default function ProjectsPage() {
     </div>
   );
 }
+

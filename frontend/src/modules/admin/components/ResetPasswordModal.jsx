@@ -80,9 +80,9 @@ export default function ResetPasswordModal({
     return `${mins.toString().padStart(2, "0")}:${remSecs.toString().padStart(2, "0")}`;
   };
 
-  // ═════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // STEP 1: SEND RESET CODE
-  // ═════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const handleSendCode = async (e) => {
     e?.preventDefault();
     if (!email.trim()) {
@@ -119,9 +119,9 @@ export default function ResetPasswordModal({
     }
   };
 
-  // ═════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // STEP 2: 6-BOX SEGMENTED OTP HANDLING
-  // ═════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const handleOtpChange = (index, value) => {
     // Only accept numeric digit
     const cleaned = value.replace(/\D/g, "");
@@ -236,9 +236,9 @@ export default function ResetPasswordModal({
     }
   };
 
-  // ═════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // STEP 3: RESET PASSWORD
-  // ═════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const handleSaveNewPassword = async (e) => {
     e?.preventDefault();
     if (!newPassword || newPassword.length < 6) {
@@ -289,14 +289,11 @@ export default function ResetPasswordModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-md bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-2xl overflow-hidden transition-all">
-        {/* Decorative ambient glow */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
+      <div className="relative w-full max-w-md bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/[0.08] rounded-[8px] shadow-2xl overflow-hidden transition-all">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 z-20 p-2 rounded-xl text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+          className="absolute top-5 right-5 z-20 p-2 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
           aria-label="Close dialog"
         >
           <CloseIcon className="w-5 h-5" />
@@ -309,9 +306,7 @@ export default function ResetPasswordModal({
           {step === 1 && (
             <div className="animate-fadeIn">
               <div className="flex flex-col items-center text-center mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4">
-                  <LockIcon className="w-6 h-6" />
-                </div>
+                <LockIcon className="w-6 h-6" />
                 <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
                   Reset Account Password
                 </h2>
@@ -321,7 +316,7 @@ export default function ResetPasswordModal({
               </div>
 
               {errorMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs text-center font-mono">
+                <div className="mb-4 p-3 rounded-[4px] bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs text-center font-mono">
                   {errorMsg}
                 </div>
               )}
@@ -339,7 +334,7 @@ export default function ResetPasswordModal({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="admin@mcpa.com"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-sm transition-colors"
+                      className="w-full pl-10 pr-4 py-3 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-sm font-mono transition-colors"
                     />
                     <MailIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
                   </div>
@@ -348,7 +343,7 @@ export default function ResetPasswordModal({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-widest transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isLoading ? (
                     <>
@@ -369,7 +364,7 @@ export default function ResetPasswordModal({
                     onClick={onClose}
                     className="text-xs font-mono text-neutral-500 hover:text-amber-500 transition-colors"
                   >
-                    ← Back to Login
+                    â† Back to Login
                   </button>
                 </div>
               </form>
@@ -382,9 +377,7 @@ export default function ResetPasswordModal({
           {step === 2 && (
             <div className="animate-fadeIn">
               <div className="flex flex-col items-center text-center mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4">
-                  <ShieldCheckIcon className="w-6 h-6" />
-                </div>
+                <ShieldCheckIcon className="w-6 h-6" />
                 <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
                   Security Verification
                 </h2>
@@ -395,7 +388,7 @@ export default function ResetPasswordModal({
               </div>
 
               {errorMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs text-center font-mono">
+                <div className="mb-4 p-3 rounded-[4px] bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs text-center font-mono">
                   {errorMsg}
                 </div>
               )}
@@ -412,7 +405,7 @@ export default function ResetPasswordModal({
                     value={digit}
                     onChange={(e) => handleOtpChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className="w-11 sm:w-12 h-13 sm:h-14 text-center font-mono text-xl font-bold rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-amber-600 dark:text-amber-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                    className="w-11 sm:w-12 h-13 sm:h-14 text-center font-mono text-xl font-bold rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-amber-600 dark:text-amber-400 focus:outline-none focus:border-amber-500 transition-colors"
                   />
                 ))}
               </div>
@@ -443,7 +436,7 @@ export default function ResetPasswordModal({
                   type="button"
                   disabled={isLoading || otpDigits.join("").length !== 6}
                   onClick={handleVerifyOtp}
-                  className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-bold text-xs uppercase font-mono tracking-widest transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isLoading ? (
                     <>
@@ -467,7 +460,7 @@ export default function ResetPasswordModal({
                     }}
                     className="text-xs font-mono text-neutral-500 hover:text-amber-500 transition-colors"
                   >
-                    ← Change Email Address
+                    â† Change Email Address
                   </button>
                 </div>
               </div>
@@ -480,9 +473,7 @@ export default function ResetPasswordModal({
           {step === 3 && (
             <div className="animate-fadeIn">
               <div className="flex flex-col items-center text-center mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4">
-                  <KeyRoundIcon className="w-6 h-6" />
-                </div>
+                <KeyRoundIcon className="w-6 h-6" />
                 <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
                   Create New Password
                 </h2>
@@ -492,7 +483,7 @@ export default function ResetPasswordModal({
               </div>
 
               {errorMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs text-center font-mono">
+                <div className="mb-4 p-3 rounded-[4px] bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs text-center font-mono">
                   {errorMsg}
                 </div>
               )}
@@ -509,8 +500,8 @@ export default function ResetPasswordModal({
                       autoFocus
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-4 pr-10 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-sm font-mono transition-colors"
+                      placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                      className="w-full pl-4 pr-10 py-3 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-sm font-mono transition-colors"
                     />
                     <button
                       type="button"
@@ -532,8 +523,8 @@ export default function ResetPasswordModal({
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-4 pr-10 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-sm font-mono transition-colors"
+                      placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                      className="w-full pl-4 pr-10 py-3 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-sm font-mono transition-colors"
                     />
                   </div>
                 </div>
@@ -541,7 +532,7 @@ export default function ResetPasswordModal({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer mt-2"
+                  className="w-full py-3 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-widest transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2"
                 >
                   {isLoading ? (
                     <>
@@ -562,7 +553,7 @@ export default function ResetPasswordModal({
                     onClick={onClose}
                     className="text-xs font-mono text-neutral-500 hover:text-amber-500 transition-colors"
                   >
-                    ← Cancel
+                    â† Cancel
                   </button>
                 </div>
               </form>
@@ -574,9 +565,7 @@ export default function ResetPasswordModal({
           {/* ================================================================= */}
           {step === 4 && (
             <div className="text-center py-4 animate-fadeIn">
-              <div className="w-20 h-20 mx-auto rounded-full bg-emerald-500/20 border-2 border-emerald-500/40 flex items-center justify-center text-emerald-500 mb-6 animate-bounce">
-                <CheckCircle2Icon className="w-10 h-10" />
-              </div>
+              <CheckCircle2Icon className="w-14 h-14 mx-auto text-emerald-500 mb-6" />
 
               <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
                 Password Reset Successful!
@@ -593,7 +582,7 @@ export default function ResetPasswordModal({
                     onClose();
                     if (onSuccessReturn) onSuccessReturn(email);
                   }}
-                  className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
+                  className="w-full py-3.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-colors shadow-sm cursor-pointer"
                 >
                   Return to Sign In
                 </button>
@@ -605,3 +594,6 @@ export default function ResetPasswordModal({
     </div>
   );
 }
+
+
+

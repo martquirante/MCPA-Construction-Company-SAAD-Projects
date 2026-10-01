@@ -150,13 +150,10 @@ export default function PreConsultationBooking({ selectedStyle }) {
 
   return (
     <section id="book-appointment" className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="relative rounded-3xl overflow-hidden bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 sm:p-10 lg:p-14 transition-colors">
-        {/* Background glow */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
-
+      <div className="relative rounded-[8px] overflow-hidden bg-white dark:bg-[#0f1117] text-neutral-900 dark:text-white border border-neutral-200 dark:border-white/[0.08] shadow-sm p-6 sm:p-10 lg:p-14 transition-colors">
         {/* Section Header */}
         <div className="relative z-10 max-w-3xl mb-12">
-          <div className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs font-mono tracking-widest uppercase mb-4 border border-amber-500/20">
+          <div className="inline-flex items-center text-[10px] sm:text-xs font-mono font-bold tracking-[0.2em] uppercase text-amber-600 dark:text-amber-400 mb-4 select-none">
             <span>Pre-Consultation Booking · Full-Service Design & Build</span>
           </div>
 
@@ -169,7 +166,7 @@ export default function PreConsultationBooking({ selectedStyle }) {
           </p>
 
           {preferredStyle && (
-            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-mono">
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-[4px] bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs font-mono">
               <CheckIcon className="w-3.5 h-3.5 text-amber-500" />
               <span>Inquiring for Architectural Style: <strong>{preferredStyle}</strong></span>
             </div>
@@ -367,9 +364,7 @@ export default function PreConsultationBooking({ selectedStyle }) {
                       </label>
                       <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="p-2.5 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 text-amber-500 shrink-0">
-                            <MapPinIcon className="w-5 h-5" />
-                          </div>
+                          <MapPinIcon className="w-5 h-5 text-amber-500 dark:text-amber-400 shrink-0" />
                           <div>
                             <span className="text-[10px] font-mono text-neutral-500 uppercase block">Selected Coordinates / Lot Pin</span>
                             <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white">{mapCoordinates}</span>
@@ -378,11 +373,11 @@ export default function PreConsultationBooking({ selectedStyle }) {
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="text-[10px] font-mono text-neutral-400 mr-1 hidden sm:inline">Quick Presets:</span>
                           {[
-                            { label: "Plaridel HQ", coord: "14.8871° N, 120.8572° E" },
-                            { label: "Malolos", coord: "14.8527° N, 120.8160° E" },
-                            { label: "Guiguinto", coord: "14.8311° N, 120.8797° E" },
-                            { label: "San Fernando", coord: "15.0286° N, 120.6897° E" },
-                            { label: "NCR / QC", coord: "14.6760° N, 121.0437° E" },
+                            { label: "Plaridel HQ", coord: "14.8871Â° N, 120.8572Â° E" },
+                            { label: "Malolos", coord: "14.8527Â° N, 120.8160Â° E" },
+                            { label: "Guiguinto", coord: "14.8311Â° N, 120.8797Â° E" },
+                            { label: "San Fernando", coord: "15.0286Â° N, 120.6897Â° E" },
+                            { label: "NCR / QC", coord: "14.6760Â° N, 121.0437Â° E" },
                           ].map((preset) => (
                             <button
                               key={preset.label}
@@ -633,7 +628,7 @@ export default function PreConsultationBooking({ selectedStyle }) {
                           {uploadedFiles.map((name, i) => (
                             <span
                               key={i}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] text-xs font-mono bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25"
                             >
                               <CheckIcon className="w-3 h-3 text-amber-500" />
                               <span>{name}</span>
@@ -665,15 +660,12 @@ export default function PreConsultationBooking({ selectedStyle }) {
             </div>
           ) : (
             /* SUBMITTED STATE: FORMAL CLIENT PROFILE BRIEF & PENDING REVIEW NOTICE */
-            <div className="bg-neutral-50 dark:bg-black/60 border border-amber-500/30 dark:border-amber-500/20 rounded-3xl p-6 sm:p-10 animate-fadeIn transition-colors">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-neutral-200 dark:border-neutral-800 gap-4">
+            <div className="bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-white/[0.08] rounded-[6px] p-6 sm:p-10 animate-fadeIn transition-colors">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-neutral-200 dark:border-white/[0.08] gap-4">
                 <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-                    <CheckIcon className="w-8 h-8 text-emerald-500 animate-in zoom-in-50 duration-300" strokeWidth={2.5} />
-                  </div>
+                  <CheckIcon className="w-10 h-10 text-emerald-500 shrink-0" strokeWidth={2.5} />
                   <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-xs font-mono font-bold tracking-wider uppercase mb-2 border border-amber-500/30">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <div className="inline-flex items-center px-2.5 py-1 rounded-[4px] bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold tracking-[0.12em] uppercase mb-2 border border-amber-500/25">
                       <span>STATUS: PENDING REVIEW</span>
                     </div>
                     <h3 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-neutral-900 dark:text-white">
@@ -759,3 +751,4 @@ export default function PreConsultationBooking({ selectedStyle }) {
     </section>
   );
 }
+

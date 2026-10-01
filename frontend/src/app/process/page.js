@@ -9,8 +9,6 @@ import {
   HardHatIcon,
   ShieldCheckIcon,
   ArrowRightIcon,
-  CheckIcon,
-  MapPinIcon,
   ListChecksIcon,
   TruckIcon,
   SmartphoneIcon,
@@ -89,22 +87,22 @@ export default function ProcessPage() {
 
   const pillars = [
     {
-      icon: <ListChecksIcon className="w-6 h-6 text-amber-500" />,
+      icon: <ListChecksIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
       title: "Milestone-Based Payments",
       desc: "You only pay for construction stages that are inspected, approved, and verified with photos.",
     },
     {
-      icon: <TruckIcon className="w-6 h-6 text-amber-500" />,
+      icon: <TruckIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
       title: "Direct In-House Materials",
       desc: "Zero compromised materials. All steel bars and concrete aggregates come directly from our own verified logistics fleet.",
     },
     {
-      icon: <SmartphoneIcon className="w-6 h-6 text-amber-500" />,
+      icon: <SmartphoneIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
       title: "Regular Photo Updates",
       desc: "Clear photo updates sent directly to your phone and online portal, so you always know the exact status of your home.",
     },
     {
-      icon: <HardHatIcon className="w-6 h-6 text-amber-500" />,
+      icon: <HardHatIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
       title: "Licensed On-Site Supervision",
       desc: "Every major construction stage is supervised in person by licensed Civil Engineers and Master Builders.",
     },
@@ -135,12 +133,12 @@ export default function ProcessPage() {
         {/* Page Hero Header */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 md:mb-20">
           <div className="max-w-3xl">
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-amber-600 dark:text-amber-400 mb-4 select-none">
-              Clear Step-by-Step Progress · Regular Updates
-            </p>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
+            <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-4 select-none">
+              <span>Clear Step-by-Step Progress · Regular Updates</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold uppercase tracking-tight text-neutral-950 dark:text-white leading-[1.08]">
               Our 4-Stage <br />
-              <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
+              <span className="text-amber-600 dark:text-amber-400">
                 Construction Process
               </span>
             </h1>
@@ -151,78 +149,89 @@ export default function ProcessPage() {
         </div>
 
         {/* The 4 Detailed Chronological Stages */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           {stages.map((stg) => (
             <div
               key={stg.step}
-              className="relative rounded-3xl p-8 sm:p-10 lg:p-12 bg-white dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-800/80 shadow-lg hover:border-amber-500/50 transition-all duration-300 backdrop-blur-sm group"
+              className="relative rounded-[6px] p-7 sm:p-10 lg:p-12 bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:border-amber-500/40 dark:hover:border-amber-500/40 transition-[border-color,box-shadow] duration-150 group"
             >
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 {/* Stage Indicator Col */}
                 <div className="lg:col-span-4 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-4">
-                      <span className="text-4xl sm:text-5xl font-extrabold text-amber-500 dark:text-amber-400 tabular-nums">
+                      <span className="text-4xl sm:text-5xl font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
                         {stg.step}
                       </span>
-                      <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-semibold uppercase tracking-wider">
+                      <span className="px-2.5 py-1 rounded-[4px] bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/[0.08] text-neutral-700 dark:text-neutral-300 text-[10px] font-mono font-bold uppercase tracking-[0.12em]">
                         {stg.badge}
                       </span>
                     </div>
 
-                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-neutral-950 dark:text-white group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors duration-150">
                       {stg.title}
                     </h2>
 
-                    <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mt-2 mb-4">
+                    <p className="text-xs font-mono font-medium text-amber-700 dark:text-amber-400/90 uppercase tracking-wider mt-2 mb-4">
                       {stg.subtitle}
                     </p>
 
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal">
+                    <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal">
                       {stg.desc}
                     </p>
                   </div>
 
-                  {/* Stage Highlights Badge */}
-                  <div className="mt-6 p-3.5 rounded-xl bg-neutral-100 dark:bg-neutral-800/70 border border-neutral-200 dark:border-neutral-700/60 font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
-                    <span className="text-amber-500 font-bold block mb-1 uppercase tracking-wider text-[10px]">
-                      Stage Highlights
+                  {/* Stage Highlights Badge — Architectural specification block */}
+                  <div className="mt-6 p-3.5 rounded-[4px] border-l-2 border-l-amber-500 border-y border-r border-neutral-200 dark:border-white/[0.08] bg-neutral-50 dark:bg-white/[0.02] font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
+                    <span className="text-amber-700 dark:text-amber-400 font-bold block mb-1 uppercase tracking-wider text-[10px]">
+                      Stage Telemetry Highlights
                     </span>
                     {stg.telemetry}
                   </div>
                 </div>
 
                 {/* Checklist & Deliverables Col */}
-                <div className="lg:col-span-8 bg-neutral-50 dark:bg-neutral-950/60 rounded-2xl p-6 sm:p-8 border border-neutral-200 dark:border-neutral-800 flex flex-col justify-between h-full">
+                <div className="lg:col-span-8 bg-neutral-50/70 dark:bg-white/[0.02] rounded-[6px] p-6 sm:p-8 border border-neutral-200 dark:border-white/[0.08] flex flex-col justify-between h-full">
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
-                      <span>Step Verification Checklist</span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <h3 className="text-xs font-mono font-bold uppercase tracking-[0.14em] text-neutral-900 dark:text-white mb-4 select-none">
+                      Step Verification Schedule
                     </h3>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      {stg.checklist.map((item, i) => (
-                        <div key={i} className="flex items-start gap-2.5 text-xs text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-900 p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800">
-                          <CheckIcon className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                          <span className="leading-snug">{item}</span>
-                        </div>
-                      ))}
+                    {/* Unified Architectural Schedule Container */}
+                    <div className="rounded-[4px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0c0e14] overflow-hidden">
+                      <div className="grid grid-cols-1 sm:grid-cols-2">
+                        {stg.checklist.map((item, i) => (
+                          <div
+                            key={i}
+                            className={`flex items-start gap-2.5 p-3 border-b border-neutral-150 dark:border-white/[0.05] ${
+                              i % 2 === 0 ? "sm:border-r border-neutral-150 dark:border-white/[0.05]" : ""
+                            } ${i >= stg.checklist.length - 2 ? "sm:border-b-0" : ""} hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors`}
+                          >
+                            <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5 shrink-0 select-none">
+                              {String(i + 1).padStart(2, "0")}
+                            </span>
+                            <span className="text-xs text-neutral-700 dark:text-neutral-300 leading-snug">
+                              {item}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div>
-                      <span className="text-neutral-500 dark:text-neutral-400 block text-[11px] uppercase tracking-wider">
-                        What You Receive After This Step:
+                      <span className="text-neutral-400 dark:text-neutral-500 block text-[10px] font-mono uppercase tracking-wider">
+                        Stage Output Handover:
                       </span>
-                      <span className="font-semibold text-neutral-900 dark:text-white text-sm">
+                      <span className="font-semibold text-neutral-900 dark:text-white text-xs sm:text-sm">
                         {stg.output}
                       </span>
                     </div>
 
                     <Link
                       href="/book"
-                      className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors shrink-0"
+                      className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors shrink-0"
                     >
                       <span>Inquire About This Step</span>
                       <ArrowRightIcon className="w-3.5 h-3.5" />
@@ -237,10 +246,10 @@ export default function ProcessPage() {
         {/* Quality Assurance Pillars */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 md:mt-28">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="inline-block px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold uppercase tracking-wider mb-3">
-              The MCPA Standard
-            </span>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white">
+            <div className="inline-flex items-center justify-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-3 select-none">
+              <span>The MCPA Standard</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold uppercase tracking-tight text-neutral-950 dark:text-white">
               Why Our Process Builds Trust
             </h2>
           </div>
@@ -249,15 +258,16 @@ export default function ProcessPage() {
             {pillars.map((pil, idx) => (
               <div
                 key={idx}
-                className="p-6 rounded-2xl bg-white dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-800/80 hover:border-amber-500/50 transition-all duration-300 shadow-sm"
+                className="p-6 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] hover:border-amber-500/40 dark:hover:border-amber-500/40 transition-[border-color,box-shadow] duration-150 shadow-[0_2px_8px_rgba(0,0,0,0.03)]"
               >
-                <div className="p-3 w-fit rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 mb-4">
+                {/* Pure Icon — No Box Behind It */}
+                <div className="text-amber-600 dark:text-amber-400 mb-4 shrink-0">
                   {pil.icon}
                 </div>
                 <h3 className="text-base font-bold text-neutral-950 dark:text-white mb-2">
                   {pil.title}
                 </h3>
-                <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal">
                   {pil.desc}
                 </p>
               </div>
@@ -267,32 +277,32 @@ export default function ProcessPage() {
 
         {/* Bottom Consultation CTA */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 md:mt-24">
-          <div className="rounded-3xl p-8 sm:p-12 bg-white dark:bg-neutral-900/90 text-neutral-950 dark:text-white border border-neutral-200 dark:border-neutral-800 shadow-2xl text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-transparent to-amber-500/10 pointer-events-none" />
+          <div className="rounded-[6px] p-8 sm:p-12 bg-neutral-950 text-white border border-neutral-800 dark:border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.3)] text-center relative overflow-hidden">
+            {/* Top Amber Reference Accent */}
+            <div className="absolute top-0 inset-x-0 h-1 bg-amber-500" />
 
-            <span className="inline-block px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-4">
-              Step 01 Starts Here
-            </span>
-            <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight max-w-2xl mx-auto">
-              Ready to Begin Your Site Visit & Consultation?
+            <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-400 mb-4 select-none">
+              <span>Step 01 Starts Here</span>
+            </div>
+            <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight max-w-2xl mx-auto text-white leading-tight">
+              Ready to Begin Your Site Visit &amp; Consultation?
             </h3>
-            <p className="mt-4 max-w-xl mx-auto text-neutral-600 dark:text-neutral-400 text-sm sm:text-base font-light">
-              Talk directly with our licensed builders. We&apos;ll visit your property, answer your questions, and guide you through each step of building your home.
+            <p className="mt-4 max-w-xl mx-auto text-neutral-300 text-sm sm:text-base font-normal leading-relaxed">
+              We schedule an on-site evaluation of your titled property, review your architectural preferences, and provide a clear, realistic cost estimate.
             </p>
-
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
               <Link
                 href="/book"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-[0.08em] transition-colors shadow-[0_2px_8px_rgba(245,158,11,0.25)] cursor-pointer"
               >
-                <span>Book Free Consultation</span>
+                <span>Schedule a Free Site Inspection</span>
                 <ArrowRightIcon className="w-4 h-4" />
               </Link>
               <Link
                 href="/services"
-                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-white/5 text-neutral-800 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white text-xs font-semibold uppercase tracking-wider transition-colors"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[4px] border border-neutral-700 bg-neutral-900/60 hover:bg-neutral-800 text-neutral-200 hover:text-white text-xs font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer"
               >
-                <span>View Full Services</span>
+                <span>Review Services &amp; Packages</span>
               </Link>
             </div>
           </div>

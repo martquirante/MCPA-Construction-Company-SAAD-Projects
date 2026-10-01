@@ -282,25 +282,7 @@ export default function AdminPage() {
       const syncInterval = setInterval(() => {
         loadProjectsAndBriefs();
       }, 15000);
-
-      const updateClock = () => {
-        const now = new Date();
-        setCurrentTime(
-          now.toLocaleDateString("en-US", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-            timeZone: "Asia/Manila",
-          }) + " (PHT)"
-        );
-      };
-      updateClock();
-      const timer = setInterval(updateClock, 10000);
       return () => {
-        clearInterval(timer);
         clearInterval(syncInterval);
         window.removeEventListener("mcpa-theme-change", handleThemeChange);
         if (cleanupPromise && typeof cleanupPromise.then === "function") {
@@ -765,7 +747,7 @@ export default function AdminPage() {
           <button
             type="button"
             onClick={() => setIsSettingsModalOpen(true)}
-            className="p-2.5 rounded-xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-amber-500 shadow-xs transition-colors cursor-pointer"
+            className="p-2 rounded-[4px] bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:text-amber-500 shadow-xs transition-colors cursor-pointer"
             title="Console Settings"
             aria-label="Settings"
           >
@@ -781,11 +763,7 @@ export default function AdminPage() {
           }}
         />
 
-        {/* Ambient Subtle Lighting Glows */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-[140px] pointer-events-none" />
-        <div className="absolute bottom-10 right-10 w-[450px] h-[350px] bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
-
-        <div className="relative z-10 w-full max-w-md p-8 sm:p-10 rounded-3xl bg-white/95 dark:bg-neutral-900/90 border border-neutral-200/80 dark:border-neutral-800/80 shadow-2xl backdrop-blur-xl transition-colors">
+        <div className="relative z-10 w-full max-w-md p-8 sm:p-10 rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-[0_24px_64px_rgba(0,0,0,0.18)] transition-colors">
           {/* Brand Logo & Lock Badge */}
           <div className="flex flex-col items-center text-center mb-8">
             <div className="relative w-44 h-10 mb-6">
@@ -809,17 +787,22 @@ export default function AdminPage() {
               />
             </div>
 
-            <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
-              Administrative Access
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/[0.08] text-[9.5px] font-mono uppercase tracking-[0.14em] font-semibold text-neutral-600 dark:text-neutral-300 mb-2">
+              <LockIcon className="w-3 h-3 text-amber-500" />
+              <span>Restricted Terminal</span>
+            </div>
+
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
+              Administrative Console
             </h1>
-            <p className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 font-light max-w-xs">
-              This console is strictly reserved for MCPA management and engineering staff. Client access is restricted.
+            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400 font-normal max-w-xs leading-relaxed">
+              Authorized access only. Strictly reserved for MCPA management, engineering, and architectural staff.
             </p>
           </div>
 
           {/* Error Message */}
           {authError && (
-            <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs text-center font-mono">
+            <div className="mb-5 p-3 rounded-[4px] border-l-2 border-l-rose-500 border-y border-r border-rose-500/25 bg-rose-500/5 text-rose-600 dark:text-rose-400 text-xs text-center font-mono">
               {authError}
             </div>
           )}
@@ -830,9 +813,9 @@ export default function AdminPage() {
             <div>
               <label
                 htmlFor="adminEmail"
-                className="block text-xs font-mono uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-2"
+                className="block text-[10px] font-mono uppercase tracking-[0.12em] font-bold text-neutral-600 dark:text-neutral-400 mb-1.5"
               >
-                Email
+                Staff Email
               </label>
               <div className="relative">
                 <input
@@ -843,27 +826,27 @@ export default function AdminPage() {
                   placeholder="admin@mcpa.com"
                   autoComplete="off"
                   required
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono text-sm transition-colors"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-[4px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-300 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono text-xs transition-colors"
                 />
-                <MailIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                <MailIcon className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3" />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1.5">
                 <label
                   htmlFor="adminPassword"
-                  className="block text-xs font-mono uppercase tracking-wider text-neutral-700 dark:text-neutral-300"
+                  className="block text-[10px] font-mono uppercase tracking-[0.12em] font-bold text-neutral-600 dark:text-neutral-400"
                 >
-                  Password
+                  Access Key
                 </label>
                 <button
                   type="button"
                   onClick={() => setIsResetModalOpen(true)}
-                  className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                  className="text-[10px] font-mono font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
                 >
-                  Forgot Password?
+                  Reset Key?
                 </button>
               </div>
               <div className="relative">
@@ -874,16 +857,16 @@ export default function AdminPage() {
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-10 pr-11 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono text-sm tracking-wider transition-colors"
+                  className="w-full pl-9 pr-10 py-2.5 rounded-[4px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-300 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono text-xs tracking-wider transition-colors"
                 />
-                <KeyRoundIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                <KeyRoundIcon className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-3" />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3 text-neutral-400 hover:text-amber-500 transition-colors p-1"
+                  className="absolute right-2.5 top-2.5 text-neutral-400 hover:text-amber-500 transition-colors p-1"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                  {showPassword ? <EyeOffIcon className="w-3.5 h-3.5" /> : <EyeIcon className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
@@ -892,7 +875,7 @@ export default function AdminPage() {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer mt-2"
+              className="w-full py-3 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase tracking-[0.08em] transition-colors shadow-[0_2px_8px_rgba(245,158,11,0.25)] flex items-center justify-center gap-2 cursor-pointer mt-3"
             >
               {isLoggingIn ? (
                 <>
@@ -908,16 +891,15 @@ export default function AdminPage() {
             </button>
           </form>
 
-
           {/* Back to Client Site */}
-          <div className="mt-6 text-center">
+          <div className="mt-6 pt-5 border-t border-neutral-150 dark:border-white/[0.06] text-center">
             <Link
               href="/"
               onClick={() => setReturnToCompletedHome(true)}
-              className="inline-flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-mono cursor-pointer"
+              className="inline-flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-mono cursor-pointer"
             >
               <ArrowLeftIcon className="w-3.5 h-3.5" />
-              <span>Return to Public Client Website</span>
+              <span>Return to Public Website</span>
             </Link>
           </div>
         </div>
@@ -960,7 +942,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex font-sans transition-colors duration-300">
       {/* Toast Notification */}
       {successToast && (
-        <div className="fixed top-6 right-6 z-50 px-4 py-3 rounded-2xl bg-emerald-500 text-neutral-950 border border-emerald-400 font-bold text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-6 right-6 z-50 px-4 py-2.5 rounded-[4px] bg-emerald-500 text-neutral-950 border border-emerald-400 font-bold text-xs shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
           <CheckIcon className="w-4 h-4 shrink-0" />
           <span>{successToast}</span>
         </div>
@@ -974,17 +956,17 @@ export default function AdminPage() {
         />
       )}
 
-      {/* Left Sidebar Navigation (Drive&Go Design Architecture) */}
+      {/* Left Sidebar Navigation */}
       <aside
         className={`fixed lg:sticky top-0 left-0 h-screen ${
           isSidebarCollapsed ? "lg:w-20" : "lg:w-64"
-        } w-[280px] sm:w-72 max-w-[85vw] bg-white dark:bg-[#12141a] border-r border-neutral-200 dark:border-white/5 flex flex-col justify-between z-50 transition-all duration-300 shrink-0 shadow-2xl lg:shadow-none ${
+        } w-[280px] sm:w-72 max-w-[85vw] bg-white dark:bg-[#101218] border-r border-neutral-200 dark:border-white/5 flex flex-col justify-between z-50 transition-all duration-200 shrink-0 shadow-xl lg:shadow-none ${
           isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        {/* Top Brand Section: Real System Logo + Collapse/Expand Toggle */}
-        <div className="border-b border-neutral-200 dark:border-white/5 transition-all p-4">
-          {/* Mobile View: Always Full Logo + Dedicated Close ('X') Button */}
+        {/* Top Brand Section */}
+        <div className="border-b border-neutral-200 dark:border-white/5 p-4">
+          {/* Mobile View */}
           <div className="flex lg:hidden items-center justify-between gap-3">
             <button
               type="button"
@@ -1016,14 +998,14 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={() => setIsMobileSidebarOpen(false)}
-              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-1.5 rounded-[4px] text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
               aria-label="Close Sidebar"
             >
               <CloseIcon className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Desktop View: Controlled by isSidebarCollapsed */}
+          {/* Desktop View */}
           <div className="hidden lg:flex items-center justify-between w-full">
             {isSidebarCollapsed ? (
               <div className="w-full flex flex-col items-center gap-2.5 py-1">
@@ -1031,9 +1013,8 @@ export default function AdminPage() {
                   type="button"
                   onClick={handleAdminReload}
                   title="Reload Admin Console"
-                  className="relative z-10 w-11 h-11 rounded-xl bg-white dark:bg-[#181a24] border border-neutral-200/90 dark:border-white/10 p-1 flex items-center justify-center shrink-0 shadow-lg shadow-black/10 dark:shadow-black/50 hover:border-amber-500 dark:hover:border-amber-500 transition-all animate-floating-emblem overflow-hidden cursor-pointer"
+                  className="relative z-10 w-10 h-10 rounded-[4px] bg-white dark:bg-[#181a24] border border-neutral-200 dark:border-white/10 p-1 flex items-center justify-center shrink-0 hover:border-amber-500 dark:hover:border-amber-500 transition-colors cursor-pointer"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-neutral-500/10 via-transparent to-transparent pointer-events-none" />
                   <Image
                     src="/assets/mcpa-logo.svg"
                     alt="MCPA System Logo"
@@ -1041,7 +1022,7 @@ export default function AdminPage() {
                     priority
                     unoptimized
                     className="object-contain p-1.5 block dark:hidden"
-                    sizes="44px"
+                    sizes="40px"
                   />
                   <Image
                     src="/assets/logo-white.svg"
@@ -1050,15 +1031,13 @@ export default function AdminPage() {
                     priority
                     unoptimized
                     className="object-contain p-1.5 hidden dark:block"
-                    sizes="44px"
+                    sizes="40px"
                   />
                 </button>
-                {/* Dynamic Floating Shadow Puddle Underneath */}
-                <div className="w-7 h-1.5 bg-black/25 dark:bg-white/20 rounded-full blur-[2px] mt-1 transition-all animate-floating-shadow pointer-events-none" />
                 <button
                   onClick={toggleSidebarCollapse}
-                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-all cursor-pointer mt-1"
-                  title="Expand Navigation (Show Labels)"
+                  className="p-1.5 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Expand Navigation"
                   aria-label="Expand Sidebar"
                 >
                   <ChevronRightIcon className="w-4 h-4" />
@@ -1070,9 +1049,9 @@ export default function AdminPage() {
                   type="button"
                   onClick={handleAdminReload}
                   title="Reload Admin Console"
-                  className="flex items-center gap-2.5 min-w-0 group bg-transparent border-0 p-0 cursor-pointer text-left"
+                  className="flex items-center gap-2.5 min-w-0 bg-transparent border-0 p-0 cursor-pointer text-left"
                 >
-                  <div className="relative w-36 h-9 transition-transform group-hover:scale-105 shrink-0">
+                  <div className="relative w-36 h-9 shrink-0">
                     <Image
                       src="/assets/mcpa-logo.svg"
                       alt="MCPA Construction and Supply"
@@ -1095,8 +1074,8 @@ export default function AdminPage() {
                 </button>
                 <button
                   onClick={toggleSidebarCollapse}
-                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                  title="Collapse Navigation (Icons Only)"
+                  className="p-1.5 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Collapse Navigation"
                   aria-label="Collapse Sidebar"
                 >
                   <ChevronLeftIcon className="w-4 h-4" />
@@ -1106,13 +1085,13 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Vertical Navigation Menu Links: Panel Icons */}
+        {/* Navigation Menu */}
         <nav
-          className={`flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden p-3 ${
-            isSidebarCollapsed ? "lg:p-2" : "lg:p-3"
+          className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden p-2.5 ${
+            isSidebarCollapsed ? "lg:p-2" : "lg:p-2.5"
           }`}
         >
-          <div className="px-1 pb-1 pt-0.5 text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-bold block lg:hidden">
+          <div className="px-2 pb-1.5 pt-1 text-[9.5px] font-mono uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500 font-bold block lg:hidden">
             Main Menu
           </div>
 
@@ -1128,14 +1107,14 @@ export default function AdminPage() {
                     setIsMobileSidebarOpen(false);
                   }}
                   title={item.label}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 lg:py-2.5 rounded-xl text-xs font-mono tracking-wide transition-all cursor-pointer relative ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[4px] text-xs font-mono tracking-wider transition-colors cursor-pointer relative ${
                     isSidebarCollapsed
-                      ? "lg:h-11 lg:justify-center lg:px-0"
+                      ? "lg:h-10 lg:justify-center lg:px-0"
                       : "justify-between"
                   } ${
                     isActive
-                      ? "bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/20"
-                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04] border border-transparent"
+                      ? "bg-amber-500 text-neutral-950 font-bold"
+                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04]"
                   }`}
                 >
                   <div
@@ -1144,7 +1123,7 @@ export default function AdminPage() {
                     }`}
                   >
                     <Icon
-                      className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                      className={`w-4 h-4 shrink-0 ${
                         isActive
                           ? "text-neutral-950"
                           : "text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500"
@@ -1163,7 +1142,7 @@ export default function AdminPage() {
                     <>
                       {/* Mobile Badge */}
                       <span
-                        className={`lg:hidden px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shrink-0 ${
+                        className={`lg:hidden px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono font-bold shrink-0 ${
                           isActive
                             ? "bg-neutral-950 text-white dark:bg-neutral-950 dark:text-white"
                             : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
@@ -1176,8 +1155,8 @@ export default function AdminPage() {
                       <span
                         className={`hidden ${
                           isSidebarCollapsed
-                            ? "lg:flex absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-amber-500 text-neutral-950 font-bold text-[9px] items-center justify-center ring-2 ring-white dark:ring-[#12141a] shadow-xs"
-                            : "lg:inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shrink-0 " +
+                            ? "lg:flex absolute top-1 right-1 min-w-[15px] h-[15px] px-0.5 rounded-[3px] bg-amber-500 text-neutral-950 font-bold text-[9px] items-center justify-center font-mono"
+                            : "lg:inline-block px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono font-bold shrink-0 " +
                               (isActive
                                 ? "bg-neutral-950 text-white dark:bg-neutral-950 dark:text-white"
                                 : "bg-amber-500/15 text-amber-700 dark:text-amber-400")
@@ -1189,12 +1168,12 @@ export default function AdminPage() {
                   )}
                 </button>
 
-                {/* Floating Tooltip in Collapsed Mode (Desktop only) */}
+                {/* Floating Tooltip in Collapsed Mode */}
                 {isSidebarCollapsed && (
-                  <div className="hidden lg:flex absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono font-medium shadow-2xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 items-center gap-2">
+                  <div className="hidden lg:flex absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1 rounded-[4px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 items-center gap-2">
                     <span>{item.label}</span>
                     {item.badge !== undefined && item.badge > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-neutral-950 font-bold text-[9px]">
+                      <span className="px-1 py-0.2 rounded-[2px] bg-amber-500 text-neutral-950 font-bold text-[9px]">
                         {item.badge}
                       </span>
                     )}
@@ -1207,10 +1186,10 @@ export default function AdminPage() {
 
         {/* Bottom User Profile Section & Logout */}
         <div className="border-t border-neutral-200 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]">
-          {/* Mobile Profile View: Always Full Detail with Safe Area Bottom Spacing */}
+          {/* Mobile Profile View */}
           <div className="lg:hidden p-4 pb-8 space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
+              <div className="w-9 h-9 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono">
                 {currentUser?.name
                   ? currentUser.name
                       .split(" ")
@@ -1224,8 +1203,7 @@ export default function AdminPage() {
                 <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
                   {currentUser?.name || "Raymart Quirante"}
                 </p>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <div className="flex items-center">
                   <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                     {currentUser?.role || "SUPER ADMIN"}
                   </span>
@@ -1233,19 +1211,28 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-neutral-200 dark:border-white/10 transition-all cursor-pointer"
-            >
-              <LogOutIcon className="w-4 h-4" />
-              <span>Log Out</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsSettingsModalOpen(true)}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-[4px] text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-neutral-100 dark:hover:bg-white/5 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
+              >
+                <SettingsIcon className="w-4 h-4 text-amber-500" />
+                <span>Settings</span>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-[4px] text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
+              >
+                <LogOutIcon className="w-4 h-4" />
+                <span>Log Out</span>
+              </button>
+            </div>
           </div>
 
-          {/* Desktop Profile View: Controlled by isSidebarCollapsed */}
+          {/* Desktop Profile View */}
           <div
             className={`hidden lg:block ${
-              isSidebarCollapsed ? "p-3 flex flex-col items-center gap-3" : "p-4 space-y-3"
+              isSidebarCollapsed ? "p-3 flex flex-col items-center gap-2.5" : "p-3.5 space-y-3"
             }`}
           >
             {isSidebarCollapsed ? (
@@ -1254,7 +1241,7 @@ export default function AdminPage() {
                   className="relative group cursor-pointer"
                   title={`${currentUser?.name || "Raymart Quirante"} (${currentUser?.role || "ADMIN"})`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
+                  <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono">
                     {currentUser?.name
                       ? currentUser.name
                           .split(" ")
@@ -1264,28 +1251,36 @@ export default function AdminPage() {
                           .toUpperCase()
                       : "RQ"}
                   </div>
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#12141a] animate-pulse" />
 
                   {/* Tooltip */}
-                  <div className="hidden lg:block absolute left-full bottom-0 ml-3 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-2xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                  <div className="hidden lg:block absolute left-full bottom-0 ml-2 px-2.5 py-1 rounded-[4px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
                     <p className="font-bold">{currentUser?.name || "Raymart Quirante"}</p>
                     <p className="text-[10px] text-neutral-400 uppercase">{currentUser?.role || "ADMIN"}</p>
                   </div>
                 </div>
 
                 <button
+                  onClick={() => setIsSettingsModalOpen(true)}
+                  title="Admin Settings"
+                  aria-label="Settings"
+                  className="w-8 h-8 flex items-center justify-center rounded-[4px] text-neutral-500 dark:text-neutral-400 hover:text-amber-500 hover:bg-neutral-200/60 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
+                >
+                  <SettingsIcon className="w-3.5 h-3.5" />
+                </button>
+
+                <button
                   onClick={handleLogout}
                   title="Log Out"
                   aria-label="Log Out"
-                  className="w-10 h-10 flex items-center justify-center rounded-xl text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-neutral-200/60 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 transition-all cursor-pointer group"
+                  className="w-8 h-8 flex items-center justify-center rounded-[4px] text-neutral-500 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-neutral-200/60 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
                 >
-                  <LogOutIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <LogOutIcon className="w-3.5 h-3.5" />
                 </button>
               </>
             ) : (
               <>
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
+                  <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono">
                     {currentUser?.name
                       ? currentUser.name
                           .split(" ")
@@ -1299,8 +1294,7 @@ export default function AdminPage() {
                     <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
                       {currentUser?.name || "Raymart Quirante"}
                     </p>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <div className="flex items-center">
                       <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                         {currentUser?.role || "SUPER ADMIN"}
                       </span>
@@ -1308,13 +1302,22 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-neutral-200 dark:border-white/10 transition-all cursor-pointer"
-                >
-                  <LogOutIcon className="w-3.5 h-3.5" />
-                  <span>Log Out</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsSettingsModalOpen(true)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-[4px] text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-neutral-200/60 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
+                  >
+                    <SettingsIcon className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Settings</span>
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-[4px] text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
+                  >
+                    <LogOutIcon className="w-3.5 h-3.5" />
+                    <span>Log Out</span>
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -1324,12 +1327,12 @@ export default function AdminPage() {
       {/* Right Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 h-14 sm:h-16 bg-white/85 dark:bg-[#09090b]/85 backdrop-blur-md border-b border-neutral-200 dark:border-white/5 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 transition-colors select-none">
+        <header className="sticky top-0 z-30 h-14 bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-md border-b border-neutral-200 dark:border-white/5 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 transition-colors select-none">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {/* Hamburger Button for Mobile Drawer */}
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+              className="lg:hidden p-2 rounded-[4px] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
               aria-label="Open Sidebar"
             >
               <MenuIcon className="w-5 h-5" />
@@ -1364,7 +1367,7 @@ export default function AdminPage() {
             {/* Desktop Collapse/Expand Toggle */}
             <button
               onClick={toggleSidebarCollapse}
-              className="hidden lg:flex p-2 rounded-xl text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+              className="hidden lg:flex p-1.5 rounded-[4px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
               title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
               aria-label="Toggle Sidebar"
             >
@@ -1372,24 +1375,7 @@ export default function AdminPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {currentTime && (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/5 text-[11px] font-mono text-neutral-600 dark:text-neutral-300">
-                <span>{currentTime}</span>
-              </div>
-            )}
-
-            {/* Console Settings Button */}
-            <button
-              onClick={() => setIsSettingsModalOpen(true)}
-              className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-mono text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-white/[0.04] hover:bg-neutral-200 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/5 transition-all cursor-pointer"
-              title="Open Admin Settings"
-              aria-label="Settings"
-            >
-              <SettingsIcon className="w-4 h-4 text-amber-500" />
-              <span className="hidden sm:inline">Settings</span>
-            </button>
-
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Notification Bell */}
             <button
               onClick={() => {
@@ -1397,12 +1383,9 @@ export default function AdminPage() {
                 setIsMobileSidebarOpen(false);
               }}
               title="View Inquiries"
-              className="relative p-2 rounded-xl text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              className="relative p-1.5 rounded-[4px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
-              <BellIcon className="w-5 h-5" />
-              {clientBriefs.filter((b) => !b.status || b.status === "Pending Review").length > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-[#09090b]" />
-              )}
+              <BellIcon className="w-4 h-4" />
             </button>
 
             <Link
@@ -1410,7 +1393,7 @@ export default function AdminPage() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setReturnToCompletedHome(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors p-2 sm:px-3 sm:py-1.5 rounded-lg border border-neutral-300 dark:border-white/10 hover:border-amber-500/50"
+              className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors p-1.5 rounded-[4px] hover:bg-neutral-100 dark:hover:bg-white/5"
               title="View Public Site"
             >
               <span className="hidden sm:inline">View Site</span>
@@ -1477,16 +1460,16 @@ export default function AdminPage() {
                 setActiveTab(item.id);
                 setIsMobileSidebarOpen(false);
               }}
-              className={`flex-1 flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer relative ${
+              className={`flex-1 flex flex-col items-center justify-center py-1 px-2 rounded-[4px] transition-all cursor-pointer relative ${
                 isActive
                   ? "text-amber-500 font-bold"
                   : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
               }`}
             >
               <div className="relative">
-                <Icon className={`w-5 h-5 transition-transform ${isActive ? "scale-110" : ""}`} />
+                <Icon className={`w-5 h-5 transition-transform ${isActive ? "scale-105" : ""}`} />
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-amber-500 text-neutral-950 font-bold text-[8px] flex items-center justify-center ring-2 ring-white dark:ring-[#0e1017]">
+                  <span className="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 rounded-[3px] bg-amber-500 text-neutral-950 font-bold text-[8px] flex items-center justify-center ring-2 ring-white dark:ring-[#0e1017]">
                     {item.badge}
                   </span>
                 )}
@@ -1494,9 +1477,6 @@ export default function AdminPage() {
               <span className={`text-[10px] font-mono tracking-tight mt-1 truncate ${isActive ? "font-bold" : "font-medium"}`}>
                 {item.label}
               </span>
-              {isActive && (
-                <span className="w-1 h-1 rounded-full bg-amber-500 mt-0.5" />
-              )}
             </button>
           );
         })}
@@ -1504,7 +1484,7 @@ export default function AdminPage() {
         {/* 4th Tab: Full Menu Drawer Trigger */}
         <button
           onClick={() => setIsMobileSidebarOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center py-1 px-2 rounded-xl text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all cursor-pointer"
+          className="flex-1 flex flex-col items-center justify-center py-1 px-2 rounded-[4px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all cursor-pointer"
         >
           <MenuIcon className="w-5 h-5" />
           <span className="text-[10px] font-mono tracking-tight mt-1">Menu</span>
@@ -1528,9 +1508,9 @@ export default function AdminPage() {
           />
 
           {/* Dialog Card */}
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/10 rounded-3xl shadow-2xl p-6 sm:p-7 text-center z-10 animate-in zoom-in-95 duration-200">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-inner">
-              <LogOutIcon className="w-6 h-6" />
+          <div className="relative w-full max-w-sm bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] rounded-[8px] shadow-2xl p-6 sm:p-7 text-center z-10 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-center mb-3">
+              <LogOutIcon className="w-8 h-8 text-rose-500" />
             </div>
 
             <h3 className="text-lg font-bold text-neutral-900 dark:text-white tracking-tight">
@@ -1544,14 +1524,14 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => setIsLogoutConfirmOpen(false)}
-                className="flex-1 py-2.5 px-4 rounded-xl border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 font-mono text-xs font-semibold hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                className="flex-1 py-2.5 px-4 rounded-[4px] border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-mono text-xs font-semibold hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmLogout}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white font-mono text-xs font-bold transition-all shadow-md shadow-rose-600/20 cursor-pointer"
+                className="flex-1 py-2.5 px-4 rounded-[4px] bg-rose-600 hover:bg-rose-500 text-white font-mono text-xs font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
               >
                 Yes, Log Out
               </button>

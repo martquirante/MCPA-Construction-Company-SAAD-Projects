@@ -111,33 +111,33 @@ export default function Footer() {
                   href="https://www.facebook.com/MCPA.ConstructionandSupply/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-xl bg-neutral-200 dark:bg-white/5 border border-neutral-300 dark:border-white/10 hover:border-blue-500/60 hover:bg-blue-500/10 text-neutral-800 dark:text-white flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-xs"
+                  className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-150 inline-flex items-center justify-center cursor-pointer"
                   aria-label="Facebook: MCPA Construction and Supply"
                   title="Facebook: MCPA Construction and Supply"
                 >
-                  <FacebookIcon className="w-5 h-5 rounded-full" />
+                  <FacebookIcon className="w-5 h-5" />
                 </a>
                 {/* Instagram */}
                 <a
                   href="https://www.instagram.com/mcpa.constructionandsupply/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-xl bg-neutral-200 dark:bg-white/5 border border-neutral-300 dark:border-white/10 hover:border-pink-500/60 hover:bg-pink-500/10 text-neutral-800 dark:text-white flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-xs"
+                  className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:text-pink-600 dark:hover:text-pink-400 transition-colors duration-150 inline-flex items-center justify-center cursor-pointer"
                   aria-label="Instagram: @mcpa.constructionandsupply"
                   title="Instagram: @mcpa.constructionandsupply"
                 >
-                  <InstagramIcon className="w-5 h-5 rounded-md" />
+                  <InstagramIcon className="w-5 h-5" />
                 </a>
                 {/* TikTok */}
                 <a
                   href="https://www.tiktok.com/@mcpa.construction"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-xl bg-neutral-200 dark:bg-white/5 border border-neutral-300 dark:border-white/10 hover:border-cyan-500/60 hover:bg-cyan-500/10 text-neutral-800 dark:text-white flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-xs"
+                  className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors duration-150 inline-flex items-center justify-center cursor-pointer"
                   aria-label="TikTok: @mcpa.construction"
                   title="TikTok: @mcpa.construction"
                 >
-                  <TikTokIcon className="w-5 h-5 rounded-full" />
+                  <TikTokIcon className="w-5 h-5" />
                 </a>
               </div>
             </div>
@@ -317,7 +317,7 @@ export default function Footer() {
                     className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors group"
                   >
                     <div className="w-5 h-5 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
-                      <FacebookIcon className="w-5 h-5 rounded-full shadow-xs" />
+                      <FacebookIcon className="w-4 h-4" />
                     </div>
                     <span className="font-mono truncate">/MCPA.ConstructionandSupply</span>
                   </a>
@@ -328,7 +328,7 @@ export default function Footer() {
                     className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-white transition-colors group"
                   >
                     <div className="w-5 h-5 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
-                      <InstagramIcon className="w-5 h-5 rounded-md shadow-xs" />
+                      <InstagramIcon className="w-4 h-4" />
                     </div>
                     <span className="font-mono truncate">@mcpa.constructionandsupply</span>
                   </a>
@@ -339,7 +339,7 @@ export default function Footer() {
                     className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-white transition-colors group"
                   >
                     <div className="w-5 h-5 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
-                      <TikTokIcon className="w-5 h-5 rounded-full shadow-xs" />
+                      <TikTokIcon className="w-4 h-4" />
                     </div>
                     <span className="font-mono truncate">@mcpa.construction</span>
                   </a>
@@ -384,7 +384,7 @@ export default function Footer() {
       </div>
 
       {/* 3. SUB-FOOTER LEGAL & UTILITY BAR */}
-      <div className="border-t border-neutral-200 dark:border-white/10 bg-neutral-200/40 dark:bg-black/40">
+      <div className="relative z-10 border-t border-neutral-200 dark:border-white/10 bg-neutral-200/40 dark:bg-black/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-neutral-600 dark:text-neutral-500 font-mono">
           {/* Left: Copyright */}
           <div suppressHydrationWarning>
@@ -393,24 +393,24 @@ export default function Footer() {
           </div>
 
           {/* Center: Legal & System Status */}
-          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-[11px]">
+          <div className="relative z-20 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-[11px] pointer-events-auto">
             <Link
               href="/legal/privacy"
-              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-medium hover:underline"
+              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-medium hover:underline cursor-pointer py-1"
             >
               Privacy Policy
             </Link>
-            <span className="text-neutral-300 dark:text-neutral-700">·</span>
+            <span className="text-neutral-300 dark:text-neutral-700 select-none">·</span>
             <Link
               href="/legal/terms"
-              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-medium hover:underline"
+              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-medium hover:underline cursor-pointer py-1"
             >
               Terms of Engagement
             </Link>
-            <span className="text-neutral-300 dark:text-neutral-700">·</span>
+            <span className="text-neutral-300 dark:text-neutral-700 select-none">·</span>
             <Link
               href="/legal/safety"
-              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-medium hover:underline"
+              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-medium hover:underline cursor-pointer py-1"
             >
               Safety Code
             </Link>

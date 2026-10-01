@@ -12,7 +12,7 @@
   --color-brand-slate: #5b6770;
   --color-brand-white: #ffffff;
 
-  /* Sophisticated Architectural Amber & Warm Honey Gold */
+  /* Amber scale */
   --color-amber-50: #fffbeb;
   --color-amber-100: #fef3c7;
   --color-amber-200: #fde68a;
@@ -25,15 +25,39 @@
   --color-amber-900: #78350f;
 }
 
+/* =========================================================================
+   MCPA ARCHITECTURAL DESIGN TOKENS
+   Disciplined scale — every value has a reason to exist.
+   ========================================================================= */
 :root {
+  /* Surfaces */
   --background: #f8f7f5;
   --foreground: #121212;
+
+  /* Brand */
   --brand-yellow: #f59e0b;
   --brand-slate: #5b6770;
   --brand-accent: #f59e0b;
-  --amber-glow: rgba(245, 158, 11, 0.4);
-  --amber-bright: #fbbf24;
-  --amber-deep: #b45309;
+  --brand-amber-deep: #b45309;
+
+  /* Architectural border radii — restrained, intentional */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  /* Shadows — subtle, physically grounded */
+  --shadow-xs:  0 1px 2px rgba(0,0,0,0.06);
+  --shadow-sm:  0 2px 6px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:  0 8px 24px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.04);
+  --shadow-xl:  0 16px 40px rgba(0,0,0,0.12), 0 8px 16px rgba(0,0,0,0.06);
+
+  /* Transitions — fast and intentional */
+  --transition-micro: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base:  200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-page:  350ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark {
@@ -42,12 +66,12 @@
   --brand-yellow: #f59e0b;
   --brand-slate: #5b6770;
   --brand-accent: #f59e0b;
-  --amber-glow: rgba(245, 158, 11, 0.35);
-  --amber-bright: #fbbf24;
-  --amber-deep: #d97706;
+  --brand-amber-deep: #d97706;
 }
 
-/* CHB / Hollow Block texture overlay — architectural concrete pattern */
+/* =========================================================================
+   CHB / HOLLOW BLOCK TEXTURE — ultra-subtle architectural concrete materiality
+   ========================================================================= */
 .chb-texture {
   position: relative;
 }
@@ -59,95 +83,45 @@
   background-image: url("/assets/textures/chb_hollowblocks.jpg");
   background-repeat: repeat;
   background-size: 420px auto;
-  opacity: 0.07;
+  opacity: 0.04;
   pointer-events: none;
   z-index: 0;
 }
 
 .dark .chb-texture::before,
 .chb-texture.dark::before {
-  opacity: 0.12;
+  opacity: 0.08;
   mix-blend-mode: luminosity;
 }
 
+/* =========================================================================
+   BODY & TYPOGRAPHY FOUNDATION
+   ========================================================================= */
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
-  transition: background-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), color 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   letter-spacing: -0.01em;
 }
 
 h1, h2, h3, h4, h5, h6, .font-display {
   font-family: var(--font-display) !important;
   letter-spacing: -0.025em;
-  transition: color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.2s ease;
 }
 
-p, span, a, button, input, textarea, select {
-  transition: color 0.3s ease-out, background-color 0.3s ease-out, border-color 0.3s ease-out;
+/* Restrained base transitions — only on interactive elements */
+a, button {
+  transition: color var(--transition-micro), background-color var(--transition-micro), border-color var(--transition-micro), opacity var(--transition-micro);
 }
 
-/* Anti-gravity floating keyframes */
-@keyframes floatWeightless {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-10px) rotate(0.4deg);
-  }
-}
+/* =========================================================================
+   FUNCTIONAL ANIMATION — only purposeful keyframes remain
+   ========================================================================= */
 
-@keyframes floatWeightlessAlt {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-7px) rotate(-0.5deg);
-  }
-}
-
-@keyframes floatBobDeep {
-  0%, 100% {
-    transform: translateY(0px) scale(1);
-  }
-  50% {
-    transform: translateY(-14px) scale(1.01);
-  }
-}
-
-@keyframes amberPulseGlow {
-  0%, 100% {
-    opacity: 0.75;
-    filter: drop-shadow(0 0 10px rgba(254, 226, 2, 0.45)) drop-shadow(0 0 24px rgba(254, 226, 2, 0.25));
-  }
-  50% {
-    opacity: 1;
-    filter: drop-shadow(0 0 18px rgba(254, 226, 2, 0.8)) drop-shadow(0 0 35px rgba(254, 226, 2, 0.45));
-  }
-}
-
-@keyframes progressShimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-@keyframes beaconSpark {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  50% {
-    transform: scale(1.3);
-    opacity: 1;
-  }
-}
-
+/* Used by loading screen and checklist items */
 @keyframes staggerItemSlide {
   0% {
     opacity: 0;
@@ -159,13 +133,14 @@ p, span, a, button, input, textarea, select {
   }
 }
 
+/* Used by form success checkmarks */
 @keyframes checkPop {
   0% {
     transform: scale(0);
     opacity: 0;
   }
   70% {
-    transform: scale(1.3);
+    transform: scale(1.2);
     opacity: 1;
   }
   100% {
@@ -174,63 +149,51 @@ p, span, a, button, input, textarea, select {
   }
 }
 
+/* Used by ProcessSection stage card transitions */
 @keyframes stageCardMorph {
   0% {
     opacity: 0;
-    transform: translateY(24px) scale(0.92);
-  }
-  60% {
-    transform: translateY(-4px) scale(1.02);
+    transform: translateY(16px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
-.animate-stage-morph {
-  animation: stageCardMorph 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* Used by progress bars and shimmer loading states */
+@keyframes progressShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-.animate-float-weightless {
-  animation: floatWeightless 6s ease-in-out infinite;
-}
-
-.animate-float-alt {
-  animation: floatWeightlessAlt 7.5s ease-in-out infinite;
-}
-
-.animate-float-deep {
-  animation: floatBobDeep 9s ease-in-out infinite;
-}
-
-.animate-amber-pulse {
-  animation: amberPulseGlow 3.5s ease-in-out infinite;
-}
-
-.animate-beacon-spark {
-  animation: beaconSpark 2.4s ease-in-out infinite;
-}
-
-/* Zero-gravity floating logo emblem & shadow */
+/* Used by LoadingScreen logo */
 @keyframes floatingEmblem {
   0%, 100% {
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-5px);
+    transform: translateY(-4px);
   }
 }
 
 @keyframes floatingShadow {
   0%, 100% {
     transform: scale(1);
-    opacity: 0.6;
+    opacity: 0.5;
   }
   50% {
-    transform: scale(0.72);
-    opacity: 0.25;
+    transform: scale(0.78);
+    opacity: 0.2;
   }
+}
+
+.animate-stage-morph {
+  animation: stageCardMorph 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-floating-emblem {
@@ -241,33 +204,111 @@ p, span, a, button, input, textarea, select {
   animation: floatingShadow 3.6s ease-in-out infinite;
 }
 
-.amber-glow-box {
-  box-shadow: 0 0 20px rgba(254, 226, 2, 0.4), 0 0 45px rgba(212, 167, 0, 0.2);
+/* =========================================================================
+   REDUCED MOTION — respect user accessibility preferences
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-.amber-edge-glow {
-  filter: drop-shadow(0 0 6px rgba(254, 226, 2, 0.6)) drop-shadow(0 0 16px rgba(254, 226, 2, 0.3));
-}
-
-/* Custom scrollbars */
+/* =========================================================================
+   CUSTOM SCROLLBARS — architectural thin style
+   ========================================================================= */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: rgba(160, 160, 160, 0.2);
-  border-radius: 9999px;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(254, 226, 2, 0.5);
+  background: rgba(245, 158, 11, 0.5);
 }
 
-/* ========================================================================= */
-/* OFFICIAL CORPORATE DOCUMENT PRINT ENGINE STYLESHEET                       */
-/* ========================================================================= */
+/* Strip native button arrows */
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* No-scrollbar utility */
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Thin architectural scrollbar */
+.scrollbar-thin,
+.luxury-scrollbar,
+.custom-scrollbar {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(245, 158, 11, 0.35) transparent !important;
+}
+
+.scrollbar-thin::-webkit-scrollbar,
+.luxury-scrollbar::-webkit-scrollbar,
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track,
+.luxury-scrollbar::-webkit-scrollbar-track,
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb,
+.luxury-scrollbar::-webkit-scrollbar-thumb,
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-radius: 3px !important;
+  border: 1px solid transparent !important;
+  background-clip: padding-box !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover,
+.luxury-scrollbar::-webkit-scrollbar-thumb:hover,
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.55) !important;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb,
+.dark .luxury-scrollbar::-webkit-scrollbar-thumb,
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover,
+.dark .luxury-scrollbar::-webkit-scrollbar-thumb:hover,
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.7) !important;
+}
+
+/* =========================================================================
+   OFFICIAL CORPORATE DOCUMENT PRINT ENGINE STYLESHEET
+   ========================================================================= */
 @media print {
   @page {
     size: A4 portrait;
@@ -287,7 +328,6 @@ p, span, a, button, input, textarea, select {
     print-color-adjust: exact !important;
   }
 
-  /* Dark mode overrides for print */
   .dark main,
   .dark article,
   .dark section,
@@ -313,18 +353,15 @@ p, span, a, button, input, textarea, select {
     border-color: #e5e7eb !important;
   }
 
-  /* Suppress automatic browser URLs after hyperlinks */
   a[href]:after {
     content: none !important;
   }
 
-  /* Prevent page breaks inside cards, tables, sections and signature blocks */
   .print-avoid-break {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
 
-  /* Crisp table rendering in print */
   table {
     border-collapse: collapse !important;
     width: 100% !important;
@@ -336,7 +373,9 @@ p, span, a, button, input, textarea, select {
   }
 }
 
-/* Hide top client navbar completely whenever a modal or project preview is active */
+/* =========================================================================
+   MODAL ACTIVE — hide top navbar when project detail modal is open
+   ========================================================================= */
 body.modal-open header:has(nav[aria-label="Primary Navigation"]),
 body.modal-open .fixed.top-0.inset-x-0.z-50 {
   display: none !important;
@@ -346,7 +385,9 @@ body.modal-open .fixed.top-0.inset-x-0.z-50 {
   transform: translateY(-100%) !important;
 }
 
-/* DJI / Sony S-Cinetone + ND/CPL Polarized Ultra HD Clarity */
+/* =========================================================================
+   VIDEO RENDERING — DJI / Sony S-Cinetone cinematic quality
+   ========================================================================= */
 .video-ultra-hd {
   filter: contrast(1.05) brightness(1.01) saturate(1.10);
   image-rendering: -webkit-optimize-contrast;
@@ -357,82 +398,3 @@ body.modal-open .fixed.top-0.inset-x-0.z-50 {
   -webkit-backface-visibility: hidden;
   will-change: opacity, transform;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════
-   PREMIUM LUXURY SCROLLBAR & NO-SCROLLBAR SYSTEM
-   Eliminates ugly default Windows white scrollbars across all browsers
-   ═══════════════════════════════════════════════════════════════════════ */
-
-/* Universal Clean Hidden Scrollbar */
-.no-scrollbar,
-.scrollbar-none {
-  -ms-overflow-style: none !important;
-  scrollbar-width: none !important;
-}
-
-.no-scrollbar::-webkit-scrollbar,
-.scrollbar-none::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-}
-
-/* Strip native button arrows from all webkit scrollbars */
-::-webkit-scrollbar-button {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-}
-
-/* Luxury Thin Architectural Scrollbar */
-.scrollbar-thin,
-.luxury-scrollbar,
-.custom-scrollbar {
-  scrollbar-width: thin !important;
-  scrollbar-color: rgba(245, 158, 11, 0.4) transparent !important;
-}
-
-.scrollbar-thin::-webkit-scrollbar,
-.luxury-scrollbar::-webkit-scrollbar,
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px !important;
-  height: 6px !important;
-}
-
-.scrollbar-thin::-webkit-scrollbar-track,
-.luxury-scrollbar::-webkit-scrollbar-track,
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent !important;
-  border-radius: 9999px !important;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb,
-.luxury-scrollbar::-webkit-scrollbar-thumb,
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2) !important;
-  border-radius: 9999px !important;
-  border: 1px solid transparent !important;
-  background-clip: padding-box !important;
-  transition: background-color 0.2s ease !important;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb:hover,
-.luxury-scrollbar::-webkit-scrollbar-thumb:hover,
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.6) !important;
-}
-
-.dark .scrollbar-thin::-webkit-scrollbar-thumb,
-.dark .luxury-scrollbar::-webkit-scrollbar-thumb,
-.dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15) !important;
-}
-
-.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover,
-.dark .luxury-scrollbar::-webkit-scrollbar-thumb:hover,
-.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.8) !important;
-}
-
-
-

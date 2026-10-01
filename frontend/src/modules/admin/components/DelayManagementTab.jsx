@@ -39,7 +39,7 @@ export default function DelayManagementTab({
   return (
     <div className="space-y-6">
       {/* Schedule & Critical Path Shift Ribbon */}
-      <div className="p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm space-y-4">
+      <div className="p-6 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-100 dark:border-white/5">
           <div>
             <span className="text-[10px] font-mono uppercase tracking-wider text-rose-600 dark:text-rose-400 font-bold">
@@ -54,12 +54,12 @@ export default function DelayManagementTab({
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-xs font-mono">
+            <div className="p-3 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-xs font-mono">
               <span className="text-[10px] text-neutral-400 block uppercase">Original Target</span>
               <span className="font-bold text-neutral-900 dark:text-white">{project?.original_turnover || "Pending Schedule"}</span>
             </div>
             <span className="text-neutral-400 font-bold">&rarr;</span>
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-mono text-rose-700 dark:text-rose-400">
+            <div className="p-3 rounded-[4px] bg-rose-500/10 border border-rose-500/30 text-xs font-mono text-rose-700 dark:text-rose-400">
               <span className="text-[10px] text-rose-500 dark:text-rose-400 block uppercase">Revised Target</span>
               <span className="font-bold">{project?.revised_turnover || "Pending Schedule"}</span>
             </div>
@@ -78,7 +78,7 @@ export default function DelayManagementTab({
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:border-rose-500 cursor-pointer"
+                className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:border-rose-500 cursor-pointer"
               >
                 <option value="Weather / Monsoon Rain">Weather / Monsoon Rain</option>
                 <option value="Material Supply Logistics">Material Supply Logistics</option>
@@ -97,7 +97,7 @@ export default function DelayManagementTab({
                 required
                 value={daysDelayed}
                 onChange={(e) => setDaysDelayed(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white font-bold focus:outline-none focus:border-rose-500"
+                className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white font-bold focus:outline-none focus:border-rose-500"
               />
             </div>
 
@@ -107,7 +107,7 @@ export default function DelayManagementTab({
                 type="text"
                 disabled
                 value={project?.lead_engineer || "Engr. Raymart Quirante, CE"}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border border-neutral-200 dark:border-neutral-700"
+                className="w-full px-3 py-2 rounded-[4px] bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border border-neutral-200 dark:border-neutral-700"
               />
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function DelayManagementTab({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Typhoon rain flooded approach road in Plaridel; concrete ready-mix trucks halted for curing safety."
-              className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:border-rose-500"
+              className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:border-rose-500"
             />
           </div>
 
@@ -130,7 +130,7 @@ export default function DelayManagementTab({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs font-mono uppercase transition-all shadow-md shadow-rose-600/20 cursor-pointer"
+              className="px-5 py-2.5 rounded-[4px] bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs font-mono uppercase tracking-wider transition-all shadow-sm cursor-pointer"
             >
               {isSubmitting ? "Recalculating..." : "Apply Critical Path Schedule Shift"}
             </button>
@@ -139,7 +139,7 @@ export default function DelayManagementTab({
       </div>
 
       {/* Delay Audit History Log */}
-      <div className="rounded-3xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900/60 overflow-hidden shadow-sm">
+      <div className="rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0f1117] overflow-hidden shadow-xs">
         <div className="p-5 border-b border-neutral-100 dark:border-white/5">
           <h3 className="text-base font-bold text-neutral-900 dark:text-white uppercase tracking-tight">
             Documented Schedule Shift Audit Trail ({delays.length})
@@ -154,7 +154,7 @@ export default function DelayManagementTab({
             <div key={d?.event_id ? `delay-${d.event_id}-${idx}` : `delay-idx-${idx}`} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold uppercase">
+                  <span className="px-2.5 py-0.5 rounded-[3px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold uppercase">
                     {d.category}
                   </span>
                   <span className="text-[10px] font-mono text-neutral-400">
@@ -167,7 +167,7 @@ export default function DelayManagementTab({
               </div>
 
               <div className="sm:text-right shrink-0">
-                <span className="px-3 py-1 rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 font-mono font-bold text-xs">
+                <span className="px-3 py-1 rounded-[4px] bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 font-mono font-bold text-xs">
                   +{d.days_delayed} Days Shift
                 </span>
               </div>

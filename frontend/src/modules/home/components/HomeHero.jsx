@@ -75,7 +75,7 @@ export default function HomeHero() {
       {/* 2. Hero Content Overlay */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 md:px-8 text-center flex flex-col items-center">
         {/* Client Core Heading Copy */}
-        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-[1.2] drop-shadow-2xl select-none">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-[1.2] drop-shadow-md select-none">
           {t("heroHeading")}
         </h1>
 
@@ -94,7 +94,6 @@ export default function HomeHero() {
             href="/book"
             size="lg"
             variant="primary"
-            className="px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:shadow-amber-500/35 hover:scale-105 active:scale-95 transition-all"
           >
             {t("bookAppointment")}
           </Button>
@@ -106,12 +105,12 @@ export default function HomeHero() {
         <button
           onClick={scrollToExplore}
           aria-label="Scroll to explore website content"
-          className="pointer-events-auto inline-flex flex-col items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity duration-300 group cursor-pointer"
+          className="pointer-events-auto inline-flex flex-col items-center gap-1.5 opacity-75 hover:opacity-100 transition-opacity duration-200 cursor-pointer"
         >
           <span className="text-xs font-medium tracking-[0.25em] uppercase text-neutral-200 drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] select-none text-center">
             {t("scrollExplore")}
           </span>
-          <ArrowDownIcon className="w-3.5 h-3.5 text-amber-400 animate-bounce drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] group-hover:translate-y-0.5 transition-transform" />
+          <ArrowDownIcon className="w-3.5 h-3.5 text-amber-400 drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)]" />
         </button>
       </div>
     </section>

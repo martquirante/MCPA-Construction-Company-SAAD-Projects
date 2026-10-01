@@ -43,12 +43,12 @@ export default function WarrantyTicketsTab({
 
   return (
     <div className="space-y-6">
-      <div className="p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm space-y-2">
+      <div className="p-6 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-2">
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-mono font-bold uppercase">
+          <span className="text-[11px] font-mono font-bold uppercase tracking-[0.14em] text-amber-600 dark:text-amber-400">
             After-Sales Care &amp; Warranty Support
           </span>
-          <span className="text-xs font-mono text-neutral-400">Flowchart Phase 5: Post-Turnover Warranty</span>
+          <span className="text-xs font-mono text-neutral-400">• Flowchart Phase 5: Post-Turnover Warranty</span>
         </div>
         <h2 className="text-xl font-bold text-neutral-900 dark:text-white uppercase tracking-tight">
           Client Warranty &amp; Maintenance Tickets
@@ -59,7 +59,7 @@ export default function WarrantyTicketsTab({
       </div>
 
       {tickets.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl border border-dashed border-neutral-300 dark:border-white/10 bg-neutral-100/60 dark:bg-neutral-900/40">
+        <div className="p-12 text-center rounded-[6px] border border-dashed border-neutral-300 dark:border-white/10 bg-neutral-100/60 dark:bg-neutral-900/40">
           <WrenchIcon className="w-10 h-10 text-neutral-400 dark:text-neutral-600 mx-auto mb-3" />
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-white uppercase tracking-wider font-mono">
             No Warranty Tickets Reported
@@ -73,7 +73,7 @@ export default function WarrantyTicketsTab({
           {tickets.map((t, idx) => (
             <div
               key={t?.ticket_id ? `ticket-${t.ticket_id}-${idx}` : `ticket-idx-${idx}`}
-              className="p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm space-y-4 flex flex-col justify-between"
+              className="p-6 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-4 flex flex-col justify-between"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -81,7 +81,7 @@ export default function WarrantyTicketsTab({
                     {t.ticket_id}
                   </span>
                   <span
-                    className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase border ${
+                    className={`px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-bold uppercase border ${
                       t.status === "Resolved"
                         ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-bold"
                         : t.status === "In-Progress"
@@ -94,7 +94,7 @@ export default function WarrantyTicketsTab({
                 </div>
 
                 <div>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-amber-500/10 text-[10px] font-mono uppercase text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[3px] bg-amber-500/10 text-[10px] font-mono uppercase text-amber-700 dark:text-amber-400 border border-amber-500/20">
                     {getCategoryIcon(t.category)}
                     <span>{t.category} Issue</span>
                   </span>
@@ -104,7 +104,7 @@ export default function WarrantyTicketsTab({
                 </div>
 
                 {t.photo_url && (
-                  <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
+                  <div className="relative aspect-video w-full rounded-[4px] overflow-hidden bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
                     <Image src={t.photo_url} alt="Defect Photo" fill className="object-cover" />
                   </div>
                 )}
@@ -123,14 +123,14 @@ export default function WarrantyTicketsTab({
                   <button
                     type="button"
                     onClick={() => handleToggle(t.ticket_id, "In-Progress")}
-                    className="px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-500/25 border border-sky-500/30 text-[11px] font-mono uppercase cursor-pointer transition-colors"
+                    className="px-2.5 py-1 rounded-[4px] bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-500/25 border border-sky-500/30 text-[11px] font-mono uppercase cursor-pointer transition-colors"
                   >
                     Dispatch
                   </button>
                   <button
                     type="button"
                     onClick={() => handleToggle(t.ticket_id, "Resolved")}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-[11px] font-mono font-bold uppercase cursor-pointer transition-colors shadow-md shadow-emerald-500/20"
+                    className="px-2.5 py-1 rounded-[4px] bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-[11px] font-mono font-bold uppercase cursor-pointer transition-colors shadow-sm"
                   >
                     Resolve
                   </button>

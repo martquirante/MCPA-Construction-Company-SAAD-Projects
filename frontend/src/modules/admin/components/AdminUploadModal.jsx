@@ -168,15 +168,13 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/80 backdrop-blur-md transition-opacity">
       <div
-        className="relative w-full max-w-2xl rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl overflow-hidden my-8"
+        className="relative w-full max-w-2xl rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-2xl overflow-hidden my-8"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 sm:p-8 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between p-6 sm:p-8 border-b border-neutral-200 dark:border-white/[0.08]">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/30">
-              <UploadCloudIcon className="w-5 h-5" />
-            </div>
+            <UploadCloudIcon className="w-5 h-5 text-amber-500 shrink-0" />
             <div>
               <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-900 dark:text-white uppercase tracking-tight">
                 Admin Project Upload
@@ -189,7 +187,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
           <button
             onClick={onClose}
             aria-label="Close modal"
-            className="p-2 rounded-xl text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            className="p-2 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
           >
             <CloseIcon className="w-5 h-5" />
           </button>
@@ -198,7 +196,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-mono">
+            <div className="p-3.5 rounded-[4px] bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-mono">
               {errorMsg}
             </div>
           )}
@@ -216,7 +214,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Obsidian Ridge Villa"
-                  className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                  className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
                 />
               </div>
             </div>
@@ -228,7 +226,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
               >
                 {categories.map((cat) => (
                   <option key={cat} value={cat}>
@@ -252,7 +250,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="e.g. Plaridel, Bulacan or Malolos"
-                  className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                  className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
                 />
               </div>
             </div>
@@ -266,7 +264,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
                 placeholder="2025"
-                className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
               />
             </div>
           </div>
@@ -282,7 +280,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 hover:border-amber-500 text-neutral-700 dark:text-neutral-300 hover:text-amber-500 text-xs font-mono uppercase transition-all bg-neutral-50 dark:bg-neutral-800/40"
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-[4px] border border-dashed border-neutral-300 dark:border-neutral-700 hover:border-amber-500 text-neutral-700 dark:text-neutral-300 hover:text-amber-500 text-xs font-mono uppercase transition-all bg-neutral-50 dark:bg-neutral-800/40"
               >
                 <UploadCloudIcon className="w-4 h-4 text-amber-500" />
                 <span>Upload From Computer</span>
@@ -302,7 +300,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
                 onChange={(e) => handleUrlChange(e.target.value)}
                 placeholder="Or paste primary image URL"
                 disabled={imageUrl.startsWith("data:")}
-                className="px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors disabled:opacity-75"
+                className="px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors disabled:opacity-75"
               />
             </div>
 
@@ -312,12 +310,12 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
               value={secondaryImageUrl}
               onChange={(e) => handleSecondaryUrlChange(e.target.value)}
               placeholder="Optional second photo URL (for multi-image dots)"
-              className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors mb-2"
+              className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors mb-2"
             />
 
             {/* Live image preview if available */}
             {imageUrl && (
-              <div className="relative mt-2 w-full h-36 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-900">
+              <div className="relative mt-2 w-full h-36 rounded-[4px] overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-900">
                 <Image
                   src={imageUrl}
                   alt="Upload Preview"
@@ -326,7 +324,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
                   className="object-cover"
                   unoptimized
                 />
-                <div className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-black/70 text-white text-[10px] font-mono tracking-wider">
+                <div className="absolute top-2 right-2 px-2 py-0.5 rounded-[4px] bg-black/80 text-white/90 text-[10px] font-mono tracking-wider border border-white/20 backdrop-blur-xs">
                   Live Preview
                 </div>
               </div>
@@ -343,23 +341,23 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Cantilevered second-storey master suite, custom travertine cladding, and solar micro-grid."
-              className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+              className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
             />
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-neutral-200 dark:border-white/[0.08] flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-mono uppercase tracking-wider transition-colors"
+              className="px-5 py-2.5 rounded-[4px] border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-mono uppercase tracking-wider transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 transition-all flex items-center gap-2 disabled:opacity-60"
+              className="px-6 py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-colors flex items-center gap-2 disabled:opacity-60 shadow-sm"
             >
               <CheckIcon className="w-4 h-4" />
               <span>{isSubmitting ? "Publishing..." : "Publish To Portfolio"}</span>
@@ -370,3 +368,4 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
     </div>
   );
 }
+

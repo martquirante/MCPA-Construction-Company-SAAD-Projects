@@ -58,7 +58,7 @@ export default function SiteProgressTab({
 
   if (!project) {
     return (
-      <div className="p-12 text-center rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 font-mono text-xs">
+      <div className="p-12 text-center rounded-[6px] bg-neutral-100 dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] font-mono text-xs">
         Loading live construction site data...
       </div>
     );
@@ -67,15 +67,14 @@ export default function SiteProgressTab({
   return (
     <div className="space-y-8">
       {/* Overview Card */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm space-y-6">
+      <div className="p-6 sm:p-8 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-neutral-100 dark:border-white/5">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-mono font-bold">
+              <span className="px-2.5 py-1 rounded-[4px] bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-400 text-[11px] font-mono font-bold">
                 {project.project_code}
               </span>
-              <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="px-2.5 py-1 rounded-[4px] bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-[11px] font-mono font-semibold">
                 <span>{project.status || "Active Site Execution"}</span>
               </span>
             </div>
@@ -114,15 +113,15 @@ export default function SiteProgressTab({
 
         {/* Construction Dates Ribbon */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
-          <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+          <div className="p-3.5 rounded-[6px] bg-neutral-50 dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08]">
             <span className="text-[10px] text-neutral-500 uppercase block">Mobilization Date</span>
             <span className="font-bold text-neutral-900 dark:text-white mt-0.5 block">{project.contract_date}</span>
           </div>
-          <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+          <div className="p-3.5 rounded-[6px] bg-neutral-50 dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08]">
             <span className="text-[10px] text-neutral-500 uppercase block">Original Turnover</span>
             <span className="font-bold text-neutral-900 dark:text-white mt-0.5 block">{project.original_turnover}</span>
           </div>
-          <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+          <div className="p-3.5 rounded-[6px] bg-neutral-50 dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08]">
             <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase block">Revised Turnover (Critical Path)</span>
             <span className="font-bold text-neutral-900 dark:text-white mt-0.5 block">{project.revised_turnover}</span>
           </div>
@@ -146,7 +145,7 @@ export default function SiteProgressTab({
           {milestones.map((ms, idx) => (
             <div
               key={ms?.milestone_id ? `ms-${ms.milestone_id}-${idx}` : `ms-idx-${idx}`}
-              className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+              className="p-5 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
             >
               <div className="space-y-1 max-w-lg">
                 <div className="flex items-center gap-2">
@@ -154,12 +153,12 @@ export default function SiteProgressTab({
                     {ms.phase_code}
                   </span>
                   <span
-                    className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-full ${
+                    className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-[4px] border ${
                       ms.status === "Completed"
-                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
                         : ms.status === "In Progress"
-                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold"
-                        : "bg-neutral-100 dark:bg-neutral-800 text-neutral-500"
+                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 font-bold"
+                        : "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border-neutral-200 dark:border-neutral-700"
                     }`}
                   >
                     {ms.status}
@@ -215,14 +214,14 @@ export default function SiteProgressTab({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActive360Viewer(!active360Viewer)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-xs font-mono font-bold uppercase transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[4px] bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-xs font-mono font-bold uppercase transition-colors cursor-pointer"
             >
               <RefreshCwIcon className="w-3.5 h-3.5" />
               <span>{active360Viewer ? "Hide 360° Viewer" : "360° Tour Preview"}</span>
             </button>
             <button
               onClick={() => setActivePhotoModal(true)}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/20"
+              className="px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
               <PlusIcon className="w-4 h-4" />
               <span>Upload Inspection Photo</span>
@@ -232,15 +231,14 @@ export default function SiteProgressTab({
 
         {/* 360 Panorama Interactive Viewer Container */}
         {active360Viewer && (
-          <div className="p-5 rounded-3xl bg-neutral-950 border border-purple-500/30 space-y-3 animate-fadeIn">
+          <div className="p-5 rounded-[6px] bg-neutral-950 border border-purple-500/30 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono uppercase text-white font-bold flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+              <span className="text-xs font-mono uppercase text-white font-bold">
                 360° Virtual Site Tour (Draggable Panoramic Sweep)
               </span>
               <span className="text-[11px] font-mono text-purple-300">Click &amp; drag to explore site</span>
             </div>
-            <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-white/10 group">
+            <div className="relative aspect-video w-full rounded-[4px] overflow-hidden border border-white/10 group">
               {(photos.find((p) => p.is_360)?.image_url || project?.panorama_url || photos[0]?.image_url) ? (
                 <Image
                   src={photos.find((p) => p.is_360)?.image_url || project?.panorama_url || photos[0]?.image_url}
@@ -267,7 +265,7 @@ export default function SiteProgressTab({
           {photos.map((p, idx) => (
             <div
               key={p?.log_id ? `photo-${p.log_id}-${idx}` : `photo-idx-${idx}`}
-              className="rounded-2xl overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 shadow-sm flex flex-col justify-between"
+              className="rounded-[6px] overflow-hidden bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs flex flex-col justify-between"
             >
               <div className="relative aspect-video w-full bg-neutral-800">
                 <Image
@@ -277,11 +275,11 @@ export default function SiteProgressTab({
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 25vw"
                 />
-                <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-white text-[10px] font-mono">
+                <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-[3px] bg-black/70 backdrop-blur-md text-white text-[10px] font-mono">
                   {p.log_date}
                 </span>
                 {p.is_360 && (
-                  <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-purple-600/90 backdrop-blur-md text-white border border-purple-400/40 text-[9px] font-mono font-bold">
+                  <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-[3px] bg-purple-600/90 backdrop-blur-md text-white border border-purple-400/40 text-[9px] font-mono font-bold">
                     360° TOUR
                   </span>
                 )}
@@ -307,8 +305,8 @@ export default function SiteProgressTab({
 
       {/* MODAL: ADD INSPECTION PHOTO */}
       {activePhotoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-lg p-6 sm:p-8 rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-2xl space-y-4">
             <div className="flex items-start justify-between">
               <div>
                 <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">
@@ -320,7 +318,7 @@ export default function SiteProgressTab({
               </div>
               <button
                 onClick={() => setActivePhotoModal(false)}
-                className="p-1.5 rounded-lg text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                className="p-1.5 rounded-[4px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <CloseIcon className="w-4 h-4" />
@@ -336,7 +334,7 @@ export default function SiteProgressTab({
                   value={photoTitle}
                   onChange={(e) => setPhotoTitle(e.target.value)}
                   placeholder="e.g. Ground Floor Column Pouring & Curing Inspection"
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
 
@@ -347,7 +345,7 @@ export default function SiteProgressTab({
                   value={photoCaption}
                   onChange={(e) => setPhotoCaption(e.target.value)}
                   placeholder="e.g. Verified rebar spacing and slump test pass of 3000 PSI ready-mix..."
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
 
@@ -358,7 +356,7 @@ export default function SiteProgressTab({
                   required
                   value={photoUrl}
                   onChange={(e) => setPhotoUrl(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
 
@@ -379,13 +377,13 @@ export default function SiteProgressTab({
                 <button
                   type="button"
                   onClick={() => setActivePhotoModal(false)}
-                  className="px-4 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 text-xs font-mono uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  className="px-4 py-2 rounded-[4px] border border-neutral-300 dark:border-neutral-700 text-xs font-mono uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-bold text-xs font-mono uppercase cursor-pointer shadow-md shadow-amber-500/20 transition-all"
+                  className="px-5 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs font-mono uppercase cursor-pointer shadow-sm transition-colors"
                 >
                   Publish to Client Portal
                 </button>

@@ -12,8 +12,6 @@ import {
   TruckIcon,
   HammerIcon,
   ArrowRightIcon,
-  CheckIcon,
-  MapPinIcon,
 } from "@/modules/shared/Icons";
 
 export default function ServicesPage() {
@@ -21,7 +19,7 @@ export default function ServicesPage() {
     {
       id: "residential",
       badge: "Complete Turnkey Build",
-      icon: <HomeIcon className="w-8 h-8 text-amber-500" />,
+      icon: <HomeIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
       title: "Custom Residential Design & Build",
       subtitle: "Custom family homes built to last for generations",
       description:
@@ -37,7 +35,7 @@ export default function ServicesPage() {
     {
       id: "bnpl",
       badge: "Flexible Payment Options",
-      icon: <BadgePercentIcon className="w-8 h-8 text-amber-500" />,
+      icon: <BadgePercentIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
       title: "Build Now, Pay Later Program",
       subtitle: "Financing built around your titled property",
       description:
@@ -53,7 +51,7 @@ export default function ServicesPage() {
     {
       id: "signed-sealed",
       badge: "Licensed Architects & Engineers",
-      icon: <FileSignatureIcon className="w-8 h-8 text-amber-500" />,
+      icon: <FileSignatureIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
       title: "Signed & Sealed Plans & Permits",
       subtitle: "Full engineering blueprints ready for municipal approval",
       description:
@@ -69,7 +67,7 @@ export default function ServicesPage() {
     {
       id: "commercial",
       badge: "Commercial & Warehouses",
-      icon: <WarehouseIcon className="w-8 h-8 text-amber-500" />,
+      icon: <WarehouseIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
       title: "Commercial Buildings & Warehouses",
       subtitle: "Spacious steel buildings and commercial rental spaces",
       description:
@@ -85,11 +83,11 @@ export default function ServicesPage() {
     {
       id: "supply",
       badge: "In-House Materials & Supply",
-      icon: <TruckIcon className="w-8 h-8 text-amber-500" />,
+      icon: <TruckIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
       title: "In-House Project Materials & Supply",
       subtitle: "Materials dedicated exclusively to our own construction builds",
       description:
-        "Zero retail markups and zero site delays. MCPA is not an open retail hardware store—our direct materials supply and logistics fleet are dedicated exclusively to our own construction and design-and-build projects. We test, prepare, and transport certified steel rebars, structural concrete, and aggregates directly to your build site.",
+        "Zero retail markups and zero site delays. MCPA is not an open retail hardware store — our direct materials supply and logistics fleet are dedicated exclusively to our own construction and design-and-build projects. We test, prepare, and transport certified steel rebars, structural concrete, and aggregates directly to your build site.",
       inclusions: [
         "Certified heavy-duty steel rebars tested for strength",
         "Tested ready-mix structural concrete for strong foundations",
@@ -101,7 +99,7 @@ export default function ServicesPage() {
     {
       id: "renovation",
       badge: "Home Renovations & Upgrades",
-      icon: <HammerIcon className="w-8 h-8 text-amber-500" />,
+      icon: <HammerIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
       title: "Renovations & Home Extensions",
       subtitle: "Refresh, expand, and strengthen existing homes",
       description:
@@ -139,58 +137,57 @@ export default function ServicesPage() {
         </div>
 
         {/* Page Hero Header */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 md:mb-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 md:mb-20">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold tracking-wider uppercase mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
-              <span>Design & Build Excellence · Dedicated In-House Materials</span>
+            <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-4 select-none">
+              <span>Design &amp; Build Excellence · Dedicated In-House Supply</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold uppercase tracking-tight text-neutral-950 dark:text-white leading-[1.08]">
               Services That <br />
-              <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
+              <span className="text-amber-600 dark:text-amber-400">
                 Endure For Eras
               </span>
             </h1>
             <p className="mt-5 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
-              MCPA Construction and Supply brings together licensed architectural design, skilled engineering, and our own dedicated materials for each project. We eliminate retail hardware markups and ensure reliable, long-lasting quality from foundation to key turnover.
+              MCPA Construction and Supply integrates licensed architectural design, structural engineering, and our own dedicated materials fleet. We eliminate third-party hardware markups and ensure guaranteed structural resilience from foundation to key handover.
             </p>
           </div>
 
-          {/* Quick Metrics Strip */}
-          <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4 pt-8 border-t border-neutral-200 dark:border-neutral-800">
-            <div>
-              <div className="flex flex-wrap items-baseline gap-x-1.5 text-lg sm:text-xl md:text-2xl font-extrabold text-neutral-900 dark:text-white leading-tight">
-                <span className="break-words">Earthquake & Typhoon</span>
-                <span className="text-amber-500 font-semibold text-sm sm:text-base md:text-lg shrink-0">Ready</span>
+          {/* Quick Metrics Strip — Architectural Data Table */}
+          <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-px bg-neutral-200 dark:bg-white/[0.08] rounded-[6px] overflow-hidden border border-neutral-200 dark:border-white/[0.08]">
+            <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 text-lg sm:text-xl font-bold text-neutral-900 dark:text-white leading-tight">
+                <span>Earthquake &amp; Typhoon</span>
+                <span className="text-amber-600 dark:text-amber-400 font-semibold text-sm sm:text-base">Ready</span>
               </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 uppercase tracking-wider font-medium">
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
                 Structural Resilience Standard
               </p>
             </div>
-            <div>
-              <div className="flex flex-wrap items-baseline gap-x-1.5 text-xl sm:text-2xl md:text-3xl font-extrabold text-neutral-900 dark:text-white leading-tight">
-                <span className="break-words">Direct</span>
-                <span className="text-amber-500 font-semibold text-base sm:text-lg shrink-0">Supply</span>
+            <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white leading-tight">
+                <span>Direct</span>
+                <span className="text-amber-600 dark:text-amber-400 font-semibold text-base sm:text-lg">Supply</span>
               </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 uppercase tracking-wider font-medium">
-                In-House Cement & Steel
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
+                In-House Cement &amp; Steel
               </p>
             </div>
-            <div>
-              <div className="flex flex-wrap items-baseline gap-x-0.5 text-xl sm:text-2xl md:text-3xl font-extrabold text-neutral-900 dark:text-white leading-tight">
+            <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
+              <div className="flex flex-wrap items-baseline gap-x-0.5 text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white leading-tight">
                 <span>100</span>
-                <span className="text-amber-500 font-semibold text-base sm:text-lg">%</span>
+                <span className="text-amber-600 dark:text-amber-400 font-semibold text-base sm:text-lg">%</span>
               </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 uppercase tracking-wider font-medium">
-                PRC Signed & Sealed
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
+                PRC Signed &amp; Sealed
               </p>
             </div>
-            <div>
-              <div className="flex flex-wrap items-baseline gap-x-1.5 text-xl sm:text-2xl md:text-3xl font-extrabold text-neutral-900 dark:text-white leading-tight">
+            <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white leading-tight">
                 <span>BNPL</span>
-                <span className="text-amber-500 font-semibold text-base sm:text-lg shrink-0">Program</span>
+                <span className="text-amber-600 dark:text-amber-400 font-semibold text-base sm:text-lg">Program</span>
               </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 uppercase tracking-wider font-medium">
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
                 Titled Lot Financing
               </p>
             </div>
@@ -199,56 +196,62 @@ export default function ServicesPage() {
 
         {/* Comprehensive Services Grid */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {services.map((svc) => (
               <div
                 key={svc.id}
-                className="group relative overflow-hidden rounded-3xl p-8 bg-white dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-800/80 hover:border-amber-500/50 transition-all duration-300 flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1.5 backdrop-blur-sm"
+                className="group relative rounded-[6px] p-7 sm:p-8 bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] hover:border-amber-500/40 dark:hover:border-amber-500/40 transition-[border-color,box-shadow] duration-150 flex flex-col justify-between shadow-[0_2px_8px_rgba(0,0,0,0.03)]"
               >
-                {/* Accent top gradient line on hover */}
-                <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
                 <div>
-                  {/* Icon & Badge */}
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 group-hover:scale-110 transition-transform">
+                  {/* Icon (Pure SVG, No Box) & Technical Badge */}
+                  <div className="flex items-center justify-between gap-3 mb-6">
+                    <div className="text-amber-600 dark:text-amber-400 shrink-0">
                       {svc.icon}
                     </div>
-                    <span className="px-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/60 text-[10px] uppercase tracking-wider font-semibold text-neutral-700 dark:text-neutral-300">
+                    <span className="px-2 py-0.5 rounded-[4px] bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/[0.08] text-[9.5px] font-mono uppercase tracking-[0.14em] font-semibold text-neutral-600 dark:text-neutral-300">
                       {svc.badge}
                     </span>
                   </div>
 
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-950 dark:text-white group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-950 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors duration-150">
                     {svc.title}
                   </h2>
-                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400/90 mt-1 mb-4">
+                  <p className="text-xs font-mono font-medium text-amber-700 dark:text-amber-400/90 mt-1.5 mb-4">
                     {svc.subtitle}
                   </p>
 
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal mb-6">
+                  <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal mb-6">
                     {svc.description}
                   </p>
 
-                  {/* Feature Inclusions Checklist */}
-                  <div className="space-y-2.5 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
-                    <p className="text-[11px] uppercase tracking-wider font-bold text-neutral-700 dark:text-neutral-300 mb-2">
-                      Key Deliverables:
-                    </p>
-                    {svc.inclusions.map((inc, i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs text-neutral-600 dark:text-neutral-400">
-                        <CheckIcon className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                        <span>{inc}</span>
-                      </div>
-                    ))}
+                  {/* Feature Inclusions / Deliverables Schedule */}
+                  <div className="pt-4 border-t border-neutral-150 dark:border-white/[0.06]">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500 select-none">
+                        Key Deliverables
+                      </p>
+                      <span className="text-[9px] font-mono text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">
+                        Standard Scope
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {svc.inclusions.map((inc, i) => (
+                        <div key={i} className="flex items-start gap-2.5 text-xs text-neutral-700 dark:text-neutral-300">
+                          <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5 shrink-0 select-none">
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          <span className="leading-snug">{inc}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {/* Card Bottom CTA */}
-                <div className="mt-8 pt-6 border-t border-neutral-100 dark:border-neutral-800/80">
+                <div className="mt-8 pt-5 border-t border-neutral-150 dark:border-white/[0.06]">
                   <Link
-                    href="/book"
-                    className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-neutral-900 dark:bg-neutral-800 hover:bg-amber-500 dark:hover:bg-amber-500 text-white hover:text-neutral-950 font-semibold text-xs uppercase tracking-wider transition-all duration-200 group-hover:shadow-md"
+                    href={`/book?service=${encodeURIComponent(svc.id)}`}
+                    className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-[4px] bg-neutral-900 dark:bg-neutral-800 hover:bg-amber-500 dark:hover:bg-amber-500 text-white hover:text-neutral-950 font-bold text-xs uppercase tracking-[0.08em] transition-colors duration-150 cursor-pointer"
                   >
                     <span>{svc.ctaText}</span>
                     <ArrowRightIcon className="w-3.5 h-3.5" />
@@ -259,33 +262,34 @@ export default function ServicesPage() {
           </div>
         </div>
 
-        {/* The MCPA Advantage Ribbon */}
+        {/* The MCPA Advantage Architectural Block */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 md:mt-28">
-          <div className="rounded-3xl p-8 sm:p-12 bg-gradient-to-br from-white via-neutral-50/90 to-amber-50/30 dark:from-neutral-900 dark:via-neutral-900 dark:to-black text-neutral-950 dark:text-white border border-neutral-200 dark:border-neutral-800 shadow-xl dark:shadow-2xl relative overflow-hidden backdrop-blur-md transition-colors duration-300">
-            <div className="absolute right-0 top-0 w-96 h-96 bg-amber-500/15 dark:bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="rounded-[6px] p-8 sm:p-12 bg-neutral-950 text-white border border-neutral-800 dark:border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.3)] relative overflow-hidden">
+            {/* Architectural left reference datum */}
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
 
-            <div className="max-w-3xl relative z-10">
-              <span className="inline-block px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold uppercase tracking-wider mb-4">
-                Why MCPA Services Stand Out
-              </span>
-              <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-neutral-950 dark:text-white">
+            <div className="max-w-3xl relative z-10 pl-2 sm:pl-3">
+              <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-400 mb-4 select-none">
+                <span>The MCPA Advantage</span>
+              </div>
+              <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white leading-tight">
                 No Contractor Markups. No Compromised Blueprints.
               </h3>
-              <p className="mt-4 text-neutral-600 dark:text-neutral-400 text-sm sm:text-base leading-relaxed font-normal">
-                Traditional contractors purchase materials from third-party hardware stores at retail prices, passing high markup costs and delivery delays onto the client. Because MCPA operates its own dedicated in-house supply and logistics fleet exclusively for our construction projects, your build receives certified, batch-tested materials directly on-site—guaranteeing authentic structural quality with zero middleman markups.
+              <p className="mt-4 text-neutral-300 text-sm sm:text-base leading-relaxed font-normal">
+                Traditional contractors purchase materials from third-party hardware stores at retail prices, passing high markup costs and delivery delays onto the client. Because MCPA operates its own dedicated in-house supply and logistics fleet exclusively for our construction projects, your build receives certified, batch-tested materials directly on-site — guaranteeing authentic structural quality with zero middleman markups.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-4">
+              <div className="mt-8 flex flex-wrap gap-3.5">
                 <Link
                   href="/book"
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-[0.08em] transition-colors shadow-[0_2px_8px_rgba(245,158,11,0.25)] cursor-pointer"
                 >
                   <span>Book a Consultation</span>
                   <ArrowRightIcon className="w-4 h-4" />
                 </Link>
                 <Link
                   href="/projects"
-                  className="inline-flex items-center justify-center px-8 py-4 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-100/70 dark:bg-white/[0.02] hover:bg-neutral-200/80 dark:hover:bg-white/5 text-neutral-800 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-xs dark:shadow-none"
+                  className="inline-flex items-center justify-center px-6 py-3 rounded-[4px] border border-neutral-700 bg-neutral-900/60 hover:bg-neutral-800 text-neutral-200 hover:text-white text-xs font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer"
                 >
                   <span>Explore Completed Projects</span>
                 </Link>

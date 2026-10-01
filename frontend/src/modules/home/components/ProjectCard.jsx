@@ -13,6 +13,14 @@ import {
 } from "../../shared/Icons";
 import { useLanguage } from "../../shared/LanguageContext";
 
+/**
+ * ProjectCard
+ *
+ * Editorial card design — image-forward with a disciplined metadata row.
+ * Replaced floating pill badges with architectural inline metadata.
+ * Status indicators use a rule + label pattern, not colored pill badges.
+ * Hover: subtle border activation + shadow lift. No scale, no 3D tilt.
+ */
 export default function ProjectCard({ project, onInquire, onDelete, onOpenDetails }) {
   const { t } = useLanguage();
   const [activeImageIdx, setActiveImageIdx] = useState(0);
@@ -24,7 +32,7 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
       ? project.images
       : ["https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1200&h=800&fit=crop&auto=format"];
 
-  // 3-second Auto-Switching Carousel with pause on hover
+  // Auto-advance carousel — pauses on hover
   useEffect(() => {
     if (images.length <= 1 || isHovered) return;
 
@@ -35,45 +43,62 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
     return () => clearInterval(timer);
   }, [images.length, isHovered]);
 
-  // Threshold for long descriptions to show "more"
   const charLimit = 85;
   const isLongText = Boolean(project.description && project.description.length > charLimit);
+
+  // Derive status label and indicator color
+  const STATUS_MAP = {
+    in_progress: { label: "In Progress", color: "bg-amber-500" },
+    planning: { label: "Planning", color: "bg-sky-500" },
+    completed: { label: "Completed", color: "bg-emerald-500" },
+  };
+  const statusInfo = project.status ? STATUS_MAP[project.status] : null;
 
   return (
     <div
       onClick={() => onOpenDetails?.(project)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group relative rounded-2xl sm:rounded-3xl overflow-hidden border border-neutral-200/80 dark:border-neutral-800/80 hover:border-amber-500/60 dark:hover:border-amber-500/60 transition-all duration-500 shadow-md hover:shadow-2xl hover:shadow-neutral-300/60 dark:hover:shadow-amber-500/10 hover:-translate-y-1.5 flex flex-col justify-between min-h-[450px] sm:min-h-[480px] bg-white dark:bg-neutral-950 backdrop-blur-sm select-none cursor-pointer"
+      className={
+        "group relative overflow-hidden flex flex-col justify-between " +
+        "min-h-[460px] sm:min-h-[490px] " +
+        "rounded-[10px] " +
+        "bg-white dark:bg-neutral-950 " +
+        "border border-neutral-200 dark:border-neutral-800 " +
+        "hover:border-amber-500/50 dark:hover:border-amber-500/40 " +
+        "shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)] " +
+        "transition-[border-color,box-shadow] duration-200 " +
+        "select-none cursor-pointer"
+      }
     >
-      {/* 1. Full-Card Background Image Carousel */}
-      <div className="absolute inset-0 z-0 overflow-hidden bg-neutral-100 dark:bg-neutral-950">
+      {/* ── Image Carousel ─────────────────────────────────────────────── */}
+      <div className="absolute inset-0 z-0 overflow-hidden bg-neutral-100 dark:bg-neutral-900">
         {images.map((imgSrc, idx) => (
           <div
             key={idx}
-            className="absolute inset-0 transition-opacity duration-700 ease-out"
+            className="absolute inset-0 transition-opacity duration-600 ease-out"
             style={{ opacity: idx === activeImageIdx ? 1 : 0 }}
           >
             <Image
               src={imgSrc}
-              alt={`${project.name} - View ${idx + 1}`}
+              alt={`${project.name} — view ${idx + 1}`}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
+              className="object-cover object-center"
               unoptimized
             />
           </div>
         ))}
 
-        {/* Top vignette for readability on bright images */}
-        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent dark:from-black/50 pointer-events-none" />
+        {/* Top vignette for legibility */}
+        <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/30 to-transparent pointer-events-none" />
 
-        {/* Cinematic Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-white/25 via-55% to-transparent dark:from-neutral-950 dark:via-neutral-950/75 dark:via-45% dark:to-neutral-950/20 pointer-events-none transition-opacity duration-500 group-hover:from-white/95 group-hover:via-white/35 dark:group-hover:from-neutral-950/98 dark:group-hover:via-neutral-950/80" />
+        {/* Bottom content gradient */}
+        <div className="absolute inset-0 bg-gradient-to-t from-white/92 via-white/28 via-55% to-transparent dark:from-neutral-950 dark:via-neutral-950/72 dark:via-50% dark:to-neutral-950/10 pointer-events-none" />
 
-        {/* Floating Prev/Next Carousel Arrows on Hover */}
+        {/* Carousel prev/next — only visible on hover, accessible */}
         {images.length > 1 && (
-          <div className="absolute inset-x-2.5 top-1/2 -translate-y-1/2 z-20 flex items-center justify-between pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-between pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
             <button
               type="button"
               onClick={(e) => {
@@ -82,9 +107,9 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
               }}
               title="Previous photo"
               aria-label="Previous photo"
-              className="w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 flex items-center justify-center pointer-events-auto transition-all shadow-md hover:scale-110 active:scale-95 cursor-pointer"
+              className="w-7 h-7 rounded-[4px] bg-black/55 hover:bg-black/80 text-white border border-white/15 flex items-center justify-center pointer-events-auto transition-colors cursor-pointer"
             >
-              <ChevronLeftIcon className="w-4 h-4" />
+              <ChevronLeftIcon className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
@@ -94,94 +119,99 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
               }}
               title="Next photo"
               aria-label="Next photo"
-              className="w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 flex items-center justify-center pointer-events-auto transition-all shadow-md hover:scale-110 active:scale-95 cursor-pointer"
+              className="w-7 h-7 rounded-[4px] bg-black/55 hover:bg-black/80 text-white border border-white/15 flex items-center justify-center pointer-events-auto transition-colors cursor-pointer"
             >
-              <ChevronRightIcon className="w-4 h-4" />
+              <ChevronRightIcon className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
       </div>
 
-      {/* 2. Top Card Header Overlay: Status, Category Badge & Admin Actions */}
-      <div className="relative z-10 p-4 sm:p-5 flex items-center justify-between pointer-events-auto">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Status Badge */}
-          {project.status && project.status === "in_progress" && (
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/30 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-neutral-950 animate-ping inline-block" />
-              In Progress · Plans
+      {/* ── Top Row: Status indicator + Admin delete ────────────────────── */}
+      <div className="relative z-10 p-4 sm:p-5 flex items-start justify-between pointer-events-auto">
+        {/* Status — architectural tag: colored rule + all-caps label */}
+        {statusInfo && (
+          <div className="flex items-center gap-2">
+            <span className={`w-1 h-3.5 rounded-[1px] ${statusInfo.color} shrink-0`} />
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+              {statusInfo.label}
             </span>
-          )}
-          {project.status && project.status === "planning" && (
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-sky-500 text-neutral-950 shadow-md shadow-sky-500/30">
-              Planning & Blueprint
-            </span>
-          )}
+          </div>
+        )}
 
-          {/* Category Badge */}
-          {project.category && (
-            <span className="px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-white/90 dark:bg-black/60 text-neutral-900 dark:text-white border border-neutral-200/80 dark:border-white/20 backdrop-blur-md shadow-xs">
-              {project.category}
-            </span>
-          )}
-        </div>
+        {/* Category — quiet label, no pill */}
+        {project.category && !statusInfo && (
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+            {project.category}
+          </span>
+        )}
 
-        <div className="flex items-center gap-2 ml-auto">
-          {/* Admin Delete Action */}
-          {project.isAdminAdded && onDelete && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (confirm(`Remove "${project.name}" from portfolio?`)) {
-                  onDelete(project.id);
-                }
-              }}
-              title="Delete this project"
-              className="p-1.5 rounded-full bg-red-600/90 hover:bg-red-600 text-white backdrop-blur-md transition-colors shadow-md cursor-pointer"
-            >
-              <TrashIcon className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+        {/* Admin delete */}
+        {project.isAdminAdded && onDelete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (confirm(`Remove "${project.name}" from portfolio?`)) {
+                onDelete(project.id);
+              }
+            }}
+            title="Delete this project"
+            className="ml-auto p-1.5 rounded-[4px] bg-red-600/85 hover:bg-red-600 text-white transition-colors cursor-pointer"
+          >
+            <TrashIcon className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
-      {/* 4. Bottom Card Body Overlay: Location, Name, Description (with "more"), and CTA */}
-      <div className="relative z-10 p-5 sm:p-6 flex flex-col justify-end pointer-events-auto">
-        {/* Location & Year */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-400/95 mb-1.5">
-          <span className="flex items-center gap-1">
-            <MapPinIcon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-            <span>{project.location}</span>
-          </span>
-          <span className="text-neutral-400 dark:text-white/40">·</span>
-          <span className="flex items-center gap-1 text-neutral-600 dark:text-neutral-300 font-medium">
-            <CalendarIcon className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
-            <span className="tabular-nums">
+      {/* ── Bottom Body: Metadata row + Name + Description + CTA ─────────── */}
+      <div className="relative z-10 p-5 sm:p-6 flex flex-col pointer-events-auto">
+
+        {/* Category — shown alongside status when both exist */}
+        {project.category && statusInfo && (
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-500 dark:text-neutral-400 mb-2">
+            {project.category}
+          </p>
+        )}
+
+        {/* Metadata row: location · date */}
+        <div className="flex items-center gap-3 text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-2.5">
+          {project.location && (
+            <span className="flex items-center gap-1 min-w-0">
+              <MapPinIcon className="w-3 h-3 text-amber-500 shrink-0" />
+              <span className="truncate">{project.location}</span>
+            </span>
+          )}
+          {project.location && (project.year || project.month) && (
+            <span className="text-neutral-300 dark:text-neutral-600 shrink-0">·</span>
+          )}
+          {(project.year || project.month) && (
+            <span className="flex items-center gap-1 shrink-0 tabular-nums">
+              <CalendarIcon className="w-3 h-3 text-neutral-400 shrink-0" />
               {project.month ? `${project.month} ` : ""}
               {project.year}
             </span>
-          </span>
+          )}
         </div>
 
         {/* Project Name */}
-        <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-950 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+        <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-950 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors duration-150 leading-tight">
           {project.name}
         </h3>
 
-        {/* Description with inline "more" / "less" toggle */}
+        {/* Description with read-more */}
         {project.description && (
-          <div className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-200/90 font-normal leading-relaxed">
+          <div className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-300 font-normal leading-relaxed">
             {isLongText && !isExpanded ? (
               <p>
-                <span>{project.description.slice(0, charLimit).trim()}...</span>
+                <span>{project.description.slice(0, charLimit).trim()}…</span>
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsExpanded(true);
                   }}
-                  className="ml-1.5 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-semibold text-xs underline cursor-pointer inline-flex items-center"
+                  className="ml-1.5 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-semibold text-xs underline underline-offset-2 cursor-pointer"
                 >
                   {t("readMore")}
                 </button>
@@ -196,7 +226,7 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
                       e.stopPropagation();
                       setIsExpanded(false);
                     }}
-                    className="ml-1.5 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-medium text-xs underline cursor-pointer inline-flex items-center"
+                    className="ml-1.5 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-medium text-xs underline underline-offset-2 cursor-pointer"
                   >
                     {t("readLess")}
                   </button>
@@ -206,27 +236,28 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
           </div>
         )}
 
-        {/* Action Button CTA & Bottom-Right Photo Indicators */}
-        <div className="mt-4 sm:mt-5 pt-3 sm:pt-4 border-t border-neutral-200 dark:border-white/15 flex items-center justify-between gap-2 sm:gap-3">
+        {/* Footer: CTA + photo count indicator */}
+        <div className="mt-4 pt-3.5 border-t border-neutral-200 dark:border-white/10 flex items-center justify-between gap-2">
+          {/* Inquire CTA — text-link tier */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onInquire?.(project);
             }}
-            className="inline-flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 group/link transition-colors cursor-pointer shrink-0"
+            className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.06em] uppercase text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer shrink-0 group/cta"
           >
             <span className="whitespace-nowrap">{t("inquireStyle")}</span>
-            <ArrowRightIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform duration-300 group-hover/link:translate-x-1 shrink-0" />
+            <ArrowRightIcon className="w-3 h-3 transition-transform duration-150 group-hover/cta:translate-x-0.5" />
           </button>
 
-          {/* Photo Indicators / Carousel Navigation */}
+          {/* Photo count / navigation */}
           {images.length > 1 && (
             images.length <= 6 ? (
-              /* Up to 6 photos: Sleek pill dashes */
+              /* Dash indicators — up to 6 images */
               <div
-                className="flex items-center gap-1 sm:gap-1.5 shrink-0 py-0.5 sm:py-1"
-                title={`${images.length} photos available`}
+                className="flex items-center gap-1 shrink-0"
+                title={`${images.length} photos`}
               >
                 {images.map((_, idx) => (
                   <button
@@ -236,26 +267,24 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
                       e.stopPropagation();
                       setActiveImageIdx(idx);
                     }}
-                    title={`Photo ${idx + 1} of ${images.length}`}
                     aria-label={`Show photo ${idx + 1}`}
-                    className="cursor-pointer py-1 px-0.5 border-0 bg-transparent group/bar focus:outline-none flex items-center"
+                    className="cursor-pointer py-1 px-0.5 border-0 bg-transparent flex items-center focus:outline-none"
                   >
                     <div
-                      className={`h-0.5 sm:h-1 rounded-full transition-all duration-300 ${
+                      className={`h-0.5 rounded-full transition-all duration-200 ${
                         idx === activeImageIdx
-                          ? "w-3 sm:w-4 bg-amber-500 dark:bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]"
-                          : "w-1.5 sm:w-2 bg-neutral-400/60 dark:bg-white/35 group-hover/bar:bg-neutral-600 dark:group-hover/bar:bg-white/70"
+                          ? "w-3 sm:w-4 bg-amber-500 dark:bg-amber-400"
+                          : "w-1.5 sm:w-2 bg-neutral-400/50 dark:bg-white/30"
                       }`}
                     />
                   </button>
                 ))}
               </div>
             ) : (
-              /* More than 6 photos (e.g. 42 photos): Luxury interactive pill counter */
+              /* Counter pill — 7+ images */
               <div
-                className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-neutral-900/60 dark:bg-white/10 hover:bg-neutral-900/80 dark:hover:bg-white/15 backdrop-blur-md border border-neutral-300/30 dark:border-white/15 text-white shadow-xs transition-all shrink-0 select-none"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-[4px] bg-black/50 dark:bg-white/8 border border-white/15 text-white shrink-0 select-none"
                 onClick={(e) => e.stopPropagation()}
-                title={`${images.length} photos in portfolio`}
               >
                 <button
                   type="button"
@@ -263,18 +292,17 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
                     e.stopPropagation();
                     setActiveImageIdx((prev) => (prev - 1 + images.length) % images.length);
                   }}
-                  title="Previous photo"
                   aria-label="Previous photo"
-                  className="p-0.5 rounded-full hover:bg-white/20 text-white/70 hover:text-amber-400 transition-colors cursor-pointer"
+                  className="p-0.5 text-white/60 hover:text-amber-400 transition-colors cursor-pointer"
                 >
-                  <ChevronLeftIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                  <ChevronLeftIcon className="w-2.5 h-2.5" />
                 </button>
 
-                <div className="flex items-center gap-1 px-0.5 sm:px-1">
-                  <CameraIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 shrink-0" />
-                  <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-tight text-white tabular-nums">
+                <div className="flex items-center gap-1 px-0.5">
+                  <CameraIcon className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                  <span className="text-[10px] font-mono font-bold tabular-nums text-white">
                     {activeImageIdx + 1}
-                    <span className="text-white/60 font-normal"> / {images.length}</span>
+                    <span className="text-white/55 font-normal"> / {images.length}</span>
                   </span>
                 </div>
 
@@ -284,11 +312,10 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
                     e.stopPropagation();
                     setActiveImageIdx((prev) => (prev + 1) % images.length);
                   }}
-                  title="Next photo"
                   aria-label="Next photo"
-                  className="p-0.5 rounded-full hover:bg-white/20 text-white/70 hover:text-amber-400 transition-colors cursor-pointer"
+                  className="p-0.5 text-white/60 hover:text-amber-400 transition-colors cursor-pointer"
                 >
-                  <ChevronRightIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                  <ChevronRightIcon className="w-2.5 h-2.5" />
                 </button>
               </div>
             )

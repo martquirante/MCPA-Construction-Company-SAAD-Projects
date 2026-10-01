@@ -87,16 +87,12 @@ export default function QuickOverview() {
     <div id="overview" className="relative z-10 bg-white dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 transition-colors duration-500 overflow-x-clip">
       {/* Construction Architectural Texture: Concrete Hollow Blocks (CHB) & Rough Semento Wall */}
       <div
-        className="absolute inset-0 pointer-events-none z-0 bg-repeat opacity-20 dark:opacity-[0.14] mix-blend-multiply dark:mix-blend-luminosity"
+        className="absolute inset-0 pointer-events-none z-0 bg-repeat opacity-[0.07] dark:opacity-[0.10] mix-blend-multiply dark:mix-blend-luminosity"
         style={{
           backgroundImage: "url('/assets/textures/chb_hollowblocks.jpg')",
           backgroundSize: "440px 440px",
         }}
       />
-
-      {/* Background ambient lighting */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-amber-500/5 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute top-3/4 right-10 w-[500px] h-[400px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* ========================================================================= */}
       {/* 1. STATS BANNER                                                           */}
@@ -121,9 +117,9 @@ export default function QuickOverview() {
           className="text-center max-w-3xl mx-auto mb-16 select-none"
         >
           {/* Eyebrow text */}
-          <p className="text-amber-600 dark:text-amber-400 text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-4">
-            {t("overviewEyebrow")}
-          </p>
+          <div className="inline-flex items-center justify-center text-amber-600 dark:text-amber-400 text-[10px] sm:text-xs font-mono font-bold tracking-[0.2em] uppercase mb-4 select-none">
+            <span>{t("overviewEyebrow")}</span>
+          </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
             {t("overviewHeading")}
@@ -200,14 +196,14 @@ export default function QuickOverview() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
 
           <div className="relative z-10 max-w-2xl mx-auto">
-            <p className="text-xs uppercase tracking-[0.25em] font-mono text-amber-600 dark:text-amber-400 mb-4">
-              Begin Your Project
-            </p>
+            <div className="inline-flex items-center justify-center text-[10px] sm:text-xs uppercase tracking-[0.25em] font-mono font-bold text-amber-600 dark:text-amber-400 mb-4 select-none">
+              <span>Begin Your Project</span>
+            </div>
 
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight mb-4">
               Let&apos;s Build Something
               <br />
-              <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
+              <span className="text-amber-500 dark:text-amber-400">
                 Extraordinary
               </span>
             </h2>
@@ -219,14 +215,14 @@ export default function QuickOverview() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/book"
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40"
+                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-[background-color,box-shadow] duration-150 shadow-[0_2px_8px_rgba(245,158,11,0.28)] hover:shadow-[0_4px_14px_rgba(245,158,11,0.36)] active:bg-amber-600 active:shadow-none"
               >
                 <span>{t("bookAppointment")}</span>
                 <ArrowRightIcon className="w-4 h-4" />
               </Link>
               <Link
                 href="/projects"
-                className="inline-flex items-center px-6 py-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold uppercase tracking-wider transition-colors"
+                className="inline-flex items-center px-6 py-3.5 rounded-[8px] border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold uppercase tracking-wider transition-colors duration-150"
               >
                 <span>Review Portfolio</span>
               </Link>
@@ -242,30 +238,30 @@ export default function QuickOverview() {
                   href="https://www.facebook.com/MCPA.ConstructionandSupply/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 hover:border-blue-500/50 transition-all duration-200 text-neutral-800 dark:text-neutral-200 group shadow-xs hover:shadow-md cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-[6px] bg-neutral-100 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 transition-colors duration-150 text-neutral-800 dark:text-neutral-200 group cursor-pointer"
                   title="Facebook: MCPA Construction and Supply"
                 >
-                  <FacebookIcon className="w-4 h-4 rounded-full shrink-0 group-hover:scale-110 transition-transform shadow-xs" />
+                  <FacebookIcon className="w-4 h-4 rounded-full shrink-0" />
                   <span className="font-semibold text-xs">Facebook</span>
                 </a>
                 <a
                   href="https://www.instagram.com/mcpa.constructionandsupply/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 hover:border-pink-500/50 transition-all duration-200 text-neutral-800 dark:text-neutral-200 group shadow-xs hover:shadow-md cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-[6px] bg-neutral-100 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 transition-colors duration-150 text-neutral-800 dark:text-neutral-200 group cursor-pointer"
                   title="Instagram: @mcpa.constructionandsupply"
                 >
-                  <InstagramIcon className="w-4 h-4 rounded-md shrink-0 group-hover:scale-110 transition-transform shadow-xs" />
+                  <InstagramIcon className="w-4 h-4 rounded-md shrink-0" />
                   <span className="font-semibold text-xs">Instagram</span>
                 </a>
                 <a
                   href="https://www.tiktok.com/@mcpa.construction"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 hover:border-cyan-500/50 transition-all duration-200 text-neutral-800 dark:text-neutral-200 group shadow-xs hover:shadow-md cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-[6px] bg-neutral-100 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 transition-colors duration-150 text-neutral-800 dark:text-neutral-200 group cursor-pointer"
                   title="TikTok: @mcpa.construction"
                 >
-                  <TikTokIcon className="w-4 h-4 rounded-full shrink-0 group-hover:scale-110 transition-transform shadow-xs" />
+                  <TikTokIcon className="w-4 h-4 rounded-full shrink-0" />
                   <span className="font-semibold text-xs">TikTok</span>
                 </a>
               </div>
@@ -277,11 +273,11 @@ export default function QuickOverview() {
                 href="https://maps.app.goo.gl/hPB6X66NdhViSvCp7"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 hover:text-amber-500 dark:hover:text-amber-400 transition-colors group cursor-pointer"
+                className="flex items-center gap-1.5 hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer"
                 title="Open MCPA Headquarters in Google Maps"
               >
-                <MapPinIcon className="w-3.5 h-3.5 text-amber-500 group-hover:scale-110 transition-transform shrink-0" />
-                <span className="group-hover:underline">2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan</span>
+                <MapPinIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="hover:underline">2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan</span>
               </a>
               <span className="hidden sm:inline text-neutral-700">·</span>
               <a href="tel:+639497758239" className="hover:text-amber-500 dark:hover:text-amber-400 transition-colors">

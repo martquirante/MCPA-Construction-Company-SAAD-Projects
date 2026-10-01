@@ -144,10 +144,6 @@ export default function ProjectsTab({
               <FolderKanbanIcon className="w-6 h-6 text-amber-500" />
               Projects Management ({rawProjects.length})
             </h2>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400">
-              <span className="text-amber-500 text-xs">★</span>
-              <span>Home: {rawProjects.filter((p) => p.featuredOnHome && p.isWebVisible !== false).length}/6 Selected</span>
-            </span>
           </div>
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
             Pick up to 6 projects to showcase on the Home Page. The /projects page displays your complete portfolio.
@@ -155,7 +151,7 @@ export default function ProjectsTab({
         </div>
         <button
           onClick={handleOpenCreate}
-          className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/20 cursor-pointer self-start sm:self-auto hover:scale-102"
+          className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-[4px] transition-colors shadow-sm cursor-pointer self-start sm:self-auto"
         >
           <PlusIcon className="w-4 h-4" />
           Add Project
@@ -170,10 +166,10 @@ export default function ProjectsTab({
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+              className={`px-3 py-1.5 rounded-[4px] text-xs font-mono uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${
                 selectedCategory === cat
                   ? "bg-amber-500 text-neutral-950 font-bold shadow-sm"
-                  : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200 dark:border-white/5"
+                  : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200 dark:border-white/10"
               }`}
             >
               {cat}
@@ -188,7 +184,7 @@ export default function ProjectsTab({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search projects..."
-            className="w-full px-3.5 py-1.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500"
+            className="w-full px-3.5 py-1.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500"
           />
           {searchQuery && (
             <button
@@ -217,7 +213,7 @@ export default function ProjectsTab({
                       setSearchQuery("");
                       setSelectedCategory("All");
                     }}
-                    className="px-4 py-2 bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                    className="px-4 py-2 bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold rounded-[4px] transition-colors cursor-pointer"
                   >
                     Clear Filters
                   </button>
@@ -232,7 +228,7 @@ export default function ProjectsTab({
                 actionButton={
                   <button
                     onClick={handleOpenCreate}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-500/20 cursor-pointer hover:scale-102"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-[4px] transition-colors shadow-sm cursor-pointer"
                   >
                     <PlusIcon className="w-4 h-4" />
                     Add First Project
@@ -247,7 +243,7 @@ export default function ProjectsTab({
             return (
               <div
                 key={projectKey}
-                className="group bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:border-amber-500/30 transition-all flex flex-col"
+                className="group bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/[0.08] rounded-[6px] overflow-hidden shadow-xs hover:border-amber-500/40 transition-colors flex flex-col"
               >
               <div
                 className="h-44 w-full bg-neutral-200 dark:bg-neutral-800 bg-cover bg-center cursor-pointer relative"
@@ -260,7 +256,7 @@ export default function ProjectsTab({
                       type="button"
                       onClick={(e) => handleToggleVisibility(project, e)}
                       title="Click to toggle website visibility"
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md border cursor-pointer hover:scale-105 transition-transform ${
+                      className={`px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md border cursor-pointer transition-colors ${
                         project.isWebVisible !== false
                           ? "bg-emerald-500/20 text-emerald-100 border-emerald-500/30"
                           : "bg-rose-500/20 text-rose-100 border-rose-500/30"
@@ -278,9 +274,9 @@ export default function ProjectsTab({
                           }
                         }}
                         title={project.featuredOnHome ? "Featured on Home Page (Click to unfeature)" : "Feature on Home Page (Max 6)"}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md border cursor-pointer hover:scale-105 transition-transform flex items-center gap-1 ${
+                        className={`px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md border cursor-pointer transition-colors flex items-center gap-1 ${
                           project.featuredOnHome
-                            ? "bg-amber-500 text-neutral-950 border-amber-400 font-extrabold shadow-amber-500/30"
+                            ? "bg-amber-500 text-neutral-950 border-amber-400 font-extrabold shadow-sm"
                             : "bg-black/60 text-white/80 border-white/10 hover:text-white hover:bg-black/80"
                         }`}
                       >
@@ -289,7 +285,7 @@ export default function ProjectsTab({
                       </button>
                     )}
                     {project.status && project.status !== "completed" && (
-                      <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-amber-500/90 text-neutral-950 backdrop-blur-md shadow-sm w-fit">
+                      <span className="px-2 py-0.5 rounded-[4px] text-[9px] font-mono font-bold uppercase tracking-wider bg-amber-500/90 text-neutral-950 backdrop-blur-md shadow-sm w-fit">
                         {project.status === "in_progress" ? "In Progress" : "Planning Phase"}
                       </span>
                     )}
@@ -297,12 +293,12 @@ export default function ProjectsTab({
                   
                   <div className="flex flex-col items-end gap-1.5">
                     {project.category && (
-                      <span className="px-2 py-1 bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg">
+                      <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-mono font-bold uppercase tracking-wider rounded-[4px]">
                         {project.category}
                       </span>
                     )}
                     {project.images && project.images.length > 1 && (
-                      <span className="px-1.5 py-0.5 bg-black/50 backdrop-blur-md text-[9px] text-white/90 rounded border border-white/10 inline-flex items-center gap-1">
+                      <span className="px-1.5 py-0.5 bg-black/50 backdrop-blur-md text-[9px] font-mono text-white/90 rounded-[4px] border border-white/10 inline-flex items-center gap-1">
                         <CameraIcon className="w-3 h-3 text-white/80" />
                         <span>{project.images.length} photos</span>
                       </span>
@@ -314,7 +310,7 @@ export default function ProjectsTab({
               <div className="p-4 flex flex-col flex-1">
                 <div className="flex justify-between items-start mb-1">
                   <h3 
-                    className="font-bold text-neutral-900 dark:text-white line-clamp-1 cursor-pointer group-hover:text-amber-500 transition-colors"
+                    className="font-bold text-neutral-900 dark:text-white line-clamp-1 cursor-pointer hover:text-amber-500 transition-colors"
                     onClick={() => handleOpenEdit(project)}
                   >
                     {project.name}
@@ -343,14 +339,14 @@ export default function ProjectsTab({
                     <button
                       type="button"
                       onClick={() => handleOpenEdit(project)}
-                      className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 hover:text-amber-500 hover:bg-neutral-100 dark:hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                      className="px-2.5 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 hover:text-amber-500 hover:bg-neutral-100 dark:hover:bg-white/5 rounded-[4px] transition-colors cursor-pointer"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => handleOpenDeleteProject(project)}
-                      className="p-1.5 text-neutral-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-neutral-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-[4px] transition-colors cursor-pointer"
                       title="Delete Project"
                     >
                       <TrashIcon className="w-4 h-4" />
@@ -376,11 +372,9 @@ export default function ProjectsTab({
       {/* Custom Confirmation Modal: Delete Project */}
       {projectToDelete && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-[#141824] rounded-3xl border border-neutral-200 dark:border-white/10 shadow-2xl p-6 flex flex-col gap-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#141824] rounded-[8px] border border-neutral-200 dark:border-white/10 shadow-2xl p-6 flex flex-col gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                <TrashIcon className="w-6 h-6" />
-              </div>
+              <TrashIcon className="w-6 h-6 text-rose-500 shrink-0" />
               <div>
                 <h4 className="text-base font-bold text-neutral-900 dark:text-white">
                   Delete This Project?
@@ -393,7 +387,7 @@ export default function ProjectsTab({
 
             {/* Thumbnail Preview if available */}
             {projectToDelete.images?.[0] && (
-              <div className="w-full h-32 rounded-2xl overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800">
+              <div className="w-full h-32 rounded-[4px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800">
                 <img
                   src={projectToDelete.images[0]}
                   alt={projectToDelete.name}
@@ -413,7 +407,7 @@ export default function ProjectsTab({
                   <LockIcon className="w-3.5 h-3.5 text-amber-500" />
                   <span>Password *</span>
                 </label>
-                <span className="text-[10px] text-neutral-400 font-normal">
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Required for delete
                 </span>
               </div>
@@ -433,7 +427,7 @@ export default function ProjectsTab({
                     }
                   }}
                   placeholder="Enter admin password"
-                  className={`w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border text-xs text-neutral-900 dark:text-white placeholder-neutral-400 transition-colors focus:outline-none ${
+                  className={`w-full pl-3.5 pr-10 py-2.5 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border text-xs text-neutral-900 dark:text-white placeholder-neutral-400 transition-colors focus:outline-none ${
                     deletePasswordError
                       ? "border-rose-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
                       : "border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
@@ -468,7 +462,7 @@ export default function ProjectsTab({
                 type="button"
                 onClick={handleCloseDeleteProject}
                 disabled={isVerifyingPassword}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-50"
+                className="px-4 py-2.5 rounded-[4px] text-xs font-mono font-bold uppercase text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -476,7 +470,7 @@ export default function ProjectsTab({
                 type="button"
                 onClick={handleConfirmDeleteProject}
                 disabled={isVerifyingPassword}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                className="px-5 py-2.5 rounded-[4px] text-xs font-mono font-bold uppercase bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isVerifyingPassword ? (
                   <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

@@ -193,7 +193,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
               className="flex items-center gap-3 group focus:outline-none select-none"
               aria-label="MCPA Construction and Supply Home"
             >
-              <div className="relative w-36 sm:w-44 md:w-52 h-10 transition-transform duration-300 group-hover:scale-105">
+              <div className="relative w-36 sm:w-44 md:w-52 h-10">
                 <Image
                   src="/assets/logo-white.svg"
                   alt="MCPA Construction and Supply"
@@ -246,9 +246,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
               >
                 <span>{link.label}</span>
                 {link.active && (
-                  <span className={`absolute bottom-0 inset-x-0 h-0.5 rounded-full ${
-                    scrolledPastHero ? "bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]" : "bg-amber-500 dark:bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.8)]"
-                  }`} />
+                  <span className="absolute bottom-0 inset-x-0 h-0.5 bg-amber-500 dark:bg-amber-400" />
                 )}
               </Link>
             ))}
@@ -260,11 +258,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
             {showHeaderBooking && (
               <Link
                 href="/book"
-                className={`hidden sm:inline-flex px-3.5 sm:px-4 lg:px-6 py-2 sm:py-2.5 rounded-full font-sans text-xs sm:text-xs lg:text-sm font-semibold tracking-wide sm:tracking-wider uppercase transition-all duration-300 select-none whitespace-nowrap ${
-                  scrolledPastHero
-                    ? "bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 text-neutral-950 font-bold shadow-[0_4px_20px_rgba(245,158,11,0.35)] hover:shadow-[0_6px_25px_rgba(245,158,11,0.5)]"
-                    : "bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 text-neutral-950 font-bold shadow-[0_4px_20px_rgba(245,158,11,0.45)] border border-amber-300/60 hover:brightness-105"
-                } hover:scale-105 active:scale-95`}
+                className="hidden sm:inline-flex px-4 lg:px-5 py-2 sm:py-2.5 rounded-[6px] font-sans text-xs font-bold tracking-[0.06em] uppercase transition-[background-color,box-shadow] duration-150 select-none whitespace-nowrap bg-amber-500 text-neutral-950 hover:bg-amber-400 shadow-[0_2px_8px_rgba(245,158,11,0.28)] hover:shadow-[0_4px_14px_rgba(245,158,11,0.36)] active:bg-amber-600 active:shadow-none"
               >
                 {t("bookAppointment")}
               </Link>
@@ -273,7 +267,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
             {/* Automatic Offline Indicator Pill (kusa lumalabas kapag nawalan ng net) */}
             {!isOnline && (
               <div
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/40 text-red-600 dark:text-red-400 text-xs font-bold animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.4)] select-none"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-red-500/12 border border-red-500/35 text-red-600 dark:text-red-400 text-xs font-semibold select-none"
                 title={language === "fil" ? "Walang koneksyon sa internet" : "No internet connection"}
               >
                 <WifiOff className="w-3.5 h-3.5" />
@@ -289,10 +283,10 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
                 href="/portal"
                 aria-label="Client Account Portal"
                 title="Client Portal & Project Tracker"
-                className={`p-2.5 rounded-full transition-all duration-200 focus:outline-none flex items-center justify-center border select-none ${
+                className={`p-2.5 rounded-[6px] transition-[color,background-color,border-color] duration-150 focus:outline-none flex items-center justify-center border select-none ${
                   scrolledPastHero
-                    ? "border-neutral-200/80 dark:border-white/10 text-neutral-800 hover:text-amber-600 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:text-amber-400 dark:hover:bg-white/10 shadow-xs"
-                    : "border-neutral-900/15 bg-white/50 hover:bg-white/70 text-neutral-900 dark:border-white/20 dark:bg-white/[0.05] dark:text-white dark:hover:bg-white/15 shadow-xs"
+                    ? "border-neutral-200 dark:border-white/10 text-neutral-700 hover:text-amber-600 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:text-amber-400 dark:hover:bg-white/8"
+                    : "border-neutral-900/15 bg-white/45 hover:bg-white/65 text-neutral-900 dark:border-white/20 dark:bg-white/[0.05] dark:text-white dark:hover:bg-white/12"
                 }`}
               >
                 <UserIcon className="w-5 h-5" />
@@ -469,27 +463,27 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook: MCPA Construction and Supply"
-              className="p-2 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 hover:border-blue-500/50 text-neutral-800 dark:text-white transition-colors"
+              className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors inline-flex items-center justify-center cursor-pointer"
             >
-              <FacebookIcon className="w-4 h-4 rounded-full" />
+              <FacebookIcon className="w-5 h-5" />
             </a>
             <a
               href="https://www.instagram.com/mcpa.constructionandsupply/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram: @mcpa.constructionandsupply"
-              className="p-2 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 hover:border-pink-500/50 text-neutral-800 dark:text-white transition-colors"
+              className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:text-pink-500 dark:hover:text-pink-400 transition-colors inline-flex items-center justify-center cursor-pointer"
             >
-              <InstagramIcon className="w-4 h-4 rounded-md" />
+              <InstagramIcon className="w-5 h-5" />
             </a>
             <a
               href="https://www.tiktok.com/@mcpa.construction"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="TikTok: @mcpa.construction"
-              className="p-2 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 hover:border-cyan-500/50 text-neutral-800 dark:text-white transition-colors"
+              className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors inline-flex items-center justify-center cursor-pointer"
             >
-              <TikTokIcon className="w-4 h-4 rounded-full" />
+              <TikTokIcon className="w-5 h-5" />
             </a>
           </div>
         </div>

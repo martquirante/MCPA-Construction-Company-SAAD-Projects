@@ -97,14 +97,14 @@ function MeetingTypeBadge({ mode }) {
 
   if (isOnline) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
         <VideoIcon className="w-3 h-3" />
         Google Meet
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
       <MapPinIcon className="w-3 h-3" />
       F2F
     </span>
@@ -221,7 +221,7 @@ export default function InquiryPipelineTab({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-mono text-neutral-500">Total Leads:</span>
-            <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400 font-mono font-bold text-xs border border-amber-500/30">
+            <span className="px-2.5 py-1 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 font-mono font-bold text-xs border border-amber-500/30">
               {clientBriefs.length}
             </span>
           </div>
@@ -237,14 +237,14 @@ export default function InquiryPipelineTab({
           ].map(({ label, value, color, bar }) => (
             <div
               key={label}
-              className="p-4 rounded-2xl bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.07] hover:border-neutral-300 dark:hover:border-white/[0.14] transition-all shadow-xs dark:shadow-none"
+              className="p-4 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] hover:border-neutral-300 dark:hover:border-white/[0.14] transition-colors shadow-xs"
             >
-              <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">{label}</p>
+              <p className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">{label}</p>
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className={`text-2xl sm:text-3xl font-bold tabular-nums tracking-tight ${color}`}>{value}</span>
+                <span className={`text-2xl sm:text-3xl font-mono font-bold tabular-nums tracking-tight ${color}`}>{value}</span>
               </div>
-              <div className="mt-2.5 h-1 w-full rounded-full bg-neutral-100 dark:bg-white/[0.06] overflow-hidden">
-                <div className={`h-full rounded-full ${bar} transition-all duration-500`} style={{ width: clientBriefs.length > 0 ? `${Math.min(100, (value / clientBriefs.length) * 100)}%` : "0%" }} />
+              <div className="mt-2.5 h-1 w-full rounded-[2px] bg-neutral-100 dark:bg-white/[0.06] overflow-hidden">
+                <div className={`h-full rounded-[2px] ${bar} transition-all duration-500`} style={{ width: clientBriefs.length > 0 ? `${Math.min(100, (value / clientBriefs.length) * 100)}%` : "0%" }} />
               </div>
             </div>
           ))}
@@ -259,7 +259,7 @@ export default function InquiryPipelineTab({
               placeholder="Search client name, email, project type, location..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 h-[42px] rounded-xl text-xs bg-white dark:bg-[#12141a] border border-neutral-200/90 dark:border-white/[0.08] text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors shadow-xs"
+              className="w-full pl-9 pr-4 py-2 h-[40px] rounded-[4px] text-xs font-mono bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors shadow-xs"
             />
           </div>
           <StageCombobox
@@ -286,7 +286,7 @@ export default function InquiryPipelineTab({
                     setSearch("");
                     setFilterStage("ALL");
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/15 text-neutral-800 dark:text-neutral-200 font-mono font-bold text-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[4px] bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/15 text-neutral-800 dark:text-neutral-200 font-mono font-bold text-xs transition-colors cursor-pointer"
                 >
                   Clear Filters & Search
                 </button>
@@ -301,7 +301,7 @@ export default function InquiryPipelineTab({
             />
           )
         ) : (
-          <div className="rounded-2xl border border-neutral-200/90 dark:border-white/[0.07] bg-white dark:bg-[#12141a] overflow-hidden shadow-xs">
+          <div className="rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0f1117] overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-neutral-100 dark:bg-white/[0.03] border-b border-neutral-200 dark:border-white/5 text-neutral-500 dark:text-neutral-400 font-mono uppercase tracking-wider">
@@ -336,7 +336,7 @@ export default function InquiryPipelineTab({
                             {brief.submissionId || brief.id}
                           </span>
                           {brief.locationType === "OFW" && (
-                            <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-[9px] font-mono font-bold">
+                            <span className="ml-1.5 px-1.5 py-0.5 rounded-[4px] bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-[9px] font-mono font-bold">
                               OFW
                             </span>
                           )}
@@ -370,7 +370,7 @@ export default function InquiryPipelineTab({
                           )}
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${stageConfig.color}`}>
+                          <span className={`px-2.5 py-1 rounded-[4px] text-[10px] font-mono font-bold border ${stageConfig.color}`}>
                             {currentStatus}
                           </span>
                         </td>
@@ -378,14 +378,14 @@ export default function InquiryPipelineTab({
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={(e) => { e.stopPropagation(); openDrawer(brief); }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500 hover:text-neutral-950 transition-all text-[10px] font-mono uppercase cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500 hover:text-neutral-950 transition-colors text-[10px] font-mono uppercase cursor-pointer"
                             >
                               Review
                               <ChevronRightIcon className="w-3 h-3" />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); onDeleteBrief(brief.id); }}
-                              className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer"
+                              className="p-1.5 rounded-[4px] text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
                               title="Remove inquiry"
                             >
                               <TrashIcon className="w-3.5 h-3.5" />
@@ -424,7 +424,7 @@ export default function InquiryPipelineTab({
               </div>
               <button
                 onClick={closeDrawer}
-                className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-all cursor-pointer"
+                className="p-2 rounded-[4px] text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
                 <CloseIcon className="w-4 h-4" />
               </button>
@@ -433,7 +433,7 @@ export default function InquiryPipelineTab({
             {/* Drawer Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
               {/* Client Info */}
-              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-3">
+              <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-3">
                 <h4 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                   Client Information
                 </h4>
@@ -469,7 +469,7 @@ export default function InquiryPipelineTab({
               </div>
 
               {/* Project Details */}
-              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-2">
+              <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-2">
                 <h4 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                   Project Scope
                 </h4>
@@ -480,14 +480,14 @@ export default function InquiryPipelineTab({
                     { label: "Budget Range", value: selectedBrief.budgetRange || "—" },
                     { label: "Financing", value: selectedBrief.financing || "—" },
                   ].map(({ label, value }) => (
-                    <div key={label} className="p-2.5 rounded-xl bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                    <div key={label} className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
                       <p className="text-[9px] font-mono uppercase text-neutral-500">{label}</p>
                       <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">{value}</p>
                     </div>
                   ))}
                 </div>
                 {selectedBrief.message && (
-                  <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                  <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
                     <p className="text-[9px] font-mono uppercase text-neutral-500 mb-1">Client Message</p>
                     <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">{selectedBrief.message}</p>
                   </div>
@@ -506,7 +506,7 @@ export default function InquiryPipelineTab({
                     <button
                       key={mode}
                       onClick={() => setMeetingMode(mode)}
-                      className={`p-3 rounded-xl border text-[10px] font-mono text-left transition-all cursor-pointer ${
+                      className={`p-3 rounded-[4px] border text-[10px] font-mono text-left transition-colors cursor-pointer ${
                         meetingMode === mode
                           ? "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold"
                           : "border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900/60 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50"
@@ -532,7 +532,7 @@ export default function InquiryPipelineTab({
                       type="date"
                       value={meetingDate}
                       onChange={(e) => setMeetingDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
+                      className="w-full px-3 py-2 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
                     />
                   </div>
                   <div>
@@ -542,7 +542,7 @@ export default function InquiryPipelineTab({
                       value={meetingTime}
                       onChange={(e) => setMeetingTime(e.target.value)}
                       placeholder="09:00 AM - 10:30 AM"
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors"
+                      className="w-full px-3 py-2 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors"
                     />
                   </div>
                 </div>
@@ -558,12 +558,12 @@ export default function InquiryPipelineTab({
                       value={meetingLink}
                       onChange={(e) => setMeetingLink(e.target.value)}
                       placeholder="https://meet.google.com/..."
-                      className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors"
+                      className="flex-1 px-3 py-2 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors"
                     />
                     <button
                       onClick={handleCopyLink}
                       title="Copy link"
-                      className="px-3 py-2 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-all cursor-pointer shrink-0"
+                      className="px-3 py-2 rounded-[4px] bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer shrink-0"
                     >
                       <CopyIcon className="w-4 h-4" />
                     </button>
@@ -572,7 +572,7 @@ export default function InquiryPipelineTab({
                         href={meetingLink}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-3 py-2 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-600 dark:hover:text-sky-400 transition-all shrink-0"
+                        className="px-3 py-2 rounded-[4px] bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors shrink-0"
                         title="Test link"
                       >
                         <ExternalLinkIcon className="w-4 h-4" />
@@ -589,7 +589,7 @@ export default function InquiryPipelineTab({
                     onChange={(e) => setMeetingNotes(e.target.value)}
                     placeholder="Add any notes or instructions for this consultation..."
                     rows={3}
-                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors resize-none"
+                    className="w-full px-3 py-2 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors resize-none"
                   />
                 </div>
               </div>
@@ -600,7 +600,7 @@ export default function InquiryPipelineTab({
               <button
                 onClick={handleApprove}
                 disabled={isApproving}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-wide transition-all cursor-pointer shadow-md shadow-amber-500/20"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-wide transition-colors cursor-pointer shadow-sm"
               >
                 <CheckIcon className="w-4 h-4" />
                 {isApproving ? "Approving..." : "Approve & Send Email to Client"}
@@ -608,14 +608,14 @@ export default function InquiryPipelineTab({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => onUpdateStatus(selectedBrief.id, "Needs Information", {})}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50 hover:text-amber-600 dark:hover:text-amber-400 text-[11px] font-mono uppercase transition-all cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-[4px] border border-neutral-300 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50 hover:text-amber-600 dark:hover:text-amber-400 text-[11px] font-mono uppercase transition-colors cursor-pointer"
                 >
                   Reschedule
                 </button>
                 <button
                   onClick={handleReject}
                   disabled={isRejecting}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white text-[11px] font-mono uppercase transition-all cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-[4px] border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white text-[11px] font-mono uppercase transition-colors cursor-pointer"
                 >
                   <XCircleIcon className="w-3.5 h-3.5" />
                   {isRejecting ? "Rejecting..." : "Reject"}

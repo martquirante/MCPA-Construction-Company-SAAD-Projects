@@ -564,7 +564,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-2xl bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/[0.08] rounded-[8px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-neutral-200 dark:border-white/10 flex justify-between items-center bg-neutral-50 dark:bg-neutral-900/50">
           <div>
@@ -577,7 +577,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-500 transition-colors"
+            className="p-2 rounded-[4px] hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-500 transition-colors"
           >
             <CloseIcon className="w-5 h-5" />
           </button>
@@ -598,7 +598,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 onChange={handleChange}
                 required
                 placeholder="e.g. Pampanga Zen Sanctuary"
-                className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
+                className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
               />
             </div>
 
@@ -623,14 +623,14 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                       if (locationSuggestions.length > 0) setShowLocationDropdown(true);
                     }}
                     placeholder="e.g. Pulilan, Bulacan or Pampanga"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
+                    className="w-full pl-10 pr-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
                   />
                   <MapPinIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
 
                 {/* Autocomplete Suggestions Dropdown */}
                 {showLocationDropdown && locationSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-[4px] shadow-xl overflow-hidden max-h-56 overflow-y-auto">
                     <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-50 dark:bg-neutral-800/60 border-b border-neutral-100 dark:border-neutral-800">
                       Suggested Philippine Locations
                     </div>
@@ -658,7 +658,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
+                  className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
                 >
                   {PRESET_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
@@ -672,7 +672,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
 
             {/* Custom Category Input if "Other" is selected */}
             {formData.category === "Other" && (
-              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-[4px]">
                 <label className="block text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1.5">
                   Enter Custom Category Name *
                 </label>
@@ -683,7 +683,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                   onChange={handleChange}
                   required={formData.category === "Other"}
                   placeholder="e.g. Industrial Warehouse, Renovation, Interior Fit-out"
-                  className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-neutral-900 border border-amber-500/30 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors text-sm"
+                  className="w-full px-4 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-amber-500/30 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors text-sm"
                 />
               </div>
             )}
@@ -699,7 +699,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                   name="month"
                   value={formData.month}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
+                  className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
                 >
                   {MONTHS.map((m) => (
                     <option key={m} value={m}>
@@ -718,7 +718,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                   name="year"
                   value={formData.year}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
+                  className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
                 >
                   {YEARS.map((y) => (
                     <option key={y} value={y}>
@@ -738,7 +738,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors font-medium"
+                className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors font-medium"
               >
                 <option value="completed">Completed Project (Fully Constructed)</option>
                 <option value="in_progress">In Progress (Active Development & Construction)</option>
@@ -758,12 +758,12 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 onChange={handleTextareaChange}
                 rows={3}
                 placeholder="Brief project details, architectural materials, lot size, or scope..."
-                className="w-full px-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-all resize-none overflow-hidden"
+                className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-all resize-none overflow-hidden"
               />
             </div>
 
             {/* Architectural & Engineering Specifications */}
-            <div className="p-4 rounded-2xl border border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-neutral-900/40 space-y-4">
+            <div className="p-4 rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-neutral-50/50 dark:bg-neutral-900/40 space-y-4">
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                   Architectural & Engineering Specifications
@@ -784,7 +784,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                     value={formData.lotArea}
                     onChange={handleChange}
                     placeholder="e.g. 240 sq.m."
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
                   />
                 </div>
 
@@ -798,7 +798,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                     value={formData.floorArea}
                     onChange={handleChange}
                     placeholder="e.g. 210 sq.m."
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
                   />
                 </div>
 
@@ -812,7 +812,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                     value={formData.bedrooms}
                     onChange={handleChange}
                     placeholder="e.g. 4 Bedrooms"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
                   />
                 </div>
 
@@ -826,7 +826,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                     value={formData.bathrooms}
                     onChange={handleChange}
                     placeholder="e.g. 3 Bathrooms"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -841,7 +841,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                   value={formData.featuresText}
                   onChange={handleChange}
                   placeholder="e.g. Reinforced Concrete Framing, 2-Car Garage, Modern Balcony, Tempered Glass Railings"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
@@ -856,13 +856,13 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                   onChange={handleTextareaChange}
                   rows={2}
                   placeholder="e.g. Grade 60 Rebars, 3000 PSI Ready-Mix, Signed & Sealed PRC Blueprints..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none resize-none overflow-hidden transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none resize-none overflow-hidden transition-all"
                 />
               </div>
             </div>
 
             {/* Visibility Toggle */}
-            <div className="flex items-center gap-4 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+            <div className="flex items-center gap-4 p-4 rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-neutral-50 dark:bg-neutral-900/50">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
@@ -880,7 +880,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   {formData.status === "in_progress"
-                    ? "If enabled, shows on client portfolio with an 'IN PROGRESS · PLANS & RENDERS' badge."
+                    ? "If enabled, shows on client portfolio with an 'IN PROGRESS Â· PLANS & RENDERS' badge."
                     : formData.status === "planning"
                     ? "If enabled, showcases architectural blueprints & conceptual plans."
                     : "Determines if this project is displayed on the main client portfolio site."}
@@ -899,10 +899,10 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             </div>
 
             {/* Feature on Home Page Toggle */}
-            <div className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-white/5 rounded-2xl">
+            <div className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-white/[0.08] rounded-[6px]">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-amber-500 font-bold text-sm">★</span>
+                  <span className="text-amber-500 font-bold text-sm">â˜…</span>
                   <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
                     Feature on Home Page
                   </h4>
@@ -959,7 +959,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                           label: idx === 0 ? "Cover Photo" : `Gallery Photo ${idx + 1}`,
                         })
                       }
-                      className="relative group h-24 rounded-xl overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800 cursor-pointer shadow-xs"
+                      className="relative group h-24 rounded-[4px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800 cursor-pointer shadow-xs"
                     >
                       <img
                         src={url}
@@ -967,7 +967,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                       {idx === 0 && (
-                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-amber-500 text-neutral-950 font-bold text-[9px] uppercase shadow z-10">
+                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-[2px] bg-amber-500 text-neutral-950 font-bold text-[9px] uppercase shadow z-10">
                           Cover
                         </span>
                       )}
@@ -986,7 +986,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                             });
                           }}
                           title="Fullscreen View"
-                          className="p-1.5 bg-white/90 dark:bg-neutral-900/90 text-neutral-900 dark:text-white rounded-lg hover:scale-110 transition-transform shadow cursor-pointer"
+                          className="p-1.5 bg-white/90 dark:bg-neutral-900/90 text-neutral-900 dark:text-white rounded-[4px] hover:scale-105 transition-transform shadow cursor-pointer"
                         >
                           <Maximize2Icon className="w-3.5 h-3.5" />
                         </button>
@@ -997,7 +997,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                             handleOpenDeletePhoto({ type: "existing", index: idx, url });
                           }}
                           title="Delete Photo"
-                          className="p-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 hover:scale-110 transition-transform shadow cursor-pointer"
+                          className="p-1.5 bg-rose-600 text-white rounded-[4px] hover:bg-rose-700 hover:scale-105 transition-transform shadow cursor-pointer"
                         >
                           <TrashIcon className="w-3.5 h-3.5" />
                         </button>
@@ -1021,14 +1021,14 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                           label: globalIdx === 0 ? "Cover Photo" : `New Upload ${idx + 1}`,
                         })
                       }
-                      className="relative group h-24 rounded-xl overflow-hidden border-2 border-amber-500/60 bg-neutral-100 dark:bg-neutral-800 cursor-pointer shadow-xs"
+                      className="relative group h-24 rounded-[4px] overflow-hidden border-2 border-amber-500/60 bg-neutral-100 dark:bg-neutral-800 cursor-pointer shadow-xs"
                     >
                       <img
                         src={url}
                         alt={`New upload ${idx + 1}`}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
-                      <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-emerald-500 text-white font-bold text-[9px] uppercase shadow z-10">
+                      <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-[2px] bg-emerald-500 text-white font-bold text-[9px] uppercase shadow z-10">
                         New
                       </span>
 
@@ -1046,7 +1046,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                             });
                           }}
                           title="Fullscreen View"
-                          className="p-1.5 bg-white/90 dark:bg-neutral-900/90 text-neutral-900 dark:text-white rounded-lg hover:scale-110 transition-transform shadow cursor-pointer"
+                          className="p-1.5 bg-white/90 dark:bg-neutral-900/90 text-neutral-900 dark:text-white rounded-[4px] hover:scale-105 transition-transform shadow cursor-pointer"
                         >
                           <Maximize2Icon className="w-3.5 h-3.5" />
                         </button>
@@ -1057,7 +1057,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                             handleOpenDeletePhoto({ type: "new", index: idx, url });
                           }}
                           title="Delete Photo"
-                          className="p-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 hover:scale-110 transition-transform shadow cursor-pointer"
+                          className="p-1.5 bg-rose-600 text-white rounded-[4px] hover:bg-rose-700 hover:scale-105 transition-transform shadow cursor-pointer"
                         >
                           <TrashIcon className="w-3.5 h-3.5" />
                         </button>
@@ -1067,7 +1067,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 })}
 
                 {/* Add Photo Button */}
-                <label className="h-24 rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 flex flex-col items-center justify-center text-neutral-500 hover:text-amber-600 transition-colors cursor-pointer">
+                <label className="h-24 rounded-[4px] border-2 border-dashed border-neutral-300 dark:border-neutral-700 hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 flex flex-col items-center justify-center text-neutral-500 hover:text-amber-600 transition-colors cursor-pointer">
                   <PlusIcon className="w-6 h-6 mb-1 text-amber-500" />
                   <span className="text-[11px] font-bold">+ Add Photos</span>
                   <input
@@ -1081,7 +1081,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
               </div>
 
               {/* Upload Helper & Size Note */}
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900/30 text-xs text-amber-800 dark:text-amber-300/90 flex flex-col gap-1">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-[6px] border border-amber-200 dark:border-amber-900/30 text-xs text-amber-800 dark:text-amber-300/90 flex flex-col gap-1">
                 <div className="flex items-center gap-1.5 font-bold">
                   <UploadCloudIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   <span>Multi-Photo Upload Supported</span>
@@ -1106,7 +1106,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl text-sm font-bold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+            className="px-5 py-2.5 rounded-[4px] text-sm font-bold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -1114,7 +1114,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             form="project-form"
             type="submit"
             disabled={isSaving || isUploading}
-            className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-sm flex items-center gap-2 shadow-lg shadow-amber-500/20 disabled:opacity-50 transition-all cursor-pointer"
+            className="px-6 py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-sm flex items-center gap-2 shadow-sm disabled:opacity-50 transition-colors cursor-pointer"
           >
             {isSaving ? "Saving..." : "Save Project"}
           </button>
@@ -1135,7 +1135,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
-              <span className="px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-mono text-white/90">
+              <span className="px-2.5 py-1 rounded-[4px] bg-white/10 border border-white/20 text-xs font-mono text-white/90">
                 Photo {fullscreenImage.index + 1} of {fullscreenImage.total}
               </span>
               {fullscreenImage.label && (
@@ -1148,7 +1148,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             <button
               type="button"
               onClick={() => setFullscreenImage(null)}
-              className="p-2.5 rounded-full bg-white/10 hover:bg-white/25 text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-mono"
+              className="px-3 py-1.5 rounded-[4px] bg-white/10 hover:bg-white/20 border border-white/20 text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-mono"
               title="Close (ESC)"
             >
               <span>Close (ESC)</span>
@@ -1184,7 +1184,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             <img
               src={fullscreenImage.url}
               alt="Fullscreen View"
-              className="max-h-[80vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl border border-white/10"
+              className="max-h-[80vh] max-w-[90vw] object-contain rounded-[4px] shadow-2xl border border-white/10"
             />
 
             {fullscreenImage.total > 1 && (
@@ -1213,7 +1213,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             className="py-2 text-center text-xs text-neutral-400 font-mono"
             onClick={(e) => e.stopPropagation()}
           >
-            Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">ESC</kbd> to close, or use arrow keys <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">←</kbd> <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">→</kbd> to browse photos
+            Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">ESC</kbd> to close, or use arrow keys <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">â†</kbd> <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">â†’</kbd> to browse photos
           </div>
         </div>
       )}
@@ -1223,11 +1223,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
       {/* ========================================================================= */}
       {photoToDelete && (
         <div className="fixed inset-0 z-[260] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-[#141824] rounded-3xl border border-neutral-200 dark:border-white/10 shadow-2xl p-6 flex flex-col gap-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#141824] rounded-[8px] border border-neutral-200 dark:border-white/[0.08] shadow-2xl p-6 flex flex-col gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                <TrashIcon className="w-6 h-6" />
-              </div>
+              <TrashIcon className="w-6 h-6 text-rose-500 shrink-0" />
               <div>
                 <h4 className="text-base font-bold text-neutral-900 dark:text-white">
                   Remove This Photo?
@@ -1239,7 +1237,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             </div>
 
             {/* Thumbnail Preview */}
-            <div className="w-full h-36 rounded-2xl overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800">
+            <div className="w-full h-36 rounded-[4px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800">
               <img
                 src={photoToDelete.url}
                 alt="Photo to remove"
@@ -1278,7 +1276,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                     }
                   }}
                   placeholder="Enter admin password"
-                  className={`w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border text-xs text-neutral-900 dark:text-white placeholder-neutral-400 transition-colors focus:outline-none ${
+                  className={`w-full pl-3.5 pr-10 py-2.5 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border text-xs text-neutral-900 dark:text-white placeholder-neutral-400 transition-colors focus:outline-none ${
                     deletePasswordError
                       ? "border-rose-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
                       : "border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
@@ -1313,7 +1311,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 type="button"
                 onClick={handleCloseDeletePhoto}
                 disabled={isVerifyingPassword}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-50"
+                className="px-4 py-2.5 rounded-[4px] text-xs font-mono font-bold uppercase text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1321,7 +1319,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 type="button"
                 onClick={handleConfirmDeletePhoto}
                 disabled={isVerifyingPassword}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                className="px-5 py-2.5 rounded-[4px] text-xs font-mono font-bold uppercase bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isVerifyingPassword ? (
                   <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1340,11 +1338,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
       {/* ========================================================================= */}
       {showSaveConfirm && (
         <div className="fixed inset-0 z-[260] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white dark:bg-[#141824] rounded-3xl border border-neutral-200 dark:border-white/10 shadow-2xl p-6 flex flex-col gap-4">
+          <div className="w-full max-w-lg bg-white dark:bg-[#141824] rounded-[8px] border border-neutral-200 dark:border-white/[0.08] shadow-2xl p-6 flex flex-col gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <CheckCircle2Icon className="w-6 h-6" />
-              </div>
+              <CheckCircle2Icon className="w-7 h-7 text-amber-500 dark:text-amber-400 shrink-0" />
               <div>
                 <h4 className="text-base font-bold text-neutral-900 dark:text-white">
                   Confirm Project Changes
@@ -1356,7 +1352,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             </div>
 
             {/* Project Summary Card */}
-            <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-white/10 text-xs space-y-2 font-mono">
+            <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-white/[0.08] text-xs space-y-2 font-mono">
               <div className="flex justify-between items-center py-1 border-b border-neutral-200/50 dark:border-white/5">
                 <span className="text-neutral-500 dark:text-neutral-400">Name:</span>
                 <span className="font-bold text-neutral-900 dark:text-white text-right font-sans">
@@ -1412,14 +1408,14 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
               <button
                 type="button"
                 onClick={() => setShowSaveConfirm(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-[4px] text-xs font-mono font-bold uppercase text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
               >
                 Review Again
               </button>
               <button
                 type="button"
                 onClick={executeActualSave}
-                className="px-6 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-md shadow-amber-500/25 transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-6 py-2.5 rounded-[4px] text-xs font-mono font-bold uppercase bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <SaveIcon className="w-3.5 h-3.5" />
                 <span>Yes, Save Project</span>
@@ -1434,12 +1430,10 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
       {/* ========================================================================= */}
       {isUploading && (
         <div className="fixed inset-0 z-[270] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-[#141824] rounded-3xl border border-neutral-200 dark:border-white/10 shadow-2xl p-6 sm:p-8 flex flex-col items-center text-center gap-5">
+          <div className="w-full max-w-md bg-white dark:bg-[#141824] rounded-[8px] border border-neutral-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-8 flex flex-col items-center text-center gap-5">
             {/* Animated Upload Icon */}
             <div className="relative">
-              <div className="w-16 h-16 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center animate-bounce">
-                <UploadCloudIcon className="w-8 h-8" />
-              </div>
+              <UploadCloudIcon className="w-10 h-10 text-amber-500 dark:text-amber-400" />
               <div className="absolute inset-0 rounded-full border-2 border-amber-500/30 border-t-amber-500 animate-spin" />
             </div>
 
@@ -1454,9 +1448,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
 
             {/* 0-100% Progress Bar */}
             <div className="w-full space-y-2">
-              <div className="w-full h-3.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden shadow-inner p-0.5">
+              <div className="w-full h-3 rounded-[3px] bg-neutral-200 dark:bg-neutral-800 overflow-hidden p-0.5">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-300 transition-all duration-300 shadow-[0_0_12px_rgba(245,158,11,0.6)]"
+                  className="h-full rounded-[2px] bg-amber-500 transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
@@ -1480,11 +1474,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
       {/* ========================================================================= */}
       {friendlyError && (
         <div className="fixed inset-0 z-[280] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-[#141824] rounded-3xl border border-neutral-200 dark:border-white/10 shadow-2xl p-6 sm:p-7 flex flex-col gap-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#141824] rounded-[8px] border border-neutral-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-7 flex flex-col gap-4">
             <div className="flex items-start gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
-                <AlertCircleIcon className="w-6 h-6" />
-              </div>
+              <AlertCircleIcon className="w-7 h-7 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <h4 className="text-base font-bold text-neutral-900 dark:text-white">
                   {friendlyError.title}
@@ -1497,7 +1489,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
 
             {/* Friendly Non-IT Tip Box */}
             {friendlyError.tip && (
-              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300/90 flex items-start gap-2.5">
+              <div className="p-3.5 rounded-[6px] bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300/90 flex items-start gap-2.5">
                 <LightbulbIcon className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                 <div className="leading-relaxed">
                   <strong className="font-bold">Tip:</strong> {friendlyError.tip}
@@ -1509,7 +1501,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
               <button
                 type="button"
                 onClick={() => setFriendlyError(null)}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-[4px] text-xs font-mono font-bold uppercase bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-sm transition-colors cursor-pointer"
               >
                 Got it
               </button>
@@ -1520,3 +1512,5 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     </div>
   );
 }
+
+

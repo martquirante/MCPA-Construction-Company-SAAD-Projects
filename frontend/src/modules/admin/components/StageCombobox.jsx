@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChevronDownIcon, CheckIcon, SearchIcon, XIcon } from "@/modules/shared/Icons";
+import { ChevronDownIcon, CheckIcon, SearchIcon, XIcon, FilterIcon } from "@/modules/shared/Icons";
 import LordIcon from "@/modules/shared/LordIcon";
 
 export default function StageCombobox({
@@ -60,20 +60,19 @@ export default function StageCombobox({
           setIsOpen(!isOpen);
           setFilterQuery("");
         }}
-        className={`group flex items-center justify-between gap-3 px-3.5 py-2 h-[42px] rounded-xl text-xs font-mono border transition-all duration-200 cursor-pointer shadow-xs ${
+        className={`group flex items-center justify-between gap-3 px-3.5 py-2 h-[40px] rounded-[4px] text-xs font-mono border transition-colors cursor-pointer shadow-xs ${
           isOpen
-            ? "bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-neutral-950 dark:text-white ring-2 ring-amber-500/20 shadow-md"
+            ? "bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-neutral-950 dark:text-white ring-1 ring-amber-500/20"
             : selectedStage !== "ALL"
-            ? "bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/50 text-neutral-900 dark:text-neutral-100 hover:border-amber-500 hover:shadow-sm"
-            : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-amber-500 hover:text-neutral-950 dark:hover:text-white hover:shadow-sm"
+            ? "bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/50 text-neutral-900 dark:text-neutral-100 hover:border-amber-500"
+            : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-amber-500 hover:text-neutral-950 dark:hover:text-white"
         }`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
         <div className="flex items-center gap-2.5 min-w-0">
           {/* Animated Lordicon for Current Stage */}
-          <div className="relative w-6 h-6 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/20 flex items-center justify-center shrink-0 overflow-hidden">
-            {currentStage.iconSrc ? (
+          {currentStage.iconSrc ? (
               <LordIcon
                 src={currentStage.iconSrc}
                 size={18}
@@ -81,12 +80,9 @@ export default function StageCombobox({
                 colors={currentStage.colors || "primary:#f59e0b,secondary:#64748b"}
               />
             ) : (
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <FilterIcon className="w-4 h-4 text-amber-500 shrink-0" />
             )}
-            {selectedStage !== "ALL" && (
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-            )}
-          </div>
+          
 
           {/* Selected Stage Pill & Status */}
           <div className="flex items-center gap-1.5 truncate text-left">
@@ -108,7 +104,7 @@ export default function StageCombobox({
         {/* Right Badge count & Chevron */}
         <div className="flex items-center gap-2 shrink-0">
           <span
-            className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold transition-colors ${
+            className={`px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold transition-colors ${
               selectedStage !== "ALL"
                 ? "bg-amber-500 text-neutral-950 shadow-xs"
                 : "bg-neutral-100 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
@@ -126,19 +122,18 @@ export default function StageCombobox({
 
       {/* Dropdown Popover */}
       {isOpen && (
-        <div className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white/95 dark:bg-[#12141a]/95 backdrop-blur-xl border border-neutral-200 dark:border-white/10 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-80 sm:w-96 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xl z-50 overflow-hidden">
           {/* Dropdown Header with Animated Lordicon & Quick Search */}
           <div className="p-3.5 border-b border-neutral-100 dark:border-white/5 bg-neutral-50/60 dark:bg-white/[0.02]">
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-                  <LordIcon
+                <LordIcon
                     src="https://cdn.lordicon.com/msoeawqm.json"
                     size={16}
                     trigger="hover"
                     colors="primary:#d97706,secondary:#0284c7"
                   />
-                </div>
+                
                 <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
                   Filter Workflow Stage
                 </span>
@@ -150,7 +145,7 @@ export default function StageCombobox({
                     onSelectStage("ALL");
                     setIsOpen(false);
                   }}
-                  className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer transition-colors"
+                  className="px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer transition-colors"
                 >
                   Reset to All
                 </button>
@@ -165,7 +160,7 @@ export default function StageCombobox({
                 placeholder="Find stage (e.g. review, quotation, approved)..."
                 value={filterQuery}
                 onChange={(e) => setFilterQuery(e.target.value)}
-                className="w-full pl-8 pr-7 py-2 rounded-xl text-xs font-mono bg-white dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                className="w-full pl-8 pr-7 py-2 rounded-[4px] text-xs font-mono bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
                 autoFocus
               />
               {filterQuery && (
@@ -205,21 +200,15 @@ export default function StageCombobox({
                       onSelectStage(st.id);
                       setIsOpen(false);
                     }}
-                    className={`w-full group flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 cursor-pointer ${
+                    className={`w-full group flex items-center justify-between gap-3 px-3 py-2 rounded-[4px] text-left transition-colors cursor-pointer ${
                       isSelected
-                        ? "bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/20"
+                        ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
                         : "hover:bg-neutral-100 dark:hover:bg-white/5 text-neutral-700 dark:text-neutral-300"
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      {/* Animated Lordicon for Each Stage */}
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
-                          isSelected
-                            ? "bg-neutral-950/10 border-neutral-950/20"
-                            : "bg-neutral-100 dark:bg-white/5 border-neutral-200/80 dark:border-white/10 group-hover:border-amber-500/40 group-hover:scale-105"
-                        }`}
-                      >
+                      {/* Pure Icon for Each Stage - No background box */}
+                      <div className="w-5 h-5 flex items-center justify-center shrink-0">
                         {st.iconSrc ? (
                           <LordIcon
                             src={st.iconSrc}
@@ -232,9 +221,7 @@ export default function StageCombobox({
                             }
                           />
                         ) : (
-                          <span
-                            className={`w-2 h-2 rounded-full ${st.dot || "bg-amber-500"}`}
-                          />
+                          <FilterIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                         )}
                       </div>
 
@@ -249,7 +236,7 @@ export default function StageCombobox({
                     {/* Right side: Count pill + Checkmark */}
                     <div className="flex items-center gap-2 shrink-0">
                       <span
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold transition-colors ${
+                        className={`px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold transition-colors ${
                           isSelected
                             ? "bg-neutral-950 text-white"
                             : count > 0
@@ -283,3 +270,4 @@ export default function StageCombobox({
     </div>
   );
 }
+
