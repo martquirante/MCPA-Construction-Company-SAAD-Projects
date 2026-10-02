@@ -8,9 +8,7 @@ import { getReturnToCompletedHome, consumeReturnToCompletedHome } from "@/module
 
 export default function Home() {
   const router = useRouter();
-  // Only skip intro loading screen if user explicitly clicked a 'Home' link
-  const shouldReturnToCompleted = getReturnToCompletedHome();
-  const [showLoading, setShowLoading] = useState(!shouldReturnToCompleted);
+  const [showLoading, setShowLoading] = useState(true);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -26,21 +24,22 @@ export default function Home() {
       const isCompleted = getReturnToCompletedHome();
 
       // If returning to Home because a 'Home' link was clicked, position directly at the completed residence screen (Step 3)
-      if (isCompleted || shouldReturnToCompleted) {
-        setShowLoading(false);
-        const vh = window.innerHeight;
-        window.scrollTo({ top: 3 * vh, behavior: "instant" });
-        // Consume the flag so that a subsequent page reload or fresh visit starts from Step 0 with the videos
-        setTimeout(() => {
-          consumeReturnToCompletedHome();
-        }, 500);
+      if (isCompleted) {
+        requestAnimationFrame(() => {
+          setShowLoading(false);
+          const vh = window.innerHeight;
+          window.scrollTo({ top: 3 * vh, behavior: "instant" });
+          // Consume the flag so that a subsequent page reload or fresh visit starts from Step 0 with the videos
+          setTimeout(() => {
+            consumeReturnToCompletedHome();
+          }, 500);
+        });
       } else {
         // Unang beses binuksan OR na-reload: start at Step 0 with the video animation
-        setShowLoading(true);
         window.scrollTo(0, 0);
       }
     }
-  }, [router, shouldReturnToCompleted]);
+  }, [router]);
 
   useEffect(() => {
     if (showLoading) {

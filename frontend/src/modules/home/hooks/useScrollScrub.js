@@ -13,15 +13,14 @@ export const STAGE_LABELS = [
 ];
 
 export function useScrollScrub(containerRef) {
-  const isReturning = getReturnToCompletedHome();
-  const [currentStep, setCurrentStep] = useState(isReturning ? 3 : 0);
-  const [activePartIndex, setActivePartIndex] = useState(isReturning ? 2 : 0);
-  const [progress, setProgress] = useState(isReturning ? 1.0 : 0);
-  const [displayedPct, setDisplayedPct] = useState(isReturning ? 100 : 0);
-  const [isCompleted, setIsCompleted] = useState(isReturning);
-  const [hasCompletedBuild, setHasCompletedBuild] = useState(isReturning);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [activePartIndex, setActivePartIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [displayedPct, setDisplayedPct] = useState(0);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [hasCompletedBuild, setHasCompletedBuild] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
-  const [stageName, setStageName] = useState(isReturning ? STAGE_LABELS[3] : STAGE_LABELS[0]);
+  const [stageName, setStageName] = useState(STAGE_LABELS[0]);
   const [videoLoaded, setVideoLoaded] = useState(false);
 
   // Dedicated refs for each of the 3 split MP4 files
@@ -29,22 +28,22 @@ export function useScrollScrub(containerRef) {
   const video2Ref = useRef(null); // Part 2: Step 1 -> 2 (33% to 66%)
   const video3Ref = useRef(null); // Part 3: Step 2 -> 3 (66% to 100%)
 
-  const currentStepRef = useRef(isReturning ? 3 : 0);
-  const activePartIndexRef = useRef(isReturning ? 2 : 0);
+  const currentStepRef = useRef(0);
+  const activePartIndexRef = useRef(0);
   const isAnimatingRef = useRef(false);
   const cooldownRef = useRef(false);
   const touchStartYRef = useRef(0);
   const touchStartTimeRef = useRef(0);
-  const hasCompletedRef = useRef(isReturning);
-  const videoFinishedRef = useRef(isReturning);
+  const hasCompletedRef = useRef(false);
+  const videoFinishedRef = useRef(false);
 
-  const targetStepRef = useRef(isReturning ? 3 : 0);
+  const targetStepRef = useRef(0);
   const playRafRef = useRef(null);
   const watchdogRef = useRef(null);
   const lastSeekTimeRef = useRef(0);
   const isProgrammaticScrollRef = useRef(false);
   const isLowEndRef = useRef(false);
-  const lastDisplayedPctRef = useRef(isReturning ? 100 : 0);
+  const lastDisplayedPctRef = useRef(0);
 
   // Keep activePartIndexRef in sync with state
   useEffect(() => {
@@ -750,7 +749,7 @@ export function useScrollScrub(containerRef) {
   // Handle video loaded metadata for all 3 videos
   const handleVideoLoadedMetadata = useCallback(() => {
     setVideoLoaded(true);
-    if (isReturning) {
+    if (hasCompletedRef.current) {
       const v3 = video3Ref.current;
       if (v3) {
         const duration = v3.duration && isFinite(v3.duration) ? v3.duration : 3.31;
@@ -763,7 +762,7 @@ export function useScrollScrub(containerRef) {
         v1.currentTime = 0.01;
       }
     }
-  }, [isReturning]);
+  }, []);
 
   // Initial video setup on mount
   useEffect(() => {
@@ -772,7 +771,7 @@ export function useScrollScrub(containerRef) {
 
     const handleReady = () => {
       setVideoLoaded(true);
-      if (isReturning) {
+      if (hasCompletedRef.current) {
         if (v3) {
           const duration = v3.duration && isFinite(v3.duration) ? v3.duration : 3.31;
           v3.currentTime = Math.max(0.01, duration - 0.04);
@@ -801,12 +800,27 @@ export function useScrollScrub(containerRef) {
       }
       clearTimeout(timer);
     };
-  }, [isPortrait, isReturning]);
+  }, [isPortrait]);
 
   // When returning to home page from other routes, immediately position at Step 3 final frame
   useEffect(() => {
-    if (isReturning && typeof window !== "undefined") {
+    const isRet = getReturnToCompletedHome();
+    if (isRet && typeof window !== "undefined") {
       requestAnimationFrame(() => {
+        setCurrentStep(3);
+        setActivePartIndex(2);
+        setProgress(1.0);
+        setDisplayedPct(100);
+        setIsCompleted(true);
+        setHasCompletedBuild(true);
+        setStageName(STAGE_LABELS[3]);
+        currentStepRef.current = 3;
+        activePartIndexRef.current = 2;
+        hasCompletedRef.current = true;
+        videoFinishedRef.current = true;
+        targetStepRef.current = 3;
+        lastDisplayedPctRef.current = 100;
+
         isProgrammaticScrollRef.current = true;
         const vh = window.innerHeight;
         window.scrollTo({ top: 3 * vh, behavior: "instant" });
@@ -816,13 +830,12 @@ export function useScrollScrub(containerRef) {
           v3.currentTime = Math.max(0.01, duration - 0.04);
           v3.pause();
         }
-        setActivePartIndex(2);
         setTimeout(() => {
           isProgrammaticScrollRef.current = false;
         }, 300);
       });
     }
-  }, [isReturning]);
+  }, []);
 
   // Listen for navigation event to jump directly to completed residence screen
   useEffect(() => {
