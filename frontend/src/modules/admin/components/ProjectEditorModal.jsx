@@ -65,9 +65,12 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     floorArea: "",
     bedrooms: "",
     bathrooms: "",
-    featuresText: "",
     architecturalDetails: "",
   });
+
+  // Dynamic Features & Scope List State
+  const [featuresList, setFeaturesList] = useState([""]);
+  const featureInputRefs = useRef([]);
 
   // Images state
   const [existingImages, setExistingImages] = useState([]);
@@ -122,12 +125,25 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
   const [uploadError, setUploadError] = useState("");
 
   // Initialize or reset form
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (initialData) {
       const isPreset = PRESET_CATEGORIES.includes(initialData.category);
-      const rawFeatures = Array.isArray(initialData.features)
-        ? initialData.features.join(", ")
-        : initialData.features || "";
+      let initialFeatures = [""];
+      if (initialData.features) {
+        if (Array.isArray(initialData.features)) {
+          const list = initialData.features
+            .map((f) => (typeof f === "string" ? f.trim() : ""))
+            .filter(Boolean);
+          initialFeatures = list.length > 0 ? list : [""];
+        } else if (typeof initialData.features === "string") {
+          const list = initialData.features
+            .split(",")
+            .map((f) => f.trim())
+            .filter(Boolean);
+          initialFeatures = list.length > 0 ? list : [""];
+        }
+      }
 
       setFormData({
         name: initialData.name || "",
@@ -144,9 +160,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
         floorArea: initialData.floorArea || initialData.floor_area || "",
         bedrooms: initialData.bedrooms || "",
         bathrooms: initialData.bathrooms || "",
-        featuresText: rawFeatures,
         architecturalDetails: initialData.architecturalDetails || initialData.architectural_details || "",
       });
+      setFeaturesList(initialFeatures);
       setExistingImages(Array.isArray(initialData.images) ? initialData.images : []);
     } else {
       setFormData({
@@ -164,9 +180,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
         floorArea: "",
         bedrooms: "",
         bathrooms: "",
-        featuresText: "",
         architecturalDetails: "",
       });
+      setFeaturesList([""]);
       setExistingImages([]);
     }
     setNewFiles([]);
@@ -303,6 +319,56 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     setFormData((prev) => ({ ...prev, location: loc }));
     setShowLocationDropdown(false);
     setLocationSuggestions([]);
+  };
+
+  // Dynamic features handlers
+  const handleFeatureChange = (index, value) => {
+    // Smart split if user pastes a comma-separated string
+    if (value.includes(",")) {
+      const parts = value.split(",").map((s) => s.trim()).filter(Boolean);
+      if (parts.length > 1) {
+        setFeaturesList((prev) => {
+          const next = [...prev];
+          next.splice(index, 1, ...parts);
+          return next.length > 0 ? next : [""];
+        });
+        return;
+      }
+    }
+    setFeaturesList((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  };
+
+  const handleAddFeature = () => {
+    setFeaturesList((prev) => {
+      const next = [...prev, ""];
+      setTimeout(() => {
+        const nextIdx = next.length - 1;
+        featureInputRefs.current[nextIdx]?.focus();
+      }, 50);
+      return next;
+    });
+  };
+
+  const handleRemoveFeature = (index) => {
+    setFeaturesList((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [""];
+    });
+  };
+
+  const handleFeatureKeyDown = (e, index) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (index === featuresList.length - 1) {
+        handleAddFeature();
+      } else {
+        featureInputRefs.current[index + 1]?.focus();
+      }
+    }
   };
 
   // Multi-photo file selection with validation & friendly non-IT warnings
@@ -510,9 +576,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
         await new Promise((r) => setTimeout(r, 450));
       }
 
-      const parsedFeatures = formData.featuresText
-        ? formData.featuresText.split(",").map((f) => f.trim()).filter(Boolean)
-        : [];
+      const parsedFeatures = featuresList
+        .map((f) => (typeof f === "string" ? f.trim() : ""))
+        .filter(Boolean);
 
       const finalImages = [...(Array.isArray(existingImages) ? existingImages : []), ...uploadedUrls];
 
@@ -831,18 +897,79 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1">
-                  Features & Scope Delivered (Comma-separated)
-                </label>
-                <input
-                  type="text"
-                  name="featuresText"
-                  value={formData.featuresText}
-                  onChange={handleChange}
-                  placeholder="e.g. Reinforced Concrete Framing, 2-Car Garage, Modern Balcony, Tempered Glass Railings"
-                  className="w-full px-3.5 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
-                />
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
+                      Features & Scope Delivered
+                    </label>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      Add individual deliverables or scope items. Each item is displayed as a numbered specification on the public modal.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-[4px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                    {featuresList.filter((f) => f && f.trim()).length} {featuresList.filter((f) => f && f.trim()).length === 1 ? "Item" : "Items"}
+                  </span>
+                </div>
+
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                  {featuresList.map((feature, idx) => (
+                    <div key={idx} className="flex items-center gap-2 group">
+                      <span className="shrink-0 w-8 h-9 rounded-[4px] bg-neutral-200/70 dark:bg-neutral-800 text-amber-600 dark:text-amber-400 font-mono font-bold text-xs flex items-center justify-center border border-neutral-300/70 dark:border-white/10 select-none">
+                        {String(idx + 1).padStart(2, "0")}
+                      </span>
+                      <input
+                        ref={(el) => (featureInputRefs.current[idx] = el)}
+                        id={`feature-input-${idx}`}
+                        type="text"
+                        value={feature}
+                        onChange={(e) => handleFeatureChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleFeatureKeyDown(e, idx)}
+                        placeholder={
+                          idx === 0
+                            ? "e.g. Complete Architectural & Engineering Plans"
+                            : idx === 1
+                            ? "e.g. Turnkey Construction"
+                            : idx === 2
+                            ? "e.g. Duplex Structure"
+                            : idx === 3
+                            ? "e.g. 4 Bedrooms"
+                            : "Enter scope or feature item..."
+                        }
+                        className="flex-1 px-3.5 py-2 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:border-amber-500 focus:outline-none transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFeature(idx)}
+                        disabled={featuresList.length === 1 && !feature.trim()}
+                        className={`shrink-0 p-2 rounded-[4px] border border-transparent transition-all cursor-pointer ${
+                          featuresList.length === 1 && !feature.trim()
+                            ? "opacity-25 cursor-not-allowed text-neutral-400"
+                            : "text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 hover:border-rose-500/20 active:scale-95"
+                        }`}
+                        title="Delete item"
+                        aria-label={`Delete item ${idx + 1}`}
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleAddFeature}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 transition-all cursor-pointer shadow-xs active:scale-[0.98]"
+                  >
+                    <PlusIcon className="w-3.5 h-3.5" />
+                    <span>Add Item / Textbox</span>
+                  </button>
+
+                  <span className="text-[10.5px] text-neutral-500 dark:text-neutral-400 italic">
+                    Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 font-mono text-[9.5px] not-italic text-neutral-700 dark:text-neutral-300">Enter</kbd> to add row, or paste comma-separated text
+                  </span>
+                </div>
               </div>
 
               <div>
