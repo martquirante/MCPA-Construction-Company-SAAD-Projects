@@ -138,10 +138,10 @@ class DbFailoverEngine {
   }
 
   async triggerFailover(reason) {
+    this.lastFailoverReason = reason;
     if (this.isFailoverActive) return;
     this.isFailoverActive = true;
     this.lastFailoverTimestamp = Date.now();
-    this.lastFailoverReason = reason;
     console.warn(`\x1b[33m[WARN] [DbFailoverEngine] AUTOMATIC CLOUD FAILOVER ACTIVATED: ${reason}. Cascading to Standby Provider.\x1b[0m`);
   }
 
@@ -149,6 +149,7 @@ class DbFailoverEngine {
     if (!this.isFailoverActive) return;
     this.isFailoverActive = false;
     this.lastFailoverTimestamp = 0;
+    this.lastFailoverReason = null;
     console.log(`\x1b[32m[OK] [DbFailoverEngine] AUTOMATIC FAILBACK RESTORED: Supabase Cloud Primary is verified healthy. Switched active database back to Supabase Cloud.\x1b[0m`);
   }
 
@@ -166,14 +167,15 @@ class DbFailoverEngine {
       }
     }
 
-    // 0. Auto-healing Failback Check: If failover was active and 20s have elapsed, test if Supabase is back
-    if (this.isFailoverActive && this.supabasePool && Date.now() - (this.lastFailoverTimestamp || 0) > 20000) {
+    // 0. Auto-healing Failback Check: If failover was active and 5s have elapsed, test if Supabase is back
+    if (this.isFailoverActive && this.supabasePool && Date.now() - (this.lastFailoverTimestamp || 0) > 5000) {
       try {
         await this.supabasePool.query("SELECT 1");
         await this.triggerFailback();
       } catch (probeErr) {
         // Supabase is still recovering, update probe timestamp to prevent query latency
         this.lastFailoverTimestamp = Date.now();
+        this.lastFailoverReason = `Failback probe: ${probeErr.message}`;
       }
     }
 

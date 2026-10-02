@@ -53,7 +53,14 @@ app.get("/", (req, res) => {
 // -----------------------------------------------------------------------------
 // HEALTH CHECK
 // -----------------------------------------------------------------------------
-app.get("/api/health", (req, res) => {
+app.get("/api/health", async (req, res) => {
+  let probeOk = true;
+  try {
+    await db.query("SELECT 1;");
+  } catch (err) {
+    probeOk = false;
+  }
+
   res.json({
     status: "HEALTHY",
     timestamp: new Date().toISOString(),
@@ -63,6 +70,7 @@ app.get("/api/health", (req, res) => {
       isFailoverActive: db.isFailoverActive,
       failoverReason: db.lastFailoverReason || null,
       targetSupabaseHost: db.supabaseConnStr ? db.supabaseConnStr.split("@")[1]?.split("/")[0] : null,
+      probeOk,
     },
     storage: {
       primary: "Azure Blob Storage",
@@ -251,9 +259,6 @@ if (!process.env.VERCEL) {
       console.log(`[STORAGE] Cloud Storage: \x1b[36mAzure Blob (Tier 1 Primary) -> Supabase Storage (Tier 2 Backup) -> Neon S3 (Tier 3 Standby)\x1b[0m\n`);
     });
   });
-} else {
-  // On Vercel serverless, run db init on cold start
-  initializeDatabase().catch((err) => console.error("[InitDB Error]:", err));
 }
 
 module.exports = app;
