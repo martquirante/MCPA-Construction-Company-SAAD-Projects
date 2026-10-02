@@ -26,16 +26,17 @@ class DbFailoverEngine {
     // Extract project ref from SUPABASE_URL (e.g., https://dzqqyqothtttccplvvnb.supabase.co -> dzqqyqothtttccplvvnb)
     const projectRef = (this.supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/) || [])[1] || "dzqqyqothtttccplvvnb";
 
-    // Supabase Connection Pooler (IPv4 compatible Session Mode on port 5432, required for Vercel Serverless / AWS)
+    // Supabase Connection Pooler (IPv4 compatible Transaction Mode on port 6543, ideal for Vercel Serverless / AWS)
     let poolerConn = "";
     if (this.supabaseDbPassword) {
-      poolerConn = `postgres://postgres.${projectRef}:${encodeURIComponent(this.supabaseDbPassword)}@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres`;
+      poolerConn = `postgres://postgres.${projectRef}:${encodeURIComponent(this.supabaseDbPassword)}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`;
     }
 
     // Build Supabase PostgreSQL connection string
     let resolvedSupabaseConn = process.env.SUPABASE_CONNECTION_STRING || "";
-    // If running in production (Vercel) or direct connection is provided, always prefer IPv4 Pooler to prevent IPv6 unreachable errors
-    if ((this.isProduction || resolvedSupabaseConn.includes("db.dzqqyqothtttccplvvnb.supabase.co")) && poolerConn) {
+    // On Vercel serverless production: route to IPv4 Transaction Pooler.
+    // In local development: use process.env.SUPABASE_CONNECTION_STRING (direct connection with no pooler limits)
+    if (this.isProduction && poolerConn) {
       resolvedSupabaseConn = poolerConn;
     } else if (!resolvedSupabaseConn && poolerConn) {
       resolvedSupabaseConn = poolerConn;
@@ -80,9 +81,9 @@ class DbFailoverEngine {
       return new Pool({
         connectionString: cleanConnStr,
         ssl: isSsl ? { rejectUnauthorized: false } : false,
-        connectionTimeoutMillis: 15000,
-        idleTimeoutMillis: 30000,
-        max: 5,
+        connectionTimeoutMillis: 10000,
+        idleTimeoutMillis: 10000,
+        max: this.isProduction ? 2 : 5,
       });
     } catch (e) {
       console.warn("[DbFailoverEngine] Pool creation error:", e.message);
