@@ -963,7 +963,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 transition-all cursor-pointer shadow-xs active:scale-[0.98]"
                   >
                     <PlusIcon className="w-3.5 h-3.5" />
-                    <span>Add Item / Textbox</span>
+                    <span>Add Item</span>
                   </button>
 
                   <span className="text-[10.5px] text-neutral-500 dark:text-neutral-400 italic">
