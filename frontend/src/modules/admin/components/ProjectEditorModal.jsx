@@ -20,6 +20,7 @@ import {
   EyeIcon,
   EyeOffIcon,
   LightbulbIcon,
+  StarIcon,
 } from "../../shared/Icons";
 import { verifyAdminPassword } from "../utils/adminAuth";
 import { compressImageFile } from "../../shared/imageUtils";
@@ -71,6 +72,12 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
   // Dynamic Features & Scope List State
   const [featuresList, setFeaturesList] = useState([""]);
   const featureInputRefs = useRef([]);
+
+  // Inline Field Validation Errors State
+  const [fieldErrors, setFieldErrors] = useState({});
+  const nameInputRef = useRef(null);
+  const locationInputRef = useRef(null);
+  const gallerySectionRef = useRef(null);
 
   // Images state
   const [existingImages, setExistingImages] = useState([]);
@@ -197,6 +204,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     setShowDeletePassword(false);
     setIsVerifyingPassword(false);
     setShowSaveConfirm(false);
+    setFieldErrors({});
     setFriendlyError(null);
     setUploadProgress(0);
     setIsUploading(false);
@@ -279,12 +287,18 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
   // Handle Location typing & Philippine API search
   const handleLocationChange = (e) => {
     const query = e.target.value;
     setFormData((prev) => ({ ...prev, location: query }));
+    if (fieldErrors.location) {
+      setFieldErrors((prev) => ({ ...prev, location: "" }));
+    }
 
     if (locationDebounceRef.current) {
       clearTimeout(locationDebounceRef.current);
@@ -319,6 +333,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     setFormData((prev) => ({ ...prev, location: loc }));
     setShowLocationDropdown(false);
     setLocationSuggestions([]);
+    if (fieldErrors.location) {
+      setFieldErrors((prev) => ({ ...prev, location: "" }));
+    }
   };
 
   // Dynamic features handlers
@@ -418,6 +435,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
       setNewFiles((prev) => [...prev, ...validFiles]);
       const newUrls = validFiles.map((file) => URL.createObjectURL(file));
       setNewPreviews((prev) => [...prev, ...newUrls]);
+      if (fieldErrors.images) {
+        setFieldErrors((prev) => ({ ...prev, images: "" }));
+      }
     }
 
     e.target.value = "";
@@ -461,26 +481,88 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
   // Pre-submit validation and trigger save confirmation modal
   const handleInitiateSave = (e) => {
     e.preventDefault();
+    const errors = {};
 
+    // 1. Project Name validation
     if (!formData.name.trim()) {
+      errors.name = "Project name is required and cannot be blank.";
+    } else if (formData.name.trim().length < 3) {
+      errors.name = "Project name must be at least 3 characters long.";
+    }
+
+    // 2. Location validation
+    if (!formData.location.trim()) {
+      errors.location = "Project location is required (City/Municipality and Province).";
+    } else if (formData.location.trim().length < 3) {
+      errors.location = "Please enter a valid Philippine location (at least 3 characters).";
+    }
+
+    // 3. Category validation ("Other" option requires custom category name)
+    if (formData.category === "Other" && !formData.customCategory.trim()) {
+      errors.customCategory = "Because you selected 'Other', please specify the custom category name.";
+    }
+
+    // 4. Description validation
+    if (!formData.description.trim()) {
+      errors.description = "Project description is required to explain scope, concept, and materials.";
+    } else if (formData.description.trim().length < 15) {
+      errors.description = "Project description is too short (minimum 15 characters required).";
+    }
+
+    // 5. Photos validation (at least 1 photo required for cover/card)
+    const totalPhotos = existingImages.length + newFiles.length;
+    if (totalPhotos === 0) {
+      errors.images = "At least one project photo is required for the portfolio card and modal showcase.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+
+      // Focus first invalid input or scroll into view
+      if (errors.name && nameInputRef.current) {
+        nameInputRef.current.focus();
+      } else if (errors.location && locationInputRef.current) {
+        locationInputRef.current.focus();
+      } else if (errors.description && descriptionRef.current) {
+        descriptionRef.current.focus();
+      } else if (errors.images && gallerySectionRef.current) {
+        gallerySectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      const firstKey = Object.keys(errors)[0];
+      const errorMeta = {
+        name: {
+          title: "Project Name Required",
+          tip: "Example: 'Modern Zen Sanctuary' or 'Bulacan 2-Storey Villa'.",
+        },
+        location: {
+          title: "Project Location Required",
+          tip: "Example: 'Calumpit, Bulacan' or 'Angeles City, Pampanga'.",
+        },
+        customCategory: {
+          title: "Custom Category Required",
+          tip: "Example: 'Commercial Warehouse', 'Architectural Renovation', or 'Interior Fit-out'.",
+        },
+        description: {
+          title: "Project Description Required",
+          tip: "Example: 'A modern 2-storey duplex featuring turnkey construction, reinforced concrete, and custom cabinetry.'",
+        },
+        images: {
+          title: "Project Photo Required",
+          tip: "Every portfolio entry needs at least 1 image to serve as its cover photo on the website.",
+        },
+      };
+
       setFriendlyError({
-        title: "Project Name Required",
-        message: "Please enter a project name so it can be identified in your portfolio showcase.",
-        tip: "Example: 'Modern Zen Sanctuary' or 'Bulacan 2-Storey Villa'.",
+        title: errorMeta[firstKey]?.title || "Required Fields Missing",
+        message: errors[firstKey],
+        tip: errorMeta[firstKey]?.tip || "Please fill in all fields marked with a red asterisk (*) before saving.",
         type: "warning",
       });
       return;
     }
 
-    if (formData.category === "Other" && !formData.customCategory.trim()) {
-      setFriendlyError({
-        title: "Custom Category Required",
-        message: "Because you selected 'Other', please specify the construction category before saving.",
-        tip: "Example: 'Commercial Warehouse', 'Architectural Renovation', or 'Interior Fit-out'.",
-        type: "warning",
-      });
-      return;
-    }
+    setFieldErrors({});
 
     // Open Save Confirmation Modal
     setShowSaveConfirm(true);
@@ -651,21 +733,31 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
 
         {/* Body */}
         <div className="p-6 overflow-y-auto flex-1">
-          <form id="project-form" onSubmit={handleInitiateSave} className="space-y-6">
+          <form id="project-form" onSubmit={handleInitiateSave} noValidate className="space-y-6">
             {/* Project Name */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-2">
-                Project Name *
+                Project Name <span className="text-rose-500 font-bold">*</span>
               </label>
               <input
+                ref={nameInputRef}
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                required
                 placeholder="e.g. Pampanga Zen Sanctuary"
-                className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
+                className={`w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border text-neutral-900 dark:text-white transition-colors ${
+                  fieldErrors.name
+                    ? "border-rose-500 ring-1 ring-rose-500/30"
+                    : "border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                }`}
               />
+              {fieldErrors.name && (
+                <p className="text-[11px] text-rose-500 mt-1.5 font-medium flex items-center gap-1.5">
+                  <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{fieldErrors.name}</span>
+                </p>
+              )}
             </div>
 
             {/* Location & Category Grid */}
@@ -673,7 +765,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
               {/* Location with Philippine Autocomplete */}
               <div ref={locationContainerRef} className="relative">
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-2 flex items-center justify-between">
-                  <span>Location (Philippines)</span>
+                  <span>
+                    Location (Philippines) <span className="text-rose-500 font-bold">*</span>
+                  </span>
                   {isSearchingLocation && (
                     <span className="text-[10px] text-amber-500 font-normal lowercase animate-pulse">
                       searching...
@@ -682,6 +776,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 </label>
                 <div className="relative">
                   <input
+                    ref={locationInputRef}
                     type="text"
                     value={formData.location}
                     onChange={handleLocationChange}
@@ -689,10 +784,20 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                       if (locationSuggestions.length > 0) setShowLocationDropdown(true);
                     }}
                     placeholder="e.g. Pulilan, Bulacan or Pampanga"
-                    className="w-full pl-10 pr-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors"
+                    className={`w-full pl-10 pr-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border text-neutral-900 dark:text-white transition-colors ${
+                      fieldErrors.location
+                        ? "border-rose-500 ring-1 ring-rose-500/30"
+                        : "border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                    }`}
                   />
                   <MapPinIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
+                {fieldErrors.location && (
+                  <p className="text-[11px] text-rose-500 mt-1.5 font-medium flex items-center gap-1.5">
+                    <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
+                    <span>{fieldErrors.location}</span>
+                  </p>
+                )}
 
                 {/* Autocomplete Suggestions Dropdown */}
                 {showLocationDropdown && locationSuggestions.length > 0 && (
@@ -718,7 +823,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
               {/* Category with "Other" Custom Option */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-2">
-                  Category
+                  Category <span className="text-rose-500 font-bold">*</span>
                 </label>
                 <select
                   name="category"
@@ -740,17 +845,26 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             {formData.category === "Other" && (
               <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-[4px]">
                 <label className="block text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1.5">
-                  Enter Custom Category Name *
+                  Enter Custom Category Name <span className="text-rose-500 font-bold">*</span>
                 </label>
                 <input
                   type="text"
                   name="customCategory"
                   value={formData.customCategory}
                   onChange={handleChange}
-                  required={formData.category === "Other"}
                   placeholder="e.g. Industrial Warehouse, Renovation, Interior Fit-out"
-                  className="w-full px-4 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-amber-500/30 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-colors text-sm"
+                  className={`w-full px-4 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border text-neutral-900 dark:text-white transition-colors text-sm ${
+                    fieldErrors.customCategory
+                      ? "border-rose-500 ring-1 ring-rose-500/30"
+                      : "border-amber-500/30 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  }`}
                 />
+                {fieldErrors.customCategory && (
+                  <p className="text-[11px] text-rose-500 mt-1.5 font-medium flex items-center gap-1.5">
+                    <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
+                    <span>{fieldErrors.customCategory}</span>
+                  </p>
+                )}
               </div>
             )}
 
@@ -814,9 +928,14 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
 
             {/* Description */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-2">
-                Description
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+                  Description <span className="text-rose-500 font-bold">*</span>
+                </label>
+                <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  {formData.description.trim().length} chars (min 15)
+                </span>
+              </div>
               <textarea
                 ref={descriptionRef}
                 name="description"
@@ -824,8 +943,18 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 onChange={handleTextareaChange}
                 rows={3}
                 placeholder="Brief project details, architectural materials, lot size, or scope..."
-                className="w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-neutral-900 dark:text-white transition-all resize-none overflow-hidden"
+                className={`w-full px-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border text-neutral-900 dark:text-white transition-all resize-none overflow-hidden ${
+                  fieldErrors.description
+                    ? "border-rose-500 ring-1 ring-rose-500/30"
+                    : "border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                }`}
               />
+              {fieldErrors.description && (
+                <p className="text-[11px] text-rose-500 mt-1.5 font-medium flex items-center gap-1.5">
+                  <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{fieldErrors.description}</span>
+                </p>
+              )}
             </div>
 
             {/* Architectural & Engineering Specifications */}
@@ -1029,7 +1158,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             <div className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-white/[0.08] rounded-[6px]">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-amber-500 font-bold text-sm">â˜…</span>
+                  <StarIcon className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
                   <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
                     Feature on Home Page
                   </h4>
@@ -1060,15 +1189,22 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             </div>
 
             {/* Multi-Photo Gallery & Upload */}
-            <div>
+            <div ref={gallerySectionRef}>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
-                  Project Gallery Photos ({totalPhotosCount})
+                  Project Gallery Photos <span className="text-rose-500 font-bold">*</span> ({totalPhotosCount})
                 </label>
                 <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                  Max 10MB per photo
+                  At least 1 photo required (Max 10MB per photo)
                 </span>
               </div>
+
+              {fieldErrors.images && (
+                <div className="p-3 rounded-[4px] bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-medium flex items-center gap-2 mb-3">
+                  <AlertCircleIcon className="w-4 h-4 shrink-0" />
+                  <span>{fieldErrors.images}</span>
+                </div>
+              )}
 
               {/* Photo Thumbnails Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
@@ -1340,7 +1476,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
             className="py-2 text-center text-xs text-neutral-400 font-mono"
             onClick={(e) => e.stopPropagation()}
           >
-            Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">ESC</kbd> to close, or use arrow keys <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">â†</kbd> <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">â†’</kbd> to browse photos
+            Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">ESC</kbd> to close, or use arrow keys <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">&larr;</kbd> <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white">&rarr;</kbd> to browse photos
           </div>
         </div>
       )}

@@ -500,7 +500,7 @@ export default function ResetPasswordModal({
                       autoFocus
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                      placeholder="••••••••"
                       className="w-full pl-4 pr-10 py-3 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-sm font-mono transition-colors"
                     />
                     <button
@@ -523,7 +523,7 @@ export default function ResetPasswordModal({
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                      placeholder="••••••••"
                       className="w-full pl-4 pr-10 py-3 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-sm font-mono transition-colors"
                     />
                   </div>

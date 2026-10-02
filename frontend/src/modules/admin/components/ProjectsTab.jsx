@@ -14,6 +14,7 @@ import {
   CloseIcon,
   CameraIcon,
   RulerIcon,
+  SearchIcon,
 } from "../../shared/Icons";
 import { verifyAdminPassword } from "../utils/adminAuth";
 
@@ -116,15 +117,59 @@ export default function ProjectsTab({
 
   const categories = ["All", ...Array.from(new Set(rawProjects.map((p) => p.category).filter(Boolean)))];
 
+  const queryTokens = searchQuery
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const getProjectSearchableText = (p) => {
+    const featuresStr = Array.isArray(p.features)
+      ? p.features.filter(Boolean).join(" ")
+      : (typeof p.features === "string" ? p.features : "");
+
+    return [
+      p.name || "",
+      p.title || "",
+      p.location || "",
+      p.category || "",
+      p.description || "",
+      p.status || "",
+      p.status === "in_progress" ? "in progress ongoing" : "",
+      p.status === "planning" ? "planning phase" : "",
+      p.status === "completed" ? "completed" : "",
+      p.year?.toString() || "",
+      p.month || "",
+      p.lotArea || p.lot_area || "",
+      p.floorArea || p.floor_area || "",
+      p.bedrooms || "",
+      p.bathrooms || "",
+      p.architecturalDetails || p.architectural_details || "",
+      featuresStr,
+      p.id?.toString() || "",
+      p.featuredOnHome || p.featured_on_home ? "featured home" : "",
+    ]
+      .join(" ")
+      .toLowerCase();
+  };
+
   const filteredProjects = rawProjects.filter((p) => {
     const matchesCategory = selectedCategory === "All" || p.category === selectedCategory;
-    const matchesSearch =
-      !searchQuery.trim() ||
-      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    if (queryTokens.length === 0) return matchesCategory;
+
+    const text = getProjectSearchableText(p);
+    const matchesSearch = queryTokens.every((token) => text.includes(token));
     return matchesCategory && matchesSearch;
   });
+
+  // Calculate if search matches other categories when current category produces 0 results
+  const otherCategoryMatches =
+    queryTokens.length > 0 && selectedCategory !== "All"
+      ? rawProjects.filter((p) => {
+          const text = getProjectSearchableText(p);
+          return queryTokens.every((token) => text.includes(token));
+        })
+      : [];
 
   const handleToggleVisibility = (project, e) => {
     e?.stopPropagation();
@@ -142,7 +187,7 @@ export default function ProjectsTab({
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
               <FolderKanbanIcon className="w-6 h-6 text-amber-500" />
-              Projects Management ({rawProjects.length})
+              Projects Management ({filteredProjects.length}{filteredProjects.length !== rawProjects.length ? ` of ${rawProjects.length}` : ""})
             </h2>
           </div>
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
@@ -178,19 +223,24 @@ export default function ProjectsTab({
         </div>
 
         {/* Search Input */}
-        <div className="relative min-w-[220px]">
+        <div className="relative min-w-[220px] sm:min-w-[260px]">
+          <SearchIcon className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setSearchQuery("");
+            }}
             placeholder="Search projects..."
-            className="w-full px-3.5 py-1.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500"
+            className="w-full pl-8.5 pr-8 py-1.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors cursor-pointer"
               aria-label="Clear search"
+              title="Clear search (Esc)"
             >
               <CloseIcon className="w-3.5 h-3.5" />
             </button>
@@ -206,17 +256,30 @@ export default function ProjectsTab({
                 iconSrc="https://cdn.lordicon.com/msoeawqm.json"
                 badgeText="No Filter Matches"
                 title="No Matching Projects"
-                description={`No projects found matching "${searchQuery || selectedCategory}". Try clearing your search query or selecting a different category filter.`}
+                description={
+                  otherCategoryMatches.length > 0
+                    ? `No projects found in "${selectedCategory}" matching "${searchQuery}". Found ${otherCategoryMatches.length} matching project${otherCategoryMatches.length === 1 ? "" : "s"} in other categories.`
+                    : `No projects found matching "${searchQuery || selectedCategory}". Try clearing your search query or selecting a different category filter.`
+                }
                 actionButton={
-                  <button
-                    onClick={() => {
-                      setSearchQuery("");
-                      setSelectedCategory("All");
-                    }}
-                    className="px-4 py-2 bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold rounded-[4px] transition-colors cursor-pointer"
-                  >
-                    Clear Filters
-                  </button>
+                  otherCategoryMatches.length > 0 ? (
+                    <button
+                      onClick={() => setSelectedCategory("All")}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold rounded-[4px] transition-colors cursor-pointer shadow-sm"
+                    >
+                      Show All Categories ({otherCategoryMatches.length})
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSelectedCategory("All");
+                      }}
+                      className="px-4 py-2 bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold rounded-[4px] transition-colors cursor-pointer"
+                    >
+                      Clear Filters
+                    </button>
+                  )
                 }
               />
             ) : (
@@ -397,7 +460,7 @@ export default function ProjectsTab({
             )}
 
             <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-              Are you sure you want to delete <strong>"{projectToDelete.name}"</strong>? It will no longer be visible on your website portfolio and all of its information will be removed.
+              Are you sure you want to delete <strong>&quot;{projectToDelete.name}&quot;</strong>? It will no longer be visible on your website portfolio and all of its information will be removed.
             </p>
 
             {/* Admin Password Authorization Input */}

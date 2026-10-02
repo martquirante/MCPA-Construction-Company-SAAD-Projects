@@ -49,9 +49,40 @@ export default function CraftInMotion() {
   const isFil = language === "fil";
   const [activeIndex, setActiveIndex] = useState(0);
   const [prevIndex, setPrevIndex] = useState(null);
+  const [isInView, setIsInView] = useState(false);
   const videoRefs = useRef([]);
+  const sectionRef = useRef(null);
+
+  // Lazy-mount videos only when section enters viewport
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting);
+      },
+      { threshold: 0.05, rootMargin: "100px 0px 100px 0px" }
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+  // Pause all videos when section leaves viewport to save CPU/GPU
+  useEffect(() => {
+    if (!isInView) {
+      videoRefs.current.forEach((vid) => {
+        if (vid && !vid.paused) {
+          vid.pause();
+        }
+      });
+    }
+  }, [isInView]);
 
   useEffect(() => {
+    if (!isInView) return;
+
     // 1. Play the current video
     const currentVid = videoRefs.current[activeIndex];
     if (currentVid) {
@@ -75,7 +106,7 @@ export default function CraftInMotion() {
       setActiveIndex(nextIdx);
     }, 5500);
 
-    // 4. Pause idle videos to save GPU/CPU resources
+    // 4. Pause idle videos (not active, not next, not fading out) to save GPU/CPU
     videoRefs.current.forEach((vid, idx) => {
       if (vid && idx !== activeIndex && idx !== nextIdx && idx !== prevIndex) {
         vid.pause();
@@ -86,14 +117,20 @@ export default function CraftInMotion() {
       clearTimeout(preloadTimer);
       clearTimeout(transitionTimer);
     };
-  }, [activeIndex, prevIndex]);
+  }, [activeIndex, prevIndex, isInView]);
 
   return (
-    <section className="relative overflow-hidden w-full h-[60vh] min-h-[460px] max-h-[650px] border-y border-neutral-200 dark:border-neutral-800 bg-neutral-950">
-      {/* Seamless Multi-Layer Video Dissolve Engine */}
-      {CRAFT_VIDEOS.map((video, idx) => {
+    <section
+      ref={sectionRef}
+      className="relative overflow-hidden w-full h-[60vh] min-h-[460px] max-h-[650px] border-y border-neutral-200 dark:border-neutral-800 bg-neutral-950"
+    >
+      {/* Multi-Layer Video Dissolve Engine — only mounts current, previous, and incoming videos to keep GPU decoders minimal */}
+      {isInView && CRAFT_VIDEOS.map((video, idx) => {
         const isActive = idx === activeIndex;
         const isPrev = idx === prevIndex;
+        const isNext = idx === (activeIndex + 1) % CRAFT_VIDEOS.length;
+        // Keep at most 2-3 videos in DOM at any time instead of all 6
+        if (!isActive && !isPrev && !isNext) return null;
 
         return (
           <video
@@ -103,8 +140,8 @@ export default function CraftInMotion() {
             muted
             loop
             playsInline
-            preload="auto"
-            className={`absolute inset-0 w-full h-full object-cover select-none pointer-events-none transition-opacity duration-[1500ms] ease-in-out contrast-[1.06] saturate-[1.12] brightness-[1.03] ${
+            preload="none"
+            className={`absolute inset-0 w-full h-full object-cover select-none pointer-events-none transition-opacity duration-[1500ms] ease-in-out md:contrast-[1.06] md:saturate-[1.12] md:brightness-[1.03] ${
               isActive
                 ? "opacity-100 z-[2]"
                 : isPrev
@@ -114,6 +151,11 @@ export default function CraftInMotion() {
           />
         );
       })}
+
+      {/* Poster fallback shown while videos haven't loaded yet */}
+      {!isInView && (
+        <div className="absolute inset-0 bg-neutral-950" />
+      )}
 
       {/* Cinematic Precision Gradient Overlay - Protects left text while letting the 4K video shine on the right */}
       <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/90 via-neutral-950/45 to-neutral-950/15 pointer-events-none z-10" />

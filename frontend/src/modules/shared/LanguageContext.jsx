@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
+
 
 // Curated UI key translations (for direct t(key) calls)
 export const translations = {
@@ -1292,13 +1293,18 @@ export function LanguageProvider({ children }) {
     }
   };
 
-  const t = (key) => {
+  const t = useCallback((key) => {
     const langDict = translations[language] || translations.en;
     return langDict[key] ?? translations.en[key] ?? key;
-  };
+  }, [language]);
+
+  const contextValue = useMemo(
+    () => ({ language, setLanguage, t }),
+    [language, t]
+  );
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={contextValue}>
       {children}
     </LanguageContext.Provider>
   );

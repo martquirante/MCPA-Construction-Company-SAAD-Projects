@@ -185,6 +185,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
     {
       id: "privacy",
       title: isFil ? "Patakaran sa Privacy" : "Privacy Policy",
+      shortTitle: isFil ? "Privacy" : "Privacy",
       subtitle: isFil
         ? "Proteksyon ng Personal na Datos, Titulo ng Lupa, at Kumpidensyal na Blueprints alinsunod sa RA 10173"
         : "Client Data Protection, Land Title Privacy & Blueprint Confidentiality under RA 10173",
@@ -195,6 +196,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
     {
       id: "terms",
       title: isFil ? "Kasunduan sa Serbisyo" : "Terms of Engagement",
+      shortTitle: isFil ? "Kasunduan" : "Terms",
       subtitle: isFil
         ? "Mga Tuntunin sa Kontrata, BNPL Milestone Billing, at Labinlimang Taong (15-Year) Structural Warranty"
         : "Contract Conditions, BNPL Milestone Billing Schedule & 15-Year Structural Warranty",
@@ -205,6 +207,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
     {
       id: "safety",
       title: isFil ? "Kodigo sa Kaligtasan" : "Safety Code & Site Standards",
+      shortTitle: isFil ? "Kaligtasan" : "Safety Code",
       subtitle: isFil
         ? "Pamantayan sa Kaligtasan sa Trabaho, DOLE OSHS Compliance, at mga Patakaran sa Konstruksyon"
         : "Occupational Safety, DOLE OSHS Compliance, Mandatory PPE & Jobsite Protocols",
@@ -1387,9 +1390,10 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
 
         {/* 2. DOCUMENT SELECTOR TABS */}
         <section className="sticky top-[56px] sm:top-[64px] z-40 bg-white/95 dark:bg-[#07090c]/95 backdrop-blur-md border-b border-neutral-200 dark:border-white/10 shadow-xs print:hidden">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between gap-4 overflow-x-auto py-2.5 no-scrollbar">
-              <div className="flex items-center gap-2 shrink-0">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 py-2 sm:py-2.5">
+              {/* Document Tabs: 3-column grid on mobile so all 3 tabs (Privacy, Terms, Safety Code) are immediately visible without overflow */}
+              <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-2 w-full sm:w-auto shrink-0">
                 {documents.map((doc) => {
                   const Icon = doc.icon;
                   const isActive = activeDoc === doc.id;
@@ -1397,25 +1401,26 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                     <button
                       key={doc.id}
                       onClick={() => switchDocument(doc.id)}
-                      className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-[4px] text-xs font-mono uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                      className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-[4px] text-[10px] sm:text-xs font-mono uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap text-center ${
                         isActive
                           ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
                           : "bg-neutral-100 dark:bg-white/[0.04] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-white/[0.08] border border-neutral-200/60 dark:border-white/5"
                       }`}
                     >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span>{doc.title}</span>
+                      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                      <span className="hidden sm:inline truncate">{doc.title}</span>
+                      <span className="inline sm:hidden truncate">{doc.shortTitle}</span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* Quick Document Search Bar */}
-              <div className="relative min-w-[210px] sm:min-w-[250px] max-w-xs w-full flex items-center">
+              {/* Quick Document Search Bar: Full width on mobile below tabs, docked right on sm+ */}
+              <div className="relative w-full sm:w-auto sm:min-w-[240px] sm:max-w-xs flex items-center">
                 <Search className="w-3.5 h-3.5 absolute left-3 text-neutral-400 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder={isFil ? `Maghanap sa ${currentDocMeta.title}...` : `Search ${currentDocMeta.title}...`}
+                  placeholder={isFil ? `Maghanap sa ${currentDocMeta.shortTitle || currentDocMeta.title}...` : `Search ${currentDocMeta.shortTitle || currentDocMeta.title}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-8 pr-8 py-1.5 rounded-[4px] bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all font-mono"
@@ -1660,7 +1665,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                     className="scroll-mt-36 pt-4 border-t first:border-t-0 border-neutral-200/80 dark:border-white/10 space-y-4 print:pt-4 print:border-t print:border-neutral-300 print:break-inside-avoid print:page-break-inside-avoid"
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="px-2 py-0.5 rounded-[3px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono text-xs font-bold print:bg-neutral-200 print:text-neutral-900 print:border print:border-neutral-400">
+                      <span className="font-mono text-sm sm:text-base font-bold text-amber-600 dark:text-amber-400 print:text-neutral-900 shrink-0 select-none">
                         {highlightMatches(sec.number, searchQuery)}
                       </span>
                       <h3 className="text-lg sm:text-xl font-bold text-neutral-950 dark:text-white tracking-tight print:text-black print:text-sm">

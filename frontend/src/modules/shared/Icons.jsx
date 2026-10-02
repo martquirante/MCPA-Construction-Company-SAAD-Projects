@@ -86,6 +86,10 @@ import {
   Globe,
   Lightbulb,
   Ruler,
+  Wifi,
+  WifiOff,
+  Signal,
+  SignalZero,
 } from "lucide-react";
 
 export { default as LordIcon } from "./LordIcon";
@@ -1064,4 +1068,20 @@ export function SaveIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }
       {...props}
     />
   );
+}
+
+export function WifiIcon({ className = "w-4 h-4", strokeWidth = 2, ...props }) {
+  return <Wifi strokeWidth={strokeWidth} className={className} {...props} />;
+}
+
+export function WifiOffIcon({ className = "w-4 h-4", strokeWidth = 2, ...props }) {
+  return <WifiOff strokeWidth={strokeWidth} className={className} {...props} />;
+}
+
+export function SignalIcon({ className = "w-4 h-4", strokeWidth = 2, ...props }) {
+  return <Signal strokeWidth={strokeWidth} className={className} {...props} />;
+}
+
+export function SignalZeroIcon({ className = "w-4 h-4", strokeWidth = 2, ...props }) {
+  return <SignalZero strokeWidth={strokeWidth} className={className} {...props} />;
 }

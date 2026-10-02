@@ -23,6 +23,8 @@ export function useScrollScrub(containerRef) {
   const [stageName, setStageName] = useState(STAGE_LABELS[0]);
   const [videoLoaded, setVideoLoaded] = useState(false);
 
+  const [isLowEnd, setIsLowEnd] = useState(false);
+
   // Dedicated refs for each of the 3 split MP4 files
   const video1Ref = useRef(null); // Part 1: Step 0 -> 1 (0% to 33%)
   const video2Ref = useRef(null); // Part 2: Step 1 -> 2 (33% to 66%)
@@ -104,7 +106,9 @@ export function useScrollScrub(containerRef) {
       const cores = nav?.hardwareConcurrency || 4;
       const memory = nav?.deviceMemory || 4;
       const isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone/i.test(nav?.userAgent || "");
-      isLowEndRef.current = cores <= 4 || memory <= 4 || isMobile;
+      const lowEnd = cores <= 4 || memory <= 4 || isMobile;
+      isLowEndRef.current = lowEnd;
+      setIsLowEnd(lowEnd);
     }
   }, []);
 
@@ -377,6 +381,16 @@ export function useScrollScrub(containerRef) {
           videoFinishedRef.current = true;
           setReturnToCompletedHome(true);
 
+          // Release video decoders for Parts 1 & 2 after build is complete.
+          // The completed-house image takes over visually — no need to hold 3 video
+          // decoders in GPU memory (~100-150 MB). Part 3 stays to show the final frame.
+          setTimeout(() => {
+            const v1 = video1Ref.current;
+            const v2 = video2Ref.current;
+            if (v1) { v1.pause(); v1.removeAttribute("src"); v1.load(); }
+            if (v2) { v2.pause(); v2.removeAttribute("src"); v2.load(); }
+          }, 1500);
+
           // Lock scroll for 1200ms after build completion
           // to absorb any residual wheel/touch momentum so the user can appreciate the finished house
           cooldownRef.current = true;
@@ -403,16 +417,33 @@ export function useScrollScrub(containerRef) {
       const watchdogMs = Math.ceil((travelDistance / playbackSpeed) * 1000) + 2000;
       watchdogRef.current = setTimeout(finishAnimation, watchdogMs);
 
+      // Preload the NEXT part video when this transition starts.
+      // Parts 2 & 3 use preload="none" by default; calling load() here buffers them
+      // just-in-time so they are ready before the user scrolls to them.
+      if (clampedStep === 1 && video2Ref.current) {
+        video2Ref.current.load();
+      } else if (clampedStep === 2 && video3Ref.current) {
+        video3Ref.current.load();
+      }
+
+      const monitorStateUpdateInterval = isLowEndRef.current ? 100 : 60;
+      let lastStateUpdateTime = 0;
+
       const monitorForward = () => {
         const nowTime = activeVideo.currentTime;
         const normTime = Math.min(1, Math.max(0, nowTime / duration));
         const currentProg = startProg + normTime * (endProg - startProg);
         const currentPct = Math.min(endPct, Math.round(startPct + normTime * (endPct - startPct)));
 
-        if (currentPct !== lastDisplayedPctRef.current) {
-          lastDisplayedPctRef.current = currentPct;
-          setDisplayedPct(currentPct);
-          setProgress(currentProg);
+        // Throttle React state updates — only update every N ms to reduce re-renders
+        const nowMs = performance.now();
+        if (nowMs - lastStateUpdateTime >= monitorStateUpdateInterval) {
+          lastStateUpdateTime = nowMs;
+          if (currentPct !== lastDisplayedPctRef.current) {
+            lastDisplayedPctRef.current = currentPct;
+            setDisplayedPct(currentPct);
+            setProgress(currentProg);
+          }
         }
 
         if (nowTime >= targetTime - 0.02 || activeVideo.ended) {
@@ -890,5 +921,6 @@ export function useScrollScrub(containerRef) {
     prevStep,
     goToStep,
     replayBuild,
+    isLowEnd,
   };
 }

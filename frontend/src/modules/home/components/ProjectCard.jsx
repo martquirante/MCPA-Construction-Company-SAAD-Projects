@@ -32,13 +32,13 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
       ? project.images
       : ["https://images.unsplash.com/photo-1748063578185-3d68121b11ff?w=1200&h=800&fit=crop&auto=format"];
 
-  // Auto-advance carousel — pauses on hover
+  // Auto-advance photo preview only when card is hovered (stops background timers across 20+ cards)
   useEffect(() => {
-    if (images.length <= 1 || isHovered) return;
+    if (images.length <= 1 || !isHovered) return;
 
     const timer = setInterval(() => {
       setActiveImageIdx((prev) => (prev + 1) % images.length);
-    }, 3000);
+    }, 2500);
 
     return () => clearInterval(timer);
   }, [images.length, isHovered]);

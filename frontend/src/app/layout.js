@@ -114,7 +114,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body suppressHydrationWarning className="min-h-full flex flex-col">
-        <Script src="https://cdn.lordicon.com/lordicon.js" strategy="afterInteractive" />
+        <Script src="https://cdn.lordicon.com/lordicon.js" strategy="lazyOnload" />
         <LanguageProvider>
           <NetworkStatusBar />
           <SystemThemeSync />

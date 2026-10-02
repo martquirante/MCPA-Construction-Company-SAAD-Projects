@@ -13,8 +13,11 @@ import {
   UserIcon,
   SunIcon,
   MoonIcon,
+  WifiIcon,
+  WifiOffIcon,
+  RefreshCwIcon,
 } from "./Icons";
-import { Wifi, WifiOff, RefreshCw } from "lucide-react";
+
 import UtilityBar from "./UtilityBar";
 import { getThemePreference, setThemePreference } from "./SystemThemeSync";
 import { useLanguage } from "./LanguageContext";
@@ -446,11 +449,11 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
               }`}
             >
               {isCheckingConnection ? (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" />
               ) : isOnline ? (
-                <Wifi className="w-3.5 h-3.5" />
+                <WifiIcon className="w-3.5 h-3.5" />
               ) : (
-                <WifiOff className="w-3.5 h-3.5" />
+                <WifiOffIcon className="w-3.5 h-3.5" />
               )}
               <span>{isOnline ? "Online" : "Offline"}</span>
             </button>

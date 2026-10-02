@@ -1,8 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Wifi, WifiOff, Signal, SignalZero, X, RefreshCw } from "lucide-react";
+import {
+  WifiIcon,
+  WifiOffIcon,
+  SignalIcon,
+  SignalZeroIcon,
+  CloseIcon,
+  RefreshCwIcon,
+} from "./Icons";
 import { useLanguage } from "./LanguageContext";
+
 
 export default function NetworkStatusBar() {
   const { language, t } = useLanguage();
@@ -187,14 +195,14 @@ export default function NetworkStatusBar() {
         >
           {isRestored ? (
             connectionType === "cellular" ? (
-              <Signal size={15} strokeWidth={2.25} />
+              <SignalIcon className="w-[15px] h-[15px]" strokeWidth={2.25} />
             ) : (
-              <Wifi size={15} strokeWidth={2.25} />
+              <WifiIcon className="w-[15px] h-[15px]" strokeWidth={2.25} />
             )
           ) : connectionType === "cellular" ? (
-            <SignalZero size={15} strokeWidth={2.25} />
+            <SignalZeroIcon className="w-[15px] h-[15px]" strokeWidth={2.25} />
           ) : (
-            <WifiOff size={15} strokeWidth={2.25} />
+            <WifiOffIcon className="w-[15px] h-[15px]" strokeWidth={2.25} />
           )}
         </div>
 
@@ -236,7 +244,7 @@ export default function NetworkStatusBar() {
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white/10 dark:hover:bg-white/20 dark:text-white dark:border dark:border-white/10 text-[10px] font-mono font-semibold uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50"
               title={isFil ? "Subukang kumonekta muli" : "Retry connection"}
             >
-              <RefreshCw size={11} strokeWidth={2.5} className={isRetrying ? "animate-spin" : ""} />
+              <RefreshCwIcon className={`w-[11px] h-[11px] ${isRetrying ? "animate-spin" : ""}`} strokeWidth={2.5} />
               <span className="hidden xs:inline">{isFil ? "Subukan" : "Retry"}</span>
             </button>
           )}
@@ -247,7 +255,7 @@ export default function NetworkStatusBar() {
             aria-label="Dismiss Network Alert"
             className="p-1 rounded-[4px] text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-white/10 transition-colors cursor-pointer"
           >
-            <X size={14} strokeWidth={2} />
+            <CloseIcon className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
