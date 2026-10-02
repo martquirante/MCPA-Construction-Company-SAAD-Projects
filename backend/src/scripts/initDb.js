@@ -11,6 +11,20 @@ async function initializeDatabase() {
     isInitialized = true;
     return;
   }
+
+  // On Vercel serverless, skip full DDL rerun if schema is already initialized
+  if (process.env.VERCEL) {
+    try {
+      const check = await db.query("SELECT 1 FROM users LIMIT 1;");
+      if (check && check.rows) {
+        console.log("[initDb] Schema already verified on Supabase. Skipping redundant migrations on serverless cold start.");
+        isInitialized = true;
+        return;
+      }
+    } catch (e) {
+      // If error, continue with initialization
+    }
+  }
   console.log("\n=======================================================");
   console.log("  MCPA CONSTRUCTION & SUPPLY - DATABASE INITIALIZER    ");
   console.log("=======================================================");

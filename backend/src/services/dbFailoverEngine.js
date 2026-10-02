@@ -26,10 +26,10 @@ class DbFailoverEngine {
     // Extract project ref from SUPABASE_URL (e.g., https://dzqqyqothtttccplvvnb.supabase.co -> dzqqyqothtttccplvvnb)
     const projectRef = (this.supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/) || [])[1] || "dzqqyqothtttccplvvnb";
 
-    // Supabase Connection Pooler (IPv4 compatible, required for Vercel Serverless / AWS)
+    // Supabase Connection Pooler (IPv4 compatible Session Mode on port 5432, required for Vercel Serverless / AWS)
     let poolerConn = "";
     if (this.supabaseDbPassword) {
-      poolerConn = `postgres://postgres.${projectRef}:${encodeURIComponent(this.supabaseDbPassword)}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`;
+      poolerConn = `postgres://postgres.${projectRef}:${encodeURIComponent(this.supabaseDbPassword)}@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres`;
     }
 
     // Build Supabase PostgreSQL connection string
@@ -80,9 +80,9 @@ class DbFailoverEngine {
       return new Pool({
         connectionString: cleanConnStr,
         ssl: isSsl ? { rejectUnauthorized: false } : false,
-        connectionTimeoutMillis: 5000,
+        connectionTimeoutMillis: 15000,
         idleTimeoutMillis: 30000,
-        max: 10,
+        max: 5,
       });
     } catch (e) {
       console.warn("[DbFailoverEngine] Pool creation error:", e.message);
