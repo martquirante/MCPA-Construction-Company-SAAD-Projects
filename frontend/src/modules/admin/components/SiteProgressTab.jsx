@@ -42,7 +42,7 @@ export default function SiteProgressTab({
     if (!photoTitle || !photoUrl) return;
 
     await onAddPhoto({
-      projectCode: project?.project_code || "MCPA-PLR-2024",
+      projectCode: project?.project_code || "",
       title: photoTitle,
       caption: photoCaption,
       inspector: photoInspector,

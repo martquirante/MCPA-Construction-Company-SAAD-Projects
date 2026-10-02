@@ -281,107 +281,14 @@ async function initializeDatabase() {
       }
     }
 
-    // Seed Demo Active Project (The Meridian Modern Residence: MCPA-PLR-2024)
-    try {
-      const checkProj = await db.query("SELECT project_code FROM site_projects WHERE project_code = 'MCPA-PLR-2024'");
-      if (!checkProj.rows || checkProj.rows.length === 0) {
-        await db.query(`
-          INSERT INTO site_projects (
-            project_code, name, client_name, client_email, location,
-            contract_date, original_turnover, revised_turnover,
-            progress_pct, current_phase, lead_engineer, virtual_tour_url
-          ) VALUES (
-            'MCPA-PLR-2024',
-            'The Meridian Modern Residence',
-            'Engr. & Mrs. Dela Cruz',
-            'delacruz.client@gmail.com',
-            'Tabang, Plaridel, Bulacan',
-            'January 15, 2024',
-            'November 15, 2024',
-            'November 28, 2024',
-            65,
-            'Phase 3: Structural Masonry & Second Level Pouring',
-            'Engr. Raymart Quirante, CE (PRC Lic. #018492)',
-            'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&fit=crop'
-          );
-        `);
-
-        // Seed Milestones
-        const demoMilestones = [
-          ['MCPA-PLR-2024', '01-Foundation', 'Site Profiling, Geodetic Scan & Soil Testing', 100, 'Completed', 'Feb 02, 2024', 'Soil bearing capacity qa = 180 kPa verified.', 20],
-          ['MCPA-PLR-2024', '02-Framing', 'Signed & Sealed Blueprints & LGU Permitting', 100, 'Completed', 'Mar 10, 2024', 'Plaridel LGU Building Permit granted. Full PRC signed package.', 20],
-          ['MCPA-PLR-2024', '03-Roofing', 'Structural Columns, Grade 60 Rebar & Slab Pouring', 65, 'In Progress', 'Aug - Sep 2024', 'Grade 60 steel rebars tied; 3000 PSI ready-mix passed.', 25],
-          ['MCPA-PLR-2024', '04-Finishes', 'Architectural Finishes, Plumbing & Glazing', 0, 'Upcoming', 'Target: Oct 2024', 'Italian tiles and custom cabinetry preparation.', 20],
-          ['MCPA-PLR-2024', '05-Turnover', 'Ceremonial Key Handover & LGU Occupancy', 0, 'Upcoming', 'Target: Nov 2024', '100-point joint engineering audit and Certificate of Occupancy.', 15]
-        ];
-        for (const m of demoMilestones) {
-          await db.query(`
-            INSERT INTO site_milestones (project_code, phase_code, phase_name, completion_pct, status, target_date, notes, weight)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          `, m);
-        }
-
-        // Seed Photo Logs
-        const demoPhotos = [
-          ['MCPA-PLR-2024', 'Second Floor Slab Rebar Inspection & Formwork', 'Verified spacing of 16mm Grade 60 top bars with 25mm concrete cover blocks in place.', 'Site Lead Engineer', 'https://images.unsplash.com/photo-1541888946425-d0fbb186156a?w=800&h=500&fit=crop&auto=format', 'Sep 10, 2024', false],
-          ['MCPA-PLR-2024', 'Ground Floor Column Pouring & Curing Monitoring', '3000 PSI ready-mix mechanical vibrator consolidation complete; moist curing maintained.', 'Materials Quality Inspector', 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=800&h=500&fit=crop&auto=format', 'Aug 28, 2024', false],
-          ['MCPA-PLR-2024', 'Foundation Footing & Grade Beam Steel Framing', 'Footing tie beams inspected prior to concrete pour. Zero water pooling verified.', 'Structural Engineer', 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=500&fit=crop&auto=format', 'Jul 14, 2024', false],
-          ['MCPA-PLR-2024', '360° Panoramic Lot Sweep — Active Framing Phase', 'Complete 360-degree interactive camera capture of ground slab and column perimeters.', 'Field PM', 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&fit=crop', 'Sep 05, 2024', true]
-        ];
-        for (const p of demoPhotos) {
-          await db.query(`
-            INSERT INTO site_photo_logs (project_code, title, caption, inspector, image_url, log_date, is_360)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-          `, p);
-        }
-
-        // Seed Billing Ledger
-        const demoLedger = [
-          ['MCPA-PLR-2024', 'Downpayment / Contract Execution & Mobilization', 850000.00, 'Paid', 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&fit=crop', 'OR-2024-00189', 'Jan 20, 2024', 'Jan 18, 2024'],
-          ['MCPA-PLR-2024', 'Milestone 1: Substructure & Foundation Pouring', 650000.00, 'Paid', 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&fit=crop', 'OR-2024-00244', 'Mar 15, 2024', 'Mar 14, 2024'],
-          ['MCPA-PLR-2024', 'Milestone 2: Second Floor Structural Framing & Slab', 750000.00, 'Pending', null, null, 'Sep 30, 2024', null],
-          ['MCPA-PLR-2024', 'Milestone 3: Roofing, Masonry & Rough-ins', 600000.00, 'Pending', null, null, 'Oct 25, 2024', null],
-          ['MCPA-PLR-2024', 'Milestone 4: Turnkey Architectural Finishes & Handover', 400000.00, 'Pending', null, null, 'Nov 28, 2024', null]
-        ];
-        for (const b of demoLedger) {
-          await db.query(`
-            INSERT INTO billing_ledger (project_code, milestone_title, amount_due, status, proof_url, or_number, due_date, paid_date)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          `, b);
-        }
-
-        // Seed Delay Event
-        await db.query(`
-          INSERT INTO delay_events (project_code, category, days_delayed, reason)
-          VALUES ('MCPA-PLR-2024', 'Weather / Monsoon Rain', 13, 'Typhoon rain flooded approach road in Plaridel; concrete ready-mix trucks halted for curing safety.');
-        `);
-
-        console.log("[OK] Seeded sample live project 'MCPA-PLR-2024' with milestones, photos, and billing ledger.");
-      }
-
-      // Ensure system_metadata table exists
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS system_metadata (
-          key VARCHAR(100) PRIMARY KEY,
-          value TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-      `);
-
-      // Seed Initial OCR Expenses if empty
-      const checkOcrCount = await db.query("SELECT COUNT(*) FROM expenses_ocr WHERE project_code = 'MCPA-PLR-2024'");
-      if (parseInt(checkOcrCount.rows[0].count, 10) === 0) {
-        await db.query(`
-          INSERT INTO expenses_ocr (project_code, vendor_name, receipt_image_url, extracted_total, raw_ocr_text)
-          VALUES 
-            ('MCPA-PLR-2024', 'Wilcon Depot Baliuag', 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&fit=crop', 34200.00, 'PNS Grade 60 Rebars 16mm (20 pcs), Tie Wire #16'),
-            ('MCPA-PLR-2024', 'CitiHardware Plaridel', 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&fit=crop', 12850.50, 'Portland Cement Type 1 (50 bags), Fine Sand (2 cu.m)');
-        `);
-        console.log("[OK] Seeded verified hardware receipt records into 'expenses_ocr'.");
-      }
-    } catch (err) {
-      console.warn("[WARN] Demo project seeding notice:", err.message);
-    }
+    // Ensure system_metadata table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS system_metadata (
+        key VARCHAR(100) PRIMARY KEY,
+        value TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
 
     console.log("\n[SUCCESS] Database initialization completed successfully!\n");
     isInitialized = true;

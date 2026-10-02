@@ -5,11 +5,30 @@ class ConstructionController {
   // 1. SITE PROJECTS
   async getProject(req, res) {
     try {
-      const code = req.params.code || "MCPA-PLR-2024";
-      const projRes = await db.query("SELECT * FROM site_projects WHERE project_code = $1", [code]);
-      if (!projRes.rows || projRes.rows.length === 0) {
-        return res.status(404).json({ message: "Project not found." });
+      const requestedCode = req.params.code;
+      let projRes;
+
+      if (requestedCode) {
+        projRes = await db.query("SELECT * FROM site_projects WHERE project_code = $1", [requestedCode]);
+      } else {
+        projRes = await db.query("SELECT * FROM site_projects ORDER BY project_id DESC LIMIT 1");
       }
+
+      if (!projRes.rows || projRes.rows.length === 0) {
+        return res.json({
+          success: true,
+          project: null,
+          milestones: [],
+          photos: [],
+          billing: [],
+          delays: [],
+          warranty: [],
+          expenses: [],
+        });
+      }
+
+      const activeProject = projRes.rows[0];
+      const code = activeProject.project_code;
 
       const milestonesRes = await db.query(
         "SELECT * FROM site_milestones WHERE project_code = $1 ORDER BY phase_code ASC",
@@ -38,7 +57,7 @@ class ConstructionController {
 
       return res.json({
         success: true,
-        project: projRes.rows[0],
+        project: activeProject,
         milestones: milestonesRes.rows || [],
         photos: photosRes.rows || [],
         billing: billingRes.rows || [],

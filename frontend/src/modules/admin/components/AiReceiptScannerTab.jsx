@@ -10,7 +10,7 @@ import {
 } from "@/modules/shared/Icons";
 
 export default function AiReceiptScannerTab({
-  projectCode = "MCPA-PLR-2024",
+  projectCode = "",
   expenses = [],
   showToast,
 }) {

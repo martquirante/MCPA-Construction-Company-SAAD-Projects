@@ -25,7 +25,7 @@ export default function DelayManagementTab({
 
     setIsSubmitting(true);
     await onLogDelay({
-      projectCode: project?.project_code || "MCPA-PLR-2024",
+      projectCode: project?.project_code || "",
       category,
       daysDelayed: parseInt(daysDelayed, 10),
       reason,

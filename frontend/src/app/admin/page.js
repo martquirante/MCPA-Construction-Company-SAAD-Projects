@@ -101,9 +101,8 @@ export default function AdminPage() {
       if (savedProjects) {
         const parsed = JSON.parse(savedProjects);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const unified = deduplicateProjects(parsed, INITIAL_PROJECTS);
-          const adminOnly = unified.filter((p) => p.isAdminAdded);
-          setCustomProjects(adminOnly);
+          const unified = deduplicateProjects(parsed);
+          setCustomProjects(unified);
           setAllProjects(unified);
           localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(unified));
           return;
@@ -136,7 +135,7 @@ export default function AdminPage() {
       const [projRes, briefsRes, siteRes] = await Promise.allSettled([
         fetch("/api/projects").then((r) => r.json()),
         fetch("/api/briefs").then((r) => r.json()),
-        fetch("/api/construction/projects/MCPA-PLR-2024").then((r) => r.json()),
+        fetch("/api/construction/project").then((r) => r.json()),
       ]);
 
       if (projRes.status === "fulfilled" && projRes.value?.success && Array.isArray(projRes.value.projects)) {
@@ -658,8 +657,10 @@ export default function AdminPage() {
       });
       const resData = await res.json();
       if (resData.success) {
-        // Refresh site project data
-        const siteRes = await fetch("/api/construction/projects/MCPA-PLR-2024").then((r) => r.json());
+        const siteEndpoint = siteProject?.project_code
+          ? `/api/construction/projects/${siteProject.project_code}`
+          : "/api/construction/project";
+        const siteRes = await fetch(siteEndpoint).then((r) => r.json());
         if (siteRes.success) {
           setSiteProject(siteRes.project);
           setSiteMilestones(siteRes.milestones || []);
@@ -713,7 +714,10 @@ export default function AdminPage() {
       const data = await res.json();
       if (data.success && data.delay) {
         setDelayEvents([data.delay, ...delayEvents]);
-        const siteRes = await fetch("/api/construction/projects/MCPA-PLR-2024").then((r) => r.json());
+        const siteEndpoint = siteProject?.project_code
+          ? `/api/construction/projects/${siteProject.project_code}`
+          : "/api/construction/project";
+        const siteRes = await fetch(siteEndpoint).then((r) => r.json());
         if (siteRes.success) {
           setSiteProject(siteRes.project);
         }
