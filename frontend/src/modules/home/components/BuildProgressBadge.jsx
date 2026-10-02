@@ -11,6 +11,7 @@ export default function BuildProgressBadge({
   isCompleted,
   onReplay,
   onAdvance,
+  onSkip,
 }) {
   const { t } = useLanguage();
   const percentage = displayedPct !== undefined ? displayedPct : Math.round(progress * 100);
@@ -36,7 +37,7 @@ export default function BuildProgressBadge({
 
   return (
     <>
-      {/* 1. DURING HERO SCROLL: CLEAN TEXT & ANIMATED BOUNCING ARROW (NO BACKGROUND) */}
+      {/* 1. DURING HERO SCROLL: CLEAN TEXT & ANIMATED BOUNCING ARROW (SCROLL TO CONTINUE) */}
       {!isCompleted && (
         <div className="absolute bottom-10 sm:bottom-8 inset-x-0 z-30 flex flex-col items-center justify-center pointer-events-none transition-all duration-700 select-none pb-[env(safe-area-inset-bottom,0px)]">
           <button

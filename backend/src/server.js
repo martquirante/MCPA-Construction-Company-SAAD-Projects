@@ -13,6 +13,7 @@ const constructionController = require("./controllers/constructionController");
 const legalPdfController = require("./controllers/legalPdfController");
 const initializeDatabase = require("./scripts/initDb");
 const { translateDictionary } = require("./services/translationService");
+const phLocationService = require("./services/phLocationService");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -193,7 +194,7 @@ app.post("/api/upload-multiple", upload.array("files", 10), async (req, res) => 
 });
 
 // -----------------------------------------------------------------------------
-// PHILIPPINES LOCATION AUTOCOMPLETE API (Strictly PH, no frontend storage)
+// PHILIPPINES LOCATION AUTOCOMPLETE API (Strictly PH live API, zero stored data)
 // -----------------------------------------------------------------------------
 app.get("/api/locations/ph", async (req, res) => {
   const query = (req.query.q || "").trim();
@@ -202,52 +203,28 @@ app.get("/api/locations/ph", async (req, res) => {
   }
 
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=ph&q=${encodeURIComponent(
-      query
-    )}&addressdetails=1&limit=8`;
-
-    const osmRes = await fetch(url, {
-      headers: {
-        "User-Agent": "MCPA-Construction-App/1.0 (development@mcpaconstruction.ph)",
-        Accept: "application/json",
-      },
-    });
-
-    if (!osmRes.ok) {
-      return res.json({ success: true, locations: [] });
-    }
-
-    const data = await osmRes.json();
-    const formattedList = [];
-
-    for (const item of data) {
-      const addr = item.address || {};
-      const primary =
-        addr.city ||
-        addr.town ||
-        addr.municipality ||
-        addr.suburb ||
-        addr.village ||
-        item.name;
-
-      const province = addr.province || addr.state || addr.region || "";
-
-      if (primary) {
-        if (province && !primary.toLowerCase().includes(province.toLowerCase())) {
-          formattedList.push(`${primary}, ${province}`);
-        } else {
-          formattedList.push(primary);
-        }
-      }
-    }
-
-    // Deduplicate suggestions and return
-    const uniqueLocations = Array.from(new Set(formattedList));
-    return res.json({ success: true, locations: uniqueLocations });
+    const locations = await phLocationService.searchLocations(query);
+    return res.json({ success: true, locations });
   } catch (err) {
     console.error("[Locations API] Search error:", err.message);
     return res.status(500).json({ success: false, message: "Location search failed." });
   }
+});
+
+// -----------------------------------------------------------------------------
+// AUTHORITATIVE SERVER TIME API (PHT / UTC+8 Anti-Tamper Clock Synchronization)
+// -----------------------------------------------------------------------------
+app.get("/api/time", (req, res) => {
+  const now = new Date();
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  return res.json({
+    success: true,
+    serverTimeUtc: now.toISOString(),
+    timestamp: now.getTime(),
+    timezone: "Asia/Manila",
+    offsetMinutes: 480,
+  });
 });
 
 // Startup & Database Sync

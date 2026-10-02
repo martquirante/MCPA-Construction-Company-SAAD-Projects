@@ -50,6 +50,7 @@ export const translations = {
     scrollExplore: "Scroll to Explore",
     scrollToContinue: "Scroll to Continue",
     replayBuild: "Replay Build",
+    skipToResidence: "Skip to Residence",
 
     // Services Section
     whatWeDo: "What We Do",
@@ -178,6 +179,7 @@ export const translations = {
     scrollExplore: "Mag-scroll upang Tuklasin",
     scrollToContinue: "Mag-scroll upang Magpatuloy",
     replayBuild: "Ulitin ang Pagtatayo",
+    skipToResidence: "Dumiretso sa Bahay",
 
     // Services Section
     whatWeDo: "Ang Aming Ginagawa",
@@ -299,6 +301,7 @@ export const TAGALOG_DICTIONARY = {
   "Scroll to Explore": "Mag-scroll upang Tuklasin",
   "Scroll to Continue": "Mag-scroll upang Magpatuloy",
   "Replay Build": "Ulitin ang Pagtatayo",
+  "Skip to Residence": "Dumiretso sa Bahay",
   "Close": "Isara",
   "Isara": "Isara",
   "Language": "Wika",

@@ -94,6 +94,7 @@ function FrameScrollEngine({ onCompletionChange }) {
     isPortrait,
     stageName,
     nextStep,
+    skipBuild,
     replayBuild,
   } = useScrollScrubFrames(containerRef);
 
@@ -138,6 +139,7 @@ function FrameScrollEngine({ onCompletionChange }) {
           isCompleted={isCompleted}
           onReplay={replayBuild}
           onAdvance={nextStep}
+          onSkip={skipBuild}
         />
       </div>
     </section>
@@ -163,6 +165,7 @@ function VideoScrollEngine({ onCompletionChange, onFallbackToFrames }) {
     stageName,
     handleVideoLoadedMetadata,
     nextStep,
+    skipBuild,
     replayBuild,
   } = useScrollScrub(containerRef);
 
@@ -171,6 +174,20 @@ function VideoScrollEngine({ onCompletionChange, onFallbackToFrames }) {
       onCompletionChange(isCompleted);
     }
   }, [isCompleted, onCompletionChange]);
+
+  // Eager background preload for video 2 and video 3 on mount so transitions are 0ms instant
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      [video2Ref, video3Ref].forEach((ref) => {
+        if (ref?.current && ref.current.readyState < 2) {
+          try {
+            ref.current.load();
+          } catch (_) {}
+        }
+      });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [video2Ref, video3Ref]);
 
   // Force media reload when orientation changes
   useEffect(() => {
@@ -254,7 +271,7 @@ function VideoScrollEngine({ onCompletionChange, onFallbackToFrames }) {
             poster={posterParts[1]}
             playsInline
             muted
-            preload="none"
+            preload="auto"
             disablePictureInPicture
             disableRemotePlayback
             onError={onFallbackToFrames}
@@ -272,7 +289,7 @@ function VideoScrollEngine({ onCompletionChange, onFallbackToFrames }) {
             poster={posterParts[2]}
             playsInline
             muted
-            preload="none"
+            preload="auto"
             disablePictureInPicture
             disableRemotePlayback
             onError={onFallbackToFrames}
@@ -294,6 +311,7 @@ function VideoScrollEngine({ onCompletionChange, onFallbackToFrames }) {
           isCompleted={isCompleted}
           onReplay={replayBuild}
           onAdvance={nextStep}
+          onSkip={skipBuild}
         />
       </div>
     </section>

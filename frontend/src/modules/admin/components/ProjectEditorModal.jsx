@@ -121,11 +121,14 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatusText, setUploadStatusText] = useState("");
 
-  // Location suggestions state (pure API, 0 frontend storage)
+  // Location suggestions state (pure live API, 0 static storage)
   const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [activeLocationIndex, setActiveLocationIndex] = useState(-1);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const locationDebounceRef = useRef(null);
+  const locationAbortRef = useRef(null);
+  const clientLocationCacheRef = useRef(new Map());
   const locationContainerRef = useRef(null);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -292,47 +295,95 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     }
   };
 
-  // Handle Location typing & Philippine API search
+  // Fetch locations from live API (supports empty query for popular hubs, or 1+ chars for live matching)
+  const fetchLocations = (rawText) => {
+    const trimmed = (rawText || "").trim();
+    setShowLocationDropdown(true);
+
+    const cacheKey = (trimmed || "__popular__").toLowerCase();
+    if (clientLocationCacheRef.current.has(cacheKey)) {
+      const cached = clientLocationCacheRef.current.get(cacheKey);
+      if (Array.isArray(cached) && cached.length > 0) {
+        setLocationSuggestions(cached);
+        setShowLocationDropdown(true);
+        setIsSearchingLocation(false);
+        setActiveLocationIndex(-1);
+        return;
+      }
+    }
+
+    setIsSearchingLocation(true);
+
+    if (locationDebounceRef.current) {
+      clearTimeout(locationDebounceRef.current);
+    }
+    if (locationAbortRef.current) {
+      locationAbortRef.current.abort();
+    }
+
+    locationDebounceRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      locationAbortRef.current = controller;
+
+      try {
+        const res = await fetch(`/api/locations/ph?q=${encodeURIComponent(trimmed)}`, {
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.success && Array.isArray(data.locations)) {
+            if (data.locations.length > 0) {
+              clientLocationCacheRef.current.set(cacheKey, data.locations);
+            }
+            setLocationSuggestions(data.locations);
+            setShowLocationDropdown(true);
+            setActiveLocationIndex(-1);
+          }
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.warn("Location search error:", err);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSearchingLocation(false);
+        }
+      }
+    }, trimmed.length <= 1 ? 50 : 120);
+  };
+
+  // Handle Location typing & live Philippine API search
   const handleLocationChange = (e) => {
     const query = e.target.value;
     setFormData((prev) => ({ ...prev, location: query }));
     if (fieldErrors.location) {
       setFieldErrors((prev) => ({ ...prev, location: "" }));
     }
+    fetchLocations(query);
+  };
 
-    if (locationDebounceRef.current) {
-      clearTimeout(locationDebounceRef.current);
-    }
+  const handleLocationKeyDown = (e) => {
+    if (!showLocationDropdown) return;
 
-    if (query.trim().length < 2) {
-      setLocationSuggestions([]);
+    if (e.key === "ArrowDown" && locationSuggestions.length > 0) {
+      e.preventDefault();
+      setActiveLocationIndex((prev) => (prev + 1) % locationSuggestions.length);
+    } else if (e.key === "ArrowUp" && locationSuggestions.length > 0) {
+      e.preventDefault();
+      setActiveLocationIndex((prev) => (prev - 1 + locationSuggestions.length) % locationSuggestions.length);
+    } else if (e.key === "Enter" && activeLocationIndex >= 0 && locationSuggestions[activeLocationIndex]) {
+      e.preventDefault();
+      handleSelectLocation(locationSuggestions[activeLocationIndex]);
+    } else if (e.key === "Escape") {
       setShowLocationDropdown(false);
-      return;
     }
-
-    setIsSearchingLocation(true);
-    locationDebounceRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/locations/ph?q=${encodeURIComponent(query)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.success && Array.isArray(data.locations)) {
-            setLocationSuggestions(data.locations);
-            setShowLocationDropdown(data.locations.length > 0);
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to fetch location suggestions:", err);
-      } finally {
-        setIsSearchingLocation(false);
-      }
-    }, 350);
   };
 
   const handleSelectLocation = (loc) => {
     setFormData((prev) => ({ ...prev, location: loc }));
     setShowLocationDropdown(false);
     setLocationSuggestions([]);
+    setActiveLocationIndex(-1);
     if (fieldErrors.location) {
       setFieldErrors((prev) => ({ ...prev, location: "" }));
     }
@@ -780,10 +831,14 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                     type="text"
                     value={formData.location}
                     onChange={handleLocationChange}
+                    onKeyDown={handleLocationKeyDown}
                     onFocus={() => {
-                      if (locationSuggestions.length > 0) setShowLocationDropdown(true);
+                      setShowLocationDropdown(true);
+                      if (locationSuggestions.length === 0) {
+                        fetchLocations(formData.location);
+                      }
                     }}
-                    placeholder="e.g. Pulilan, Bulacan or Pampanga"
+                    placeholder="e.g. Brgy. Paltao, Pulilan, Bulacan or MacArthur Highway"
                     className={`w-full pl-10 pr-4 py-3 rounded-[4px] bg-neutral-100 dark:bg-neutral-900 border text-neutral-900 dark:text-white transition-colors ${
                       fieldErrors.location
                         ? "border-rose-500 ring-1 ring-rose-500/30"
@@ -800,22 +855,49 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 )}
 
                 {/* Autocomplete Suggestions Dropdown */}
-                {showLocationDropdown && locationSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-[4px] shadow-xl overflow-hidden max-h-56 overflow-y-auto">
-                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-50 dark:bg-neutral-800/60 border-b border-neutral-100 dark:border-neutral-800">
-                      Suggested Philippine Locations
-                    </div>
-                    {locationSuggestions.map((loc, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleSelectLocation(loc)}
-                        className="w-full text-left px-3.5 py-2.5 text-xs text-neutral-800 dark:text-neutral-200 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-2 transition-colors border-b border-neutral-100 dark:border-neutral-800/40 last:border-0"
-                      >
-                        <MapPinIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span className="truncate">{loc}</span>
-                      </button>
-                    ))}
+                {showLocationDropdown && (
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-[4px] shadow-xl overflow-hidden max-h-60 overflow-y-auto">
+                    {isSearchingLocation && locationSuggestions.length === 0 ? (
+                      <div className="px-3.5 py-3 text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-2">
+                        <svg className="w-3.5 h-3.5 animate-spin text-amber-500 shrink-0" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        <span>Searching Philippine locations...</span>
+                      </div>
+                    ) : locationSuggestions.length > 0 ? (
+                      <>
+                        <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 bg-neutral-50 dark:bg-neutral-800/60 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+                          <span>{formData.location?.trim() ? "Suggested Locations" : "Popular Philippine Locations"}</span>
+                          {isSearchingLocation && (
+                            <span className="text-[9px] text-amber-500 font-normal lowercase animate-pulse">updating...</span>
+                          )}
+                        </div>
+                        {locationSuggestions.map((loc, idx) => {
+                          const isHighlighted = idx === activeLocationIndex;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleSelectLocation(loc)}
+                              onMouseEnter={() => setActiveLocationIndex(idx)}
+                              className={`w-full text-left px-3.5 py-2.5 text-xs flex items-center gap-2.5 transition-colors border-b border-neutral-100 dark:border-neutral-800/40 last:border-0 cursor-pointer ${
+                                isHighlighted
+                                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium"
+                                  : "text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                              }`}
+                            >
+                              <MapPinIcon className={`w-3.5 h-3.5 shrink-0 ${isHighlighted ? "text-amber-500" : "text-neutral-400"}`} />
+                              <span className="truncate">{loc}</span>
+                            </button>
+                          );
+                        })}
+                      </>
+                    ) : (
+                      <div className="px-3.5 py-3 text-xs text-neutral-400 dark:text-neutral-500 italic text-center">
+                        No matching Philippine locations found
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

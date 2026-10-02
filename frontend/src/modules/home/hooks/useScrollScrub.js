@@ -42,6 +42,7 @@ export function useScrollScrub(containerRef) {
   const targetStepRef = useRef(0);
   const playRafRef = useRef(null);
   const watchdogRef = useRef(null);
+  const stallTimerRef = useRef(null);
   const lastSeekTimeRef = useRef(0);
   const isProgrammaticScrollRef = useRef(false);
   const isLowEndRef = useRef(false);
@@ -96,6 +97,7 @@ export function useScrollScrub(containerRef) {
     return () => {
       if (playRafRef.current) cancelAnimationFrame(playRafRef.current);
       if (watchdogRef.current) clearTimeout(watchdogRef.current);
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
     };
   }, []);
 
@@ -202,7 +204,7 @@ export function useScrollScrub(containerRef) {
   // Transition to target step (0..3):
   // Steps 0..2 = Construction stages (0%, 33%, 66%)
   // Step 3 = 100% Completed Residence + UI Reveal ("3 scroll lang sya, tas pang apat is nasa homepage")
-  const goToStep = useCallback((targetStep, immediate = false) => {
+  const goToStep = useCallback(function advanceStep(targetStep, immediate = false) {
     // If build is completed, lock progression at completed residence - never unbuild!
     if (hasCompletedRef.current && targetStep < 3) {
       return;
@@ -330,27 +332,26 @@ export function useScrollScrub(containerRef) {
         ? activeVideo.duration
         : 3.32;
       const targetTime = Math.max(0.01, duration - 0.02);
-      // Play at natural cinematic 1.0x speed so every construction detail is fully visible
-      const playbackSpeed = 1.0;
+      // Play at crisp cinematic 1.25x speed (~2.5s per part, ~7.5s full build sequence)
+      const playbackSpeed = 1.25;
       activeVideo.playbackRate = playbackSpeed;
 
-      let stallTimer = null;
       const handleBufferStall = () => {
-        if (!stallTimer) {
-          stallTimer = setTimeout(finishAnimation, 4000);
+        if (!stallTimerRef.current) {
+          stallTimerRef.current = setTimeout(finishAnimation, 3500);
         }
       };
       const handlePlaying = () => {
-        if (stallTimer) {
-          clearTimeout(stallTimer);
-          stallTimer = null;
+        if (stallTimerRef.current) {
+          clearTimeout(stallTimerRef.current);
+          stallTimerRef.current = null;
         }
       };
 
       const finishAnimation = () => {
-        if (stallTimer) {
-          clearTimeout(stallTimer);
-          stallTimer = null;
+        if (stallTimerRef.current) {
+          clearTimeout(stallTimerRef.current);
+          stallTimerRef.current = null;
         }
         if (watchdogRef.current) {
           clearTimeout(watchdogRef.current);
@@ -391,20 +392,23 @@ export function useScrollScrub(containerRef) {
             if (v2) { v2.pause(); v2.removeAttribute("src"); v2.load(); }
           }, 1500);
 
-          // Lock scroll for 1200ms after build completion
-          // to absorb any residual wheel/touch momentum so the user can appreciate the finished house
+          // Lock scroll for 600ms after build completion to absorb residual momentum
           cooldownRef.current = true;
           setTimeout(() => {
             cooldownRef.current = false;
-          }, 1200);
-        } else {
-          cooldownRef.current = true;
-          setTimeout(() => {
-            cooldownRef.current = false;
-          }, 400);
-        }
+          }, 600);
 
-        isAnimatingRef.current = false;
+          isAnimatingRef.current = false;
+        } else {
+          // Finished this chunk! Rest cleanly at this milestone and wait for the user's next scroll.
+          // Pre-switch activePartIndex to next part so its initial frame is seamlessly ready with 0ms buffering.
+          setActivePartIndex(clampedStep);
+          isAnimatingRef.current = false;
+          cooldownRef.current = true;
+          setTimeout(() => {
+            cooldownRef.current = false;
+          }, 350);
+        }
       };
 
       activeVideo.addEventListener("waiting", handleBufferStall);
@@ -414,16 +418,20 @@ export function useScrollScrub(containerRef) {
 
       const playPromise = activeVideo.play();
       const travelDistance = Math.max(0.1, targetTime - (activeVideo.currentTime || 0));
-      const watchdogMs = Math.ceil((travelDistance / playbackSpeed) * 1000) + 2000;
+      const watchdogMs = Math.ceil((travelDistance / playbackSpeed) * 1000) + 1500;
       watchdogRef.current = setTimeout(finishAnimation, watchdogMs);
 
-      // Preload the NEXT part video when this transition starts.
-      // Parts 2 & 3 use preload="none" by default; calling load() here buffers them
-      // just-in-time so they are ready before the user scrolls to them.
+      // Preload next part video and reset time to 0.01s so it begins instantly
       if (clampedStep === 1 && video2Ref.current) {
-        video2Ref.current.load();
+        try {
+          video2Ref.current.currentTime = 0.01;
+          video2Ref.current.load();
+        } catch (_) {}
       } else if (clampedStep === 2 && video3Ref.current) {
-        video3Ref.current.load();
+        try {
+          video3Ref.current.currentTime = 0.01;
+          video3Ref.current.load();
+        } catch (_) {}
       }
 
       const monitorStateUpdateInterval = isLowEndRef.current ? 100 : 60;
@@ -535,31 +543,90 @@ export function useScrollScrub(containerRef) {
     }
   }, [scrubBackward]);
 
-  // Advance to next milestone (0 -> 33% -> 66% -> 100% -> 4th scroll enters homepage #overview)
-  // Guarantees each video part is 100% finished and the house is fully built BEFORE transitioning to the homepage
-  const nextStep = useCallback(() => {
-    // 1. If video is currently animating, DO NOT skip or cancel the video!
-    // The user must be allowed to watch each construction stage from start to finish without skipping.
-    if (isAnimatingRef.current) {
-      return;
+  // Instant skip / fast-forward to 100% completed residence
+  const skipBuild = useCallback(() => {
+    if (hasCompletedRef.current) return;
+
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
+    if (playRafRef.current) {
+      cancelAnimationFrame(playRafRef.current);
+      playRafRef.current = null;
     }
 
-    if (cooldownRef.current) {
+    [video1Ref, video2Ref, video3Ref].forEach((ref) => {
+      if (ref?.current) {
+        try {
+          ref.current.pause();
+        } catch (_) {}
+      }
+    });
+
+    const v3 = video3Ref.current;
+    if (v3) {
+      try {
+        const dur = v3.duration && isFinite(v3.duration) ? v3.duration : 3.31;
+        v3.currentTime = Math.max(0.01, dur - 0.04);
+      } catch (_) {}
+    }
+
+    setActivePartIndex(2);
+    setCurrentStep(3);
+    currentStepRef.current = 3;
+    targetStepRef.current = 3;
+    setProgress(1.0);
+    setDisplayedPct(100);
+    lastDisplayedPctRef.current = 100;
+    setStageName(STAGE_LABELS[3]);
+    setIsCompleted(true);
+    setHasCompletedBuild(true);
+    hasCompletedRef.current = true;
+    videoFinishedRef.current = true;
+    setReturnToCompletedHome(true);
+    isAnimatingRef.current = false;
+
+    if (typeof window !== "undefined") {
+      isProgrammaticScrollRef.current = true;
+      const vh = window.innerHeight;
+      window.scrollTo({ top: 3 * vh, behavior: "instant" });
+      setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, 300);
+    }
+
+    cooldownRef.current = true;
+    setTimeout(() => {
+      cooldownRef.current = false;
+    }, 500);
+  }, []);
+
+  // Advance build by 1 chunk, or 4th scroll navigates to homepage #overview
+  const nextStep = useCallback(() => {
+    // If video is currently animating or cooldown is active, ignore incoming scroll
+    if (isAnimatingRef.current || cooldownRef.current) {
       return;
     }
 
     const curr = currentStepRef.current;
 
-    // 2. If in build sequence (0 -> 1, 1 -> 2, 2 -> 3):
+    // Advance 1 chunk per scroll:
+    // Step 0 -> Step 1 (Chunk 1: 0% to 33%)
+    // Step 1 -> Step 2 (Chunk 2: 33% to 66%)
+    // Step 2 -> Step 3 (Chunk 3: 66% to 100%)
     if (curr < 3) {
       cooldownRef.current = true;
       setTimeout(() => {
         cooldownRef.current = false;
-      }, 500);
+      }, 400);
       goToStep(curr + 1);
     } else {
-      // 3. Step 3 (Completed Residence):
-      // Only transition to homepage AFTER the house is verified 100% completed!
+      // Step 3 (Completed Residence): 4th scroll transitions to homepage #overview!
       if (!hasCompletedRef.current) {
         return;
       }
@@ -581,8 +648,6 @@ export function useScrollScrub(containerRef) {
 
   // Step back to previous milestone (locked: build progress is strictly forward-only until 100% completion)
   const prevStep = useCallback(() => {
-    // Locked: User requested "naka lock na ung scroll up rito like ung progress dyan is need matapos nalang"
-    // Progress must strictly move forward (0% -> 33% -> 66% -> 100%) without unbuilding/reversing
     return;
   }, []);
 
@@ -605,7 +670,7 @@ export function useScrollScrub(containerRef) {
         // CASE 1: Build is completed (Step 3 reached AND house is 100% completed)
         if (hasCompletedRef.current && currentStepRef.current >= 3) {
           if (e.deltaY > 0) {
-            // Scrolling DOWN towards homepage #overview
+            // Scrolling DOWN towards homepage #overview (4th scroll)
             if (!cooldownRef.current && !isAnimatingRef.current) {
               if (Math.abs(e.deltaY) > 15) {
                 nextStep();
@@ -623,7 +688,7 @@ export function useScrollScrub(containerRef) {
         // CASE 2: During initial build sequence (Steps 0..2 or Step 3 still playing)
         // Upward scroll is completely locked so progress is strictly forward-only
         if (e.deltaY > 0) {
-          // Scrolling DOWN: advance to next stage if allowed
+          // Scrolling DOWN: Advance 1 chunk if not currently animating and not in cooldown
           if (!isAnimatingRef.current && !cooldownRef.current) {
             if (Math.abs(e.deltaY) > 15) {
               nextStep();
@@ -682,7 +747,7 @@ export function useScrollScrub(containerRef) {
         // Minimum swipe threshold of 28px
         if (Math.abs(deltaY) > 28) {
           if (deltaY > 0) {
-            // Swiped UP = advance to next stage / scroll down
+            // Swiped UP = advance to next chunk
             if (!isAnimatingRef.current && !cooldownRef.current) {
               nextStep();
             }
@@ -703,7 +768,9 @@ export function useScrollScrub(containerRef) {
         if (!hasCompletedRef.current) {
           if (["ArrowDown", "PageDown", " "].includes(e.key)) {
             e.preventDefault();
-            nextStep();
+            if (!isAnimatingRef.current && !cooldownRef.current) {
+              nextStep();
+            }
           } else if (["ArrowUp", "PageUp"].includes(e.key)) {
             e.preventDefault();
           }
@@ -732,7 +799,7 @@ export function useScrollScrub(containerRef) {
       window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [containerRef, nextStep, prevStep, goToStep]);
+  }, [containerRef, nextStep, prevStep, goToStep, skipBuild]);
 
   // Window scroll sync for manual scrollbar navigation
   useEffect(() => {
@@ -920,6 +987,7 @@ export function useScrollScrub(containerRef) {
     nextStep,
     prevStep,
     goToStep,
+    skipBuild,
     replayBuild,
     isLowEnd,
   };

@@ -9,6 +9,7 @@ import DashboardTab from "@/modules/admin/components/DashboardTab";
 import InquiryPipelineTab from "@/modules/admin/components/InquiryPipelineTab";
 import ProjectsTab from "@/modules/admin/components/ProjectsTab";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
+import { useAuthoritativeClock } from "@/modules/admin/hooks/useAuthoritativeClock";
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
 import {
   LockIcon,
@@ -78,7 +79,15 @@ export default function AdminPage() {
       return next;
     });
   };
-  const [currentTime, setCurrentTime] = useState("");
+  const {
+    dateStr,
+    shortDateStr,
+    timeStr,
+    timezoneCode,
+    isSynced,
+    hasClockSkew,
+    skewText,
+  } = useAuthoritativeClock("Asia/Manila");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [successToast, setSuccessToast] = useState("");
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
@@ -1380,6 +1389,31 @@ export default function AdminPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Real-time Authoritative Server-Synced Clock (Pure Text Typography) */}
+            {timeStr && (
+              <div
+                className="flex items-center text-xs font-mono text-neutral-500 dark:text-neutral-400 select-none py-1"
+                title={
+                  hasClockSkew
+                    ? `System Time Verified (PHT). Device clock differs by ${skewText}, auto-corrected via server.`
+                    : "Philippine Standard Time (PHT) · Real-time Server Synced"
+                }
+              >
+                <span className="tabular-nums text-neutral-600 dark:text-neutral-300">
+                  <span className="hidden md:inline">{dateStr} · </span>
+                  <span className="text-neutral-800 dark:text-neutral-200 font-medium">
+                    {timeStr}
+                  </span>
+                  <span className="text-neutral-400 dark:text-neutral-500 ml-1 text-[11px]">
+                    {timezoneCode}
+                  </span>
+                </span>
+              </div>
+            )}
+
+            {/* Subtle hairline separator */}
+            <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-800 hidden sm:block" />
+
             {/* Notification Bell */}
             <button
               onClick={() => {
