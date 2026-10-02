@@ -16,7 +16,7 @@ class DbFailoverEngine {
     // Build Supabase PostgreSQL connection string if password provided or string is set
     let resolvedSupabaseConn = process.env.SUPABASE_CONNECTION_STRING || "";
     if (!resolvedSupabaseConn && this.supabaseDbPassword) {
-      resolvedSupabaseConn = `postgres://postgres.dzqqyqothtttccplvvnb:${encodeURIComponent(this.supabaseDbPassword)}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require`;
+      resolvedSupabaseConn = `postgresql://postgres:${encodeURIComponent(this.supabaseDbPassword)}@db.dzqqyqothtttccplvvnb.supabase.co:5432/postgres`;
     }
     this.supabaseConnStr = resolvedSupabaseConn;
 
@@ -61,9 +61,11 @@ class DbFailoverEngine {
   createPool(connectionString) {
     if (!connectionString || connectionString.includes("YOUR_")) return null;
     try {
-      const isSsl = connectionString.includes("sslmode=require") || !connectionString.includes("localhost");
+      const isSsl = connectionString.includes("sslmode") || !connectionString.includes("localhost");
+      // Strip sslmode from query string so pg-connection-string doesn't override rejectUnauthorized
+      const cleanConnStr = connectionString.replace(/([?&])sslmode=[^&]+(&|$)/, (m, p1, p2) => p1 === "?" && p2 ? "?" : "").replace(/\?$/, "");
       return new Pool({
-        connectionString,
+        connectionString: cleanConnStr,
         ssl: isSsl ? { rejectUnauthorized: false } : false,
         connectionTimeoutMillis: 5000,
         idleTimeoutMillis: 30000,
