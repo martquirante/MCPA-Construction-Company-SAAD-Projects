@@ -307,10 +307,8 @@ function VideoScrollEngine({ onCompletionChange, onFallbackToFrames }) {
 // =========================================================================
 export default function ScrollVideoHero({ onCompletionChange }) {
   const [engineMode, setEngineMode] = useState("video");
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     if (typeof window !== "undefined") {
       const nav = navigator;
       const isSaveData = nav?.connection?.saveData === true;
@@ -334,39 +332,6 @@ export default function ScrollVideoHero({ onCompletionChange }) {
       }
     }
   }, []);
-
-  if (!mounted) {
-    // Initial SSR-compatible shell with responsive poster images to prevent layout shift
-    return (
-      <section id="top" className="relative w-full h-[400vh] bg-neutral-950 overscroll-y-contain">
-        <div className="sticky top-0 w-full h-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none [contain:layout_paint]">
-          <div className="relative w-full h-full bg-neutral-950">
-            {/* Desktop / Landscape Initial Poster */}
-            <Image
-              src="/assets/poster-landscape-part1.webp"
-              alt="MCPA Construction"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover hidden sm:block"
-            />
-            {/* Mobile / Portrait Initial Poster */}
-            <Image
-              src="/assets/poster-portrait-part1.webp"
-              alt="MCPA Construction"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover block sm:hidden"
-            />
-            <OpticalFilterStack />
-          </div>
-          <HeroContentOverlay isCompleted={false} />
-          <BuildProgressBadge progress={0} displayedPct={0} stageName="Ground Zero & Layout" isCompleted={false} />
-        </div>
-      </section>
-    );
-  }
 
   if (engineMode === "frames") {
     return <FrameScrollEngine onCompletionChange={onCompletionChange} />;

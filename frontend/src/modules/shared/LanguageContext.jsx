@@ -1231,28 +1231,17 @@ const LanguageContext = createContext({
 });
 
 export function LanguageProvider({ children }) {
-  const [language, setLanguageState] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("mcpa-lang");
-        if (saved === "fil" || saved === "en") {
-          return saved;
-        }
-      } catch (e) {}
-    }
-    return "en";
-  });
+  // Always initialize with default "en" so SSR output matches client hydration
+  const [language, setLanguageState] = useState("en");
 
-  // Read saved preference from localStorage on mount
+  // Read saved preference from localStorage on mount (client-only, post-hydration)
   useEffect(() => {
-    requestAnimationFrame(() => {
-      try {
-        const saved = localStorage.getItem("mcpa-lang");
-        if (saved === "fil" || saved === "en") {
-          setLanguageState(saved);
-        }
-      } catch (e) {}
-    });
+    try {
+      const saved = localStorage.getItem("mcpa-lang");
+      if (saved === "fil" || saved === "en") {
+        setLanguageState(saved);
+      }
+    } catch (e) {}
   }, []);
 
   // Listen to language changes and activate DOM translator

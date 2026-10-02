@@ -618,41 +618,6 @@ function generateLegalPdf(docType = "privacy", lang = "en") {
         .text("Headquarters: 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan 3004, Philippines", textX, mastheadY + 25, { lineBreak: false })
         .text("National Hotline / Viber: +63 (0949) 775 8239   |   Email: mcpa.construction@gmail.com", textX, mastheadY + 33, { lineBreak: false });
 
-      // 3. FORMAL DOCUMENT CONTROL BOX (Top Right)
-      const ctrlW = 160;
-      const ctrlX = ML + CW - ctrlW;
-      const ctrlH = 39;
-
-      doc.save()
-        .rect(ctrlX, mastheadY - 1, ctrlW, ctrlH)
-        .fillColor(BG_TINT).fill()
-        .strokeColor(BORDER_DARK).lineWidth(0.75)
-        .rect(ctrlX, mastheadY - 1, ctrlW, ctrlH).stroke()
-        .restore();
-
-      const padX = ctrlX + 5;
-      doc.font(FONT_BOLD).fontSize(6).fillColor(BLACK)
-        .text("OFFICIAL LEGAL & COMPLIANCE INSTRUMENT", padX, mastheadY + 2, { width: ctrlW - 10, align: "center" });
-
-      doc.save()
-        .strokeColor(BORDER_DARK).lineWidth(0.5)
-        .moveTo(ctrlX, mastheadY + 11).lineTo(ctrlX + ctrlW, mastheadY + 11).stroke()
-        .restore();
-
-      doc.font(FONT_BOLD).fontSize(6).fillColor(CHARCOAL)
-        .text("DOC CODE: ", padX, mastheadY + 14, { lineBreak: false });
-      doc.font("Courier-Bold").fontSize(6.5).fillColor(BLACK)
-        .text(data.docCode || "MCPA-LEG-DOC", doc.x, mastheadY + 14);
-
-      doc.font(FONT_BOLD).fontSize(6).fillColor(CHARCOAL)
-        .text("EFFECTIVITY: ", padX, mastheadY + 22, { lineBreak: false });
-      doc.font(FONT_REG).fontSize(6).fillColor(BLACK)
-        .text(`Calendar Year ${currentYear} (Certified)`, doc.x, mastheadY + 22);
-
-      doc.font(FONT_BOLD).fontSize(6).fillColor(CHARCOAL)
-        .text("JURISDICTION: ", padX, mastheadY + 30, { lineBreak: false });
-      doc.font(FONT_REG).fontSize(6).fillColor(BLACK)
-        .text("Republic of the Philippines", doc.x, mastheadY + 30);
 
       // Bottom masthead divider double rule
       const divY = mastheadY + 45;
@@ -1029,44 +994,7 @@ function generateLegalPdf(docType = "privacy", lang = "en") {
     const rightSigEndY = doc.y;
     const sigEndY = Math.max(leftSigEndY, rightSigEndY);
 
-    // 4. Sworn Notarial Acknowledgment Box
-    // Positioned safely below the entire dual signature text block
-    const notarialY = sigEndY + 14;
-
-    const juratTitle = "REPUBLIC OF THE PHILIPPINES  )  PROVINCE OF BULACAN, MUNICIPALITY OF PLARIDEL  )  S.S.";
-    const juratTitleH = doc.font(FONT_BOLD).fontSize(6.5).heightOfString(juratTitle, { width: CW - 16 });
-
-    const notarialText = activeLang === "fil"
-      ? "SINUMPAAN AT NILAGDAAN sa aking harapan ngayong taong 2026 sa Plaridel, Bulacan, personal na humarap ang mga kinatawan ng MCPA Construction and Supply na may hawak ng mga balidong ID at nagpatibay na ito ay kanilang malaya at boluntaryong gawa."
-      : "SUBSCRIBED AND SWORN to before me this calendar year 2026 at Plaridel, Bulacan, affiants exhibiting competent evidence of identities, acknowledging this corporate legal instrument as their free and voluntary act and deed.";
-    const juratBodyH = doc.font(FONT_REG).fontSize(6.5).heightOfString(notarialText, { width: CW - 16, lineGap: 1.5, indent: 14 });
-
-    const docLineText = "Doc. No. ______;  Page No. ______;  Book No. ______;  Series of 2026.  [OFFICIAL NOTARIAL SEAL AFFIXED]";
-    const docLineH = doc.font(FONT_BOLD).fontSize(6.5).heightOfString(docLineText, { width: CW - 16 });
-
-    // Dynamic calculated height with comfortable 6pt padding top/bottom and 3-4pt element gaps
-    const notarialH = 6 + juratTitleH + 3 + juratBodyH + 4 + docLineH + 6;
-
-    doc.save()
-      .rect(ML, notarialY, CW, notarialH)
-      .fillColor(BG_TINT).fill()
-      .strokeColor(BORDER_MID).lineWidth(0.5)
-      .rect(ML, notarialY, CW, notarialH).stroke()
-      .restore();
-
-    let curNotaryY = notarialY + 6;
-    doc.font(FONT_BOLD).fontSize(6.5).fillColor(BLACK)
-      .text(juratTitle, ML + 8, curNotaryY, { width: CW - 16 });
-    curNotaryY = doc.y + 3;
-
-    doc.font(FONT_REG).fontSize(6.5).fillColor(MUTED_TEXT)
-      .text(notarialText, ML + 8, curNotaryY, { width: CW - 16, lineGap: 1.5, indent: 14 });
-    curNotaryY = doc.y + 4;
-
-    doc.font(FONT_BOLD).fontSize(6.5).fillColor(CHARCOAL)
-      .text(docLineText, ML + 8, curNotaryY, { width: CW - 16 });
-
-    doc.y = notarialY + notarialH + 6;
+    doc.y = sigEndY + 12;
 
     // 5. Stamp Running Footers on Every Buffered Page
     const range = doc.bufferedPageRange();
