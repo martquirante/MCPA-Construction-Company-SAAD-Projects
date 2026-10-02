@@ -61,6 +61,8 @@ app.get("/api/health", (req, res) => {
     database: {
       activeProvider: db.getActiveProviderName(),
       isFailoverActive: db.isFailoverActive,
+      failoverReason: db.lastFailoverReason || null,
+      targetSupabaseHost: db.supabaseConnStr ? db.supabaseConnStr.split("@")[1]?.split("/")[0] : null,
     },
     storage: {
       primary: "Azure Blob Storage",

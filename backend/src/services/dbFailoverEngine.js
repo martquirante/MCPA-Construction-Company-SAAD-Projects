@@ -8,15 +8,37 @@ class DbFailoverEngine {
     this.azureConnStr = process.env.AZURE_POSTGRES_CONNECTION_STRING || "";
     this.localConnStr = process.env.LOCAL_DB_CONNECTION || "";
     
+    // Strict environment guard: identify production vs localhost development
+    this.isProduction =
+      process.env.NODE_ENV === "production" ||
+      Boolean(process.env.VERCEL) ||
+      Boolean(process.env.VERCEL_ENV) ||
+      Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+
+    // Docker testing mode is ONLY permitted on local machine development
+    this.useLocalDocker = !this.isProduction && process.env.USE_LOCAL_DB === "true";
+
     // Supabase Credentials
     this.supabaseUrl = process.env.SUPABASE_URL || "";
     this.supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "";
     this.supabaseDbPassword = process.env.SUPABASE_DB_PASSWORD || "";
 
-    // Build Supabase PostgreSQL connection string if password provided or string is set
+    // Extract project ref from SUPABASE_URL (e.g., https://dzqqyqothtttccplvvnb.supabase.co -> dzqqyqothtttccplvvnb)
+    const projectRef = (this.supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/) || [])[1] || "dzqqyqothtttccplvvnb";
+
+    // Supabase Connection Pooler (IPv4 compatible, required for Vercel Serverless / AWS)
+    let poolerConn = "";
+    if (this.supabaseDbPassword) {
+      poolerConn = `postgres://postgres.${projectRef}:${encodeURIComponent(this.supabaseDbPassword)}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`;
+    }
+
+    // Build Supabase PostgreSQL connection string
     let resolvedSupabaseConn = process.env.SUPABASE_CONNECTION_STRING || "";
-    if (!resolvedSupabaseConn && this.supabaseDbPassword) {
-      resolvedSupabaseConn = `postgresql://postgres:${encodeURIComponent(this.supabaseDbPassword)}@db.dzqqyqothtttccplvvnb.supabase.co:5432/postgres`;
+    // If running in production (Vercel) or direct connection is provided, always prefer IPv4 Pooler to prevent IPv6 unreachable errors
+    if ((this.isProduction || resolvedSupabaseConn.includes("db.dzqqyqothtttccplvvnb.supabase.co")) && poolerConn) {
+      resolvedSupabaseConn = poolerConn;
+    } else if (!resolvedSupabaseConn && poolerConn) {
+      resolvedSupabaseConn = poolerConn;
     }
     this.supabaseConnStr = resolvedSupabaseConn;
 
@@ -36,6 +58,7 @@ class DbFailoverEngine {
 
     this.isFailoverActive = false;
     this.lastFailoverTimestamp = 0;
+    this.lastFailoverReason = null;
     this.isMockActive = false;
     this.consecutiveAzureFailures = 0;
     this.consecutiveAzureSuccesses = 0;
@@ -43,16 +66,6 @@ class DbFailoverEngine {
     this.azurePool = null;
     this.supabasePool = null;
     this.localPool = null;
-
-    // Strict environment guard: identify production vs localhost development
-    this.isProduction =
-      process.env.NODE_ENV === "production" ||
-      Boolean(process.env.VERCEL) ||
-      Boolean(process.env.VERCEL_ENV) ||
-      Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
-
-    // Docker testing mode is ONLY permitted on local machine development
-    this.useLocalDocker = !this.isProduction && process.env.USE_LOCAL_DB === "true";
 
     this.initPools();
     this.startHealthCheck();
@@ -128,6 +141,7 @@ class DbFailoverEngine {
     if (this.isFailoverActive) return;
     this.isFailoverActive = true;
     this.lastFailoverTimestamp = Date.now();
+    this.lastFailoverReason = reason;
     console.warn(`\x1b[33m[WARN] [DbFailoverEngine] AUTOMATIC CLOUD FAILOVER ACTIVATED: ${reason}. Cascading to Standby Provider.\x1b[0m`);
   }
 
