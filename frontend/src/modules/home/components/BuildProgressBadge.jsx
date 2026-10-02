@@ -36,19 +36,19 @@ export default function BuildProgressBadge({
 
   return (
     <>
-      {/* 1. DURING HERO SCROLL: HIGH-CONTRAST FROSTED PILL CUE WITH ANIMATED BOUNCING ARROW */}
+      {/* 1. DURING HERO SCROLL: CLEAN TEXT & ANIMATED BOUNCING ARROW (NO BACKGROUND) */}
       {!isCompleted && (
         <div className="absolute bottom-10 sm:bottom-8 inset-x-0 z-30 flex flex-col items-center justify-center pointer-events-none transition-all duration-700 select-none pb-[env(safe-area-inset-bottom,0px)]">
           <button
             onClick={onAdvance}
             aria-label="Scroll or tap to continue construction animation"
-            className="pointer-events-auto inline-flex flex-col items-center gap-1.5 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-black/65 hover:bg-black/85 backdrop-blur-md border border-white/25 hover:border-amber-400/60 shadow-[0_4px_24px_rgba(0,0,0,0.7)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] transition-all duration-300 group cursor-pointer active:scale-95"
+            className="pointer-events-auto inline-flex flex-col items-center gap-1.5 transition-all duration-300 group cursor-pointer active:scale-95 bg-transparent border-none outline-none"
           >
-            <span className="text-[11px] sm:text-xs font-bold tracking-[0.25em] uppercase text-white group-hover:text-amber-300 transition-colors drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] select-none text-center">
+            <span className="text-[11px] sm:text-xs font-bold tracking-[0.25em] uppercase text-white/90 group-hover:text-amber-400 transition-colors drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] select-none text-center">
               {t("scrollToContinue")}
             </span>
             <div className="animate-bounce flex items-center justify-center pt-0.5">
-              <ArrowDownIcon className="w-4 h-4 text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.95)] group-hover:scale-110 transition-transform" />
+              <ArrowDownIcon className="w-4 h-4 text-amber-400 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] group-hover:scale-125 transition-transform" />
             </div>
           </button>
         </div>
@@ -63,10 +63,10 @@ export default function BuildProgressBadge({
               <button
                 onClick={onAdvance}
                 aria-label="Scroll or click to explore website"
-                className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-black/65 hover:bg-black/85 backdrop-blur-md border border-white/25 hover:border-amber-400/60 text-[11px] sm:text-xs font-bold tracking-[0.22em] uppercase text-white hover:text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] shadow-[0_4px_24px_rgba(0,0,0,0.7)] select-none text-center cursor-pointer transition-all active:scale-95 group"
+                className="pointer-events-auto inline-flex items-center gap-2 text-[11px] sm:text-xs font-bold tracking-[0.22em] uppercase text-white/90 hover:text-amber-400 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] select-none text-center cursor-pointer transition-all active:scale-95 group bg-transparent border-none outline-none"
               >
                 <span>{t("scrollExplore")}</span>
-                <ArrowDownIcon className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
+                <ArrowDownIcon className="w-3.5 h-3.5 text-amber-400 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] animate-bounce" />
               </button>
             </div>
 
