@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,8 @@ import {
   CheckIcon,
   Maximize2Icon,
 } from "../../shared/Icons";
+
+const emptySubscribe = () => () => {};
 
 /**
  * ProjectDetailsModal — Architectural edition
@@ -33,24 +35,52 @@ import {
  */
 export default function ProjectDetailsModal({ project, isOpen, onClose, onInquire }) {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mobileTab, setMobileTab] = useState("gallery");
-  const thumbnailRef = useRef(null);
-  const fullscreenThumbRef = useRef(null);
+  const [prevProject, setPrevProject] = useState(project);
 
-  const [touchStart, setTouchStart] = useState(null);
-  const [touchEnd, setTouchEnd] = useState(null);
-
-  useEffect(() => { setMounted(true); }, []);
-
-  useEffect(() => {
+  if (project !== prevProject) {
+    setPrevProject(project);
     setActivePhotoIdx(0);
     setIsFullscreen(false);
     setMobileTab("gallery");
-  }, [project]);
+  }
+
+  const thumbnailRef = useRef(null);
+  const fullscreenThumbRef = useRef(null);
+  const galleryRef = useRef(null);
+  const specsRef = useRef(null);
+  const bodyScrollRef = useRef(null);
+
+  const scrollToGallery = () => {
+    setMobileTab("gallery");
+    if (bodyScrollRef.current) {
+      bodyScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const scrollToSpecs = () => {
+    setMobileTab("specs");
+    if (specsRef.current) {
+      specsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const handleBodyScroll = (e) => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) return;
+    const scrollTop = e.currentTarget.scrollTop;
+    if (specsRef.current && scrollTop >= specsRef.current.offsetTop - 120) {
+      setMobileTab("specs");
+    } else {
+      setMobileTab("gallery");
+    }
+  };
+
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
 
   const images =
     Array.isArray(project?.images) && project.images.length > 0
@@ -218,7 +248,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
           <div className="lg:hidden flex items-center p-1.5 border-b border-neutral-200 dark:border-white/[0.07] bg-neutral-100/90 dark:bg-[#131620] gap-1.5 shrink-0 select-none">
             <button
               type="button"
-              onClick={() => setMobileTab("gallery")}
+              onClick={scrollToGallery}
               className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-[4px] text-xs font-mono uppercase tracking-wider transition-all cursor-pointer ${
                 mobileTab === "gallery"
                   ? "bg-white dark:bg-[#1a1e29] text-amber-600 dark:text-amber-400 font-bold shadow-xs border border-neutral-200/80 dark:border-white/10"
@@ -230,7 +260,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
 
             <button
               type="button"
-              onClick={() => setMobileTab("specs")}
+              onClick={scrollToSpecs}
               className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-[4px] text-xs font-mono uppercase tracking-wider transition-all cursor-pointer ${
                 mobileTab === "specs"
                   ? "bg-white dark:bg-[#1a1e29] text-amber-600 dark:text-amber-400 font-bold shadow-xs border border-neutral-200/80 dark:border-white/10"
@@ -241,14 +271,17 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
             </button>
           </div>
 
-          {/* ── MAIN BODY (two-panel on lg, tabbed on mobile) ──── */}
-          <div className="flex flex-col lg:flex-row overflow-hidden flex-1 min-h-0">
+          {/* ── MAIN BODY (two-panel on lg, continuous scroll on mobile) ──── */}
+          <div
+            ref={bodyScrollRef}
+            onScroll={handleBodyScroll}
+            className="flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden flex-1 min-h-0 custom-scrollbar scroll-smooth"
+          >
 
-            {/* LEFT: Gallery panel ──────────────────────────────────── */}
+            {/* LEFT / TOP ON MOBILE: Gallery panel ───────────────────── */}
             <div
-              className={`${
-                mobileTab === "gallery" ? "flex" : "hidden"
-              } lg:flex lg:w-[55%] lg:min-w-0 flex-col border-b lg:border-b-0 lg:border-r border-neutral-200 dark:border-white/[0.07] flex-1 min-h-0 overflow-y-auto lg:overflow-hidden custom-scrollbar`}
+              ref={galleryRef}
+              className="w-full lg:w-[55%] lg:min-w-0 flex flex-col border-b lg:border-b-0 lg:border-r border-neutral-200 dark:border-white/[0.07] shrink-0 lg:shrink lg:flex-1 lg:overflow-hidden"
             >
               {/* Main image */}
               <div
@@ -345,27 +378,12 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                   ))}
                 </div>
               )}
-
-              {/* Mobile Quick Action to Specs */}
-              <div className="lg:hidden p-3.5 border-t border-neutral-200 dark:border-white/[0.07] bg-neutral-50 dark:bg-white/[0.01] mt-auto">
-                <button
-                  type="button"
-                  onClick={() => setMobileTab("specs")}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-[4px] bg-white dark:bg-[#131620] border border-neutral-200 dark:border-white/10 text-xs font-semibold text-neutral-800 dark:text-neutral-200 hover:border-amber-500/50 transition-colors cursor-pointer shadow-xs"
-                >
-                  <span className="font-mono text-[11px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">
-                    View Specifications &amp; Technical Schedule
-                  </span>
-                  <ArrowRightIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                </button>
-              </div>
             </div>
 
-            {/* RIGHT: Spec sheet panel ──────────────────────────────── */}
+            {/* RIGHT / BELOW ON MOBILE: Spec sheet panel ─────────────── */}
             <div
-              className={`${
-                mobileTab === "specs" ? "block" : "hidden"
-              } lg:block lg:w-[45%] overflow-y-auto custom-scrollbar flex-1 min-h-0`}
+              ref={specsRef}
+              className="w-full lg:w-[45%] overflow-y-visible lg:overflow-y-auto custom-scrollbar flex-1 min-h-0"
             >
               <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
 
@@ -459,17 +477,6 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                       })}
                     </div>
                   </div>
-                </div>
-
-                {/* Mobile quick link back to gallery */}
-                <div className="lg:hidden pt-3 pb-1">
-                  <button
-                    type="button"
-                    onClick={() => setMobileTab("gallery")}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-[4px] border border-dashed border-neutral-300 dark:border-white/15 text-xs text-neutral-500 dark:text-neutral-400 hover:text-amber-500 transition-colors cursor-pointer font-mono"
-                  >
-                    <span>&larr; Switch back to Photo Gallery ({images.length} photos)</span>
-                  </button>
                 </div>
 
               </div>
