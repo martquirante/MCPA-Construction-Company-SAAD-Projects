@@ -20,15 +20,7 @@ export function useScrollScrub(containerRef) {
   const [displayedPct, setDisplayedPct] = useState(isReturning ? 100 : 0);
   const [isCompleted, setIsCompleted] = useState(isReturning);
   const [hasCompletedBuild, setHasCompletedBuild] = useState(isReturning);
-  const [isPortrait, setIsPortrait] = useState(() => {
-    if (typeof window !== "undefined") {
-      return (
-        window.innerHeight > window.innerWidth ||
-        (window.matchMedia && window.matchMedia("(orientation: portrait)").matches)
-      );
-    }
-    return false;
-  });
+  const [isPortrait, setIsPortrait] = useState(false);
   const [stageName, setStageName] = useState(isReturning ? STAGE_LABELS[3] : STAGE_LABELS[0]);
   const [videoLoaded, setVideoLoaded] = useState(false);
 

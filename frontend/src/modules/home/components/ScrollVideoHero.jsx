@@ -78,6 +78,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
       <div className="sticky top-0 w-full h-screen h-[100dvh] max-h-[100dvh] overflow-hidden select-none [contain:layout_paint]">
         {/* 1. Interactive Video Canvas / Player Stack */}
         <div
+          suppressHydrationWarning
           key={isPortrait ? "portrait-player-stack" : "landscape-player-stack"}
           onClick={() => {
             if (!isCompleted) {
@@ -88,6 +89,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
         >
           {/* Part 1 (0% to 33%): Ground Zero & Site Layout -> Excavation & Structural Foundation */}
           <video
+            suppressHydrationWarning
             key={isPortrait ? "portrait-v1" : "landscape-v1"}
             ref={video1Ref}
             src={videoParts[0]}
@@ -107,6 +109,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
 
           {/* Part 2 (33% to 66%): Excavation -> Framing & Architectural Enclosure */}
           <video
+            suppressHydrationWarning
             key={isPortrait ? "portrait-v2" : "landscape-v2"}
             ref={video2Ref}
             src={videoParts[1]}
@@ -123,6 +126,7 @@ export default function ScrollVideoHero({ onCompletionChange }) {
 
           {/* Part 3 (66% to 100%): Framing -> Modern Residence 100% Completed */}
           <video
+            suppressHydrationWarning
             key={isPortrait ? "portrait-v3" : "landscape-v3"}
             ref={video3Ref}
             src={videoParts[2]}
@@ -139,12 +143,16 @@ export default function ScrollVideoHero({ onCompletionChange }) {
 
           {/* High-Resolution Completed House Photos (Bright Daytime in Light Theme, Twilight/Night in Dark Theme) */}
           <div
+            suppressHydrationWarning
             className={`absolute inset-0 z-35 transition-opacity duration-700 pointer-events-none ${
               isCompleted ? "opacity-100" : "opacity-0"
             }`}
           >
             {/* Desktop / Landscape Screens */}
-            <div className={`absolute inset-0 ${isPortrait ? "hidden" : "hidden sm:block"}`}>
+            <div
+              suppressHydrationWarning
+              className={`absolute inset-0 ${isPortrait ? "hidden" : "hidden sm:block"}`}
+            >
               {/* Light Theme: Sunny Daytime Architectural Residence */}
               <Image
                 src="/assets/hero-residence-day-wide-v2.jpg"
@@ -166,7 +174,10 @@ export default function ScrollVideoHero({ onCompletionChange }) {
             </div>
 
             {/* Mobile / Portrait Screens */}
-            <div className={`absolute inset-0 ${isPortrait ? "block" : "block sm:hidden"}`}>
+            <div
+              suppressHydrationWarning
+              className={`absolute inset-0 ${isPortrait ? "block" : "block sm:hidden"}`}
+            >
               {/* Light Theme: Sunny Daytime Architectural Residence */}
               <Image
                 src="/assets/hero-residence-day-mobile.jpg"
