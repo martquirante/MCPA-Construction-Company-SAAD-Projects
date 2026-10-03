@@ -93,27 +93,35 @@ export function subscribeProjectsChange(callback) {
     return () => {};
   }
 
+  let debounceTimer = null;
+  const debouncedCallback = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      callback();
+    }, 500);
+  };
+
   let channel = null;
   try {
     if ("BroadcastChannel" in window) {
       channel = new BroadcastChannel("mcpa_projects_realtime_sync");
       channel.onmessage = (event) => {
         if (event?.data?.type === "PROJECTS_UPDATED") {
-          callback();
+          debouncedCallback();
         }
       };
     }
   } catch (e) {}
 
-  const handleCustom = () => callback();
+  const handleCustom = () => debouncedCallback();
   const handleStorage = (e) => {
     if (e.key === "mcpa_projects_last_sync" || e.key === "mcpa_portfolio_projects") {
-      callback();
+      debouncedCallback();
     }
   };
   const handleVisibility = () => {
     if (document.visibilityState === "visible") {
-      callback();
+      debouncedCallback();
     }
   };
 
@@ -122,6 +130,7 @@ export function subscribeProjectsChange(callback) {
   document.addEventListener("visibilitychange", handleVisibility);
 
   return () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
     if (channel) {
       channel.close();
     }

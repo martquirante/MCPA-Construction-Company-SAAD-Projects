@@ -274,7 +274,7 @@ export default function InquiryPipelineTab({
         </div>
 
         {/* Table */}
-        {isLoading ? (
+        {isLoading && (!clientBriefs || clientBriefs.length === 0) ? (
           <InquiryTableSkeleton rows={5} />
         ) : filteredBriefs.length === 0 ? (
           (search.trim() || filterStage !== "ALL") ? (

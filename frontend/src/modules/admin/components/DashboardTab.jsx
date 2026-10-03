@@ -52,7 +52,7 @@ function MeetingTypeBadge({ mode }) {
 }
 
 export default function DashboardTab({ clientBriefs = [], allProjects = [], onNavigateTab, isLoading = false }) {
-  if (isLoading) {
+  if (isLoading && (!clientBriefs || clientBriefs.length === 0) && (!allProjects || allProjects.length === 0)) {
     return <DashboardOverviewSkeleton />;
   }
   const pendingCount = clientBriefs.filter(

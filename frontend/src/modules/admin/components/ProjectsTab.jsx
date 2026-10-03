@@ -190,7 +190,7 @@ export default function ProjectsTab({
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
               <FolderKanbanIcon className="w-6 h-6 text-amber-500" />
-              Projects Management ({isLoading ? "..." : `${filteredProjects.length}${filteredProjects.length !== rawProjects.length ? ` of ${rawProjects.length}` : ""}`})
+              Projects Management ({isLoading && rawProjects.length === 0 ? "..." : `${filteredProjects.length}${filteredProjects.length !== rawProjects.length ? ` of ${rawProjects.length}` : ""}`})
             </h2>
           </div>
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
@@ -252,7 +252,7 @@ export default function ProjectsTab({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {isLoading ? (
+        {isLoading && rawProjects.length === 0 ? (
           Array.from({ length: 6 }).map((_, idx) => (
             <ProjectCardSkeleton key={`proj-skel-${idx}`} />
           ))

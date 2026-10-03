@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { setReturnToCompletedHome } from "@/modules/home/homeState";
@@ -139,8 +139,18 @@ export default function AdminPage() {
     }
   };
 
-  const loadProjectsAndBriefs = async () => {
-    setIsLoadingData(true);
+  const initialLoadDoneRef = useRef(false);
+
+  const loadProjectsAndBriefs = async (isInitial = false) => {
+    // Only show skeleton loader on genuine initial mount if no data is stored/present yet
+    if (isInitial && !initialLoadDoneRef.current) {
+      const hasStoredProjects = typeof window !== "undefined" && localStorage.getItem("mcpa_portfolio_projects");
+      const hasStoredBriefs = typeof window !== "undefined" && localStorage.getItem("mcpa_client_briefs");
+      if (!hasStoredProjects && !hasStoredBriefs && allProjects.length === 0 && clientBriefs.length === 0) {
+        setIsLoadingData(true);
+      }
+    }
+
     // Try to load from Backend API first
     try {
       const [projRes, briefsRes, siteRes] = await Promise.allSettled([
@@ -172,7 +182,12 @@ export default function AdminPage() {
         }));
         setCustomProjects(dbProjects);
         setAllProjects(dbProjects);
-        localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(dbProjects));
+        if (typeof window !== "undefined") {
+          const serialized = JSON.stringify(dbProjects);
+          if (localStorage.getItem("mcpa_portfolio_projects") !== serialized) {
+            localStorage.setItem("mcpa_portfolio_projects", serialized);
+          }
+        }
       } else {
         fallbackLoadStoredProjects();
       }
@@ -207,7 +222,12 @@ export default function AdminPage() {
           createdAt: b.created_at,
         }));
         setClientBriefs(dbBriefs);
-        localStorage.setItem("mcpa_client_briefs", JSON.stringify(dbBriefs));
+        if (typeof window !== "undefined") {
+          const serializedBriefs = JSON.stringify(dbBriefs);
+          if (localStorage.getItem("mcpa_client_briefs") !== serializedBriefs) {
+            localStorage.setItem("mcpa_client_briefs", serializedBriefs);
+          }
+        }
       } else {
         fallbackLoadStoredBriefs();
       }
@@ -225,6 +245,7 @@ export default function AdminPage() {
       fallbackLoadStoredProjects();
       fallbackLoadStoredBriefs();
     } finally {
+      initialLoadDoneRef.current = true;
       setIsLoadingData(false);
     }
   };
@@ -260,12 +281,17 @@ export default function AdminPage() {
           }
         } catch (e) {}
 
-        loadProjectsAndBriefs();
+        // Instant local hydration from cache so UI is populated immediately
+        fallbackLoadStoredProjects();
+        fallbackLoadStoredBriefs();
+
+        // Initial fetch with isInitial=true (skeleton only if cache was empty)
+        loadProjectsAndBriefs(true);
         fetchHealthStatus();
 
-        // Real-time synchronization subscription across tabs
+        // Real-time synchronization subscription across tabs (completely silent)
         const unsubscribeProjects = subscribeProjectsChange(() => {
-          loadProjectsAndBriefs();
+          loadProjectsAndBriefs(false);
         });
 
         // Theme initialization
@@ -290,9 +316,9 @@ export default function AdminPage() {
       };
       window.addEventListener("mcpa-theme-change", handleThemeChange);
 
-      // Background silent auto-sync every 15 seconds
+      // Background silent auto-sync every 15 seconds (never shows skeleton)
       const syncInterval = setInterval(() => {
-        loadProjectsAndBriefs();
+        loadProjectsAndBriefs(false);
       }, 15000);
       return () => {
         clearInterval(syncInterval);
@@ -313,7 +339,7 @@ export default function AdminPage() {
 
   const handleAdminReload = () => {
     setActiveTab("dashboard");
-    loadProjectsAndBriefs();
+    loadProjectsAndBriefs(false);
     fetchHealthStatus();
     showToast("Admin Console Refreshed");
   };

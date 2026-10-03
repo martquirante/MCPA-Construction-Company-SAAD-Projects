@@ -71,7 +71,10 @@ export default function PortfolioSection({
               setProjects(deduplicated);
             }
             try {
-              localStorage.setItem("mcpa_portfolio_projects", JSON.stringify(deduplicated));
+              const serialized = JSON.stringify(deduplicated);
+              if (localStorage.getItem("mcpa_portfolio_projects") !== serialized) {
+                localStorage.setItem("mcpa_portfolio_projects", serialized);
+              }
             } catch (e) {
               // Ignore storage errors
             }
