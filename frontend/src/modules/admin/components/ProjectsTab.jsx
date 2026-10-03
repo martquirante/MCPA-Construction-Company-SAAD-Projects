@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ProjectEditorModal from "./ProjectEditorModal";
 import AdminEmptyState from "./AdminEmptyState";
+import SafeImage from "../../shared/SafeImage";
 import {
   PlusIcon,
   TrashIcon,
@@ -309,11 +310,23 @@ export default function ProjectsTab({
                 className="group bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/[0.08] rounded-[6px] overflow-hidden shadow-xs hover:border-amber-500/40 transition-colors flex flex-col"
               >
               <div
-                className="h-44 w-full bg-neutral-200 dark:bg-neutral-800 bg-cover bg-center cursor-pointer relative"
-                style={{ backgroundImage: `url(${project.images?.[0] || '/assets/placeholder-project.jpg'})` }}
+                className="h-44 w-full bg-neutral-200 dark:bg-neutral-800 cursor-pointer relative overflow-hidden"
                 onClick={() => handleOpenEdit(project)}
               >
-                <div className="p-3 flex justify-between items-start">
+                {project.images?.[0] ? (
+                  <SafeImage
+                    src={project.images[0]}
+                    alt={project.name || "Project Cover"}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    className="object-cover object-center transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-neutral-400">
+                    <CameraIcon className="w-6 h-6 opacity-40" />
+                  </div>
+                )}
+                <div className="relative z-10 p-3 flex justify-between items-start pointer-events-none *:pointer-events-auto">
                   <div className="flex flex-col gap-1.5">
                     <button
                       type="button"
@@ -450,10 +463,12 @@ export default function ProjectsTab({
 
             {/* Thumbnail Preview if available */}
             {projectToDelete.images?.[0] && (
-              <div className="w-full h-32 rounded-[4px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800">
-                <img
+              <div className="relative w-full h-32 rounded-[4px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800">
+                <SafeImage
                   src={projectToDelete.images[0]}
                   alt={projectToDelete.name}
+                  fill
+                  sizes="400px"
                   className="w-full h-full object-cover"
                 />
               </div>

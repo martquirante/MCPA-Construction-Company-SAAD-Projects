@@ -273,7 +273,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-red-500/12 border border-red-500/35 text-red-600 dark:text-red-400 text-xs font-semibold select-none"
                 title={language === "fil" ? "Walang koneksyon sa internet" : "No internet connection"}
               >
-                <WifiOff className="w-3.5 h-3.5" />
+                <WifiOffIcon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline font-mono uppercase tracking-wider text-[11px]">
                   {language === "fil" ? "Offline" : "Offline"}
                 </span>

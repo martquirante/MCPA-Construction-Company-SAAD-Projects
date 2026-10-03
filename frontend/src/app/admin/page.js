@@ -782,19 +782,21 @@ export default function AdminPage() {
             <div className="relative w-44 h-10 mb-6">
               {/* Light Mode Logo */}
               <Image
-                src="/assets/mcpa-logo.png"
+                src="/assets/mcpa-logo.svg"
                 alt="MCPA Construction and Supply"
                 fill
                 priority
+                unoptimized
                 className="object-contain block dark:hidden"
                 sizes="176px"
               />
               {/* Dark Mode Logo */}
               <Image
-                src="/assets/logo-white.png"
+                src="/assets/logo-white.svg"
                 alt="MCPA Construction and Supply"
                 fill
                 priority
+                unoptimized
                 className="object-contain hidden dark:block"
                 sizes="176px"
               />
@@ -1355,18 +1357,20 @@ export default function AdminPage() {
             <div className="lg:hidden flex items-center gap-2 min-w-0">
               <div className="relative w-20 h-6 shrink-0">
                 <Image
-                  src="/assets/mcpa-logo.png"
+                  src="/assets/mcpa-logo.svg"
                   alt="MCPA"
                   fill
                   priority
+                  unoptimized
                   className="object-contain object-left block dark:hidden"
                   sizes="80px"
                 />
                 <Image
-                  src="/assets/logo-white.png"
+                  src="/assets/logo-white.svg"
                   alt="MCPA"
                   fill
                   priority
+                  unoptimized
                   className="object-contain object-left hidden dark:block"
                   sizes="80px"
                 />

@@ -277,17 +277,17 @@ export default function ProcessPage() {
 
         {/* Bottom Consultation CTA */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 md:mt-24">
-          <div className="rounded-[6px] p-8 sm:p-12 bg-neutral-950 text-white border border-neutral-800 dark:border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.3)] text-center relative overflow-hidden">
+          <div className="architectural-cta-card rounded-[6px] p-8 sm:p-12 bg-white dark:bg-[#10121a] border border-neutral-200/90 dark:border-white/[0.12] text-center relative overflow-hidden transition-all duration-300">
             {/* Top Amber Reference Accent */}
             <div className="absolute top-0 inset-x-0 h-1 bg-amber-500" />
 
-            <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-400 mb-4 select-none">
+            <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400 mb-4 select-none">
               <span>Step 01 Starts Here</span>
             </div>
-            <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight max-w-2xl mx-auto text-white leading-tight">
+            <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight max-w-2xl mx-auto text-neutral-950 dark:text-white leading-tight">
               Ready to Begin Your Site Visit &amp; Consultation?
             </h3>
-            <p className="mt-4 max-w-xl mx-auto text-neutral-300 text-sm sm:text-base font-normal leading-relaxed">
+            <p className="mt-4 max-w-xl mx-auto text-neutral-600 dark:text-neutral-300 text-sm sm:text-base font-normal leading-relaxed">
               We schedule an on-site evaluation of your titled property, review your architectural preferences, and provide a clear, realistic cost estimate.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
@@ -300,7 +300,7 @@ export default function ProcessPage() {
               </Link>
               <Link
                 href="/services"
-                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[4px] border border-neutral-700 bg-neutral-900/60 hover:bg-neutral-800 text-neutral-200 hover:text-white text-xs font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[4px] border border-neutral-300 dark:border-neutral-700 bg-neutral-100/70 dark:bg-neutral-900/60 hover:bg-neutral-200/80 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white text-xs font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer"
               >
                 <span>Review Services &amp; Packages</span>
               </Link>

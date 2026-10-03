@@ -193,6 +193,31 @@ app.post("/api/upload-multiple", upload.array("files", 10), async (req, res) => 
   }
 });
 
+// CLOUD STORAGE ORPHAN CLEANUP ENDPOINT
+app.post("/api/storage/cleanup-orphans", async (req, res) => {
+  try {
+    const { cleanOrphanedBlobs } = require("./scripts/cleanOrphanedBlobs");
+    const isExecute = req.query.dryRun === "false" || req.body?.dryRun === false;
+    process.argv = isExecute ? ["node", "cleanOrphanedBlobs.js", "--execute"] : ["node", "cleanOrphanedBlobs.js", "--dry-run"];
+    const stats = await cleanOrphanedBlobs();
+    return res.json({ success: true, stats });
+  } catch (err) {
+    console.error("[Storage Cleanup API] Error:", err);
+    return res.status(500).json({ success: false, message: "Storage cleanup failed: " + err.message });
+  }
+});
+
+// CLOUD STORAGE BI-DIRECTIONAL RECONCILIATION & SELF-HEALING ENDPOINT
+app.post("/api/storage/reconcile", async (req, res) => {
+  try {
+    const report = await storage.reconcileCloudMirrors();
+    return res.json({ success: true, report });
+  } catch (err) {
+    console.error("[Storage Reconcile API] Error:", err);
+    return res.status(500).json({ success: false, message: "Storage reconciliation failed: " + err.message });
+  }
+});
+
 // -----------------------------------------------------------------------------
 // PHILIPPINES LOCATION AUTOCOMPLETE API (Strictly PH live API, zero stored data)
 // -----------------------------------------------------------------------------
@@ -234,6 +259,13 @@ if (!process.env.VERCEL) {
       console.log(`\n\x1b[32m[SERVER] MCPA Enterprise Backend listening on http://localhost:${PORT}\x1b[0m`);
       console.log(`[DATABASE] Active DB Provider: \x1b[33m${db.getActiveProviderName()}\x1b[0m`);
       console.log(`[STORAGE] Cloud Storage: \x1b[36mAzure Blob (Tier 1 Primary) -> Supabase Storage (Tier 2 Backup) -> Neon S3 (Tier 3 Standby)\x1b[0m\n`);
+
+      // Non-blocking self-healing reconciliation check
+      setTimeout(() => {
+        storage.reconcileCloudMirrors().catch((err) => {
+          console.warn("[SERVER] Startup storage reconciliation warning:", err.message);
+        });
+      }, 5000);
     });
   });
 }

@@ -42,17 +42,17 @@ export default function ProjectsPage() {
 
         {/* Consultation Call To Action Banner */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 md:mt-24">
-          <div className="relative overflow-hidden rounded-[6px] bg-neutral-950 text-white border border-neutral-800 dark:border-white/[0.08] p-8 sm:p-12 text-center shadow-[0_16px_40px_rgba(0,0,0,0.3)] transition-colors duration-300">
+          <div className="architectural-cta-card relative overflow-hidden rounded-[6px] bg-white dark:bg-[#10121a] border border-neutral-200/90 dark:border-white/[0.12] p-8 sm:p-12 text-center transition-all duration-300">
             {/* Top Amber Reference Accent */}
             <div className="absolute top-0 inset-x-0 h-1 bg-amber-500" />
 
-            <div className="inline-flex items-center justify-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-400 mb-4 select-none">
+            <div className="inline-flex items-center justify-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400 mb-4 select-none">
               <span>Turnkey Design &amp; Build</span>
             </div>
-            <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white leading-tight">
+            <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-neutral-950 dark:text-white leading-tight">
               Ready to construct your modern sanctuary?
             </h3>
-            <p className="mt-3 text-sm md:text-base text-neutral-300 max-w-xl mx-auto leading-relaxed font-normal">
+            <p className="mt-3 text-sm md:text-base text-neutral-600 dark:text-neutral-300 max-w-xl mx-auto leading-relaxed font-normal">
               Schedule a pre-consultation session to review lot feasibility, custom architectural floor plans, and flexible financing timelines.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
@@ -65,7 +65,7 @@ export default function ProjectsPage() {
               </Link>
               <Link
                 href="/services"
-                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[4px] border border-neutral-700 bg-neutral-900/60 hover:bg-neutral-800 text-neutral-200 hover:text-white text-xs font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[4px] border border-neutral-300 dark:border-neutral-700 bg-neutral-100/70 dark:bg-neutral-900/60 hover:bg-neutral-200/80 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white text-xs font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer"
               >
                 <span>Explore Services</span>
               </Link>

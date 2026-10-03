@@ -176,8 +176,38 @@ class BriefsController {
   async delete(req, res) {
     try {
       const { id } = req.params;
-      await db.query("DELETE FROM client_briefs WHERE brief_id = $1", [parseInt(id, 10)]);
-      return res.json({ success: true, message: "Client brief removed." });
+      const briefId = parseInt(id, 10);
+
+      // 1. Fetch brief attachments to clean up from Azure mcpa-briefs container
+      const existing = await db.query("SELECT uploaded_files FROM client_briefs WHERE brief_id = $1", [briefId]);
+      let attachedFiles = [];
+      if (existing.rows.length > 0 && existing.rows[0].uploaded_files) {
+        let files = existing.rows[0].uploaded_files;
+        if (typeof files === "string") {
+          try { files = JSON.parse(files); } catch (e) { files = [files]; }
+        }
+        if (Array.isArray(files)) {
+          attachedFiles = files.filter(f => typeof f === "string" && f.trim().length > 0);
+        }
+      }
+
+      // 2. Delete brief from database
+      await db.query("DELETE FROM client_briefs WHERE brief_id = $1", [briefId]);
+
+      // 3. Purge files from cloud storage (briefs category)
+      if (attachedFiles.length > 0) {
+        (async () => {
+          for (const fileUrl of attachedFiles) {
+            try {
+              await storage.deleteFile(fileUrl, "briefs");
+            } catch (err) {
+              console.warn(`[BriefsController.delete] Storage cleanup error for ${fileUrl}:`, err.message);
+            }
+          }
+        })().catch(e => console.warn("[BriefsController.delete] Async cleanup error:", e.message));
+      }
+
+      return res.json({ success: true, message: "Client brief and associated cloud files removed." });
     } catch (err) {
       console.error("[BriefsController.delete] Error:", err);
       return res.status(500).json({ message: "Failed to delete brief: " + err.message });

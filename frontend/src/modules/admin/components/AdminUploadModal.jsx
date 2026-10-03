@@ -13,6 +13,7 @@ import {
   LockIcon,
 } from "../../shared/Icons";
 import { compressImageFile } from "../../shared/imageUtils";
+import SafeImage from "../../shared/SafeImage";
 
 export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
   const [title, setTitle] = useState("");
@@ -316,7 +317,7 @@ export default function AdminUploadModal({ isOpen, onClose, onAddProject }) {
             {/* Live image preview if available */}
             {imageUrl && (
               <div className="relative mt-2 w-full h-36 rounded-[4px] overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-900">
-                <Image
+                <SafeImage
                   src={imageUrl}
                   alt="Upload Preview"
                   fill

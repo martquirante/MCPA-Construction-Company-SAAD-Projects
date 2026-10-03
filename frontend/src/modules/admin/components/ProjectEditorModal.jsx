@@ -24,6 +24,7 @@ import {
 } from "../../shared/Icons";
 import { verifyAdminPassword } from "../utils/adminAuth";
 import { compressImageFile } from "../../shared/imageUtils";
+import SafeImage from "../../shared/SafeImage";
 
 const PRESET_CATEGORIES = [
   "Residential",
@@ -83,6 +84,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
   const [existingImages, setExistingImages] = useState([]);
   const [newFiles, setNewFiles] = useState([]);
   const [newPreviews, setNewPreviews] = useState([]);
+  const [coverNewIndex, setCoverNewIndex] = useState(null);
+  const [draggedPhoto, setDraggedPhoto] = useState(null);
+  const [dragOverPhoto, setDragOverPhoto] = useState(null);
 
   // Fullscreen Lightbox State
   const [fullscreenImage, setFullscreenImage] = useState(null); // { url, index, total }
@@ -195,6 +199,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
       setFeaturesList([""]);
       setExistingImages([]);
     }
+    setCoverNewIndex(null);
+    setDraggedPhoto(null);
+    setDragOverPhoto(null);
     setNewFiles([]);
     setNewPreviews([]);
     setUploadError("");
@@ -519,6 +526,9 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
       } else {
         setNewFiles((prev) => prev.filter((_, idx) => idx !== photoToDelete.index));
         setNewPreviews((prev) => prev.filter((_, idx) => idx !== photoToDelete.index));
+        if (coverNewIndex === photoToDelete.index) {
+          setCoverNewIndex(null);
+        }
       }
 
       handleCloseDeletePhoto();
@@ -527,6 +537,96 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
     } finally {
       setIsVerifyingPassword(false);
     }
+  };
+
+  // Photo reordering & cover selection handlers
+  const moveExistingPhoto = (fromIndex, toIndex) => {
+    if (toIndex < 0 || toIndex >= existingImages.length) return;
+    setExistingImages((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const moveNewPhoto = (fromIndex, toIndex) => {
+    if (toIndex < 0 || toIndex >= newPreviews.length) return;
+    setNewFiles((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+    setNewPreviews((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const handleSetExistingAsCover = (index) => {
+    setCoverNewIndex(null);
+    if (index === 0) return;
+    setExistingImages((prev) => {
+      const next = [...prev];
+      const [selected] = next.splice(index, 1);
+      next.unshift(selected);
+      return next;
+    });
+  };
+
+  const handleSetNewAsCover = (index) => {
+    setCoverNewIndex(0);
+    setNewFiles((prev) => {
+      const next = [...prev];
+      const [selected] = next.splice(index, 1);
+      next.unshift(selected);
+      return next;
+    });
+    setNewPreviews((prev) => {
+      const next = [...prev];
+      const [selected] = next.splice(index, 1);
+      next.unshift(selected);
+      return next;
+    });
+  };
+
+  // Drag and Drop handlers
+  const handleDragStart = (e, type, index) => {
+    setDraggedPhoto({ type, index });
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e, type, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverPhoto?.type !== type || dragOverPhoto?.index !== index) {
+      setDragOverPhoto({ type, index });
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedPhoto(null);
+    setDragOverPhoto(null);
+  };
+
+  const handleDrop = (e, targetType, targetIndex) => {
+    e.preventDefault();
+    if (!draggedPhoto) return;
+    const { type: sourceType, index: sourceIndex } = draggedPhoto;
+
+    if (sourceType === targetType && sourceIndex !== targetIndex) {
+      if (sourceType === "existing") {
+        moveExistingPhoto(sourceIndex, targetIndex);
+      } else {
+        moveNewPhoto(sourceIndex, targetIndex);
+      }
+    }
+
+    setDraggedPhoto(null);
+    setDragOverPhoto(null);
   };
 
   // Pre-submit validation and trigger save confirmation modal
@@ -713,7 +813,14 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
         .map((f) => (typeof f === "string" ? f.trim() : ""))
         .filter(Boolean);
 
-      const finalImages = [...(Array.isArray(existingImages) ? existingImages : []), ...uploadedUrls];
+      let finalImages;
+      if (coverNewIndex !== null && uploadedUrls.length > 0) {
+        const coverUrl = uploadedUrls[0];
+        const remainingNewUrls = uploadedUrls.slice(1);
+        finalImages = [coverUrl, ...(Array.isArray(existingImages) ? existingImages : []), ...remainingNewUrls];
+      } else {
+        finalImages = [...(Array.isArray(existingImages) ? existingImages : []), ...uploadedUrls];
+      }
 
       setUploadStatusText("Saving project details to portfolio database...");
 
@@ -1272,12 +1379,17 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
 
             {/* Multi-Photo Gallery & Upload */}
             <div ref={gallerySectionRef}>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
-                  Project Gallery Photos <span className="text-rose-500 font-bold">*</span> ({totalPhotosCount})
-                </label>
-                <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                  At least 1 photo required (Max 10MB per photo)
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2.5">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+                    Project Gallery Photos <span className="text-rose-500 font-bold">*</span> ({totalPhotosCount})
+                  </label>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    Drag photos or click <span className="font-bold text-neutral-700 dark:text-neutral-300">← / →</span> to reorder. Click <span className="font-bold text-amber-600 dark:text-amber-400">★ Set Cover</span> to pick the hero image.
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 shrink-0">
+                  Min 1 photo · Max 10MB
                 </span>
               </div>
 
@@ -1293,59 +1405,148 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 {/* Existing Photos */}
                 {existingImages.map((url, idx) => {
                   const allImgs = [...existingImages, ...newPreviews];
+                  const isCover = idx === 0 && coverNewIndex === null;
+                  const isDraggingThis = draggedPhoto?.type === "existing" && draggedPhoto?.index === idx;
+                  const isDragOverThis = dragOverPhoto?.type === "existing" && dragOverPhoto?.index === idx;
+
                   return (
                     <div
                       key={`existing-${idx}`}
+                      draggable={true}
+                      onDragStart={(e) => handleDragStart(e, "existing", idx)}
+                      onDragOver={(e) => handleDragOver(e, "existing", idx)}
+                      onDrop={(e) => handleDrop(e, "existing", idx)}
+                      onDragEnd={handleDragEnd}
                       onClick={() =>
                         setFullscreenImage({
                           url,
                           index: idx,
                           total: allImgs.length,
-                          label: idx === 0 ? "Cover Photo" : `Gallery Photo ${idx + 1}`,
+                          label: isCover ? "Cover Photo" : `Gallery Photo ${idx + 1}`,
                         })
                       }
-                      className="relative group h-24 rounded-[4px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800 cursor-pointer shadow-xs"
+                      className={`relative group h-28 sm:h-32 rounded-[6px] overflow-hidden border transition-all duration-200 cursor-grab active:cursor-grabbing select-none shadow-xs ${
+                        isCover
+                          ? "border-amber-500 ring-2 ring-amber-500/30"
+                          : "border-neutral-200 dark:border-white/10 hover:border-amber-500/60"
+                      } ${
+                        isDragOverThis ? "ring-2 ring-amber-400 scale-[1.03] shadow-md z-30" : ""
+                      } ${
+                        isDraggingThis ? "opacity-40 scale-95" : "opacity-100"
+                      } bg-neutral-100 dark:bg-neutral-800`}
                     >
-                      <img
+                      <SafeImage
                         src={url}
                         alt={`Photo ${idx + 1}`}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none"
                       />
-                      {idx === 0 && (
-                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-[2px] bg-amber-500 text-neutral-950 font-bold text-[9px] uppercase shadow z-10">
-                          Cover
+
+                      {/* Always-visible indicators */}
+                      {isCover ? (
+                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-[3px] bg-amber-500 text-neutral-950 font-bold text-[9px] uppercase tracking-wider shadow z-10 flex items-center gap-1">
+                          <StarIcon className="w-2.5 h-2.5 fill-neutral-950 text-neutral-950" />
+                          <span>Cover</span>
+                        </span>
+                      ) : (
+                        <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-[3px] bg-black/60 backdrop-blur-xs text-white/90 font-mono font-bold text-[9px] z-10 select-none">
+                          #{String(idx + 1).padStart(2, "0")}
                         </span>
                       )}
 
-                      {/* Hover Actions: Fullscreen Preview & Delete */}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-20">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFullscreenImage({
-                              url,
-                              index: idx,
-                              total: allImgs.length,
-                              label: idx === 0 ? "Cover Photo" : `Gallery Photo ${idx + 1}`,
-                            });
-                          }}
-                          title="Fullscreen View"
-                          className="p-1.5 bg-white/90 dark:bg-neutral-900/90 text-neutral-900 dark:text-white rounded-[4px] hover:scale-105 transition-transform shadow cursor-pointer"
-                        >
-                          <Maximize2Icon className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDeletePhoto({ type: "existing", index: idx, url });
-                          }}
-                          title="Delete Photo"
-                          className="p-1.5 bg-rose-600 text-white rounded-[4px] hover:bg-rose-700 hover:scale-105 transition-transform shadow cursor-pointer"
-                        >
-                          <TrashIcon className="w-3.5 h-3.5" />
-                        </button>
+                      {/* Comprehensive Action Overlay on Hover */}
+                      <div className="absolute inset-0 bg-neutral-950/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 z-20">
+                        {/* Top Action Bar: Cover Action + Delete */}
+                        <div className="flex items-center justify-between gap-1">
+                          {isCover ? (
+                            <span className="px-2 py-0.5 rounded-[3px] bg-amber-500 text-neutral-950 font-bold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow select-none">
+                              <StarIcon className="w-2.5 h-2.5 fill-neutral-950" />
+                              <span>Cover Photo</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSetExistingAsCover(idx);
+                              }}
+                              title="Set as main cover photo for portfolio showcase"
+                              className="px-2 py-1 rounded-[3px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow transition-colors cursor-pointer"
+                            >
+                              <StarIcon className="w-2.5 h-2.5" />
+                              <span>Set Cover</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDeletePhoto({ type: "existing", index: idx, url });
+                            }}
+                            title="Delete Photo"
+                            className="p-1 rounded-[3px] bg-rose-600/90 hover:bg-rose-600 text-white hover:scale-105 transition-all shadow cursor-pointer shrink-0"
+                          >
+                            <TrashIcon className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Center Action Bar: Move Left, Fullscreen, Move Right */}
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveExistingPhoto(idx, idx - 1);
+                            }}
+                            title={idx === 0 ? "Already first" : "Move Left / Earlier in order"}
+                            className="p-1.5 rounded-[3px] bg-white/90 dark:bg-neutral-800 text-neutral-900 dark:text-white disabled:opacity-25 disabled:cursor-not-allowed hover:bg-amber-500 hover:text-neutral-950 transition-colors shadow cursor-pointer"
+                          >
+                            <ChevronLeftIcon className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFullscreenImage({
+                                url,
+                                index: idx,
+                                total: allImgs.length,
+                                label: isCover ? "Cover Photo" : `Gallery Photo ${idx + 1}`,
+                              });
+                            }}
+                            title="Fullscreen View"
+                            className="p-1.5 rounded-[3px] bg-white/90 dark:bg-neutral-800 text-neutral-900 dark:text-white hover:bg-amber-500 hover:text-neutral-950 transition-colors shadow cursor-pointer"
+                          >
+                            <Maximize2Icon className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={idx === existingImages.length - 1}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveExistingPhoto(idx, idx + 1);
+                            }}
+                            title={
+                              idx === existingImages.length - 1
+                                ? "Already last"
+                                : "Move Right / Later in order"
+                            }
+                            className="p-1.5 rounded-[3px] bg-white/90 dark:bg-neutral-800 text-neutral-900 dark:text-white disabled:opacity-25 disabled:cursor-not-allowed hover:bg-amber-500 hover:text-neutral-950 transition-colors shadow cursor-pointer"
+                          >
+                            <ChevronRightIcon className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Bottom Info Bar: Order position & drag hint */}
+                        <div className="flex items-center justify-between text-[9px] font-mono text-white/70 select-none">
+                          <span>#{String(idx + 1).padStart(2, "0")}</span>
+                          <span className="uppercase tracking-widest text-[8px] text-amber-400/90 font-sans font-semibold">
+                            Drag to reorder
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1355,64 +1556,157 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 {newPreviews.map((url, idx) => {
                   const globalIdx = existingImages.length + idx;
                   const allImgs = [...existingImages, ...newPreviews];
+                  const isCover = coverNewIndex === idx;
+                  const isDraggingThis = draggedPhoto?.type === "new" && draggedPhoto?.index === idx;
+                  const isDragOverThis = dragOverPhoto?.type === "new" && dragOverPhoto?.index === idx;
+
                   return (
                     <div
                       key={`new-${idx}`}
+                      draggable={true}
+                      onDragStart={(e) => handleDragStart(e, "new", idx)}
+                      onDragOver={(e) => handleDragOver(e, "new", idx)}
+                      onDrop={(e) => handleDrop(e, "new", idx)}
+                      onDragEnd={handleDragEnd}
                       onClick={() =>
                         setFullscreenImage({
                           url,
                           index: globalIdx,
                           total: allImgs.length,
-                          label: globalIdx === 0 ? "Cover Photo" : `New Upload ${idx + 1}`,
+                          label: isCover ? "Cover Photo (New)" : `New Upload ${idx + 1}`,
                         })
                       }
-                      className="relative group h-24 rounded-[4px] overflow-hidden border-2 border-amber-500/60 bg-neutral-100 dark:bg-neutral-800 cursor-pointer shadow-xs"
+                      className={`relative group h-28 sm:h-32 rounded-[6px] overflow-hidden border-2 transition-all duration-200 cursor-grab active:cursor-grabbing select-none shadow-xs ${
+                        isCover
+                          ? "border-amber-500 ring-2 ring-amber-500/30"
+                          : "border-amber-500/60"
+                      } ${
+                        isDragOverThis ? "ring-2 ring-amber-400 scale-[1.03] shadow-md z-30" : ""
+                      } ${
+                        isDraggingThis ? "opacity-40 scale-95" : "opacity-100"
+                      } bg-neutral-100 dark:bg-neutral-800`}
                     >
                       <img
                         src={url}
                         alt={`New upload ${idx + 1}`}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none"
                       />
-                      <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-[2px] bg-emerald-500 text-white font-bold text-[9px] uppercase shadow z-10">
-                        New
+
+                      {/* Badges when idle */}
+                      <div className="absolute top-1.5 left-1.5 flex items-center gap-1 z-10">
+                        {isCover ? (
+                          <span className="px-2 py-0.5 rounded-[3px] bg-amber-500 text-neutral-950 font-bold text-[9px] uppercase tracking-wider shadow flex items-center gap-1">
+                            <StarIcon className="w-2.5 h-2.5 fill-neutral-950 text-neutral-950" />
+                            <span>Cover</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-[3px] bg-emerald-500 text-white font-bold text-[9px] uppercase tracking-wider shadow">
+                            New
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-[3px] bg-black/60 backdrop-blur-xs text-white/90 font-mono font-bold text-[9px] z-10 select-none">
+                        #{String(existingImages.length + idx + 1).padStart(2, "0")}
                       </span>
 
-                      {/* Hover Actions: Fullscreen Preview & Delete */}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-20">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFullscreenImage({
-                              url,
-                              index: globalIdx,
-                              total: allImgs.length,
-                              label: globalIdx === 0 ? "Cover Photo" : `New Upload ${idx + 1}`,
-                            });
-                          }}
-                          title="Fullscreen View"
-                          className="p-1.5 bg-white/90 dark:bg-neutral-900/90 text-neutral-900 dark:text-white rounded-[4px] hover:scale-105 transition-transform shadow cursor-pointer"
-                        >
-                          <Maximize2Icon className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDeletePhoto({ type: "new", index: idx, url });
-                          }}
-                          title="Delete Photo"
-                          className="p-1.5 bg-rose-600 text-white rounded-[4px] hover:bg-rose-700 hover:scale-105 transition-transform shadow cursor-pointer"
-                        >
-                          <TrashIcon className="w-3.5 h-3.5" />
-                        </button>
+                      {/* Comprehensive Action Overlay on Hover */}
+                      <div className="absolute inset-0 bg-neutral-950/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 z-20">
+                        {/* Top Action Bar */}
+                        <div className="flex items-center justify-between gap-1">
+                          {isCover ? (
+                            <span className="px-2 py-0.5 rounded-[3px] bg-amber-500 text-neutral-950 font-bold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow select-none">
+                              <StarIcon className="w-2.5 h-2.5 fill-neutral-950" />
+                              <span>Cover Photo</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSetNewAsCover(idx);
+                              }}
+                              title="Set this new upload as the main cover photo"
+                              className="px-2 py-1 rounded-[3px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow transition-colors cursor-pointer"
+                            >
+                              <StarIcon className="w-2.5 h-2.5" />
+                              <span>Set Cover</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDeletePhoto({ type: "new", index: idx, url });
+                            }}
+                            title="Delete Photo"
+                            className="p-1 rounded-[3px] bg-rose-600/90 hover:bg-rose-600 text-white hover:scale-105 transition-all shadow cursor-pointer shrink-0"
+                          >
+                            <TrashIcon className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Center Action Bar */}
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveNewPhoto(idx, idx - 1);
+                            }}
+                            title={idx === 0 ? "Already first among uploads" : "Move earlier"}
+                            className="p-1.5 rounded-[3px] bg-white/90 dark:bg-neutral-800 text-neutral-900 dark:text-white disabled:opacity-25 disabled:cursor-not-allowed hover:bg-amber-500 hover:text-neutral-950 transition-colors shadow cursor-pointer"
+                          >
+                            <ChevronLeftIcon className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFullscreenImage({
+                                url,
+                                index: globalIdx,
+                                total: allImgs.length,
+                                label: isCover ? "Cover Photo (New)" : `New Upload ${idx + 1}`,
+                              });
+                            }}
+                            title="Fullscreen View"
+                            className="p-1.5 rounded-[3px] bg-white/90 dark:bg-neutral-800 text-neutral-900 dark:text-white hover:bg-amber-500 hover:text-neutral-950 transition-colors shadow cursor-pointer"
+                          >
+                            <Maximize2Icon className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={idx === newPreviews.length - 1}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveNewPhoto(idx, idx + 1);
+                            }}
+                            title={idx === newPreviews.length - 1 ? "Already last" : "Move later"}
+                            className="p-1.5 rounded-[3px] bg-white/90 dark:bg-neutral-800 text-neutral-900 dark:text-white disabled:opacity-25 disabled:cursor-not-allowed hover:bg-amber-500 hover:text-neutral-950 transition-colors shadow cursor-pointer"
+                          >
+                            <ChevronRightIcon className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Bottom Info Bar */}
+                        <div className="flex items-center justify-between text-[9px] font-mono text-white/70 select-none">
+                          <span>#{String(existingImages.length + idx + 1).padStart(2, "0")}</span>
+                          <span className="uppercase tracking-widest text-[8px] text-emerald-400/90 font-sans font-semibold">
+                            Drag to reorder
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
 
                 {/* Add Photo Button */}
-                <label className="h-24 rounded-[4px] border-2 border-dashed border-neutral-300 dark:border-neutral-700 hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 flex flex-col items-center justify-center text-neutral-500 hover:text-amber-600 transition-colors cursor-pointer">
+                <label className="h-28 sm:h-32 rounded-[6px] border-2 border-dashed border-neutral-300 dark:border-neutral-700 hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 flex flex-col items-center justify-center text-neutral-500 hover:text-amber-600 transition-colors cursor-pointer select-none">
                   <PlusIcon className="w-6 h-6 mb-1 text-amber-500" />
                   <span className="text-[11px] font-bold">+ Add Photos</span>
                   <input
@@ -1526,7 +1820,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
               </button>
             )}
 
-            <img
+            <SafeImage
               src={fullscreenImage.url}
               alt="Fullscreen View"
               className="max-h-[80vh] max-w-[90vw] object-contain rounded-[4px] shadow-2xl border border-white/10"
@@ -1583,7 +1877,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
 
             {/* Thumbnail Preview */}
             <div className="w-full h-36 rounded-[4px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800">
-              <img
+              <SafeImage
                 src={photoToDelete.url}
                 alt="Photo to remove"
                 className="w-full h-full object-cover"

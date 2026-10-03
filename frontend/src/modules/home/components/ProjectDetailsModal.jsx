@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import Image from "next/image";
+import SafeImage from "../../shared/SafeImage";
 import { useRouter } from "next/navigation";
 import {
   CloseIcon,
@@ -301,7 +301,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                     className="absolute inset-0 transition-opacity duration-500"
                     style={{ opacity: idx === activePhotoIdx ? 1 : 0, zIndex: idx === activePhotoIdx ? 1 : 0 }}
                   >
-                    <Image
+                    <SafeImage
                       src={src}
                       alt={`${project.name} — view ${idx + 1}`}
                       fill
@@ -373,7 +373,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                           : "border-neutral-300 dark:border-white/10 opacity-50 hover:opacity-85 hover:border-amber-500/50"
                       }`}
                     >
-                      <Image src={src} alt="" fill sizes="64px" className="object-cover" unoptimized />
+                      <SafeImage src={src} alt="" fill sizes="64px" className="object-cover" unoptimized />
                     </button>
                   ))}
                 </div>
@@ -572,7 +572,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative w-full h-full">
-              <Image
+              <SafeImage
                 src={images[activePhotoIdx]}
                 alt={`${project.name} — photo ${activePhotoIdx + 1}`}
                 fill
@@ -640,7 +640,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                           : "border-white/10 opacity-40 hover:opacity-75 hover:border-white/30"
                       }`}
                     >
-                      <Image src={src} alt="" fill sizes="72px" className="object-cover" unoptimized />
+                      <SafeImage src={src} alt="" fill sizes="72px" className="object-cover" unoptimized />
                     </button>
                   ))}
                 </div>

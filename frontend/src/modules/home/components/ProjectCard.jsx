@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
+import SafeImage from "../../shared/SafeImage";
 import {
   ArrowRightIcon,
   MapPinIcon,
@@ -79,7 +79,7 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
             className="absolute inset-0 transition-opacity duration-600 ease-out"
             style={{ opacity: idx === activeImageIdx ? 1 : 0 }}
           >
-            <Image
+            <SafeImage
               src={imgSrc}
               alt={`${project.name} — view ${idx + 1}`}
               fill

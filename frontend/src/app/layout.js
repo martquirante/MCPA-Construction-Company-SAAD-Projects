@@ -56,14 +56,17 @@ export const metadata = {
     "House Construction Bulacan",
     "Commercial Building Contractor Bulacan",
   ],
+  manifest: "/site.webmanifest",
   icons: {
     icon: [
-      { url: "/icon.svg?v=3", type: "image/svg+xml" },
-      { url: "/icon.png?v=3", sizes: "512x512", type: "image/png" },
-      { url: "/favicon.ico?v=3", sizes: "any" },
+      { url: "/icon.svg?v=5", type: "image/svg+xml" },
+      { url: "/favicon.ico?v=5", sizes: "any" },
+      { url: "/icon.png?v=5", sizes: "512x512", type: "image/png" },
     ],
-    shortcut: "/icon.svg?v=3",
-    apple: "/icon.png?v=3",
+    shortcut: "/icon.svg?v=5",
+    apple: [
+      { url: "/apple-touch-icon.png?v=5", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 

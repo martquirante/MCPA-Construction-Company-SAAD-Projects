@@ -54,6 +54,8 @@ class ProjectsController {
         imageList = [uploadedUrl, ...imageList];
       }
 
+      const finalImageList = [...new Set(imageList.filter((u) => typeof u === "string" && u.trim().length > 0))];
+
       const isWebVisible = is_web_visible === 'false' || is_web_visible === false ? false : true;
       const isFeaturedHome = featured_on_home === 'true' || featured_on_home === true || is_featured_home === 'true' || is_featured_home === true;
       const projectStatus = status || "completed";
@@ -71,7 +73,7 @@ class ProjectsController {
           category || "Residential",
           year || new Date().getFullYear().toString(),
           description || "",
-          imageList,
+          finalImageList,
           isWebVisible,
           projectStatus,
           projectMonth,
@@ -103,8 +105,43 @@ class ProjectsController {
       if (isNaN(numId)) {
         return res.status(400).json({ message: "Invalid project ID." });
       }
+
+      // 1. Fetch images of the project to clean up associated cloud storage files
+      const existing = await db.query("SELECT images FROM projects WHERE project_id = $1", [numId]);
+      let projectImages = [];
+      if (existing.rows.length > 0 && existing.rows[0].images) {
+        let imgs = existing.rows[0].images;
+        if (typeof imgs === "string") {
+          try { imgs = JSON.parse(imgs); } catch (e) { imgs = [imgs]; }
+        }
+        if (Array.isArray(imgs)) {
+          projectImages = imgs.filter(url => typeof url === "string" && url.trim().length > 0);
+        }
+      }
+
+      // 2. Delete project from PostgreSQL database
       await db.query("DELETE FROM projects WHERE project_id = $1", [numId]);
-      return res.json({ success: true, message: "Project removed." });
+
+      // 3. Purge associated images from Azure Blob / Cloud Storage (if not referenced by other projects)
+      if (projectImages.length > 0) {
+        (async () => {
+          for (const imgUrl of projectImages) {
+            try {
+              const otherRef = await db.query(
+                "SELECT 1 FROM projects WHERE $1 = ANY(images) LIMIT 1",
+                [imgUrl]
+              );
+              if (otherRef.rows.length === 0) {
+                await storage.deleteFile(imgUrl, "portfolio");
+              }
+            } catch (storageErr) {
+              console.warn(`[ProjectsController.delete] Storage cleanup warning for ${imgUrl}:`, storageErr.message);
+            }
+          }
+        })().catch(e => console.warn("[ProjectsController.delete] Async storage cleanup error:", e.message));
+      }
+
+      return res.json({ success: true, message: "Project and associated cloud assets removed." });
     } catch (err) {
       console.error("[ProjectsController.delete] Error:", err);
       return res.status(500).json({ message: "Failed to delete project: " + err.message });
@@ -237,6 +274,7 @@ class ProjectsController {
       const finalBathrooms = bathrooms !== undefined ? bathrooms : existingRecord.bathrooms;
       const finalFeatures = features !== undefined ? featureList : existingRecord.features || [];
       const finalArchDetails = architectural_details !== undefined ? architectural_details : existingRecord.architectural_details;
+      const finalImageList = [...new Set(imageList.filter((u) => typeof u === "string" && u.trim().length > 0))];
 
       const result = await db.query(
         `UPDATE projects 
@@ -250,7 +288,7 @@ class ProjectsController {
           category || "Residential",
           year || new Date().getFullYear().toString(),
           description || "",
-          imageList,
+          finalImageList,
           isWebVisible,
           projectStatus,
           projectMonth,
@@ -264,6 +302,37 @@ class ProjectsController {
           targetProjectId
         ]
       );
+
+      // Identify removed images to clean up from Azure Blob / Cloud Storage
+      let oldImages = existingRecord.images;
+      if (typeof oldImages === "string") {
+        try { oldImages = JSON.parse(oldImages); } catch (e) { oldImages = [oldImages]; }
+      }
+      if (!Array.isArray(oldImages)) oldImages = [];
+
+      const newImageSet = new Set(imageList);
+      const removedImages = oldImages.filter(url => typeof url === "string" && !newImageSet.has(url));
+
+      // Asynchronously clean up removed images from Azure Blob / Cloud Storage
+      if (removedImages.length > 0) {
+        (async () => {
+          for (const imgUrl of removedImages) {
+            try {
+              const otherRef = await db.query(
+                "SELECT 1 FROM projects WHERE $1 = ANY(images) AND project_id != $2 LIMIT 1",
+                [imgUrl, targetProjectId]
+              );
+              if (otherRef.rows.length === 0) {
+                await storage.deleteFile(imgUrl, "portfolio");
+              } else {
+                console.log(`[ProjectsController] Retaining image in cloud because another project references it: ${imgUrl}`);
+              }
+            } catch (cleanErr) {
+              console.warn(`[ProjectsController] Cloud cleanup warning for removed image ${imgUrl}:`, cleanErr.message);
+            }
+          }
+        })().catch(e => console.warn("[ProjectsController] Async cleanup error:", e.message));
+      }
 
       return res.json({
         success: true,

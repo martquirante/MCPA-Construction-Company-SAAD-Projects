@@ -4,8 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   WifiIcon,
   WifiOffIcon,
-  SignalIcon,
-  SignalZeroIcon,
   CloseIcon,
   RefreshCwIcon,
 } from "./Icons";
@@ -187,22 +185,16 @@ export default function NetworkStatusBar() {
       >
         {/* Left: Architectural Icon Badge with explicit SVG sizing */}
         <div
-          className={`w-7 h-7 rounded-[4px] flex items-center justify-center shrink-0 border transition-colors ${
+          className={`w-8 h-8 rounded-[6px] flex items-center justify-center shrink-0 border transition-colors ${
             isRestored
               ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
               : "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400"
           }`}
         >
           {isRestored ? (
-            connectionType === "cellular" ? (
-              <SignalIcon className="w-[15px] h-[15px]" strokeWidth={2.25} />
-            ) : (
-              <WifiIcon className="w-[15px] h-[15px]" strokeWidth={2.25} />
-            )
-          ) : connectionType === "cellular" ? (
-            <SignalZeroIcon className="w-[15px] h-[15px]" strokeWidth={2.25} />
+            <WifiIcon className="w-4 h-4" strokeWidth={2.25} />
           ) : (
-            <WifiOffIcon className="w-[15px] h-[15px]" strokeWidth={2.25} />
+            <WifiOffIcon className="w-4 h-4" strokeWidth={2.25} />
           )}
         </div>
 

@@ -264,18 +264,18 @@ export default function ServicesPage() {
 
         {/* The MCPA Advantage Architectural Block */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 md:mt-28">
-          <div className="rounded-[6px] p-8 sm:p-12 bg-neutral-950 text-white border border-neutral-800 dark:border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.3)] relative overflow-hidden">
+          <div className="architectural-cta-card rounded-[6px] p-8 sm:p-12 bg-white dark:bg-[#10121a] border border-neutral-200/90 dark:border-white/[0.12] relative overflow-hidden transition-all duration-300">
             {/* Architectural left reference datum */}
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
 
             <div className="max-w-3xl relative z-10 pl-2 sm:pl-3">
-              <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-400 mb-4 select-none">
+              <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400 mb-4 select-none">
                 <span>The MCPA Advantage</span>
               </div>
-              <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white leading-tight">
+              <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-neutral-950 dark:text-white leading-tight">
                 No Contractor Markups. No Compromised Blueprints.
               </h3>
-              <p className="mt-4 text-neutral-300 text-sm sm:text-base leading-relaxed font-normal">
+              <p className="mt-4 text-neutral-600 dark:text-neutral-300 text-sm sm:text-base leading-relaxed font-normal">
                 Traditional contractors purchase materials from third-party hardware stores at retail prices, passing high markup costs and delivery delays onto the client. Because MCPA operates its own dedicated in-house supply and logistics fleet exclusively for our construction projects, your build receives certified, batch-tested materials directly on-site — guaranteeing authentic structural quality with zero middleman markups.
               </p>
 
@@ -289,7 +289,7 @@ export default function ServicesPage() {
                 </Link>
                 <Link
                   href="/projects"
-                  className="inline-flex items-center justify-center px-6 py-3 rounded-[4px] border border-neutral-700 bg-neutral-900/60 hover:bg-neutral-800 text-neutral-200 hover:text-white text-xs font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center px-6 py-3 rounded-[4px] border border-neutral-300 dark:border-neutral-700 bg-neutral-100/70 dark:bg-neutral-900/60 hover:bg-neutral-200/80 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white text-xs font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer"
                 >
                   <span>Explore Completed Projects</span>
                 </Link>
