@@ -9,6 +9,7 @@ import ScrollMorph from "../../shared/ScrollMorph";
 import { ArrowRightIcon } from "../../shared/Icons";
 import LordIcon from "../../shared/LordIcon";
 import { deduplicateProjects, subscribeProjectsChange } from "../../shared/projectsHelper";
+import { PortfolioGridSkeleton } from "../../shared/Skeleton";
 
 export default function PortfolioSection({
   isHomePage = false,
@@ -16,6 +17,7 @@ export default function PortfolioSection({
 }) {
   const router = useRouter();
   const [projects, setProjects] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedProjectForModal, setSelectedProjectForModal] = useState(null);
 
@@ -31,6 +33,7 @@ export default function PortfolioSection({
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0 && isMounted) {
             setProjects(deduplicateProjects(parsed));
+            setIsLoading(false);
           }
         }
       } catch (err) {
@@ -76,6 +79,10 @@ export default function PortfolioSection({
         }
       } catch (err) {
         // Backend offline or error; fallback / cached projects remain active
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -198,7 +205,9 @@ export default function PortfolioSection({
       </ScrollMorph>
 
       {/* Projects Grid: Auto-balancing layout with responsive centering */}
-      {count === 0 ? (
+      {isLoading && count === 0 ? (
+        <PortfolioGridSkeleton count={isHomePage ? 3 : 6} />
+      ) : count === 0 ? (
         <ScrollMorph variant="fade-up" className="max-w-xl mx-auto py-12 px-4 text-center">
           <div className="relative overflow-hidden rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0f1117] p-8 sm:p-12 flex flex-col items-center justify-center shadow-sm">
             {/* Animated Lordicon from CDN API */}
@@ -253,7 +262,7 @@ export default function PortfolioSection({
           </div>
         </ScrollMorph>
       ) : (
-        <div className={getGridClasses(count)}>
+        <div className={`${getGridClasses(count)} animate-in fade-in duration-300`}>
           {displayProjects.map((project, idx) => {
             const cardVariant =
               idx % 3 === 0

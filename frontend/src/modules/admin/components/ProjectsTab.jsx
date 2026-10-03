@@ -4,6 +4,7 @@ import { useState } from "react";
 import ProjectEditorModal from "./ProjectEditorModal";
 import AdminEmptyState from "./AdminEmptyState";
 import SafeImage from "../../shared/SafeImage";
+import { ProjectCardSkeleton } from "../../shared/Skeleton";
 import {
   PlusIcon,
   TrashIcon,
@@ -27,6 +28,7 @@ export default function ProjectsTab({
   onDeleteProject,
   onToggleFeatured,
   showToast,
+  isLoading = false,
 }) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
@@ -188,7 +190,7 @@ export default function ProjectsTab({
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
               <FolderKanbanIcon className="w-6 h-6 text-amber-500" />
-              Projects Management ({filteredProjects.length}{filteredProjects.length !== rawProjects.length ? ` of ${rawProjects.length}` : ""})
+              Projects Management ({isLoading ? "..." : `${filteredProjects.length}${filteredProjects.length !== rawProjects.length ? ` of ${rawProjects.length}` : ""}`})
             </h2>
           </div>
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
@@ -250,7 +252,11 @@ export default function ProjectsTab({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredProjects.length === 0 ? (
+        {isLoading ? (
+          Array.from({ length: 6 }).map((_, idx) => (
+            <ProjectCardSkeleton key={`proj-skel-${idx}`} />
+          ))
+        ) : filteredProjects.length === 0 ? (
           <div className="col-span-full">
             {searchQuery || selectedCategory !== "All" ? (
               <AdminEmptyState
@@ -307,7 +313,7 @@ export default function ProjectsTab({
             return (
               <div
                 key={projectKey}
-                className="group bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/[0.08] rounded-[6px] overflow-hidden shadow-xs hover:border-amber-500/40 transition-colors flex flex-col"
+                className="group bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/[0.08] rounded-[6px] overflow-hidden shadow-xs hover:border-amber-500/40 transition-colors flex flex-col animate-in fade-in duration-300"
               >
               <div
                 className="h-44 w-full bg-neutral-200 dark:bg-neutral-800 cursor-pointer relative overflow-hidden"

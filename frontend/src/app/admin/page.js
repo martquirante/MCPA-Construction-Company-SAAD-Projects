@@ -52,6 +52,7 @@ export default function AdminPage() {
   const [currentUser, setCurrentUser] = useState(null);
 
   // Data states
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [customProjects, setCustomProjects] = useState([]);
   const [allProjects, setAllProjects] = useState([]);
   const [clientBriefs, setClientBriefs] = useState([]);
@@ -139,6 +140,7 @@ export default function AdminPage() {
   };
 
   const loadProjectsAndBriefs = async () => {
+    setIsLoadingData(true);
     // Try to load from Backend API first
     try {
       const [projRes, briefsRes, siteRes] = await Promise.allSettled([
@@ -222,6 +224,8 @@ export default function AdminPage() {
     } catch (e) {
       fallbackLoadStoredProjects();
       fallbackLoadStoredBriefs();
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -1453,6 +1457,7 @@ export default function AdminPage() {
             clientBriefs={clientBriefs}
             allProjects={allProjects}
             onNavigateTab={setActiveTab}
+            isLoading={isLoadingData}
           />
         )}
 
@@ -1466,6 +1471,7 @@ export default function AdminPage() {
             onProvisionAccess={handleProvisionAccess}
             onDeleteBrief={handleDeleteBrief}
             showToast={showToast}
+            isLoading={isLoadingData}
           />
         )}
 
@@ -1481,6 +1487,7 @@ export default function AdminPage() {
             onDeleteProject={handleDeleteProject}
             onToggleFeatured={handleToggleFeaturedProject}
             showToast={showToast}
+            isLoading={isLoadingData}
           />
         )}
 

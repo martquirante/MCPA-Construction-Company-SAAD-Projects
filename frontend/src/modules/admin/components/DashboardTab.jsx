@@ -18,6 +18,7 @@ import {
 } from "@/modules/shared/Icons";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 import MetricCard3D from "@/modules/admin/components/MetricCard3D";
+import { DashboardOverviewSkeleton } from "@/modules/shared/Skeleton";
 
 const PROJECT_STAGE_COLORS = {
   "Residential": "bg-amber-500/10 text-amber-300/90 border-amber-500/20",
@@ -50,7 +51,10 @@ function MeetingTypeBadge({ mode }) {
   );
 }
 
-export default function DashboardTab({ clientBriefs = [], allProjects = [], onNavigateTab }) {
+export default function DashboardTab({ clientBriefs = [], allProjects = [], onNavigateTab, isLoading = false }) {
+  if (isLoading) {
+    return <DashboardOverviewSkeleton />;
+  }
   const pendingCount = clientBriefs.filter(
     (b) => !b.status || b.status === "Pending Review"
   ).length;
@@ -75,7 +79,7 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
   const featuredProjects = inProgressProjects.slice(0, 4);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-300">
       <div>
         <h2 className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
           Dashboard Overview

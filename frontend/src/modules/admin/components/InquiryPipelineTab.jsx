@@ -21,6 +21,7 @@ import {
 } from "@/modules/shared/Icons";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 import StageCombobox from "@/modules/admin/components/StageCombobox";
+import { InquiryTableSkeleton } from "@/modules/shared/Skeleton";
 
 const STAGES = [
   {
@@ -117,6 +118,7 @@ export default function InquiryPipelineTab({
   onProvisionAccess,
   onDeleteBrief,
   showToast,
+  isLoading = false,
 }) {
   const [filterStage, setFilterStage] = useState("ALL");
   const [search, setSearch] = useState("");
@@ -272,7 +274,9 @@ export default function InquiryPipelineTab({
         </div>
 
         {/* Table */}
-        {filteredBriefs.length === 0 ? (
+        {isLoading ? (
+          <InquiryTableSkeleton rows={5} />
+        ) : filteredBriefs.length === 0 ? (
           (search.trim() || filterStage !== "ALL") ? (
             <AdminEmptyState
               iconSrc="https://cdn.lordicon.com/msoeawqm.json"
@@ -301,7 +305,7 @@ export default function InquiryPipelineTab({
             />
           )
         ) : (
-          <div className="rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0f1117] overflow-hidden shadow-xs">
+          <div className="rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0f1117] overflow-hidden shadow-xs animate-in fade-in duration-300">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-neutral-100 dark:bg-white/[0.03] border-b border-neutral-200 dark:border-white/5 text-neutral-500 dark:text-neutral-400 font-mono uppercase tracking-wider">
