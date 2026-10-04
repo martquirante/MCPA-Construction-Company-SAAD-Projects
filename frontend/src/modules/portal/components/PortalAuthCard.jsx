@@ -31,6 +31,8 @@ import CountryPicker from "./CountryPicker";
 import PuzzleCaptchaModal from "./PuzzleCaptchaModal";
 import ForgotPasswordModal from "./ForgotPasswordModal";
 import MediaPipeLivenessModal from "./MediaPipeLivenessModal";
+import PhAddressCascadeSection from "./PhAddressCascadeSection";
+import ArchitecturalEntranceAnimation from "./ArchitecturalEntranceAnimation";
 import { COUNTRIES, getFlagUrl, PHILIPPINES } from "../data/countries";
 import { PORTAL_TRANSLATIONS } from "../data/portalTranslations";
 import { useLanguage } from "@/modules/shared/LanguageContext";
@@ -59,6 +61,7 @@ function PhLocationAutocompleteInput({
   required = false,
   activeLang = "en",
   t = {},
+  hasError = false,
 }) {
   const containerRef = useRef(null);
   const inputRef = useRef(null);
@@ -196,7 +199,11 @@ function PhLocationAutocompleteInput({
               searchLocations(value);
             }
           }}
-          className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
+          className={`w-full h-10 pl-10 pr-3.5 rounded-xl border ${
+            hasError
+              ? "bg-red-500/10 dark:bg-red-950/35 border-red-500 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+              : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+          } text-sm focus:outline-none transition-all`}
         />
         <MapPinIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
       </div>
@@ -277,6 +284,15 @@ export default function PortalAuthCard({ onLoginSuccess }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isPuzzleModalOpen, setIsPuzzleModalOpen] = useState(false);
+  const [isSuccessAnimation, setIsSuccessAnimation] = useState(false);
+  const [registeredUserData, setRegisteredUserData] = useState(null);
+  const [registeredUserToken, setRegisteredUserToken] = useState(null);
+
+  // --- VALIDATION ATTEMPT TRACKING (FOR RED FIELD HIGHLIGHTING) ---
+  const [attemptedLogin, setAttemptedLogin] = useState(false);
+  const [attemptedStep1, setAttemptedStep1] = useState(false);
+  const [attemptedStep2, setAttemptedStep2] = useState(false);
+  const [attemptedStep4, setAttemptedStep4] = useState(false);
 
   // --- LOGIN & SECURITY LOCKOUT FIELDS ---
   const [loginEmail, setLoginEmail] = useState("");
@@ -327,12 +343,17 @@ export default function PortalAuthCard({ onLoginSuccess }) {
   const [selectedCountryCode, setSelectedCountryCode] = useState("ae");
   const [locationAddress, setLocationAddress] = useState("");
 
-  // Step 2 Structured Residential Address (Philippines)
+  // Step 2 Structured Residential Address (Philippines) - Hierarchical (Province -> City -> Barangay)
+  const [resProvince, setResProvince] = useState("Bulacan");
+  const [resProvinceCode, setResProvinceCode] = useState("0301400000");
+  const [resCity, setResCity] = useState("");
+  const [resCityCode, setResCityCode] = useState("");
+  const [resBarangay, setResBarangay] = useState("");
+  const [resBarangayCode, setResBarangayCode] = useState("");
+  const [resSubdivision, setResSubdivision] = useState("");
+  const [resStreet, setResStreet] = useState("");
   const [resHouseNo, setResHouseNo] = useState("");
   const [resBlkLot, setResBlkLot] = useState("");
-  const [resStreet, setResStreet] = useState("");
-  const [resSubdivision, setResSubdivision] = useState("");
-  const [resCityProvince, setResCityProvince] = useState("");
 
   // Sync structured address into full locationAddress
   useEffect(() => {
@@ -341,13 +362,13 @@ export default function PortalAuthCard({ onLoginSuccess }) {
       resBlkLot ? `Blk ${resBlkLot.trim()}` : "",
       resStreet.trim(),
       resSubdivision.trim(),
-      resCityProvince.trim(),
+      resBarangay ? `Brgy. ${resBarangay.trim()}` : "",
+      resCity.trim(),
+      resProvince.trim(),
     ].filter(Boolean);
 
-    if (parts.length > 0) {
-      setLocationAddress(parts.join(", "));
-    }
-  }, [resHouseNo, resBlkLot, resStreet, resSubdivision, resCityProvince]);
+    setLocationAddress(parts.join(", "));
+  }, [resHouseNo, resBlkLot, resStreet, resSubdivision, resBarangay, resCity, resProvince]);
 
   const [phRepName, setPhRepName] = useState("");
   const [phRepRelationship, setPhRepRelationship] = useState("Spouse");
@@ -405,14 +426,32 @@ export default function PortalAuthCard({ onLoginSuccess }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Step 4: Lot & Project Profile & Privacy
+  // Step 4: Lot & Project Profile & Privacy - Hierarchical (Province -> City -> Barangay)
   const [projectType, setProjectType] = useState("2-Storey Modern Villa");
   const [lotOwnershipStatus, setLotOwnershipStatus] = useState("Titled under my name");
+  const [buildProvince, setBuildProvince] = useState("Bulacan");
+  const [buildProvinceCode, setBuildProvinceCode] = useState("0301400000");
+  const [buildCity, setBuildCity] = useState("");
+  const [buildCityCode, setBuildCityCode] = useState("");
+  const [buildBarangay, setBuildBarangay] = useState("");
+  const [buildBarangayCode, setBuildBarangayCode] = useState("");
   const [subdivisionLotDetails, setSubdivisionLotDetails] = useState("");
   const [lotBlkLot, setLotBlkLot] = useState("");
   const [lotPhaseStreet, setLotPhaseStreet] = useState("");
   const [lotSubdivision, setLotSubdivision] = useState("");
   const [targetLocation, setTargetLocation] = useState("");
+
+  // Sync structured build location into targetLocation
+  useEffect(() => {
+    const parts = [
+      buildBarangay ? `Brgy. ${buildBarangay.trim()}` : "",
+      buildCity.trim(),
+      buildProvince.trim(),
+    ].filter(Boolean);
+    if (parts.length > 0) {
+      setTargetLocation(parts.join(", "));
+    }
+  }, [buildBarangay, buildCity, buildProvince]);
 
   // Sync structured lot details into subdivisionLotDetails
   useEffect(() => {
@@ -812,6 +851,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
   // --- SUBMIT LOGIN (WITH 5-ATTEMPT 15-MINUTE LOCKOUT) ---
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
+    setAttemptedLogin(true);
     setErrorMessage("");
     setSocialSuccessBanner("");
 
@@ -889,15 +929,59 @@ export default function PortalAuthCard({ onLoginSuccess }) {
     }
   };
 
+  // Auto-scrolls and focuses any invalid or missing form field
+  const scrollToField = (fieldId) => {
+    setTimeout(() => {
+      const el = document.getElementById(fieldId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (typeof el.focus === "function") {
+          el.focus();
+        }
+      }
+    }, 60);
+  };
+
   // --- SUBMIT FINAL SIGNUP (STEP 4) ---
   const handleCompleteRegistration = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!subdivisionLotDetails.trim() || subdivisionLotDetails.trim().length < 3) {
-      setErrorMessage(t.errLotDetails);
+    setAttemptedStep4(true);
+
+    if (!buildProvince.trim()) {
+      setErrorMessage(
+        activeLang === "fil"
+          ? "Pumili po ng Probinsya kung saan itatayo ang inyong proyekto."
+          : "Please select the target construction Province or Region."
+      );
+      scrollToField("field-buildProvince");
+      return;
+    }
+    if (!buildCity.trim()) {
+      setErrorMessage(
+        activeLang === "fil"
+          ? "Pumili po ng Lungsod / Bayan para sa inyong proyekto."
+          : "Please select the target construction City / Municipality."
+      );
+      scrollToField("field-buildCity");
+      return;
+    }
+    if (!buildBarangay.trim()) {
+      setErrorMessage(
+        activeLang === "fil"
+          ? "Pumili po ng Barangay kung saan itatayo ang proyekto."
+          : "Please select the target construction Barangay."
+      );
+      scrollToField("field-buildBarangay");
+      return;
+    }
+    if (!lotBlkLot.trim() && !lotPhaseStreet.trim() && !lotSubdivision.trim()) {
+      setErrorMessage(t.errLotDetails || "Please specify your lot, subdivision, or street details.");
+      scrollToField("field-buildBarangay");
       return;
     }
     if (!targetLocation.trim() || targetLocation.trim().length < 3) {
       setErrorMessage(t.errTargetLocation);
+      scrollToField("field-buildProvince");
       return;
     }
     const foreignKeywords = [
@@ -918,10 +1002,12 @@ export default function PortalAuthCard({ onLoginSuccess }) {
 
     if (isForeignOnly) {
       setErrorMessage(t.errTargetLocationPhOnly || "MCPA constructs exclusively within the Philippines (Bulacan, Pampanga, Metro Manila, and Central Luzon). Please provide your Philippine lot location.");
+      scrollToField("field-buildProvince");
       return;
     }
     if (!hasScrolledToBottom || !hasAcceptedTerms || !hasAcceptedPrivacy) {
       setErrorMessage(t.errLegalAccept);
+      scrollToField("field-legalSection");
       setIsLegalModalOpen(true);
       return;
     }
@@ -981,7 +1067,10 @@ export default function PortalAuthCard({ onLoginSuccess }) {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        if (onLoginSuccess) onLoginSuccess(data.user, data.token);
+        setIsSubmitting(false);
+        setRegisteredUserData(data.user);
+        setRegisteredUserToken(data.token);
+        setIsSuccessAnimation(true);
         return;
       }
 
@@ -1023,6 +1112,25 @@ export default function PortalAuthCard({ onLoginSuccess }) {
               {activeLang === "fil" ? "Kanselahin" : "Cancel"}
             </button>
           </div>
+        )}
+
+        {/* REGISTRATION SUCCESS 1.5-SECOND ARCHITECTURAL ONBOARDING ANIMATION OVERLAY */}
+        {isSuccessAnimation && (
+          <ArchitecturalEntranceAnimation
+            clientName={registeredUserData?.fullName || fullName || "Valued Client"}
+            email={registeredUserData?.email || registerEmail || ""}
+            projectType={projectType || "Modern Residence"}
+            activeLang={activeLang}
+            onComplete={() => {
+              setIsSuccessAnimation(false);
+              if (onLoginSuccess) {
+                onLoginSuccess(
+                  registeredUserData || { fullName: fullName || "Valued Client", email: registerEmail },
+                  registeredUserToken
+                );
+              }
+            }}
+          />
         )}
       {/* BRAND LOGO AT TOP (Crisp Black in Light Mode, Pure White in Dark Mode) */}
       <div className="flex justify-center mb-3 sm:mb-3.5">
@@ -1117,8 +1225,15 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 disabled={lockoutMinutes > 0}
                 placeholder={t.emailPlaceholder}
                 value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-[13px] bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all disabled:opacity-50"
+                onChange={(e) => {
+                  setLoginEmail(e.target.value);
+                  if (errorMessage) setErrorMessage("");
+                }}
+                className={`w-full pl-11 pr-4 py-3 rounded-[13px] border ${
+                  attemptedLogin && (!loginEmail.trim() || !isValidEmail(loginEmail))
+                    ? "bg-red-500/10 dark:bg-red-950/35 border-red-500 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                    : "bg-neutral-50 dark:bg-white/5 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                } text-sm focus:outline-none transition-all disabled:opacity-50`}
               />
             </div>
 
@@ -1132,8 +1247,15 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   disabled={lockoutMinutes > 0}
                   placeholder={t.passwordPlaceholder}
                   value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-3 rounded-[13px] bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all disabled:opacity-50"
+                  onChange={(e) => {
+                    setLoginPassword(e.target.value);
+                    if (errorMessage) setErrorMessage("");
+                  }}
+                  className={`w-full pl-11 pr-11 py-3 rounded-[13px] border ${
+                    attemptedLogin && !loginPassword
+                      ? "bg-red-500/10 dark:bg-red-950/35 border-red-500 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                      : "bg-neutral-50 dark:bg-white/5 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  } text-sm focus:outline-none transition-all disabled:opacity-50`}
                 />
                 <button
                   type="button"
@@ -1396,45 +1518,81 @@ export default function PortalAuthCard({ onLoginSuccess }) {
 
               {/* NAME FIELDS */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block">
-                  {t.fullNameLabel}
+                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center justify-between">
+                  <span>{t.fullNameLabel}</span>
+                  <span className="text-red-500 font-bold ml-1">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder={t.firstNamePlaceholder}
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-.]/g, ""))}
-                    className={`w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border ${
-                      firstName && !isValidName(firstName)
-                        ? "border-red-500/70 focus:border-red-500"
-                        : "border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                    } text-neutral-900 dark:text-white placeholder-neutral-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-all`}
-                  />
-                  <input
-                    type="text"
-                    placeholder={t.middleNamePlaceholder}
-                    value={middleName}
-                    onChange={(e) => setMiddleName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-.]/g, ""))}
-                    className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
-                  />
+                  <div>
+                    <input
+                      id="field-firstName"
+                      type="text"
+                      required
+                      placeholder={t.firstNamePlaceholder}
+                      value={firstName}
+                      onChange={(e) => {
+                        setFirstName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-.]/g, ""));
+                        if (errorMessage) setErrorMessage("");
+                      }}
+                      className={`w-full h-10 px-3.5 rounded-xl border ${
+                        (attemptedStep1 && !isValidName(firstName)) || (firstName && !isValidName(firstName))
+                          ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                      } text-xs sm:text-sm focus:outline-none transition-all`}
+                    />
+                    {attemptedStep1 && !isValidName(firstName) && (
+                      <span className="text-[11px] text-red-500 font-medium mt-1 block">
+                        {t.errFirstName}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      id="field-middleName"
+                      type="text"
+                      placeholder={t.middleNamePlaceholder}
+                      value={middleName}
+                      onChange={(e) => {
+                        setMiddleName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-.]/g, ""));
+                        if (errorMessage) setErrorMessage("");
+                      }}
+                      className={`w-full h-10 px-3.5 rounded-xl border ${
+                        middleName && !isValidName(middleName)
+                          ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                      } text-xs sm:text-sm focus:outline-none transition-all`}
+                    />
+                    {middleName && !isValidName(middleName) && (
+                      <span className="text-[11px] text-red-500 font-medium mt-1 block">
+                        {t.errMiddleName}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2">
                     <input
+                      id="field-lastName"
                       type="text"
                       required
                       placeholder={t.lastNamePlaceholder}
                       value={lastName}
-                      onChange={(e) => setLastName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-.]/g, ""))}
-                      className={`w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border ${
-                        lastName && !isValidName(lastName)
-                          ? "border-red-500/70 focus:border-red-500"
-                          : "border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                      } text-neutral-900 dark:text-white placeholder-neutral-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-all`}
+                      onChange={(e) => {
+                        setLastName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-.]/g, ""));
+                        if (errorMessage) setErrorMessage("");
+                      }}
+                      className={`w-full h-10 px-3.5 rounded-xl border ${
+                        (attemptedStep1 && !isValidName(lastName)) || (lastName && !isValidName(lastName))
+                          ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                      } text-xs sm:text-sm focus:outline-none transition-all`}
                     />
+                    {attemptedStep1 && !isValidName(lastName) && (
+                      <span className="text-[11px] text-red-500 font-medium mt-1 block">
+                        {t.errLastName}
+                      </span>
+                    )}
                   </div>
                   <div className="col-span-1">
                     <select
@@ -1456,11 +1614,13 @@ export default function PortalAuthCard({ onLoginSuccess }) {
               {/* Email Address */}
               <div>
                 <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                  {t.emailFieldLabel}
+                  <span>{t.emailFieldLabel}</span>
+                  <span className="text-red-500 font-bold ml-1">*</span>
                 </label>
                 <div className="relative">
                   <MailIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                   <input
+                    id="field-registerEmail"
                     type="email"
                     required
                     readOnly={Boolean(socialConnected)}
@@ -1471,12 +1631,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         setRegisterEmail(e.target.value.trim());
                       }
                     }}
-                    className={`w-full h-10 pl-10 pr-9 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border ${
-                      registerEmail && !isEmailValid
-                        ? "border-red-500/70 focus:border-red-500"
+                    className={`w-full h-10 pl-10 pr-9 rounded-xl border ${
+                      attemptedStep1 && !isEmailValid
+                        ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                        : registerEmail && !isEmailValid
+                        ? "border-2 border-red-500/70 focus:border-red-500 bg-red-50 dark:bg-red-950/20 text-neutral-900 dark:text-white"
                         : registerEmail && isEmailValid
-                        ? "border-emerald-500/60 focus:border-emerald-500"
-                        : "border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
+                        ? "bg-neutral-50 dark:bg-neutral-850/70 border-emerald-500/60 focus:border-emerald-500"
+                        : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
                     } text-neutral-900 dark:text-white placeholder-neutral-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-all ${
                       socialConnected ? "cursor-not-allowed opacity-90 font-medium" : ""
                     }`}
@@ -1487,9 +1649,9 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     </span>
                   )}
                 </div>
-                {registerEmail && !isEmailValid && (
-                  <span className="text-[11px] text-red-500 mt-1 block pl-0.5">
-                    {t.emailInvalidHelper}
+                {attemptedStep1 && !isEmailValid && (
+                  <span className="text-[11px] text-red-500 font-medium mt-1 block pl-0.5">
+                    {t.errEmail}
                   </span>
                 )}
               </div>
@@ -1497,9 +1659,10 @@ export default function PortalAuthCard({ onLoginSuccess }) {
               {/* Password */}
               <div>
                 <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                  {t.passwordFieldLabel}{" "}
+                  <span>{t.passwordFieldLabel}</span>
+                  {!socialConnected && <span className="text-red-500 font-bold ml-1">*</span>}
                   {socialConnected && (
-                    <span className="font-normal text-emerald-600 dark:text-emerald-400">
+                    <span className="font-normal text-emerald-600 dark:text-emerald-400 ml-1">
                       ({t.socialOptionalPassword})
                     </span>
                   )}
@@ -1507,6 +1670,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 <div className="relative">
                   <LockIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                   <input
+                    id="field-registerPassword"
                     type={showPassword ? "text" : "password"}
                     required={!socialConnected}
                     placeholder={
@@ -1515,8 +1679,15 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         : t.passwordFieldPlaceholder
                     }
                     value={registerPassword}
-                    onChange={(e) => setRegisterPassword(e.target.value)}
-                    className="w-full h-10 pl-10 pr-9 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
+                    onChange={(e) => {
+                      setRegisterPassword(e.target.value);
+                      if (errorMessage) setErrorMessage("");
+                    }}
+                    className={`w-full h-10 pl-10 pr-9 rounded-xl border ${
+                      ((!socialConnected && attemptedStep1 && !passwordEval.isValid) || (registerPassword && !passwordEval.isValid))
+                        ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                        : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                    } text-xs sm:text-sm focus:outline-none transition-all`}
                   />
                   <button
                     type="button"
@@ -1526,6 +1697,12 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                   </button>
                 </div>
+
+                {attemptedStep1 && !socialConnected && !passwordEval.isValid && (
+                  <span className="text-[11px] text-red-500 font-medium mt-1 block">
+                    {t.errPassword}
+                  </span>
+                )}
 
                 {registerPassword && (
                   <div className="mt-1.5 space-y-1">
@@ -1547,30 +1724,37 @@ export default function PortalAuthCard({ onLoginSuccess }) {
               <button
                 type="button"
                 onClick={() => {
+                  setAttemptedStep1(true);
                   if (!isValidName(firstName)) {
                     setErrorMessage(t.errFirstName);
+                    scrollToField("field-firstName");
                     return;
                   }
                   if (middleName && !isValidName(middleName)) {
                     setErrorMessage(t.errMiddleName);
+                    scrollToField("field-middleName");
                     return;
                   }
                   if (!isValidName(lastName)) {
                     setErrorMessage(t.errLastName);
+                    scrollToField("field-lastName");
                     return;
                   }
                   if (!isEmailValid) {
                     setErrorMessage(t.errEmail);
+                    scrollToField("field-registerEmail");
                     return;
                   }
                   // Password check: Mandatory for standard registration, optional if social account linked
                   if (!socialConnected) {
                     if (!passwordEval.isValid) {
                       setErrorMessage(t.errPassword);
+                      scrollToField("field-registerPassword");
                       return;
                     }
                   } else if (registerPassword && !passwordEval.isValid) {
                     setErrorMessage(t.errPassword);
+                    scrollToField("field-registerPassword");
                     return;
                   }
                   setErrorMessage("");
@@ -1653,8 +1837,9 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block">
-                        {t.birthDateLabel}
+                      <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center">
+                        <span>{t.birthDateLabel}</span>
+                        <span className="text-red-500 font-bold ml-1">*</span>
                       </label>
                       {clientAge !== null && (
                         <span className={`text-[11px] font-medium ${isValidAge(birthDate) ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
@@ -1665,16 +1850,25 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       )}
                     </div>
                     <input
+                      id="field-birthDate"
                       type="date"
                       value={birthDate}
                       max={new Date().toISOString().split("T")[0]}
-                      onChange={(e) => setBirthDate(e.target.value)}
-                      className={`w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border ${
-                        birthDate && !isValidAge(birthDate)
-                          ? "border-red-500/70 focus:border-red-500"
-                          : "border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                      } text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-all`}
+                      onChange={(e) => {
+                        setBirthDate(e.target.value);
+                        if (errorMessage) setErrorMessage("");
+                      }}
+                      className={`w-full h-10 px-3 rounded-xl border ${
+                        (attemptedStep2 && !isValidAge(birthDate)) || (birthDate && !isValidAge(birthDate))
+                          ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                      } text-xs sm:text-sm focus:outline-none transition-all`}
                     />
+                    {attemptedStep2 && !isValidAge(birthDate) && (
+                      <span className="text-[11px] text-red-500 font-medium mt-1 block">
+                        {t.errAge}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1.5">
@@ -1697,40 +1891,60 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 {/* Conditional Spouse / Co-borrower Name if Married or Co-owner */}
                 {(civilStatus === "Married" || civilStatus === "Co-owner") && (
                   <div>
-                    <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1.5">
-                      {t.spouseNameLabel}
+                    <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center mb-1.5">
+                      <span>{t.spouseNameLabel}</span>
+                      <span className="text-red-500 font-bold ml-1">*</span>
                     </label>
                     <input
+                      id="field-spouseName"
                       type="text"
                       placeholder={t.spouseNamePlaceholder}
                       value={spouseName}
-                      onChange={(e) => setSpouseName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-.]/g, ""))}
-                      className={`w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border ${
-                        spouseName && !isValidName(spouseName)
-                          ? "border-red-500/70 focus:border-red-500"
-                          : "border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                      } text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-all`}
+                      onChange={(e) => {
+                        setSpouseName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-.]/g, ""));
+                        if (errorMessage) setErrorMessage("");
+                      }}
+                      className={`w-full h-10 px-3.5 rounded-xl border ${
+                        (attemptedStep2 && !isValidName(spouseName)) || (spouseName && !isValidName(spouseName))
+                          ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                      } text-sm focus:outline-none transition-all`}
                     />
+                    {attemptedStep2 && !isValidName(spouseName) && (
+                      <span className="text-[11px] text-red-500 font-medium mt-1 block">
+                        {t.errSpouse}
+                      </span>
+                    )}
                   </div>
                 )}
 
                 {/* 3. Occupation & Employer */}
-                <div className="grid grid-cols-2 gap-2.5 items-end">
+                <div className="grid grid-cols-2 gap-2.5 items-start">
                   <div className="flex flex-col">
                     <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center h-5 mb-1.5 truncate" title={t.occupationLabel}>
-                      {t.occupationLabel}
+                      <span>{t.occupationLabel}</span>
+                      <span className="text-red-500 font-bold ml-1">*</span>
                     </label>
                     <input
+                      id="field-occupation"
                       type="text"
                       placeholder={t.occupationPlaceholder}
                       value={occupation}
-                      onChange={(e) => setOccupation(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-\/\&.,]/g, ""))}
-                      className={`w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border ${
-                        occupation && !isValidOccupation(occupation)
-                          ? "border-red-500/70 focus:border-red-500"
-                          : "border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                      } text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-all`}
+                      onChange={(e) => {
+                        setOccupation(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-\/\&.,]/g, ""));
+                        if (errorMessage) setErrorMessage("");
+                      }}
+                      className={`w-full h-10 px-3.5 rounded-xl border ${
+                        (attemptedStep2 && !isValidOccupation(occupation)) || (occupation && !isValidOccupation(occupation))
+                          ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                      } text-sm focus:outline-none transition-all`}
                     />
+                    {((attemptedStep2 && !isValidOccupation(occupation)) || (occupation && !isValidOccupation(occupation))) && (
+                      <span className="text-[11px] text-red-500 font-medium mt-1 block">
+                        {t.errOccupation || "Please enter your occupation or profession (letters only)."}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col">
                     <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center h-5 mb-1.5 truncate" title={t.employerLabel}>
@@ -1767,8 +1981,9 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 {/* 5. Mobile Phone Number */}
                 {clientType === "Local" ? (
                   <div>
-                    <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1.5">
-                      {t.contactNumberLabel}
+                    <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center mb-1.5">
+                      <span>{t.contactNumberLabel}</span>
+                      <span className="text-red-500 font-bold ml-1">*</span>
                     </label>
                     <div className="flex gap-2">
                       <div className="w-20 shrink-0 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300">
@@ -1780,6 +1995,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         <span>+63</span>
                       </div>
                       <input
+                        id="field-phoneNumber"
                         type="tel"
                         required
                         maxLength={12}
@@ -1787,27 +2003,27 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         value={phoneNumber}
                         onChange={(e) => {
                           setPhoneNumber(formatPhPhone(e.target.value));
+                          if (errorMessage) setErrorMessage("");
                         }}
-                        className={`flex-1 h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border ${
-                          phoneNumber && !isValidPhPhone(phoneNumber)
-                            ? "border-red-500/70 focus:border-red-500"
-                            : "border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                        } text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 font-mono tracking-wider transition-all`}
+                        className={`flex-1 h-10 px-3.5 rounded-xl border ${
+                          (attemptedStep2 && !isValidPhPhone(phoneNumber)) || (phoneNumber && !isValidPhPhone(phoneNumber))
+                            ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                            : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                        } text-sm focus:outline-none font-mono tracking-wider transition-all`}
                       />
                     </div>
-                    {phoneNumber && !isValidPhPhone(phoneNumber) && (
-                      <span className="text-xs text-red-500 mt-1 block">
-                        {activeLang === "fil"
-                          ? "Dapat 10 numero simula sa 9 (hal. 912 345 6789)."
-                          : "Must be 10 digits starting with 9 (e.g. 912 345 6789)."}
+                    {attemptedStep2 && !isValidPhPhone(phoneNumber) && (
+                      <span className="text-xs text-red-500 font-medium mt-1 block">
+                        {t.errPhPhone}
                       </span>
                     )}
                   </div>
                 ) : (
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                        {t.contactNumberLabel}
+                      <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center">
+                        <span>{t.contactNumberLabel}</span>
+                        <span className="text-red-500 font-bold ml-1">*</span>
                       </label>
                       <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
                         {countryCode === "+63" ? "Philippine SIM (+63)" : `Overseas (${countryCode})`}
@@ -1944,6 +2160,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       {/* Phone Input Box */}
                       {countryCode === "+63" ? (
                         <input
+                          id="field-phoneNumber"
                           type="tel"
                           required
                           maxLength={12}
@@ -1951,114 +2168,83 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                           value={phoneNumber}
                           onChange={(e) => {
                             setPhoneNumber(formatPhPhone(e.target.value));
+                            if (errorMessage) setErrorMessage("");
                           }}
-                          className={`flex-1 h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border ${
-                            phoneNumber && !isValidPhPhone(phoneNumber)
-                              ? "border-red-500/70 focus:border-red-500"
-                              : "border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                          } text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 font-mono tracking-wider transition-all`}
+                          className={`flex-1 h-10 px-3.5 rounded-xl border ${
+                            (attemptedStep2 && !isValidPhPhone(phoneNumber)) || (phoneNumber && !isValidPhPhone(phoneNumber))
+                              ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                              : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                          } text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 font-mono tracking-wider transition-all`}
                         />
                       ) : (
                         <input
+                          id="field-phoneNumber"
                           type="tel"
                           required
                           placeholder={activeLang === "fil" ? "Numero sa ibang bansa" : "Overseas Contact Number"}
                           value={phoneNumber}
                           onChange={(e) => {
                             setPhoneNumber(formatIntlPhone(e.target.value));
+                            if (errorMessage) setErrorMessage("");
                           }}
-                          className="flex-1 h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 font-mono tracking-wider transition-all"
+                          className={`flex-1 h-10 px-3.5 rounded-xl border ${
+                            attemptedStep2 && (!phoneNumber.trim() || phoneNumber.replace(/\D/g, "").length < 6)
+                              ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                              : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                          } text-sm focus:outline-none font-mono tracking-wider transition-all`}
                         />
                       )}
                     </div>
-                    {countryCode === "+63" && phoneNumber && !isValidPhPhone(phoneNumber) && (
-                      <span className="text-xs text-red-500 mt-1 block">
-                        {activeLang === "fil"
-                          ? "Dapat 10 numero simula sa 9 (hal. 912 345 6789)."
-                          : "Must be 10 digits starting with 9 (e.g. 912 345 6789)."}
+                    {attemptedStep2 && countryCode === "+63" && phoneNumber && !isValidPhPhone(phoneNumber) && (
+                      <span className="text-xs text-red-500 font-medium mt-1 block">
+                        {t.errPhPhone}
+                      </span>
+                    )}
+                    {attemptedStep2 && countryCode !== "+63" && (!phoneNumber.trim() || phoneNumber.replace(/\D/g, "").length < 6) && (
+                      <span className="text-xs text-red-500 font-medium mt-1 block">
+                        {t.errIntlPhone}
                       </span>
                     )}
                   </div>
                 )}
 
-                {/* 6. Structured Current / Residential Address (Philippines) */}
-                <div className="space-y-2 pt-1 border-t border-neutral-200 dark:border-neutral-800">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
-                      <MapPinIcon className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{t.residentialAddressTitle || "Current Residential Address (Philippines)"}</span>
-                    </label>
-                    <span className="text-[10px] text-neutral-400 font-mono">PH Official</span>
-                  </div>
-
-                  {/* Row 1: House/Unit No. + Block & Lot */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 block mb-1 truncate" title={t.houseNoLabel}>
-                        {t.houseNoLabel || "House / Unit No. & Bldg"}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={t.houseNoPlaceholder || "e.g. Unit 4B / Lot 12"}
-                        value={resHouseNo}
-                        onChange={(e) => setResHouseNo(e.target.value)}
-                        className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 block mb-1 truncate" title={t.blkLotLabel}>
-                        {t.blkLotLabel || "Block & Lot No."}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={t.blkLotPlaceholder || "e.g. Blk 14 Lot 8"}
-                        value={resBlkLot}
-                        onChange={(e) => setResBlkLot(e.target.value)}
-                        className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Row 2: Phase/Street + Subdivision/Village */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 block mb-1 truncate" title={t.phaseStreetLabel}>
-                        {t.phaseStreetLabel || "Phase & Street Name"}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={t.phaseStreetPlaceholder || "e.g. Phase 2, Diamond St."}
-                        value={resStreet}
-                        onChange={(e) => setResStreet(e.target.value)}
-                        className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 block mb-1 truncate" title={t.subdivisionVillageLabel}>
-                        {t.subdivisionVillageLabel || "Subdivision / Brgy"}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={t.subdivisionVillagePlaceholder || "e.g. Grand Royale Subd."}
-                        value={resSubdivision}
-                        onChange={(e) => setResSubdivision(e.target.value)}
-                        className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Row 3: City / Municipality & Province (with Philippine Live Autocomplete) */}
-                  <PhLocationAutocompleteInput
-                    value={resCityProvince}
-                    onChange={(val) => setResCityProvince(val)}
-                    onSelect={(selectedLoc) => setResCityProvince(selectedLoc)}
-                    label={t.cityProvinceLabel || "City / Municipality & Province *"}
-                    placeholder={t.cityProvincePlaceholder || "e.g. Malolos, Bulacan or Quezon City"}
-                    required={true}
-                    activeLang={activeLang}
-                    t={t}
-                  />
-                </div>
+                {/* 6. Structured Current / Residential Address (Philippines - Cascading PSGC) */}
+                <PhAddressCascadeSection
+                  province={resProvince}
+                  provinceCode={resProvinceCode}
+                  onProvinceChange={(p) => {
+                    setResProvince(p.name);
+                    setResProvinceCode(p.code);
+                  }}
+                  city={resCity}
+                  cityCode={resCityCode}
+                  onCityChange={(c) => {
+                    setResCity(c.name);
+                    setResCityCode(c.code);
+                  }}
+                  barangay={resBarangay}
+                  barangayCode={resBarangayCode}
+                  onBarangayChange={(b) => {
+                    setResBarangay(b.name);
+                    setResBarangayCode(b.code);
+                  }}
+                  subdivision={resSubdivision}
+                  onSubdivisionChange={setResSubdivision}
+                  street={resStreet}
+                  onStreetChange={setResStreet}
+                  houseNo={resHouseNo}
+                  onHouseNoChange={setResHouseNo}
+                  blkLot={resBlkLot}
+                  onBlkLotChange={setResBlkLot}
+                  attempted={attemptedStep2}
+                  t={t}
+                  activeLang={activeLang}
+                  title={t.residentialAddressTitle || "Current Residential Address (Philippines)"}
+                  idPrefix="field-res"
+                  onClearErrors={() => {
+                    if (errorMessage) setErrorMessage("");
+                  }}
+                />
 
                 {/* 7. OFW Local Project Representative */}
                 {clientType === "OFW" && (
@@ -2075,17 +2261,28 @@ export default function PortalAuthCard({ onLoginSuccess }) {
 
                     {/* Rep Name & Relationship */}
                     <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        placeholder={t.phRepNamePlaceholder}
-                        value={phRepName}
-                        onChange={(e) => setPhRepName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-.]/g, ""))}
-                        className={`w-full h-9 px-3 rounded-lg bg-white dark:bg-neutral-850 border ${
-                          phRepName && !isValidName(phRepName)
-                            ? "border-red-500/70 focus:border-red-500"
-                            : "border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                        } text-neutral-900 dark:text-white text-xs focus:outline-none`}
-                      />
+                      <div>
+                        <input
+                          id="field-phRepName"
+                          type="text"
+                          placeholder={t.phRepNamePlaceholder}
+                          value={phRepName}
+                          onChange={(e) => {
+                            setPhRepName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-.]/g, ""));
+                            if (errorMessage) setErrorMessage("");
+                          }}
+                          className={`w-full h-9 px-3 rounded-lg border ${
+                            (attemptedStep2 && !isValidName(phRepName)) || (phRepName && !isValidName(phRepName))
+                              ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                              : "bg-white dark:bg-neutral-850 border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
+                          } text-neutral-900 dark:text-white text-xs focus:outline-none`}
+                        />
+                        {attemptedStep2 && !isValidName(phRepName) && (
+                          <span className="text-[10px] text-red-500 font-medium mt-0.5 block">
+                            {t.errRepName}
+                          </span>
+                        )}
+                      </div>
                       <select
                         value={phRepRelationship}
                         onChange={(e) => setPhRepRelationship(e.target.value)}
@@ -2111,25 +2308,25 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                           <span>+63</span>
                         </div>
                         <input
+                          id="field-phRepPhone"
                           type="tel"
                           maxLength={12}
                           placeholder="917 123 4567 *"
                           value={phRepPhone}
                           onChange={(e) => {
                             setPhRepPhone(formatPhPhone(e.target.value));
+                            if (errorMessage) setErrorMessage("");
                           }}
-                          className={`flex-1 h-9 px-3 rounded-lg bg-white dark:bg-neutral-850 border ${
-                            phRepPhone && !isValidPhPhone(phRepPhone)
-                              ? "border-red-500/70 focus:border-red-500"
-                              : "border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
+                          className={`flex-1 h-9 px-3 rounded-lg border ${
+                            (attemptedStep2 && !isValidPhPhone(phRepPhone)) || (phRepPhone && !isValidPhPhone(phRepPhone))
+                              ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                              : "bg-white dark:bg-neutral-850 border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
                           } text-neutral-900 dark:text-white text-xs focus:outline-none font-mono tracking-wider`}
                         />
                       </div>
-                      {phRepPhone && !isValidPhPhone(phRepPhone) && (
-                        <span className="text-xs text-red-500 mt-1 block">
-                          {activeLang === "fil"
-                            ? "Dapat 10 numero simula sa 9 (hal. 917 123 4567)."
-                            : "Must be 10 digits starting with 9 (e.g. 917 123 4567)."}
+                      {attemptedStep2 && !isValidPhPhone(phRepPhone) && (
+                        <span className="text-xs text-red-500 font-medium mt-1 block">
+                          {t.errRepPhone}
                         </span>
                       )}
                     </div>
@@ -2168,43 +2365,74 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 <button
                   type="button"
                   onClick={() => {
+                    setAttemptedStep2(true);
                     if (!isValidAge(birthDate)) {
                       setErrorMessage(t.errAge);
+                      scrollToField("field-birthDate");
                       return;
                     }
                     if ((civilStatus === "Married" || civilStatus === "Co-owner") && !isValidName(spouseName)) {
                       setErrorMessage(t.errSpouse);
+                      scrollToField("field-spouseName");
                       return;
                     }
                     if (!isValidOccupation(occupation)) {
                       setErrorMessage(t.errOccupation);
+                      scrollToField("field-occupation");
                       return;
                     }
                     if (clientType === "Local" || countryCode === "+63") {
                       if (!isValidPhPhone(phoneNumber)) {
                         setErrorMessage(t.errPhPhone);
+                        scrollToField("field-phoneNumber");
                         return;
                       }
                     } else {
                       const cleanDigits = phoneNumber.replace(/\D/g, "");
                       if (!cleanDigits || cleanDigits.length < 6) {
                         setErrorMessage(t.errIntlPhone);
+                        scrollToField("field-phoneNumber");
                         return;
                       }
                     }
 
-                    if (!locationAddress.trim() || locationAddress.trim().length < 4) {
-                      setErrorMessage(t.errAddress);
+                    if (!resProvince.trim()) {
+                      setErrorMessage(
+                        activeLang === "fil"
+                          ? "Kailangan pong pumili ng Probinsya / Rehiyon sa inyong tirahan."
+                          : "Please select your residential Province or Region."
+                      );
+                      scrollToField("field-resProvince");
+                      return;
+                    }
+                    if (!resCity.trim()) {
+                      setErrorMessage(
+                        activeLang === "fil"
+                          ? "Kailangan pong pumili ng Lungsod / Bayan sa inyong tirahan."
+                          : "Please select your residential City / Municipality."
+                      );
+                      scrollToField("field-resCity");
+                      return;
+                    }
+                    if (!resBarangay.trim()) {
+                      setErrorMessage(
+                        activeLang === "fil"
+                          ? "Kailangan pong pumili ng Barangay sa inyong tirahan."
+                          : "Please select your residential Barangay."
+                      );
+                      scrollToField("field-resBarangay");
                       return;
                     }
 
                     if (clientType === "OFW") {
                       if (!isValidName(phRepName)) {
                         setErrorMessage(t.errRepName);
+                        scrollToField("field-phRepName");
                         return;
                       }
                       if (!isValidPhPhone(phRepPhone)) {
                         setErrorMessage(t.errRepPhone);
+                        scrollToField("field-phRepPhone");
                         return;
                       }
                     }
@@ -2466,50 +2694,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   </select>
                 </div>
 
-                {/* 3. Structured Lot & Subdivision Details */}
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 block mb-1 truncate" title={t.blkLotLabel}>
-                        {t.blkLotLabel || "Block & Lot No."}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={t.blkLotPlaceholder || "e.g. Blk 14 Lot 8"}
-                        value={lotBlkLot}
-                        onChange={(e) => setLotBlkLot(e.target.value)}
-                        className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 block mb-1 truncate" title={t.phaseStreetLabel}>
-                        {t.phaseStreetLabel || "Phase & Street Name"}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={t.phaseStreetPlaceholder || "e.g. Phase 2, Diamond St."}
-                        value={lotPhaseStreet}
-                        onChange={(e) => setLotPhaseStreet(e.target.value)}
-                        className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 block mb-1 truncate" title={t.subdivisionLabel}>
-                      {t.subdivisionLabel || "Subdivision / Village / Sitio"}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={t.subdivisionPlaceholder || "e.g. Grand Royale Subdivision"}
-                      value={lotSubdivision}
-                      onChange={(e) => setLotSubdivision(e.target.value)}
-                      className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* 4. Target Project Location (Philippines) with Live Philippine Autocomplete */}
+                {/* 3. Target Construction Lot Location (Philippines - Cascading PSGC) */}
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
                     {activeLang === "fil" ? "Lokasyon sa Pilipinas" : "Philippine Build Location"}
@@ -2528,21 +2713,42 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     </span>
                   </div>
                 )}
-                <PhLocationAutocompleteInput
-                  value={targetLocation}
-                  onChange={(val) => {
-                    setTargetLocation(val);
-                    if (errorMessage) setErrorMessage("");
+                <PhAddressCascadeSection
+                  province={buildProvince}
+                  provinceCode={buildProvinceCode}
+                  onProvinceChange={(p) => {
+                    setBuildProvince(p.name);
+                    setBuildProvinceCode(p.code);
                   }}
-                  onSelect={(loc) => {
-                    setTargetLocation(loc);
-                    if (errorMessage) setErrorMessage("");
+                  city={buildCity}
+                  cityCode={buildCityCode}
+                  onCityChange={(c) => {
+                    setBuildCity(c.name);
+                    setBuildCityCode(c.code);
                   }}
-                  label={t.targetLocationLabel}
-                  placeholder={t.targetLocationPlaceholder}
-                  required={true}
-                  activeLang={activeLang}
+                  barangay={buildBarangay}
+                  barangayCode={buildBarangayCode}
+                  onBarangayChange={(b) => {
+                    setBuildBarangay(b.name);
+                    setBuildBarangayCode(b.code);
+                  }}
+                  subdivision={lotSubdivision}
+                  onSubdivisionChange={setLotSubdivision}
+                  street={lotPhaseStreet}
+                  onStreetChange={setLotPhaseStreet}
+                  houseNo=""
+                  onHouseNoChange={() => {}}
+                  blkLot={lotBlkLot}
+                  onBlkLotChange={setLotBlkLot}
+                  attempted={attemptedStep4}
                   t={t}
+                  activeLang={activeLang}
+                  title={activeLang === "fil" ? "Lokasyon ng Proyekto / Lote (Pilipinas)" : "Target Construction Lot Location (Philippines)"}
+                  isBuildSite={true}
+                  idPrefix="field-build"
+                  onClearErrors={() => {
+                    if (errorMessage) setErrorMessage("");
+                  }}
                 />
 
                 {/* Refined Client Summary Review Card */}
@@ -2640,11 +2846,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   </p>
 
                   <button
+                    id="field-legalSection"
                     type="button"
                     onClick={() => setIsLegalModalOpen(true)}
                     className={`w-full h-10 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
                       hasAcceptedTerms && hasAcceptedPrivacy
                         ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-750 border border-neutral-300 dark:border-neutral-700"
+                        : attemptedStep4
+                        ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 text-red-700 dark:text-red-300 ring-2 ring-red-500/20"
                         : "bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-700 dark:text-amber-400"
                     }`}
                   >
@@ -2692,12 +2901,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 ${
                           hasAcceptedTerms
                             ? "bg-emerald-500 text-white"
+                            : attemptedStep4
+                            ? "border-2 border-red-500 bg-red-500/10 ring-2 ring-red-500/20"
                             : "border border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800"
                         }`}
                       >
                         {hasAcceptedTerms && <CheckIcon className="w-3 h-3 stroke-[2.5]" />}
                       </div>
-                      <span className={hasAcceptedTerms ? "text-neutral-900 dark:text-white font-medium" : "text-neutral-400"}>
+                      <span className={hasAcceptedTerms ? "text-neutral-900 dark:text-white font-medium" : attemptedStep4 ? "text-red-500 font-medium" : "text-neutral-400"}>
                         {t.termCheckbox1Title}
                       </span>
                     </div>
@@ -2707,12 +2918,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 ${
                           hasAcceptedPrivacy
                             ? "bg-emerald-500 text-white"
+                            : attemptedStep4
+                            ? "border-2 border-red-500 bg-red-500/10 ring-2 ring-red-500/20"
                             : "border border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800"
                         }`}
                       >
                         {hasAcceptedPrivacy && <CheckIcon className="w-3 h-3 stroke-[2.5]" />}
                       </div>
-                      <span className={hasAcceptedPrivacy ? "text-neutral-900 dark:text-white font-medium" : "text-neutral-400"}>
+                      <span className={hasAcceptedPrivacy ? "text-neutral-900 dark:text-white font-medium" : attemptedStep4 ? "text-red-500 font-medium" : "text-neutral-400"}>
                         {t.termCheckbox2Title}
                       </span>
                     </div>
@@ -2733,7 +2946,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 <button
                   type="button"
                   onClick={handleCompleteRegistration}
-                  disabled={isSubmitting || !hasScrolledToBottom || !hasAcceptedTerms || !hasAcceptedPrivacy}
+                  disabled={isSubmitting}
                   className="h-11 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-neutral-950 font-bold text-sm shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
                   {isSubmitting ? (
