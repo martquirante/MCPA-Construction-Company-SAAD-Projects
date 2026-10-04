@@ -1046,10 +1046,10 @@ export default function PortalAuthCard({ onLoginSuccess }) {
         />
       </div>
 
-      {/* SOCIAL SUCCESS BANNER */}
+      {/* SOCIAL SUCCESS BANNER: Clean green text only, no background */}
       {socialSuccessBanner && (
-        <div className="mb-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs sm:text-[12.5px] font-medium flex items-center gap-2 animate-in fade-in duration-150">
-          <CheckIcon className="w-4 h-4 text-emerald-500 shrink-0 stroke-[2.5]" />
+        <div className="mb-3 text-emerald-600 dark:text-emerald-400 text-xs sm:text-[12.5px] font-medium flex items-start gap-1.5 leading-snug animate-in fade-in duration-150">
+          <CheckIcon className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5 stroke-[2.5]" />
           <p className="flex-1 break-words">{socialSuccessBanner}</p>
         </div>
       )}
@@ -1317,21 +1317,21 @@ export default function PortalAuthCard({ onLoginSuccess }) {
             <div className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
               {/* Social Signup / Connected Identity */}
               {socialConnected ? (
-                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs animate-in fade-in duration-200">
+                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs animate-in fade-in duration-200">
                   <div className="flex items-center gap-2.5 min-w-0">
                     {capturedSelfie ? (
                       <img
                         src={capturedSelfie}
                         alt="Profile Avatar"
-                        className="w-9 h-9 rounded-full object-cover border-2 border-emerald-500/50 shadow-xs shrink-0"
+                        className="w-9 h-9 rounded-full object-cover border border-neutral-300 dark:border-neutral-700 shadow-xs shrink-0"
                       />
                     ) : (
-                      <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0">
                         ✓
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                      <div className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                         <span className="capitalize">{t.socialConnectedBadge} {socialConnected.provider === "google" ? "Google" : "Facebook"}</span>
                         <CheckIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0 stroke-[3]" />
                       </div>
