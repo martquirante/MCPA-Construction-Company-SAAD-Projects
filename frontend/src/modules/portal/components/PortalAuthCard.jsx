@@ -575,15 +575,22 @@ export default function PortalAuthCard({ onLoginSuccess }) {
       });
       setCameraStream(stream);
       setIsCameraActive(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
     } catch (err) {
       console.warn("Camera access notice:", err);
       setCameraError(getHumanFriendlyCameraMessage(err, activeLang));
       setIsCameraActive(false);
     }
   };
+
+  // Ensure video stream connects reliably once video DOM mounts
+  useEffect(() => {
+    if (isCameraActive && cameraStream && videoRef.current) {
+      if (videoRef.current.srcObject !== cameraStream) {
+        videoRef.current.srcObject = cameraStream;
+      }
+      videoRef.current.play().catch((err) => console.warn("Video play error:", err));
+    }
+  }, [isCameraActive, cameraStream]);
 
   const stopCamera = () => {
     if (cameraStream) {
@@ -2692,7 +2699,13 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       {/* Pure Circular Viewport */}
                       <div className="relative w-[84%] h-[84%] rounded-full overflow-hidden bg-neutral-950 border border-white/20 shadow-inner flex items-center justify-center">
                         <video
-                          ref={videoRef}
+                          ref={(el) => {
+                            videoRef.current = el;
+                            if (el && cameraStream && el.srcObject !== cameraStream) {
+                              el.srcObject = cameraStream;
+                              el.play().catch(() => {});
+                            }
+                          }}
                           autoPlay
                           playsInline
                           muted
