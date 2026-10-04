@@ -196,6 +196,12 @@ class DbFailoverEngine {
     if (!this.isFailoverActive && this.supabasePool) {
       try {
         const res = await this.supabasePool.query(text, params);
+        // Real-time asynchronous dual-write replication to Neon standby pool for data mutations
+        if (this.neonPool && /^\s*(INSERT|UPDATE|DELETE)\b/i.test(text)) {
+          this.neonPool.query(text, params).catch((neonWriteErr) => {
+            console.warn("[DbFailoverEngine] Async dual-write replication to Neon standby warning:", neonWriteErr.message);
+          });
+        }
         return res;
       } catch (err) {
         if (this.isConnectionError(err)) {
@@ -210,6 +216,12 @@ class DbFailoverEngine {
     if (this.neonPool) {
       try {
         const res = await this.neonPool.query(text, params);
+        // Real-time asynchronous dual-write replication to Supabase primary pool for data mutations
+        if (this.supabasePool && /^\s*(INSERT|UPDATE|DELETE)\b/i.test(text)) {
+          this.supabasePool.query(text, params).catch((supaWriteErr) => {
+            console.warn("[DbFailoverEngine] Async dual-write replication to Supabase primary warning:", supaWriteErr.message);
+          });
+        }
         return res;
       } catch (neonErr) {
         if (!this.isConnectionError(neonErr)) throw neonErr;
