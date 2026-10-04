@@ -72,7 +72,7 @@ export default function CountryPicker({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-neutral-850/80 border border-neutral-300 dark:border-neutral-700/80 hover:border-amber-500/60 flex items-center justify-between text-left transition-all cursor-pointer text-xs sm:text-sm text-neutral-900 dark:text-white"
+        className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 hover:border-amber-500/60 flex items-center justify-between text-left transition-all cursor-pointer text-xs sm:text-sm text-neutral-900 dark:text-neutral-100"
       >
         <div className="flex items-center gap-2.5 min-w-0">
           <img
@@ -99,7 +99,7 @@ export default function CountryPicker({
       {isOpen && (
         <div className="absolute z-50 left-0 right-0 mt-1.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
           {/* Search Field */}
-          <div className="p-2 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-850/50">
+          <div className="p-2 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-800/60">
             <div className="relative">
               <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
               <input

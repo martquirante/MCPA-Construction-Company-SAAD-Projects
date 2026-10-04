@@ -93,12 +93,12 @@ export default function PhLocationCombobox({
         }}
         className={`w-full h-10 px-3.5 rounded-xl border flex items-center justify-between gap-2 text-xs sm:text-sm text-left transition-all ${
           disabled
-            ? "bg-neutral-100 dark:bg-neutral-850/40 border-neutral-200 dark:border-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed opacity-75"
+            ? "bg-neutral-100 dark:bg-[#161a23]/40 border-neutral-200 dark:border-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed opacity-75"
             : hasError
             ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
             : isOpen
-            ? "bg-white dark:bg-neutral-850 border-amber-500 ring-2 ring-amber-500/15 text-neutral-900 dark:text-white"
-            : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:border-amber-500/60"
+            ? "bg-white dark:bg-[#161a23] border-amber-500 ring-2 ring-amber-500/15 text-neutral-900 dark:text-white"
+            : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:border-amber-500/60"
         }`}
       >
         <span className={`truncate flex-1 ${!value ? "text-neutral-400 dark:text-neutral-500 font-normal" : "font-medium"}`}>
@@ -125,9 +125,9 @@ export default function PhLocationCombobox({
 
       {/* Dropdown Popup */}
       {isOpen && !disabled && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-750 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
           {/* Quick Search Header */}
-          <div className="p-2 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-850/50">
+          <div className="p-2 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/50">
             <div className="relative flex items-center">
               <SearchIcon className="w-3.5 h-3.5 absolute left-2.5 text-neutral-400 pointer-events-none" />
               <input

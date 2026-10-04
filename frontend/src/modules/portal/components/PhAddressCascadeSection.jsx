@@ -266,7 +266,7 @@ export default function PhAddressCascadeSection({
             onSubdivisionChange(e.target.value);
             if (onClearErrors) onClearErrors();
           }}
-          className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
+          className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
         />
       </div>
 
@@ -284,7 +284,7 @@ export default function PhAddressCascadeSection({
               onStreetChange(e.target.value);
               if (onClearErrors) onClearErrors();
             }}
-            className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
+            className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
           />
         </div>
 
@@ -301,7 +301,7 @@ export default function PhAddressCascadeSection({
                 onHouseNoChange(e.target.value);
                 if (onClearErrors) onClearErrors();
               }}
-              className="w-full h-10 px-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
+              className="w-full h-10 px-2.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
             />
           </div>
           <div>
@@ -316,7 +316,7 @@ export default function PhAddressCascadeSection({
                 onBlkLotChange(e.target.value);
                 if (onClearErrors) onClearErrors();
               }}
-              className="w-full h-10 px-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
+              className="w-full h-10 px-2.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 focus:border-amber-500 transition-all"
             />
           </div>
         </div>

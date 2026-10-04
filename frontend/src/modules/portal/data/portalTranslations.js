@@ -178,7 +178,7 @@ export const PORTAL_TRANSLATIONS = {
     cameraStandbyTitle: "Ready for Selfie Capture",
     cameraPillWarning: "No hats, shades, or masks",
     identityPhotoVerified: "Identity Photo Verified",
-    cameraActiveInstruction: "Position your face clearly within the oval frame and capture photo.",
+    cameraActiveInstruction: "Position your face clearly within the circular frame and capture photo.",
     cameraStandbyInstruction: "Capture a clear photo for identity confirmation.",
     startCameraButton: "Start Camera",
     capturePhotoButton: "Capture Photo",

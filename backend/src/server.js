@@ -121,6 +121,7 @@ app.post("/api/auth/facebook", (req, res) => {
   req.body.provider = "facebook";
   return authController.socialLogin(req, res);
 });
+app.post("/api/auth/verify-face", (req, res) => authController.verifyFace(req, res));
 app.get("/api/admin/accounts", (req, res) => authController.getAccounts(req, res));
 app.get("/api/client/inquiries", (req, res) => authController.getClientInquiries(req, res));
 app.post("/api/auth/send-reset-otp", (req, res) => authController.sendResetOtp(req, res));

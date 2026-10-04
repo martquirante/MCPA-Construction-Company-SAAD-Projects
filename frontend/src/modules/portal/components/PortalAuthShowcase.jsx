@@ -682,11 +682,7 @@ export default function PortalAuthShowcase() {
             />
           ))}
         </div>
-        <span className="uppercase tracking-[0.2em] font-semibold text-[9px] truncate max-w-[190px]">
-          {slide?.items?.[0]?.project?.location
-            ? `${slide.items[0].project.location} · ${t.showcaseDesignAndBuild}`
-            : slide?.tagline}
-        </span>
+
       </div>
 
       {/* =========================================================================

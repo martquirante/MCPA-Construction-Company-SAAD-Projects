@@ -26,11 +26,12 @@ import {
   CloseIcon,
   FileTextIcon,
   ExternalLinkIcon,
+  AlertTriangleIcon,
 } from "@/modules/shared/Icons";
 import CountryPicker from "./CountryPicker";
 import PuzzleCaptchaModal from "./PuzzleCaptchaModal";
 import ForgotPasswordModal from "./ForgotPasswordModal";
-import MediaPipeLivenessModal from "./MediaPipeLivenessModal";
+import MediaPipeLivenessModal, { getHumanFriendlyCameraMessage } from "./MediaPipeLivenessModal";
 import PhAddressCascadeSection from "./PhAddressCascadeSection";
 import ArchitecturalEntranceAnimation from "./ArchitecturalEntranceAnimation";
 import { COUNTRIES, getFlagUrl, PHILIPPINES } from "../data/countries";
@@ -202,7 +203,7 @@ function PhLocationAutocompleteInput({
           className={`w-full h-10 pl-10 pr-3.5 rounded-xl border ${
             hasError
               ? "bg-red-500/10 dark:bg-red-950/35 border-red-500 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-              : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+              : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
           } text-sm focus:outline-none transition-all`}
         />
         <MapPinIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -423,6 +424,9 @@ export default function PortalAuthCard({ onLoginSuccess }) {
   const [cameraStream, setCameraStream] = useState(null);
   const [capturedSelfie, setCapturedSelfie] = useState(null);
   const [cameraError, setCameraError] = useState("");
+  const [isFaceChecking, setIsFaceChecking] = useState(false);
+  const [faceCheckFeedback, setFaceCheckFeedback] = useState("");
+  const [faceObstructionError, setFaceObstructionError] = useState("");
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -562,8 +566,8 @@ export default function PortalAuthCard({ onLoginSuccess }) {
   const startCamera = async () => {
     setCameraError("");
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Camera API is not supported in this browser.");
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error("HTTP_INSECURE_OR_UNSUPPORTED");
       }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 480 } },
@@ -575,8 +579,8 @@ export default function PortalAuthCard({ onLoginSuccess }) {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      console.warn("Camera access error:", err);
-      setCameraError("Camera unavailable. You can take a selfie on mobile or upload a photo below.");
+      console.warn("Camera access notice:", err);
+      setCameraError(getHumanFriendlyCameraMessage(err, activeLang));
       setIsCameraActive(false);
     }
   };
@@ -589,30 +593,102 @@ export default function PortalAuthCard({ onLoginSuccess }) {
     setIsCameraActive(false);
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
-    canvas.width = video.videoWidth || 360;
-    canvas.height = video.videoHeight || 360;
+    canvas.width = video.videoWidth || 480;
+    canvas.height = video.videoHeight || 480;
 
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.90);
     setCapturedSelfie(dataUrl);
     stopCamera();
+
+    // Call Python face recognition verification
+    try {
+      setIsFaceChecking(true);
+      setFaceCheckFeedback("");
+      setFaceObstructionError("");
+      const res = await fetch("/api/auth/verify-face", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+      const data = await res.json();
+      if (data && data.passed && !data.obstructions?.has_obstruction) {
+        setIsLivenessVerified(true);
+        setFaceObstructionError("");
+        setFaceCheckFeedback(
+          activeLang === "fil"
+            ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
+            : "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified."
+        );
+      } else {
+        setIsLivenessVerified(false);
+        const obsMsg = data?.obstructions?.issues?.[0] || data?.issues?.[0];
+        const errorText = obsMsg
+          ? (activeLang === "fil" ? obsMsg.fil : obsMsg.en)
+          : (activeLang === "fil"
+              ? "May sagabal sa mukha. Pakitanggal ang sumbrero, salamin sa mata, o mask bago magpatuloy."
+              : "Face is obstructed. Please remove hat, glasses, or mask before continuing.");
+        setFaceObstructionError(errorText);
+        setFaceCheckFeedback(errorText);
+      }
+    } catch (e) {
+      console.warn("Python face check fallback:", e);
+    } finally {
+      setIsFaceChecking(false);
+    }
   };
 
-  const handleFileUploadSelfie = (e) => {
+  const handleFileUploadSelfie = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        setCapturedSelfie(event.target.result);
+      reader.onload = async (event) => {
+        const dataUrl = event.target.result;
+        setCapturedSelfie(dataUrl);
+
+        try {
+          setIsFaceChecking(true);
+          setFaceCheckFeedback("");
+          setFaceObstructionError("");
+          const res = await fetch("/api/auth/verify-face", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image: dataUrl }),
+          });
+          const data = await res.json();
+          if (data && data.passed && !data.obstructions?.has_obstruction) {
+            setIsLivenessVerified(true);
+            setFaceObstructionError("");
+            setFaceCheckFeedback(
+              activeLang === "fil"
+                ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
+                : "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified."
+            );
+          } else {
+            setIsLivenessVerified(false);
+            const obsMsg = data?.obstructions?.issues?.[0] || data?.issues?.[0];
+            const errorText = obsMsg
+              ? (activeLang === "fil" ? obsMsg.fil : obsMsg.en)
+              : (activeLang === "fil"
+                  ? "May sagabal sa mukha. Pakitanggal ang sumbrero, salamin sa mata, o mask bago magpatuloy."
+                  : "Face is obstructed. Please remove hat, glasses, or mask before continuing.");
+            setFaceObstructionError(errorText);
+            setFaceCheckFeedback(errorText);
+          }
+        } catch (err) {
+          console.warn("Python face check fallback:", err);
+        } finally {
+          setIsFaceChecking(false);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -1439,22 +1515,20 @@ export default function PortalAuthCard({ onLoginSuccess }) {
             <div className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
               {/* Social Signup / Connected Identity */}
               {socialConnected ? (
-                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs animate-in fade-in duration-200">
+                <div className="py-2.5 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs animate-in fade-in duration-200">
                   <div className="flex items-center gap-2.5 min-w-0">
                     {capturedSelfie ? (
                       <img
                         src={capturedSelfie}
                         alt="Profile Avatar"
-                        className="w-9 h-9 rounded-full object-cover border border-neutral-300 dark:border-neutral-700 shadow-xs shrink-0"
+                        className="w-8 h-8 rounded-full object-cover border border-neutral-300 dark:border-neutral-700 shrink-0"
                       />
                     ) : (
-                      <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0">
-                        ✓
-                      </div>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
                     )}
                     <div className="min-w-0">
-                      <div className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                        <span className="capitalize">{t.socialConnectedBadge} {socialConnected.provider === "google" ? "Google" : "Facebook"}</span>
+                      <div className="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
+                        <span>{t.socialConnectedBadge} <span className="capitalize">{socialConnected.provider === "google" ? "Google" : "Facebook"}</span></span>
                         <CheckIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0 stroke-[3]" />
                       </div>
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
@@ -1468,7 +1542,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       setSocialConnected(null);
                       setSocialSuccessBanner("");
                     }}
-                    className="text-[11px] font-medium text-neutral-400 hover:text-red-500 dark:hover:text-red-400 underline ml-2 shrink-0 cursor-pointer"
+                    className="text-[11px] font-medium text-neutral-400 hover:text-red-500 dark:hover:text-red-400 underline ml-2 shrink-0 cursor-pointer transition-colors"
                   >
                     {activeLang === "fil" ? "Ihiwalay" : "Disconnect"}
                   </button>
@@ -1537,7 +1611,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       className={`w-full h-10 px-3.5 rounded-xl border ${
                         (attemptedStep1 && !isValidName(firstName)) || (firstName && !isValidName(firstName))
                           ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                          : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                       } text-xs sm:text-sm focus:outline-none transition-all`}
                     />
                     {attemptedStep1 && !isValidName(firstName) && (
@@ -1559,7 +1633,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       className={`w-full h-10 px-3.5 rounded-xl border ${
                         middleName && !isValidName(middleName)
                           ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                          : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                       } text-xs sm:text-sm focus:outline-none transition-all`}
                     />
                     {middleName && !isValidName(middleName) && (
@@ -1585,7 +1659,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       className={`w-full h-10 px-3.5 rounded-xl border ${
                         (attemptedStep1 && !isValidName(lastName)) || (lastName && !isValidName(lastName))
                           ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                          : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                       } text-xs sm:text-sm focus:outline-none transition-all`}
                     />
                     {attemptedStep1 && !isValidName(lastName) && (
@@ -1598,7 +1672,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     <select
                       value={suffix}
                       onChange={(e) => setSuffix(e.target.value)}
-                      className="w-full h-10 px-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
+                      className="w-full h-10 px-2.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
                     >
                       <option value="">{t.suffixOptions.none}</option>
                       <option value="Jr.">{t.suffixOptions.jr}</option>
@@ -1637,9 +1711,9 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         : registerEmail && !isEmailValid
                         ? "border-2 border-red-500/70 focus:border-red-500 bg-red-50 dark:bg-red-950/20 text-neutral-900 dark:text-white"
                         : registerEmail && isEmailValid
-                        ? "bg-neutral-50 dark:bg-neutral-850/70 border-emerald-500/60 focus:border-emerald-500"
-                        : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                    } text-neutral-900 dark:text-white placeholder-neutral-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-all ${
+                        ? "bg-neutral-50 dark:bg-[#161a23] border-emerald-500/60 focus:border-emerald-500"
+                        : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
+                    } text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-all ${
                       socialConnected ? "cursor-not-allowed opacity-90 font-medium" : ""
                     }`}
                   />
@@ -1686,7 +1760,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     className={`w-full h-10 pl-10 pr-9 rounded-xl border ${
                       ((!socialConnected && attemptedStep1 && !passwordEval.isValid) || (registerPassword && !passwordEval.isValid))
                         ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                        : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                        : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                     } text-xs sm:text-sm focus:outline-none transition-all`}
                   />
                   <button
@@ -1779,7 +1853,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1.5">
                     {t.classificationLabel}
                   </label>
-                  <div className="grid grid-cols-2 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800">
+                  <div className="grid grid-cols-2 p-1 rounded-xl bg-neutral-100 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800">
                     <button
                       type="button"
                       onClick={() => {
@@ -1861,7 +1935,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       className={`w-full h-10 px-3 rounded-xl border ${
                         (attemptedStep2 && !isValidAge(birthDate)) || (birthDate && !isValidAge(birthDate))
                           ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                          : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                       } text-xs sm:text-sm focus:outline-none transition-all`}
                     />
                     {attemptedStep2 && !isValidAge(birthDate) && (
@@ -1877,7 +1951,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     <select
                       value={civilStatus}
                       onChange={(e) => setCivilStatus(e.target.value)}
-                      className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
+                      className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
                     >
                       <option value="Single">{t.civilStatuses.single}</option>
                       <option value="Married">{t.civilStatuses.married}</option>
@@ -1907,7 +1981,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       className={`w-full h-10 px-3.5 rounded-xl border ${
                         (attemptedStep2 && !isValidName(spouseName)) || (spouseName && !isValidName(spouseName))
                           ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                          : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                       } text-sm focus:outline-none transition-all`}
                     />
                     {attemptedStep2 && !isValidName(spouseName) && (
@@ -1937,7 +2011,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       className={`w-full h-10 px-3.5 rounded-xl border ${
                         (attemptedStep2 && !isValidOccupation(occupation)) || (occupation && !isValidOccupation(occupation))
                           ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                          : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                          : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                       } text-sm focus:outline-none transition-all`}
                     />
                     {((attemptedStep2 && !isValidOccupation(occupation)) || (occupation && !isValidOccupation(occupation))) && (
@@ -1955,7 +2029,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       placeholder={t.employerPlaceholder}
                       value={employerName}
                       onChange={(e) => setEmployerName(e.target.value)}
-                      className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
+                      className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
                     />
                   </div>
                 </div>
@@ -1968,7 +2042,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   <select
                     value={monthlyIncome}
                     onChange={(e) => setMonthlyIncome(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
+                    className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
                   >
                     <option value="Under ₱75,000 / month">Under ₱75,000 / month</option>
                     <option value="₱75,000 – ₱150,000 / month">₱75,000 – ₱150,000 / month (Standard)</option>
@@ -1986,7 +2060,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       <span className="text-red-500 font-bold ml-1">*</span>
                     </label>
                     <div className="flex gap-2">
-                      <div className="w-20 shrink-0 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300">
+                      <div className="w-20 shrink-0 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-neutral-100 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300">
                         <img
                           src="https://flagcdn.com/w40/ph.png"
                           alt="PH"
@@ -2008,7 +2082,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         className={`flex-1 h-10 px-3.5 rounded-xl border ${
                           (attemptedStep2 && !isValidPhPhone(phoneNumber)) || (phoneNumber && !isValidPhPhone(phoneNumber))
                             ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                            : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                            : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                         } text-sm focus:outline-none font-mono tracking-wider transition-all`}
                       />
                     </div>
@@ -2031,7 +2105,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     </div>
 
                     {/* Quick 2-Way Switcher */}
-                    <div className="grid grid-cols-2 p-1 mb-2 rounded-xl bg-neutral-100 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 gap-1">
+                    <div className="grid grid-cols-2 p-1 mb-2 rounded-xl bg-neutral-100 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 gap-1">
                       <button
                         type="button"
                         onClick={() => {
@@ -2173,7 +2247,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                           className={`flex-1 h-10 px-3.5 rounded-xl border ${
                             (attemptedStep2 && !isValidPhPhone(phoneNumber)) || (phoneNumber && !isValidPhPhone(phoneNumber))
                               ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                              : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                              : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                           } text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 font-mono tracking-wider transition-all`}
                         />
                       ) : (
@@ -2190,7 +2264,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                           className={`flex-1 h-10 px-3.5 rounded-xl border ${
                             attemptedStep2 && (!phoneNumber.trim() || phoneNumber.replace(/\D/g, "").length < 6)
                               ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                              : "bg-neutral-50 dark:bg-neutral-850/70 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                              : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                           } text-sm focus:outline-none font-mono tracking-wider transition-all`}
                         />
                       )}
@@ -2274,8 +2348,8 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                           className={`w-full h-9 px-3 rounded-lg border ${
                             (attemptedStep2 && !isValidName(phRepName)) || (phRepName && !isValidName(phRepName))
                               ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                              : "bg-white dark:bg-neutral-850 border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                          } text-neutral-900 dark:text-white text-xs focus:outline-none`}
+                              : "bg-white dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500"
+                          } text-xs focus:outline-none`}
                         />
                         {attemptedStep2 && !isValidName(phRepName) && (
                           <span className="text-[10px] text-red-500 font-medium mt-0.5 block">
@@ -2286,7 +2360,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       <select
                         value={phRepRelationship}
                         onChange={(e) => setPhRepRelationship(e.target.value)}
-                        className="w-full h-9 px-2.5 rounded-lg bg-white dark:bg-neutral-850 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs focus:outline-none focus:border-amber-500"
+                        className="w-full h-9 px-2.5 rounded-lg bg-white dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs focus:outline-none focus:border-amber-500"
                       >
                         <option value="Spouse">{t.phRepRelationships.spouse}</option>
                         <option value="Parent">{t.phRepRelationships.parent}</option>
@@ -2299,7 +2373,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     {/* Rep Philippine Mobile */}
                     <div>
                       <div className="flex gap-2">
-                        <div className="w-18 shrink-0 flex items-center justify-center gap-1.5 h-9 rounded-lg bg-white dark:bg-neutral-850 border border-neutral-300 dark:border-neutral-700 text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300">
+                        <div className="w-18 shrink-0 flex items-center justify-center gap-1.5 h-9 rounded-lg bg-neutral-100 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300">
                           <img
                             src="https://flagcdn.com/w40/ph.png"
                             alt="PH"
@@ -2320,8 +2394,8 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                           className={`flex-1 h-9 px-3 rounded-lg border ${
                             (attemptedStep2 && !isValidPhPhone(phRepPhone)) || (phRepPhone && !isValidPhPhone(phRepPhone))
                               ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                              : "bg-white dark:bg-neutral-850 border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
-                          } text-neutral-900 dark:text-white text-xs focus:outline-none font-mono tracking-wider`}
+                              : "bg-white dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500"
+                          } text-xs focus:outline-none font-mono tracking-wider`}
                         />
                       </div>
                       {attemptedStep2 && !isValidPhPhone(phRepPhone) && (
@@ -2341,7 +2415,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   <select
                     value={preferredContactTime}
                     onChange={(e) => setPreferredContactTime(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
+                    className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
                   >
                     <option value="Anytime (PH Daytime)">{t.consultationTimes.anytime}</option>
                     <option value="Morning (8AM - 12PM PHT)">{t.consultationTimes.morning}</option>
@@ -2452,89 +2526,130 @@ export default function PortalAuthCard({ onLoginSuccess }) {
               STEP 3: Identity Verification (KYC)
               ----------------------------------------------------------------- */}
           {signupStep === 3 && (
-            <div className="space-y-2.5 animate-in fade-in duration-200">
+            <div className="space-y-3 animate-in fade-in duration-200">
               <div className="text-center px-1">
                 <h3 className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white">
-                  {activeLang === "fil" ? "Pagpapatunay ng Mukha (Face Recognition)" : "Verify with Face Recognition"}
+                  {activeLang === "fil" ? "Pagpapatunay ng Pagkakakilanlan (Biometric KYC)" : "Biometric Identity Verification"}
                 </h3>
                 <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                   {activeLang === "fil"
-                    ? "Kumuha ng selfie para sa opisyal na building permit at Pag-IBIG identity verification."
-                    : "Take a selfie to verify your identity for architectural permits and project tracking."}
+                    ? "Seguridad para sa mga architectural consultations, permits, at project monitoring."
+                    : "Verified biometric security for architectural consultations, permits, and project tracking."}
                 </p>
               </div>
 
-              <div className="space-y-2 max-h-[min(56vh,410px)] overflow-y-auto pr-1 scrollbar-thin">
-                {/* 1. STANDBY STATE: COLORFUL ANIME DOs & DONTs SHOWCASE (GCASH STYLE) */}
+              <div className="space-y-3 max-h-[min(56vh,420px)] overflow-y-auto pr-1 scrollbar-thin">
+                {/* 1. STANDBY STATE: EDITORIAL BIOMETRIC REQUIREMENTS (NO GCASH CLENLINESS) */}
                 {!isCameraActive && !capturedSelfie && (
-                  <div className="space-y-2.5 animate-in fade-in duration-150">
-                    {/* Anime DO vs DON'T Illustration Banner */}
-                    <div className="relative rounded-2xl overflow-hidden border border-neutral-200/90 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/60 shadow-xs p-1.5 flex items-center justify-center">
+                  <div className="space-y-3 animate-in fade-in duration-150">
+                    {/* Visual Do & Don't KYC Instruction Guide */}
+                    <div className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm bg-neutral-100 dark:bg-neutral-900/60 transition-colors">
                       <img
-                        src="/assets/kyc-face-guide.png"
-                        alt="KYC Guidelines: DO uncover face vs DON'T wear hardhat and sunglasses"
-                        className="w-full h-auto max-h-[170px] sm:max-h-[195px] object-contain mx-auto"
+                        src="/assets/kyc-face-guide.jpg"
+                        alt={activeLang === "fil" ? "Gabay sa Pagsusuri ng Mukha: DO vs DON'T" : "Face Verification Guide: DO vs DON'T"}
+                        className="w-full h-auto object-cover max-h-52 sm:max-h-60 mx-auto"
                       />
                     </div>
 
-                    {/* GCASH-STYLE BULLET CHECKLIST (DOs & DONTs) */}
-                    <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-850/60 border border-neutral-200 dark:border-neutral-800 text-left space-y-1.5">
-                      <div className="flex items-start gap-2">
-                        <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px] mt-0.5">
-                          ✓
+                    {/* Camera Error Alert if Live Cam blocked by HTTP Wi-Fi */}
+                    {cameraError && (
+                      <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
+                        <AlertTriangleIcon className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="font-semibold">{cameraError}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Guidance Card adapting to Light and Dark Mode */}
+                    <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 text-left space-y-2.5 transition-colors">
+                      <div className="flex items-center gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs font-bold">
+                        <ShieldCheckIcon className="w-4 h-4 text-amber-500" />
+                        <span>
+                          {activeLang === "fil" ? "Mga Gabay sa Pagkuha ng Litrato" : "Verification Guidelines"}
                         </span>
-                        <p className="text-[11.5px] text-neutral-700 dark:text-neutral-300 leading-snug">
-                          <strong className="text-neutral-900 dark:text-white font-semibold">
-                            {activeLang === "fil" ? "DAPAT (DO): " : "DO: "}
-                          </strong>
-                          {activeLang === "fil"
-                            ? "Siguraduhing maliwanag ang paligid, nakaharap sa camera, at kitang-kita ang buong mukha."
-                            : "Ensure your face is centered, uncovered, well-lit, and directly facing the camera."}
-                        </p>
                       </div>
 
-                      <div className="flex items-start gap-2">
-                        <span className="w-4 h-4 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 font-bold flex items-center justify-center shrink-0 text-[10px] mt-0.5">
-                          ✕
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11.5px] leading-snug">
+                        <div className="flex items-start gap-2">
+                          <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px] mt-0.5">
+                            ✓
+                          </span>
+                          <span className="text-neutral-700 dark:text-neutral-300">
+                            <strong className="text-neutral-900 dark:text-white font-medium">
+                              {activeLang === "fil" ? "Maliwanag na Ilaw: " : "Good Lighting: "}
+                            </strong>
+                            {activeLang === "fil" ? "Iwasan ang anino o matinding silaw." : "Avoid dark shadows or direct backlight."}
+                          </span>
+                        </div>
+
+                        <div className="flex items-start gap-2">
+                          <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px] mt-0.5">
+                            ✓
+                          </span>
+                          <span className="text-neutral-700 dark:text-neutral-300">
+                            <strong className="text-neutral-900 dark:text-white font-medium">
+                              {activeLang === "fil" ? "Walang Harang: " : "Uncovered Face: "}
+                            </strong>
+                            {activeLang === "fil" ? "Tanggalin ang sumbrero, shades, o mask." : "No hardhats, caps, shades, or masks."}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 5-step movement overview */}
+                      <div className="pt-1 border-t border-neutral-200/60 dark:border-neutral-800/60">
+                        <span className="text-[10px] uppercase font-mono tracking-wider text-neutral-400 block mb-1">
+                          {activeLang === "fil" ? "Pagkakasunod-sunod ng Paggalaw (Motion Steps):" : "Biometric Motion Sequence:"}
                         </span>
-                        <p className="text-[11.5px] text-neutral-700 dark:text-neutral-300 leading-snug">
-                          <strong className="text-neutral-900 dark:text-white font-semibold">
-                            {activeLang === "fil" ? "BAWAL (DON'T): " : "DON'T: "}
-                          </strong>
-                          {activeLang === "fil"
-                            ? "Tanggalin ang sumbrero/helmet, salamin o shades sa mata, at anumang face mask."
-                            : "Remove hard hats, caps, dark sunglasses/shades, or face masks."}
-                        </p>
+                        <div className="flex items-center justify-between text-[10.5px] font-medium text-neutral-600 dark:text-neutral-300 gap-1 flex-wrap">
+                          <span className="flex items-center gap-1">{activeLang === "fil" ? "1. Gitna" : "1. Center"}</span>
+                          <span className="text-neutral-300 dark:text-neutral-700">→</span>
+                          <span className="flex items-center gap-1">{activeLang === "fil" ? "2. Pakanan" : "2. Right"}</span>
+                          <span className="text-neutral-300 dark:text-neutral-700">→</span>
+                          <span className="flex items-center gap-1">{activeLang === "fil" ? "3. Pakaliwa" : "3. Left"}</span>
+                          <span className="text-neutral-300 dark:text-neutral-700">→</span>
+                          <span className="flex items-center gap-1">{activeLang === "fil" ? "4. Itingala" : "4. Tilt Up"}</span>
+                          <span className="text-neutral-300 dark:text-neutral-700">→</span>
+                          <span className="flex items-center gap-1">{activeLang === "fil" ? "5. Iyuko" : "5. Tilt Down"}</span>
+                          <span className="text-neutral-300 dark:text-neutral-700">→</span>
+                          <span className="flex items-center gap-1">{activeLang === "fil" ? "6. Kurap" : "6. Blink"}</span>
+                        </div>
                       </div>
                     </div>
 
                     {/* Launch Camera or Upload Photo */}
-                    <div className="pt-0.5 flex flex-col items-center gap-2.5">
+                    <div className="pt-1 flex flex-col items-center gap-2.5">
                       <button
                         type="button"
                         onClick={() => {
                           setLivenessPurpose("kyc");
                           setIsLivenessModalOpen(true);
                         }}
-                        className="w-full h-11 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-[0.99] text-neutral-950 font-bold text-sm shadow-md shadow-amber-500/15 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                        className="w-full h-11 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-neutral-950 font-bold text-xs sm:text-sm shadow-md shadow-amber-500/15 flex items-center justify-center gap-2 cursor-pointer transition-all"
                       >
                         <CameraIcon className="w-4 h-4" />
                         <span>
                           {activeLang === "fil"
-                            ? "Simulan ang Face Liveness Check (GCash-Style)"
-                            : "Start Face Liveness Check (GCash-Style)"}
+                            ? "Simulan ang Biometric Verification"
+                            : "Start Biometric Face Verification"}
                         </span>
                       </button>
 
-                      <div className="flex items-center gap-3 text-xs">
+                      <div className="flex items-center justify-center gap-2 sm:gap-3 text-xs flex-wrap">
+                        <label className="text-amber-600 dark:text-amber-400 font-semibold underline cursor-pointer hover:opacity-80 flex items-center gap-1">
+                          <CameraIcon className="w-3.5 h-3.5" />
+                          <span>{activeLang === "fil" ? "Kunan gamit ang Phone Camera" : "Snap with Phone Camera"}</span>
+                          <input type="file" accept="image/*" capture="user" onChange={handleFileUploadSelfie} className="hidden" />
+                        </label>
+                        <span className="text-neutral-300 dark:text-neutral-700">•</span>
                         <button
                           type="button"
                           onClick={startCamera}
                           className="text-neutral-500 hover:text-amber-600 dark:text-neutral-400 dark:hover:text-amber-400 underline cursor-pointer"
                         >
-                          {activeLang === "fil" ? "Karaniwang Camera Snapshot" : "Standard Photo Snapshot"}
+                          {activeLang === "fil" ? "Buksan ang Circular Cam" : "Open In-page Camera"}
                         </button>
-                        <span className="text-neutral-400">•</span>
+                        <span className="text-neutral-300 dark:text-neutral-700">•</span>
                         <label className="text-neutral-500 hover:text-amber-600 dark:text-neutral-400 dark:hover:text-amber-400 underline cursor-pointer">
                           {t.uploadFromDevice}
                           <input type="file" accept="image/*" onChange={handleFileUploadSelfie} className="hidden" />
@@ -2544,41 +2659,74 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   </div>
                 )}
 
-                {/* 2. LIVE CAMERA STREAM (CIRCULAR/OVAL FRAME LIKE GCASH) */}
+                {/* 2. LIVE CAMERA STREAM (PURE CIRCLE FRAME WITH CIRCULAR PROGRESS RING) */}
                 {isCameraActive && (
-                  <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-850/60 border border-neutral-200 dark:border-neutral-800 text-center flex flex-col items-center animate-in fade-in duration-150">
-                    <div className="relative w-36 h-44 sm:w-40 sm:h-48 rounded-2xl overflow-hidden border-2 border-amber-500 bg-neutral-950 flex items-center justify-center mb-2 shadow-inner">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover scale-x-[-1]"
-                      />
-                      <div className="absolute inset-2 border-2 border-dashed border-white/60 rounded-xl pointer-events-none" />
-                      <div className="absolute top-2 left-2 right-2 bg-neutral-950/80 backdrop-blur-xs text-[9px] text-neutral-200 py-0.5 px-1.5 rounded-md font-medium text-center pointer-events-none border border-white/10 flex items-center justify-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        <span>{t.cameraPillWarning}</span>
+                  <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 text-center flex flex-col items-center animate-in fade-in duration-150 transition-colors">
+                    {/* Circular Frame with SVG Ring */}
+                    <div className="relative w-56 h-56 sm:w-60 sm:h-60 flex items-center justify-center mb-3">
+                      {/* Circular SVG Ring */}
+                      <svg className="absolute inset-0 w-full h-full pointer-events-none -rotate-90">
+                        <circle
+                          cx="50%"
+                          cy="50%"
+                          r="45%"
+                          fill="none"
+                          stroke="currentColor"
+                          className="text-neutral-200 dark:text-neutral-800"
+                          strokeWidth="4"
+                        />
+                        <circle
+                          cx="50%"
+                          cy="50%"
+                          r="45%"
+                          fill="none"
+                          stroke="#f59e0b"
+                          strokeWidth="4"
+                          strokeDasharray="680"
+                          strokeDashoffset="120"
+                          strokeLinecap="round"
+                          className="transition-all duration-300"
+                        />
+                      </svg>
+
+                      {/* Pure Circular Viewport */}
+                      <div className="relative w-[84%] h-[84%] rounded-full overflow-hidden bg-neutral-950 border border-white/20 shadow-inner flex items-center justify-center">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="w-full h-full object-cover scale-x-[-1] rounded-full"
+                        />
+                        {/* Inside dashed guide circle */}
+                        <div className="absolute inset-3 border-2 border-dashed border-amber-400/40 rounded-full pointer-events-none animate-pulse" />
                       </div>
                     </div>
 
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-                      {t.cameraActiveInstruction}
+                    <p className="text-xs text-neutral-600 dark:text-neutral-300 font-medium mb-3">
+                      {activeLang === "fil"
+                        ? "Igitna ang iyong mukha sa bilog at kumuha ng litrato"
+                        : "Center your face in the circle and capture photo"}
                     </p>
 
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={capturePhoto}
-                        className="h-10 px-5 rounded-xl bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs shadow-sm flex items-center gap-1.5 cursor-pointer transition-all"
+                        disabled={isFaceChecking}
+                        className="h-10 px-5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-neutral-950 font-bold text-xs shadow-sm flex items-center gap-1.5 cursor-pointer transition-all"
                       >
-                        <CameraIcon className="w-3.5 h-3.5" />
-                        <span>{t.capturePhotoButton}</span>
+                        {isFaceChecking ? (
+                          <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <CameraIcon className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isFaceChecking ? (activeLang === "fil" ? "Sinusuri..." : "Checking...") : t.capturePhotoButton}</span>
                       </button>
                       <button
                         type="button"
                         onClick={stopCamera}
-                        className="h-10 px-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
+                        className="h-10 px-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
                       >
                         {activeLang === "fil" ? "Kanselahin" : "Cancel"}
                       </button>
@@ -2586,26 +2734,82 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   </div>
                 )}
 
-                {/* 3. CAPTURED SELFIE CONFIRMATION (WITH GREEN VERIFIED BADGE) */}
+                {/* 3. CAPTURED SELFIE CONFIRMATION (PURE CIRCULAR PORTRAIT WITH VERIFIED / OBSTRUCTION BADGE) */}
                 {!isCameraActive && capturedSelfie && (
-                  <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-850/60 border border-neutral-200 dark:border-neutral-800 text-center flex flex-col items-center animate-in fade-in duration-150">
-                    <div className="relative w-32 h-40 rounded-2xl overflow-hidden border-2 border-emerald-500 bg-neutral-950 flex items-center justify-center mb-2 shadow-md">
-                      <img src={capturedSelfie} alt="Verified Selfie" className="w-full h-full object-cover" />
-                      <div className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md">
-                        <CheckIcon className="w-3.5 h-3.5 stroke-[3]" />
+                  <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 text-center flex flex-col items-center animate-in fade-in duration-150 transition-colors">
+                    {/* Pure Circular Image Container */}
+                    <div
+                      className={`relative w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden border-4 ${
+                        faceObstructionError
+                          ? "border-rose-500 shadow-rose-500/20"
+                          : "border-emerald-500 shadow-emerald-500/20"
+                      } bg-neutral-950 flex items-center justify-center mb-2.5 shadow-lg`}
+                    >
+                      <img src={capturedSelfie} alt="Selfie Verification" className="w-full h-full object-cover rounded-full" />
+                      <div
+                        className={`absolute bottom-1 right-1 w-7 h-7 rounded-full ${
+                          faceObstructionError ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"
+                        } flex items-center justify-center shadow-md border-2 border-white dark:border-[#161a23]`}
+                      >
+                        {faceObstructionError ? (
+                          <AlertTriangleIcon className="w-4 h-4 stroke-[2.5]" />
+                        ) : (
+                          <CheckIcon className="w-4 h-4 stroke-[3]" />
+                        )}
                       </div>
                     </div>
 
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold mb-2">
-                      <CheckIcon className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>{t.identityPhotoVerified}</span>
-                    </div>
+                    {faceObstructionError ? (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs font-semibold mb-1.5">
+                        <AlertTriangleIcon className="w-3.5 h-3.5" />
+                        <span>
+                          {activeLang === "fil" ? "May Sagabal sa Mukha (Di Pa Na-verify)" : "Face Obstructed (Not Verified)"}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold mb-1.5">
+                        <CheckIcon className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>{t.identityPhotoVerified}</span>
+                      </div>
+                    )}
+
+                    {/* Specific Obstruction Warning Box */}
+                    {faceObstructionError && (
+                      <div className="w-full p-3 my-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs flex items-start gap-2 text-left">
+                        <AlertTriangleIcon className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                        <div>
+                          <p className="font-bold">
+                            {activeLang === "fil" ? "May Sagabal sa Mukha:" : "Facial Obstruction:"}
+                          </p>
+                          <p className="text-[11.5px] mt-0.5">{faceObstructionError}</p>
+                          <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-1 font-mono">
+                            {activeLang === "fil"
+                              ? "Hindi maaaring magpatuloy sa registration hangga't may sumbrero, salamin, o mask."
+                              : "Registration is blocked until hats, sunglasses, eyeglasses, or masks are removed."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Python Neural Vision Feedback */}
+                    {isFaceChecking ? (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 font-mono flex items-center gap-1 mb-2">
+                        <RefreshCwIcon className="w-3 h-3 animate-spin" />
+                        <span>{activeLang === "fil" ? "Sinusuri sa Neural Face Model..." : "Verifying with Neural Vision..."}</span>
+                      </p>
+                    ) : faceCheckFeedback && !faceObstructionError ? (
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono mb-2">
+                        {faceCheckFeedback}
+                      </p>
+                    ) : null}
 
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => {
                           setCapturedSelfie(null);
+                          setFaceCheckFeedback("");
+                          setFaceObstructionError("");
                           startCamera();
                         }}
                         className="h-8.5 px-3.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-medium text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer flex items-center gap-1.5"
@@ -2635,16 +2839,25 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 </button>
                 <button
                   type="button"
+                  disabled={Boolean(faceObstructionError) || isFaceChecking}
                   onClick={() => {
                     if (!capturedSelfie) {
                       setErrorMessage(t.errFacePhoto);
+                      return;
+                    }
+                    if (faceObstructionError) {
+                      setErrorMessage(faceObstructionError);
                       return;
                     }
                     setErrorMessage("");
                     stopCamera();
                     setSignupStep(4);
                   }}
-                  className="h-11 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-neutral-950 font-bold text-sm shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  className={`h-11 rounded-xl font-bold text-sm shadow-sm flex items-center justify-center gap-2 transition-all ${
+                    faceObstructionError || isFaceChecking
+                      ? "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed"
+                      : "bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-neutral-950 cursor-pointer"
+                  }`}
                 >
                   <span>{t.continueToProject}</span>
                   <ChevronRightIcon className="w-4 h-4" />
@@ -2667,7 +2880,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   <select
                     value={projectType}
                     onChange={(e) => setProjectType(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
+                    className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
                   >
                     <option value="2-Storey Modern Villa">{t.projectTypes.twoStorey}</option>
                     <option value="Single-Storey Bungalow">{t.projectTypes.bungalow}</option>
@@ -2685,7 +2898,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   <select
                     value={lotOwnershipStatus}
                     onChange={(e) => setLotOwnershipStatus(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-neutral-850/70 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
+                    className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
                   >
                     <option value="Titled under my name">{t.lotOwnershipOptions.titled}</option>
                     <option value="Under Family / Parents">{t.lotOwnershipOptions.family}</option>
@@ -2752,7 +2965,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 />
 
                 {/* Refined Client Summary Review Card */}
-                <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/60 border border-neutral-200 dark:border-neutral-800 text-xs space-y-2">
+                <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 text-xs space-y-2">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 pb-1 border-b border-neutral-200 dark:border-neutral-800">
                     {t.summaryTitle}
                   </div>
@@ -2821,7 +3034,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 </div>
 
                 {/* Legal & Data Privacy Agreement Framework */}
-                <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-850/60 border border-neutral-200 dark:border-neutral-800 space-y-2.5">
+                <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <ShieldCheckIcon className="w-4 h-4 text-amber-500" />
@@ -3218,7 +3431,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 <div className="space-y-2">
                   {/* Checkbox 1 */}
                   <label
-                    className="flex items-start gap-2.5 p-2.5 rounded-[10px] bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-white/10 hover:border-amber-500/50 transition-colors cursor-pointer select-none"
+                    className="flex items-start gap-2.5 p-2.5 rounded-[10px] bg-white dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 transition-colors cursor-pointer select-none"
                   >
                     <input
                       type="checkbox"
@@ -3238,7 +3451,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
 
                   {/* Checkbox 2 */}
                   <label
-                    className="flex items-start gap-2.5 p-2.5 rounded-[10px] bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-white/10 hover:border-amber-500/50 transition-colors cursor-pointer select-none"
+                    className="flex items-start gap-2.5 p-2.5 rounded-[10px] bg-white dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 transition-colors cursor-pointer select-none"
                   >
                     <input
                       type="checkbox"
@@ -3334,7 +3547,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
         }}
       />
       {/* ========================================================================= */}
-      {/* GOOGLE MEDIAPIPE ACTIVE LIVENESS MODAL (GCASH-STYLE FACE MOVEMENT) */}
+      {/* GOOGLE MEDIAPIPE BIOMETRIC LIVENESS MODAL (CIRCULAR VISION WITH ARROWS) */}
       {/* ========================================================================= */}
       <MediaPipeLivenessModal
         isOpen={isLivenessModalOpen}
@@ -3383,7 +3596,13 @@ export default function PortalAuthCard({ onLoginSuccess }) {
             // KYC Mode in Sign up Step 3
             setCapturedSelfie(verifiedImage);
             setIsLivenessVerified(true);
+            setFaceObstructionError("");
             setErrorMessage("");
+            setFaceCheckFeedback(
+              activeLang === "fil"
+                ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
+                : "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified."
+            );
           }
         }}
       />

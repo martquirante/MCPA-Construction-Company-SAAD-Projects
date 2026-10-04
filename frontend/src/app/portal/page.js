@@ -192,11 +192,11 @@ export default function ClientPortalPage() {
             >
               <PortalAuthShowcase />
 
-              {/* Back to top login button on mobile */}
-              <div className="min-[920px]:hidden mt-8 text-center">
+              {/* Back to top login link on mobile */}
+              <div className="min-[920px]:hidden mt-6 text-center">
                 <a
                   href="#portal-auth"
-                  className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500 hover:text-amber-500 dark:hover:text-amber-400 transition-colors py-1.5 px-4 rounded-full bg-neutral-100 dark:bg-white/5 border border-neutral-200/70 dark:border-white/10"
+                  className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
                 >
                   <span>{language === "fil" ? "Bumalik sa Log in" : "Back to Log in"}</span>
                   <span className="font-bold">↑</span>
@@ -212,13 +212,13 @@ export default function ClientPortalPage() {
               <PortalAuthCard onLoginSuccess={handleLoginSuccess} />
 
               {/* Mobile Scroll Indicator: guides user that showcase is below the fold */}
-              <div className="min-[920px]:hidden mt-3 text-center">
+              <div className="min-[920px]:hidden mt-2.5 text-center">
                 <a
                   href="#portal-showcase"
-                  className="group inline-flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors py-1 px-3.5 rounded-full bg-neutral-200/60 dark:bg-white/5 border border-neutral-300/60 dark:border-white/10"
+                  className="group inline-flex items-center gap-1 text-[11.5px] text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
                 >
                   <span>{language === "fil" ? "I-scroll upang makita ang mga tampok" : "Scroll to view showcase & features"}</span>
-                  <span className="group-hover:translate-y-0.5 transition-transform font-bold text-amber-500">↓</span>
+                  <span className="group-hover:translate-y-0.5 transition-transform text-amber-500 font-bold">↓</span>
                 </a>
               </div>
             </div>
