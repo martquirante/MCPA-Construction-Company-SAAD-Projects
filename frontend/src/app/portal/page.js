@@ -251,17 +251,17 @@ export default function ClientPortalPage() {
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* AUTHENTICATED STATE: Complete Client Dashboard */}
         <div className="space-y-8">
-            {/* Executive Client Header: Architectural Black Card with CLIENT ACCOUNT PORTAL Title */}
-            <div className="rounded-[8px] bg-neutral-950 dark:bg-[#0a0c10] border border-neutral-800 dark:border-white/10 p-6 sm:p-8 shadow-xl flex flex-col gap-6 text-white relative overflow-hidden">
+            {/* Executive Client Header: Responsive Light / Dark Architectural Header Card */}
+            <div className="rounded-[8px] bg-white dark:bg-[#0a0c10] border border-neutral-200/90 dark:border-white/10 p-6 sm:p-8 shadow-xl shadow-black/5 dark:shadow-black/40 flex flex-col gap-6 text-neutral-900 dark:text-white relative overflow-hidden transition-colors duration-300">
               {/* Top Banner Tag / Title: CLIENT ACCOUNT PORTAL */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-neutral-200 dark:border-white/10 gap-2">
                 <div className="flex items-center gap-2.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-                  <span className="text-xs sm:text-sm font-mono font-bold tracking-widest text-amber-400 uppercase">
+                  <span className="text-xs sm:text-sm font-mono font-bold tracking-widest text-amber-600 dark:text-amber-400 uppercase">
                     CLIENT ACCOUNT PORTAL
                   </span>
                 </div>
-                <div className="text-[11px] font-mono text-neutral-400">
+                <div className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
                   MCPA Architectural &amp; Construction Engineering Management
                 </div>
               </div>
@@ -282,10 +282,10 @@ export default function ClientPortalPage() {
 
                   <div>
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
                         {currentUser.fullName || "Valued Client"}
                       </h1>
-                      <span className="px-2.5 py-0.5 rounded-[4px] bg-amber-500/20 text-amber-300 border border-amber-500/35 text-xs font-semibold flex items-center gap-1">
+                      <span className="px-2.5 py-0.5 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1">
                         {currentUser.clientType === "OFW" ? (
                           <>
                             <PlaneIcon className="w-3.5 h-3.5" />
@@ -296,22 +296,22 @@ export default function ClientPortalPage() {
                         )}
                       </span>
                       {currentUser.hasViberWhatsapp && (
-                        <span className="px-2 py-0.5 rounded-[4px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 text-[10px] font-mono font-semibold">
+                        <span className="px-2 py-0.5 rounded-[4px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-semibold">
                           Viber / WhatsApp Active
                         </span>
                       )}
                     </div>
-                    <p className="text-xs font-mono text-neutral-400 flex flex-wrap items-center gap-3">
-                      <span className="text-neutral-300">{currentUser.email}</span>
+                    <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400 flex flex-wrap items-center gap-3">
+                      <span className="text-neutral-800 dark:text-neutral-300 font-semibold">{currentUser.email}</span>
                       {currentUser.phoneNumber && (
                         <>
-                          <span className="text-neutral-600">•</span>
+                          <span className="text-neutral-300 dark:text-neutral-600">•</span>
                           <span>{currentUser.phoneNumber}</span>
                         </>
                       )}
                       {currentUser.locationAddress && (
                         <>
-                          <span className="text-neutral-600">•</span>
+                          <span className="text-neutral-300 dark:text-neutral-600">•</span>
                           <span>{currentUser.locationAddress}</span>
                         </>
                       )}
@@ -321,9 +321,9 @@ export default function ClientPortalPage() {
 
                 {/* Action Buttons & Quota */}
                 <div className="flex flex-wrap items-center gap-3 shrink-0">
-                  <div className="px-3.5 py-2 rounded-[4px] bg-white/[0.06] border border-white/10 text-xs font-mono">
-                    <span className="text-neutral-400 block text-[9.5px] uppercase">Active Inquiries Quota</span>
-                    <span className="font-bold text-amber-400">
+                  <div className="px-3.5 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.06] border border-neutral-200 dark:border-white/10 text-xs font-mono">
+                    <span className="text-neutral-500 dark:text-neutral-400 block text-[9.5px] uppercase">Active Inquiries Quota</span>
+                    <span className="font-bold text-amber-600 dark:text-amber-400">
                       {activeInquiriesCount} of 3 Active
                     </span>
                   </div>
@@ -340,7 +340,7 @@ export default function ClientPortalPage() {
                     type="button"
                     onClick={handleLogout}
                     title="Sign out of Client Portal"
-                    className="p-2.5 rounded-[4px] border border-white/15 text-neutral-300 hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    className="p-2.5 rounded-[4px] border border-neutral-200 dark:border-white/15 text-neutral-600 dark:text-neutral-300 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
                   >
                     <LogOutIcon className="w-4 h-4" />
                   </button>
