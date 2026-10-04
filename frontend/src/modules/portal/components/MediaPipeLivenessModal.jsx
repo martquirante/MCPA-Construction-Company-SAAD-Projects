@@ -402,14 +402,15 @@ export default function MediaPipeLivenessModal({
   const [obstructionAlert, setObstructionAlert] = useState(null);
 
   // Calibration and strict stability hold counters
-  const baselineRef = useRef({ yaw: 0, pitch: 0.52 });
+  const baselineRef = useRef({ yaw: null, pitch: null, noseX: null, noseY: null });
+  const firstTurnDirRef = useRef(null);
   const poseHoldCounterRef = useRef(0);
   const prevNoseRef = useRef(null);
   const blinkStateRef = useRef({ hasOpened: false, hasClosed: false });
   const frameCounterRef = useRef(0);
 
-  // Strict hold requirement: 8 consecutive frames (~250-300ms) with 0 active warnings
-  const REQUIRED_HOLD_FRAMES = 8;
+  // Responsive hold requirement: 6 consecutive frames (~180-200ms) with 0 active warnings
+  const REQUIRED_HOLD_FRAMES = 6;
 
   // Stop camera & cleanup
   const cleanupStream = useCallback(() => {
@@ -525,6 +526,8 @@ export default function MediaPipeLivenessModal({
     setObstructionAlert(null);
     setCurrentStepIndex(0);
     poseHoldCounterRef.current = 0;
+    firstTurnDirRef.current = null;
+    baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null };
     setWarningMessage("");
     blinkStateRef.current = { hasOpened: false, hasClosed: false };
     setFeedbackMessage(
@@ -716,8 +719,8 @@ export default function MediaPipeLivenessModal({
     // -------------------------------------------------------------
     // SCENARIO 4: FACE DISTANCE (TOO FAR OR TOO CLOSE)
     // -------------------------------------------------------------
-    if (faceHeight < 0.22 || cheekWidth < 0.17) {
-      poseHoldCounterRef.current = 0;
+    if (faceHeight < 0.18 || cheekWidth < 0.14) {
+      poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
       setWarningMessage(
         activeLang === "fil"
           ? "Masyadong malayo ang mukha. Lumapit nang bahagya sa camera."
@@ -726,8 +729,8 @@ export default function MediaPipeLivenessModal({
       return;
     }
 
-    if (faceHeight > 0.76 || cheekWidth > 0.62) {
-      poseHoldCounterRef.current = 0;
+    if (faceHeight > 0.85 || cheekWidth > 0.72) {
+      poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
       setWarningMessage(
         activeLang === "fil"
           ? "Masyadong malapit ang mukha. Umatras nang bahagya."
@@ -740,13 +743,13 @@ export default function MediaPipeLivenessModal({
     // SCENARIO 5: CENTERING & BOUNDS
     // -------------------------------------------------------------
     const isCentered =
-      nose.x >= 0.28 &&
-      nose.x <= 0.72 &&
-      nose.y >= 0.24 &&
-      nose.y <= 0.76;
+      nose.x >= 0.22 &&
+      nose.x <= 0.78 &&
+      nose.y >= 0.18 &&
+      nose.y <= 0.82;
 
     if (!isCentered) {
-      poseHoldCounterRef.current = 0;
+      poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
       setWarningMessage(
         activeLang === "fil"
           ? "Igitna ang mukha sa loob ng bilog."
@@ -760,8 +763,8 @@ export default function MediaPipeLivenessModal({
     // -------------------------------------------------------------
     if (prevNoseRef.current) {
       const moveDelta = Math.hypot(nose.x - prevNoseRef.current.x, nose.y - prevNoseRef.current.y);
-      if (moveDelta > 0.10) {
-        poseHoldCounterRef.current = 0;
+      if (moveDelta > 0.14) {
+        poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         setWarningMessage(
           activeLang === "fil"
             ? "Mabilis ang galaw. Dahan-dahan lamang."
@@ -774,11 +777,12 @@ export default function MediaPipeLivenessModal({
     prevNoseRef.current = { x: nose.x, y: nose.y };
 
     // -------------------------------------------------------------
-    // HEAD YAW & PITCH ANGLES
+    // HEAD YAW, PITCH & ROLL ANGLES
     // -------------------------------------------------------------
     const cheekMidX = (leftCheek.x + rightCheek.x) / 2;
     const yawRatio = (nose.x - cheekMidX) / cheekWidth;
     const pitchRatio = (nose.y - forehead.y) / (faceHeight || 0.1);
+    const eyeRoll = Math.abs(landmarks[33].y - landmarks[263].y);
 
     // -------------------------------------------------------------
     // EYE ASPECT RATIO (EAR) FOR BLINKING & EYE OPENNESS
@@ -793,8 +797,8 @@ export default function MediaPipeLivenessModal({
     const avgEAR = (leftEAR + rightEAR) / 2;
 
     // SCENARIO 7: EYES CLOSED DURING DIRECTIONAL STEPS (0 to 4)
-    if (currentStepIndex < 5 && avgEAR < 0.12) {
-      poseHoldCounterRef.current = 0;
+    if (currentStepIndex < 5 && avgEAR < 0.11) {
+      poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
       setWarningMessage(
         activeLang === "fil"
           ? "Panatilihing bukas ang mga mata."
@@ -804,89 +808,100 @@ export default function MediaPipeLivenessModal({
     }
 
     // -------------------------------------------------------------
-    // STEP EVALUATION ENGINE (ULTRA-STRICT ZERO PROGRESSION ON WARNING)
+    // STEP EVALUATION ENGINE (CALIBRATED ZERO-TILT BASELINE & HUMAN TOLERANCE)
     // -------------------------------------------------------------
-    const baseYaw = baselineRef.current.yaw ?? 0;
+    const baseYaw = baselineRef.current.yaw ?? yawRatio;
     const yawDelta = yawRatio - baseYaw;
-    const basePitch = baselineRef.current.pitch ?? 0.52;
+    const basePitch = baselineRef.current.pitch ?? pitchRatio;
     const pitchDelta = pitchRatio - basePitch;
+    const baseNoseY = baselineRef.current.noseY ?? nose.y;
 
-    // STEP 0: CENTER FACE
+    // STEP 0: CENTER FACE & CALIBRATE BASELINE
     if (currentStepIndex === 0) {
-      const isNeutralPose = Math.abs(yawDelta) < 0.10 && Math.abs(pitchDelta) < 0.08;
-      if (isNeutralPose) {
+      const isLevel = eyeRoll < 0.10;
+      const isFacingForward = Math.abs(yawRatio) < 0.20 && pitchRatio >= 0.30 && pitchRatio <= 0.80;
+
+      if (isLevel && isFacingForward) {
         poseHoldCounterRef.current += 1;
         setWarningMessage(""); // Clear warning
         setFeedbackMessage(activeLang === "fil" ? "Perpekto! Manatiling steady..." : "Great! Hold steady...");
-        if (poseHoldCounterRef.current >= 10) {
-          baselineRef.current = { yaw: yawRatio, pitch: pitchRatio };
+
+        // Hold steady for 6 frames (~180-200ms) to lock in natural baseline
+        if (poseHoldCounterRef.current >= 6) {
+          baselineRef.current = {
+            yaw: yawRatio,
+            pitch: pitchRatio,
+            noseX: nose.x,
+            noseY: nose.y,
+          };
+          firstTurnDirRef.current = null;
           advanceStep(1); // Proceed to Right
         }
       } else {
-        poseHoldCounterRef.current = 0;
-        setWarningMessage(
-          activeLang === "fil"
-            ? "Tumingin nang diretso sa gitna nang hindi nakatagilid."
-            : "Look straight into center without tilting."
-        );
+        poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
+        if (!isLevel) {
+          setWarningMessage(
+            activeLang === "fil"
+              ? "Huwag itagilid ang ulo sa balikat. I-pantay ang mukha."
+              : "Keep head level without tilting to shoulder."
+          );
+        } else {
+          setWarningMessage(
+            activeLang === "fil"
+              ? "Tumingin nang diretso sa gitna ng camera."
+              : "Look straight into center of the camera."
+          );
+        }
       }
       return;
     }
 
-    // STEP 1: TURN HEAD TO THE RIGHT
+    // STEP 1: TURN HEAD (FIRST DIRECTION: RIGHT)
     if (currentStepIndex === 1) {
-      // Check for wrong direction (turning left instead):
-      if (yawDelta < -0.06) {
-        poseHoldCounterRef.current = 0;
-        setWarningMessage(
-          activeLang === "fil"
-            ? "Maling direksyon! Ilingon ang ulo Pakanan."
-            : "Wrong direction! Turn your head to the Right."
-        );
-        return;
-      }
+      // Any noticeable sideways rotation (>= 0.05) succeeds and registers orientation
+      const isTurned = Math.abs(yawDelta) >= 0.05;
 
-      // Check if correct turn reached
-      const isTurnedRight = yawDelta > 0.07 || yawRatio > 0.10;
-      if (isTurnedRight) {
+      if (isTurned) {
+        if (!firstTurnDirRef.current) {
+          firstTurnDirRef.current = yawDelta > 0 ? 1 : -1;
+        }
         setWarningMessage("");
         setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
-          advanceStep(2); // Proceed to Left
+          advanceStep(2); // Proceed to Left (opposite direction)
         }
       } else {
-        poseHoldCounterRef.current = 0;
+        poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         setWarningMessage("");
         setFeedbackMessage(activeLang === "fil" ? "Mabagal na ilingon ang ulo pakanan..." : "Slowly turn head to the right...");
       }
       return;
     }
 
-    // STEP 2: TURN HEAD TO THE LEFT
+    // STEP 2: TURN HEAD (OPPOSITE DIRECTION: LEFT)
     if (currentStepIndex === 2) {
-      // Check for wrong direction (turning right instead):
-      if (yawDelta > 0.06) {
-        poseHoldCounterRef.current = 0;
-        setWarningMessage(
-          activeLang === "fil"
-            ? "Maling direksyon! Ilingon ang ulo Pakaliwa."
-            : "Wrong direction! Turn your head to the Left."
-        );
-        return;
-      }
+      const firstDir = firstTurnDirRef.current || 1;
+      // Head must turn in opposite direction relative to first turn
+      const isOppositeTurn = (yawDelta * firstDir) <= -0.05;
+      const isWrongDir = (yawDelta * firstDir) > 0.06;
 
-      // Check if correct turn reached
-      const isTurnedLeft = yawDelta < -0.07 || yawRatio < -0.10;
-      if (isTurnedLeft) {
+      if (isOppositeTurn) {
         setWarningMessage("");
         setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(3); // Proceed to Up
         }
+      } else if (isWrongDir) {
+        poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
+        setWarningMessage(
+          activeLang === "fil"
+            ? "Maling direksyon! Ilingon ang ulo sa kabilang direksyon (Pakaliwa)."
+            : "Wrong direction! Turn your head to the opposite side (Left)."
+        );
       } else {
-        poseHoldCounterRef.current = 0;
+        poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         setWarningMessage("");
         setFeedbackMessage(activeLang === "fil" ? "Mabagal na ilingon ang ulo pakaliwa..." : "Slowly turn head to the left...");
       }
@@ -895,19 +910,10 @@ export default function MediaPipeLivenessModal({
 
     // STEP 3: TILT HEAD UPWARD
     if (currentStepIndex === 3) {
-      // Check for wrong direction (tilting down instead):
-      if (pitchDelta > 0.04) {
-        poseHoldCounterRef.current = 0;
-        setWarningMessage(
-          activeLang === "fil"
-            ? "Maling direksyon! Itingala ang ulo Paitaas."
-            : "Wrong direction! Tilt your head Upward."
-        );
-        return;
-      }
+      // Upward tilt: pitchDelta < -0.035 or nose moved up relative to baseline
+      const isTiltedUp = pitchDelta < -0.035 || (nose.y - baseNoseY) < -0.028;
+      const isWrongDown = pitchDelta > 0.065 || (nose.y - baseNoseY) > 0.05;
 
-      // Check if correct tilt up reached
-      const isTiltedUp = pitchDelta < -0.04 || pitchRatio < 0.46;
       if (isTiltedUp) {
         setWarningMessage("");
         setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
@@ -915,8 +921,15 @@ export default function MediaPipeLivenessModal({
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(4); // Proceed to Down
         }
+      } else if (isWrongDown) {
+        poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
+        setWarningMessage(
+          activeLang === "fil"
+            ? "Maling direksyon! Itingala ang ulo Paitaas."
+            : "Wrong direction! Tilt your head Upward."
+        );
       } else {
-        poseHoldCounterRef.current = 0;
+        poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         setWarningMessage("");
         setFeedbackMessage(activeLang === "fil" ? "Bahagyang itingala ang ulo paitaas..." : "Tilt your head slightly upward...");
       }
@@ -925,19 +938,10 @@ export default function MediaPipeLivenessModal({
 
     // STEP 4: TILT HEAD DOWNWARD
     if (currentStepIndex === 4) {
-      // Check for wrong direction (tilting up instead):
-      if (pitchDelta < -0.04) {
-        poseHoldCounterRef.current = 0;
-        setWarningMessage(
-          activeLang === "fil"
-            ? "Maling direksyon! Iyuko ang ulo Paibaba."
-            : "Wrong direction! Tilt your head Downward."
-        );
-        return;
-      }
+      // Downward tilt: pitchDelta > 0.035 or nose moved down relative to baseline
+      const isTiltedDown = pitchDelta > 0.035 || (nose.y - baseNoseY) > 0.028;
+      const isWrongUp = pitchDelta < -0.065 || (nose.y - baseNoseY) < -0.05;
 
-      // Check if correct tilt down reached
-      const isTiltedDown = pitchDelta > 0.04 || pitchRatio > 0.58;
       if (isTiltedDown) {
         setWarningMessage("");
         setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
@@ -945,8 +949,15 @@ export default function MediaPipeLivenessModal({
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(5); // Proceed to Blink
         }
+      } else if (isWrongUp) {
+        poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
+        setWarningMessage(
+          activeLang === "fil"
+            ? "Maling direksyon! Iyuko ang ulo Paibaba."
+            : "Wrong direction! Tilt your head Downward."
+        );
       } else {
-        poseHoldCounterRef.current = 0;
+        poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         setWarningMessage("");
         setFeedbackMessage(activeLang === "fil" ? "Bahagyang iyuko ang ulo paibaba..." : "Tilt your head slightly downward...");
       }
@@ -957,13 +968,13 @@ export default function MediaPipeLivenessModal({
     if (currentStepIndex === 5) {
       setWarningMessage("");
       setFeedbackMessage(activeLang === "fil" ? "Kumurap ng iyong mga mata..." : "Blink your eyes naturally...");
-      if (avgEAR > 0.22) {
+      if (avgEAR > 0.16) {
         blinkStateRef.current.hasOpened = true;
       }
       if (blinkStateRef.current.hasOpened && avgEAR < 0.13) {
         blinkStateRef.current.hasClosed = true;
       }
-      if (blinkStateRef.current.hasOpened && blinkStateRef.current.hasClosed && avgEAR > 0.20) {
+      if (blinkStateRef.current.hasOpened && blinkStateRef.current.hasClosed && avgEAR > 0.15) {
         completeVerification();
       }
       return;
@@ -978,6 +989,8 @@ export default function MediaPipeLivenessModal({
       setIsCompleted(false);
       setCapturedDataUrl("");
       setWarningMessage("");
+      firstTurnDirRef.current = null;
+      baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null };
       return;
     }
 
