@@ -24,6 +24,7 @@ import {
   FileTextIcon,
   UserIcon,
   PlaneIcon,
+  PhoneIcon,
 } from "@/modules/shared/Icons";
 
 export default function ClientPortalPage() {
@@ -662,58 +663,238 @@ export default function ClientPortalPage() {
             )}
 
             {/* TAB 3: CLIENT PROFILE & SETTINGS */}
+            {/* TAB 3: CLIENT PROFILE & SETTINGS */}
             {portalTab === "profile" && (
-              <div className="max-w-2xl rounded-[8px] bg-white dark:bg-[#0f121a] border border-neutral-200 dark:border-white/10 p-6 sm:p-8 space-y-6">
-                <h3 className="text-sm font-mono uppercase font-bold text-neutral-900 dark:text-white border-b border-neutral-200 dark:border-white/10 pb-3">
-                  Registered Client Profile Dossier
-                </h3>
-
-                <div className="space-y-4 text-xs">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Full Legal Name</span>
-                      <span className="font-bold text-neutral-900 dark:text-white text-sm">{currentUser.fullName}</span>
+              <div className="max-w-3xl rounded-[8px] bg-white dark:bg-[#0f121a] border border-neutral-200 dark:border-white/10 p-6 sm:p-8 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 dark:border-white/10 pb-4">
+                  <div className="flex items-center gap-3.5">
+                    {/* Biometric KYC Avatar Portrait */}
+                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-500 bg-neutral-900 shrink-0 shadow-md">
+                      {currentUser.avatarUrl || currentUser.avatar_url ? (
+                        <img
+                          src={currentUser.avatarUrl || currentUser.avatar_url}
+                          alt={currentUser.fullName || "Client Selfie"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-amber-500/20 text-amber-500 font-bold font-mono text-xl">
+                          {(currentUser.fullName || "CL").substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center border-2 border-white dark:border-[#0f121a]">
+                        <CheckIcon className="w-3 h-3 stroke-[3]" />
+                      </div>
                     </div>
+
                     <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Email Address</span>
-                      <span className="font-mono text-neutral-900 dark:text-white">{currentUser.email}</span>
+                      <h3 className="text-base font-bold text-neutral-900 dark:text-white">
+                        {currentUser.fullName || "Client Account"}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-semibold font-mono">
+                          <ShieldCheckIcon className="w-3 h-3" />
+                          <span>Biometric KYC Verified</span>
+                        </span>
+                        <span className="text-[11px] font-mono text-neutral-400">
+                          ID: #{String(currentUser.userId || currentUser.user_id || "CL").padStart(4, "0")}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Mobile Number</span>
-                      <span className="font-mono text-neutral-900 dark:text-white">{currentUser.phoneNumber || "None"}</span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Demographic</span>
-                      <span className="font-semibold text-neutral-900 dark:text-white flex items-center gap-1.5">
-                        {currentUser.clientType === "OFW" ? (
-                          <>
-                            <PlaneIcon className="w-4 h-4 text-amber-500" />
-                            <span>Overseas Filipino Worker</span>
-                          </>
-                        ) : (
-                          <span>Local Resident (PH)</span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="text-neutral-400 block text-[10px] font-mono uppercase">Current Residence Location</span>
-                    <span className="text-neutral-800 dark:text-neutral-200">{currentUser.locationAddress || "Bulacan"}</span>
-                  </div>
-
-                  <div>
-                    <span className="text-neutral-400 block text-[10px] font-mono uppercase">Authentication Method</span>
-                    <span className="font-mono text-neutral-800 dark:text-neutral-200 uppercase">
-                      {currentUser.authProvider || "Local Email / Password"}
-                    </span>
-                  </div>
+                  <span className="text-xs font-mono text-neutral-400">
+                    Auth: <strong className="text-neutral-700 dark:text-neutral-200 uppercase">{currentUser.authProvider || "Local / Password"}</strong>
+                  </span>
                 </div>
 
-                <div className="pt-4 border-t border-neutral-200 dark:border-white/10 flex justify-end">
+                <div className="space-y-6 text-xs">
+                  {/* 1. Personal & Contact Profile */}
+                  <div>
+                    <h4 className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold mb-2.5 flex items-center gap-1.5">
+                      <UserIcon className="w-3.5 h-3.5" />
+                      <span>1. Personal &amp; Demographic Profile</span>
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/10">
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Full Legal Name</span>
+                        <span className="font-semibold text-neutral-900 dark:text-white">{currentUser.fullName || currentUser.full_name || "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Email Address</span>
+                        <span className="font-mono text-neutral-900 dark:text-white font-medium">{currentUser.email}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Mobile Number</span>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span className="font-mono text-neutral-900 dark:text-white font-medium">{currentUser.phoneNumber || currentUser.phone_number || "—"}</span>
+                          {(currentUser.hasViberWhatsapp || currentUser.has_viber_whatsapp) && (
+                            <span className="px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-mono text-[9.5px] font-bold">
+                              Viber / WA
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Date of Birth &amp; Age</span>
+                        <span className="text-neutral-800 dark:text-neutral-200 font-medium">
+                          {currentUser.birthDate || currentUser.birth_date
+                            ? `${currentUser.birthDate || currentUser.birth_date}${(() => {
+                                const b = currentUser.birthDate || currentUser.birth_date;
+                                const d = new Date(b);
+                                if (isNaN(d.getTime())) return "";
+                                const now = new Date();
+                                let age = now.getFullYear() - d.getFullYear();
+                                const m = now.getMonth() - d.getMonth();
+                                if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+                                return age >= 0 && age < 120 ? ` (${age} yrs old)` : "";
+                              })()}`
+                            : "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Civil Status</span>
+                        <span className="text-neutral-800 dark:text-neutral-200 font-medium">{currentUser.civilStatus || currentUser.civil_status || "Single"}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Spouse Name</span>
+                        <span className="text-neutral-800 dark:text-neutral-200 font-medium">
+                          {currentUser.spouseName || currentUser.spouse_name || "N/A (Single / Unmarried)"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Emergency Contact Person</span>
+                        <span className="text-neutral-800 dark:text-neutral-200 font-medium">
+                          {currentUser.emergencyContact || currentUser.emergency_contact || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Preferred Calling Window</span>
+                        <span className="text-neutral-800 dark:text-neutral-200 font-medium">
+                          {currentUser.preferredContactTime || currentUser.preferred_contact_time || "Anytime (PH Daytime)"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Client Demographic</span>
+                        <span className="font-semibold text-neutral-900 dark:text-white flex items-center gap-1 mt-0.5">
+                          {currentUser.clientType === "OFW" || currentUser.client_type === "OFW" ? (
+                            <>
+                              <PlaneIcon className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Overseas Filipino Worker (OFW)</span>
+                            </>
+                          ) : (
+                            <>
+                              <MapPinIcon className="w-3.5 h-3.5 text-emerald-500" />
+                              <span>Local Resident (PH)</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                      <div className="sm:col-span-2 lg:col-span-3">
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Residential Address</span>
+                        <span className="text-neutral-800 dark:text-neutral-200 font-medium">{currentUser.locationAddress || currentUser.location_address || "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Employment & Financial Demographics */}
+                  <div>
+                    <h4 className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold mb-2.5 flex items-center gap-1.5">
+                      <BuildingIcon className="w-3.5 h-3.5" />
+                      <span>2. Employment &amp; Financial Demographics</span>
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/10">
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Occupation / Profession</span>
+                        <span className="font-semibold text-neutral-900 dark:text-white">{currentUser.occupation || "Not declared"}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Employer / Business Firm</span>
+                        <span className="text-neutral-800 dark:text-neutral-200 font-medium">{currentUser.employerName || currentUser.employer_name || "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Monthly Income Bracket</span>
+                        <span className="font-mono text-neutral-800 dark:text-neutral-200 font-medium">{currentUser.monthlyIncome || currentUser.monthly_income || "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Architectural Project & Lot Specifications */}
+                  <div>
+                    <h4 className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold mb-2.5 flex items-center gap-1.5">
+                      <HomeIcon className="w-3.5 h-3.5" />
+                      <span>3. Architectural Project &amp; Lot Specifications</span>
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/10">
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Target Project</span>
+                        <span className="font-semibold text-neutral-900 dark:text-white">
+                          {currentUser.targetProjectType || currentUser.target_project_type || "Custom Residential"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Lot Ownership Status</span>
+                        <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                          {currentUser.lotOwnershipStatus || currentUser.lot_ownership_status || "Titled Lot (Clean Title)"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Target Build Location</span>
+                        <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                          {currentUser.targetBuildLocation || currentUser.target_build_location || currentUser.locationAddress || currentUser.location_address || "—"}
+                        </span>
+                      </div>
+                      {(currentUser.subdivisionLotDetails || currentUser.subdivision_lot_details) && (
+                        <div className="sm:col-span-2 lg:col-span-3">
+                          <span className="text-neutral-400 block text-[10px] font-mono uppercase">Subdivision / Block &amp; Lot Specifications</span>
+                          <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                            {currentUser.subdivisionLotDetails || currentUser.subdivision_lot_details}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 4. OFW Representative (if applicable) */}
+                  {(currentUser.clientType === "OFW" || currentUser.client_type === "OFW") && (
+                    <div>
+                      <h4 className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold mb-2.5 flex items-center gap-1.5">
+                        <PlaneIcon className="w-3.5 h-3.5" />
+                        <span>4. Overseas Worker &amp; Local Representative</span>
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/10">
+                        <div>
+                          <span className="text-neutral-400 block text-[10px] font-mono uppercase">Host Country</span>
+                          <span className="font-semibold text-neutral-900 dark:text-white">
+                            {currentUser.ofwCountry || currentUser.ofw_country || "Overseas"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-400 block text-[10px] font-mono uppercase">PH Representative</span>
+                          <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                            {currentUser.phRepName || currentUser.ph_rep_name || "—"}
+                            {(currentUser.phRepRelationship || currentUser.ph_rep_relationship) && (
+                              <span className="text-neutral-500 text-[10px] block">
+                                ({currentUser.phRepRelationship || currentUser.ph_rep_relationship})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-400 block text-[10px] font-mono uppercase">Representative Contact</span>
+                          <span className="font-mono text-neutral-800 dark:text-neutral-200">
+                            {currentUser.phRepPhone || currentUser.ph_rep_phone || "—"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-neutral-200 dark:border-white/10 flex items-center justify-between">
+                  <span className="text-[11px] font-mono text-neutral-400 flex items-center gap-1.5">
+                    <ShieldCheckIcon className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>RA 10173 Data Privacy Protection Secured</span>
+                  </span>
                   <button
                     type="button"
                     onClick={handleLogout}

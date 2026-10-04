@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+rimport { NextResponse } from "next/server";
 import { spawn } from "child_process";
 import path from "path";
 import fs from "fs";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { image, referenceAvatar } = body;
+    const { image } = body;
 
     if (!image) {
       return NextResponse.json(
@@ -64,14 +64,13 @@ export async function POST(req) {
             resolve(null);
           });
 
-          // Write JSON payload with image and optional referenceAvatar
-          pyProc.stdin.write(JSON.stringify({ image, referenceAvatar }));
+          pyProc.stdin.write(image);
           pyProc.stdin.end();
 
           // Safety timeout
           setTimeout(() => {
             if (!hasExited) {
-              try { pyProc.kill(); } catch (e) {}
+              try { pyProc.kill(); } catch (e) { }
               resolve(null);
             }
           }, 6000);
@@ -95,7 +94,7 @@ export async function POST(req) {
         const remoteRes = await fetch(`${backendUrl}/api/auth/verify-face`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image, referenceAvatar }),
+          body: JSON.stringify({ image }),
         });
         if (remoteRes.ok) {
           const remoteData = await remoteRes.json();

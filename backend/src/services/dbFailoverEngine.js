@@ -13,7 +13,8 @@ class DbFailoverEngine {
       process.env.NODE_ENV === "production" ||
       Boolean(process.env.VERCEL) ||
       Boolean(process.env.VERCEL_ENV) ||
-      Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+      Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) ||
+      Boolean(process.env.WEBSITE_SITE_NAME); // Azure App Service environment
 
     // Docker testing mode is ONLY permitted on local machine development
     this.useLocalDocker = !this.isProduction && process.env.USE_LOCAL_DB === "true";
@@ -26,17 +27,28 @@ class DbFailoverEngine {
     // Extract project ref from SUPABASE_URL (e.g., https://dzqqyqothtttccplvvnb.supabase.co -> dzqqyqothtttccplvvnb)
     const projectRef = (this.supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/) || [])[1] || "dzqqyqothtttccplvvnb";
 
-    // Supabase Connection Pooler (IPv4 compatible Transaction Mode on port 6543, ideal for Vercel Serverless / AWS)
-    let poolerConn = "";
-    if (this.supabaseDbPassword) {
-      poolerConn = `postgres://postgres.${projectRef}:${encodeURIComponent(this.supabaseDbPassword)}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`;
-    }
-
     // Build Supabase PostgreSQL connection string
     let resolvedSupabaseConn = process.env.SUPABASE_CONNECTION_STRING || "";
-    // On Vercel serverless production: route to IPv4 Transaction Pooler.
-    // In local development: use process.env.SUPABASE_CONNECTION_STRING (direct connection with no pooler limits)
-    if (this.isProduction && poolerConn) {
+
+    // Automatically parse password & project ref from SUPABASE_CONNECTION_STRING if direct db.* is detected
+    let autoPassword = this.supabaseDbPassword;
+    let autoProjectRef = projectRef;
+    if (resolvedSupabaseConn && resolvedSupabaseConn.includes("db.") && resolvedSupabaseConn.includes(".supabase.co")) {
+      const match = resolvedSupabaseConn.match(/postgres(?:ql)?:\/\/[^:]+:([^@]+)@db\.([^.]+)\.supabase\.co/);
+      if (match) {
+        if (!autoPassword) autoPassword = decodeURIComponent(match[1]);
+        autoProjectRef = match[2];
+      }
+    }
+
+    // Supabase Connection Pooler (IPv4 compatible Transaction Mode on port 6543, ideal for Azure App Service, Vercel & AWS)
+    let poolerConn = "";
+    if (autoPassword) {
+      poolerConn = `postgres://postgres.${autoProjectRef}:${encodeURIComponent(autoPassword)}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`;
+    }
+
+    // On Cloud / Production platforms (Azure, Vercel, AWS): direct db.<ref>.supabase.co lacks IPv4 resolution, so route to IPv4 Pooler
+    if ((this.isProduction || Boolean(process.env.WEBSITE_SITE_NAME)) && poolerConn) {
       resolvedSupabaseConn = poolerConn;
     } else if (!resolvedSupabaseConn && poolerConn) {
       resolvedSupabaseConn = poolerConn;
