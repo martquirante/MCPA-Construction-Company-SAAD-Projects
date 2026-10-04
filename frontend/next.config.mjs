@@ -63,7 +63,7 @@ const nextConfig = {
     const backendUrl =
       process.env.BACKEND_API_URL ||
       (process.env.NODE_ENV === "production"
-        ? "https://mcpa-backend.vercel.app"
+        ? "https://mcpa-backend-gvcjbnh7dragbtc4.japaneast-01.azurewebsites.net"
         : "http://localhost:5000");
     return [
       {

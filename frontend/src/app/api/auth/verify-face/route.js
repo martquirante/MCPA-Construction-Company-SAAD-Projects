@@ -87,7 +87,7 @@ export async function POST(req) {
     // 2. If running on Vercel / serverless without local Python, forward to dedicated Backend API (e.g. Render/Railway)
     const backendUrl =
       process.env.BACKEND_API_URL ||
-      (process.env.NODE_ENV === "production" ? "https://mcpa-backend.onrender.com" : "http://localhost:5000");
+      (process.env.NODE_ENV === "production" ? "https://mcpa-backend-gvcjbnh7dragbtc4.japaneast-01.azurewebsites.net" : "http://localhost:5000");
 
     if (backendUrl) {
       try {
