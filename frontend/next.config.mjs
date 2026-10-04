@@ -4,6 +4,9 @@ const nextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
   poweredByHeader: false,
+  turbopack: {
+    root: process.cwd(),
+  },
   allowedDevOrigins: [
     "192.168.1.6",
     "192.168.1.6:3000",
@@ -37,6 +40,22 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "mcpa-backend.vercel.app",
+      },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.googleusercontent.com",
+      },
+      {
+        protocol: "https",
+        hostname: "platform-lookaside.fbsbx.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.fbcdn.net",
       },
     ],
   },

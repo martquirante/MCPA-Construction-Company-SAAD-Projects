@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/modules/shared/LanguageContext";
@@ -130,6 +130,7 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
   // Keep URL updated without full page refresh
   const switchDocument = (docKey) => {
     setActiveDoc(docKey);
+    setActiveSectionId("");
     setSearchQuery("");
     window.scrollTo({ top: 0, behavior: "smooth" });
     if (typeof window !== "undefined") {
@@ -1270,6 +1271,107 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
     });
   }, [currentSections, searchQuery]);
 
+  const isClickScrollingRef = useRef(false);
+  const clickTimeoutRef = useRef(null);
+
+  // Accurate Scrollspy: Automatically detect active section as the user scrolls
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!activeSectionId && filteredSections.length > 0) {
+      setActiveSectionId(filteredSections[0].id);
+    }
+
+    let rafId = null;
+
+    const updateActiveSection = () => {
+      if (isClickScrollingRef.current) return;
+      if (!filteredSections || filteredSections.length === 0) return;
+
+      const scrollY = window.scrollY || window.pageYOffset;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+
+      // 1. Top of page: If scrolled near the top, activate the first section
+      if (scrollY < 180) {
+        setActiveSectionId(filteredSections[0].id);
+        return;
+      }
+
+      // 2. Bottom of page: If scrolled near the very bottom, activate the last section
+      if (windowHeight + scrollY >= documentHeight - 60) {
+        setActiveSectionId(filteredSections[filteredSections.length - 1].id);
+        return;
+      }
+
+      // 3. Dynamic reading line offset below the sticky header and tabs (~140px)
+      const READING_OFFSET = window.innerWidth < 640 ? 150 : 185;
+
+      // 4. Primary detection: Section whose top <= READING_OFFSET and bottom > READING_OFFSET
+      let foundSectionId = null;
+
+      for (let i = 0; i < filteredSections.length; i++) {
+        const sec = filteredSections[i];
+        const el = document.getElementById(sec.id);
+        if (!el) continue;
+
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= READING_OFFSET && rect.bottom > READING_OFFSET) {
+          foundSectionId = sec.id;
+          break;
+        }
+      }
+
+      // 5. Fallback detection: If between section gaps, pick the last section whose top <= READING_OFFSET
+      if (!foundSectionId) {
+        for (let i = 0; i < filteredSections.length; i++) {
+          const sec = filteredSections[i];
+          const el = document.getElementById(sec.id);
+          if (!el) continue;
+
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= READING_OFFSET) {
+            foundSectionId = sec.id;
+          } else {
+            break;
+          }
+        }
+      }
+
+      if (foundSectionId) {
+        setActiveSectionId(foundSectionId);
+      }
+    };
+
+    const handleScroll = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateActiveSection);
+    };
+
+    // If the user manually scrolls with mouse wheel or touch, immediately release any click scroll lock
+    const handleUserInteraction = () => {
+      isClickScrollingRef.current = false;
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+    };
+
+    // Run initial evaluation
+    updateActiveSection();
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
+    window.addEventListener("wheel", handleUserInteraction, { passive: true });
+    window.addEventListener("touchmove", handleUserInteraction, { passive: true });
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+      window.removeEventListener("wheel", handleUserInteraction);
+      window.removeEventListener("touchmove", handleUserInteraction);
+    };
+  }, [filteredSections, activeDoc]);
+
   return (
     <>
       <ClientNavbar />
@@ -1464,23 +1566,44 @@ export default function LegalDocViewer({ initialDoc = "privacy" }) {
                 </div>
 
                 <nav className="space-y-1 text-xs">
-                  {filteredSections.map((sec) => (
-                    <a
-                      key={sec.id}
-                      href={`#${sec.id}`}
-                      onClick={() => setActiveSectionId(sec.id)}
-                      className={`flex items-start gap-2 px-2.5 py-1.5 rounded-[4px] transition-colors group ${
-                        activeSectionId === sec.id
-                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold"
-                          : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04]"
-                      }`}
-                    >
-                      <span className="font-mono text-neutral-400 group-hover:text-amber-500 shrink-0">
-                        {sec.number}
-                      </span>
-                      <span className="truncate">{highlightMatches(sec.title, searchQuery)}</span>
-                    </a>
-                  ))}
+                  {filteredSections.map((sec) => {
+                    const isActive = activeSectionId === sec.id;
+                    return (
+                      <a
+                        key={sec.id}
+                        href={`#${sec.id}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setActiveSectionId(sec.id);
+                          isClickScrollingRef.current = true;
+                          if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+                          clickTimeoutRef.current = setTimeout(() => {
+                            isClickScrollingRef.current = false;
+                          }, 850);
+                          const el = document.getElementById(sec.id);
+                          if (el) {
+                            el.scrollIntoView({ behavior: "smooth" });
+                          }
+                        }}
+                        className={`flex items-start gap-2.5 px-2.5 py-1.5 rounded-[4px] border-l-2 transition-all group ${
+                          isActive
+                            ? "bg-amber-500/15 border-amber-500 text-amber-600 dark:text-amber-400 font-bold shadow-xs"
+                            : "border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04]"
+                        }`}
+                      >
+                        <span
+                          className={`font-mono shrink-0 transition-colors ${
+                            isActive
+                              ? "text-amber-500 font-bold"
+                              : "text-neutral-400 group-hover:text-amber-500"
+                          }`}
+                        >
+                          {sec.number}
+                        </span>
+                        <span className="truncate">{highlightMatches(sec.title, searchQuery)}</span>
+                      </a>
+                    );
+                  })}
                 </nav>
               </div>
 

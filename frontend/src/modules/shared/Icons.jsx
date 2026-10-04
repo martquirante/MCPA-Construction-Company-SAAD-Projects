@@ -90,9 +90,42 @@ import {
   WifiOff,
   Signal,
   SignalZero,
+  Plane,
+  UserCheck,
+  LayoutGrid,
+  List,
+  BadgeCheck,
+  Fingerprint,
+  IdCard,
+  Users,
+  Hash,
+  CalendarDays,
+  MessageSquare,
+  Printer,
 } from "lucide-react";
 
 export { default as LordIcon } from "./LordIcon";
+
+
+export function PlaneIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <Plane
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function UserCheckIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return (
+    <UserCheck
+      strokeWidth={strokeWidth}
+      className={`transition-transform duration-200 ${className}`}
+      {...props}
+    />
+  );
+}
 
 export function GlobeIcon({ className = "w-5 h-5", strokeWidth = 1.75, ...props }) {
   return (
@@ -1085,3 +1118,44 @@ export function SignalIcon({ className = "w-4 h-4", strokeWidth = 2, ...props })
 export function SignalZeroIcon({ className = "w-4 h-4", strokeWidth = 2, ...props }) {
   return <SignalZero strokeWidth={strokeWidth} className={className} {...props} />;
 }
+
+export function LayoutGridIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return <LayoutGrid strokeWidth={strokeWidth} className={`transition-colors duration-150 ${className}`} {...props} />;
+}
+
+export function ListIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return <List strokeWidth={strokeWidth} className={`transition-colors duration-150 ${className}`} {...props} />;
+}
+
+export function BadgeCheckIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return <BadgeCheck strokeWidth={strokeWidth} className={className} {...props} />;
+}
+
+export function FingerprintIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return <Fingerprint strokeWidth={strokeWidth} className={className} {...props} />;
+}
+
+export function IdCardIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return <IdCard strokeWidth={strokeWidth} className={className} {...props} />;
+}
+
+export function UsersIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return <Users strokeWidth={strokeWidth} className={className} {...props} />;
+}
+
+export function HashIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return <Hash strokeWidth={strokeWidth} className={className} {...props} />;
+}
+
+export function CalendarDaysIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return <CalendarDays strokeWidth={strokeWidth} className={className} {...props} />;
+}
+
+export function MessageSquareIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return <MessageSquare strokeWidth={strokeWidth} className={className} {...props} />;
+}
+
+export function PrinterIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
+  return <Printer strokeWidth={strokeWidth} className={className} {...props} />;
+}
+

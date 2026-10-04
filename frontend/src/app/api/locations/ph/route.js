@@ -251,10 +251,11 @@ async function getLivePsgcLocations() {
 function filterPsgc(list, query) {
   if (!query) {
     const popular = [
+      "Tagaytay",
       "Bulacan",
       "Pampanga",
-      "Metro Manila",
       "Cavite",
+      "Metro Manila",
       "Laguna",
       "Rizal",
       "Batangas",

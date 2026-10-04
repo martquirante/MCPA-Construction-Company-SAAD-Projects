@@ -16,6 +16,9 @@ backend/.env
 backend/.env.local
 frontend/.env
 frontend/.env.local
+client_secret*.json
+credentials*.json
+*.credentials.json
 
 # 2. Local Database Mock Data & User Records
 backend/data/

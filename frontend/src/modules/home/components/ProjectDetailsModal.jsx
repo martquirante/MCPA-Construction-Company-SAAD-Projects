@@ -15,6 +15,7 @@ import {
   CheckIcon,
   Maximize2Icon,
 } from "../../shared/Icons";
+import { useLanguage } from "../../shared/LanguageContext";
 
 const emptySubscribe = () => () => {};
 
@@ -150,7 +151,10 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
     else router.push(`/book?style=${encodeURIComponent(project.name)}`);
   };
 
-  const defaultFeatures = [
+  const { language } = useLanguage();
+  const isFil = language === "fil";
+
+  const defaultFeaturesEn = [
     "Turnkey Structural Framing & Reinforced Footings",
     "Complete Signed & Sealed PRC Blueprints & Municipal Permits",
     "PPR Hot & Cold Waterlines & Heavy-Duty PVC Drainage",
@@ -158,24 +162,45 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
     "All-Weather Anti-Corrosion Exterior Wall Coatings",
     "Standard 15-Year MCPA Structural Warranty Guarantee",
   ];
+
+  const defaultFeaturesFil = [
+    "Turnkey na Balangkas ng Istruktura at Pinatibay na Pundasyon",
+    "Kumpletong May Pirma at Tatak na Blueprint ng PRC at Permiso sa Munisipyo",
+    "PPR Hot & Cold Waterlines at Matibay na PVC Drainage",
+    "Naka-wire na Smart Breakers at De-kalidad na Tubong Tanso",
+    "All-Weather Anti-Corrosion na Pintura sa Labas ng Dingding",
+    "Pamantayang 15-Taong Garantiya sa Istruktura ng MCPA",
+  ];
+
   const displayFeatures =
     Array.isArray(project.features) && project.features.length > 0
       ? project.features
-      : defaultFeatures;
+      : isFil
+      ? defaultFeaturesFil
+      : defaultFeaturesEn;
 
   // Status display map
   const STATUS = {
-    in_progress: { label: "In Progress", dot: "bg-amber-400" },
-    planning:    { label: "Planning Phase", dot: "bg-sky-400" },
-    completed:   { label: "Completed", dot: "bg-emerald-400" },
+    in_progress: { label: isFil ? "Kasalukuyang Ginagawa" : "In Progress", dot: "bg-amber-400" },
+    planning:    { label: isFil ? "Yugto ng Pagpaplano" : "Planning Phase", dot: "bg-sky-400" },
+    completed:   { label: isFil ? "Tapos Na" : "Completed", dot: "bg-emerald-400" },
   };
   const statusInfo = project.status ? STATUS[project.status] : STATUS.completed;
 
   const dateLabel = (() => {
-    if (project.status === "in_progress") return "Ongoing";
-    if (project.status === "planning")    return "Planned";
+    if (project.status === "in_progress") return isFil ? "Kasalukuyang Ginagawa" : "Ongoing";
+    if (project.status === "planning")    return isFil ? "Plano Pa Lamang" : "Planned";
     const parts = [project.month, project.year].filter(Boolean);
     return parts.length ? parts.join(" ") : "—";
+  })();
+
+  const categoryLabel = (() => {
+    if (!project.category) return "";
+    if (!isFil) return project.category;
+    const catLower = project.category.toLowerCase();
+    if (catLower.includes("commercial")) return "Komersyal";
+    if (catLower.includes("renov")) return "Renobasyon";
+    return "Residensyal";
   })();
 
   const navBtn =
@@ -216,7 +241,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
               <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-1.5 flex-wrap">
                 {project.category && (
                   <span className="text-[9.5px] sm:text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
-                    {project.category}
+                    {categoryLabel}
                   </span>
                 )}
                 {project.category && (
@@ -255,7 +280,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                   : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
               }`}
             >
-              <span>Gallery ({images.length})</span>
+              <span>{isFil ? `Galerya (${images.length})` : `Gallery (${images.length})`}</span>
             </button>
 
             <button
@@ -267,7 +292,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                   : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
               }`}
             >
-              <span>Specs &amp; Scope</span>
+              <span>{isFil ? "Mga Detalye at Saklaw" : "Specs & Scope"}</span>
             </button>
           </div>
 
@@ -390,13 +415,13 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                 {/* Key specs — data table layout */}
                 <div className="grid grid-cols-2 gap-px bg-neutral-200 dark:bg-white/[0.07] rounded-[6px] overflow-hidden border border-neutral-200 dark:border-white/[0.07]">
                   {[
-                    { label: "Lot Area",     value: project.lotArea    || "Custom Lot"       },
-                    { label: "Floor Area",   value: project.floorArea  || "Turnkey Space"    },
-                    { label: "Rooms",
+                    { label: isFil ? "Sukat ng Lupa" : "Lot Area",     value: project.lotArea    || (isFil ? "Pasadyang Lote" : "Custom Lot")       },
+                    { label: isFil ? "Sukat ng Sahig" : "Floor Area",   value: project.floorArea  || (isFil ? "Turnkey na Espasyo" : "Turnkey Space")    },
+                    { label: isFil ? "Mga Kwarto" : "Rooms",
                       value: project.bedrooms
-                        ? `${project.bedrooms} BR · ${project.bathrooms || "—"} Bath`
-                        : "Multi-Zone"                                                        },
-                    { label: "Location",    value: project.location   || "Central Luzon"    },
+                        ? `${isFil ? project.bedrooms.replace(/Bedrooms/gi, "na Kwarto").replace(/Bedroom/gi, "Kwarto").replace(/BR/gi, "na Kwarto") : project.bedrooms} · ${project.bathrooms ? (isFil ? project.bathrooms.replace(/Toilet and Bath/gi, "Banyo").replace(/Powder Room/gi, "Powder Room") : project.bathrooms) : "—"}`
+                        : (isFil ? "Multi-Zone" : "Multi-Zone")                                                        },
+                    { label: isFil ? "Lokasyon" : "Location",    value: project.location   || "Central Luzon"    },
                   ].map((spec, i) => (
                     <div
                       key={i}
@@ -417,11 +442,19 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                   <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
                     <ShieldCheckIcon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                     <span className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-neutral-900 dark:text-neutral-100">
-                      MCPA Structural Standard
+                      {isFil ? "Pamantayan sa Istruktura ng MCPA" : "MCPA Structural Standard"}
                     </span>
                   </div>
                   <p className="text-[11px] sm:text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed font-normal">
-                    Constructed per the <span className="font-semibold text-neutral-900 dark:text-neutral-100">National Structural Code of the Philippines (NSCP)</span> with Grade 60 high-tensile rebars, 3,000+ PSI ready-mix concrete, earthquake-tested shear walling, and PRC-licensed architectural &amp; civil engineering sign-offs.
+                    {isFil ? (
+                      <>
+                        Itinayo alinsunod sa <span className="font-semibold text-neutral-900 dark:text-neutral-100">National Structural Code of the Philippines (NSCP)</span> gamit ang Grade 60 high-tensile rebars, 3,000+ PSI ready-mix na kongkreto, earthquake-tested shear walling, at mga opisyal na pirma at tatak ng PRC-licensed na arkitekto at civil engineer.
+                      </>
+                    ) : (
+                      <>
+                        Constructed per the <span className="font-semibold text-neutral-900 dark:text-neutral-100">National Structural Code of the Philippines (NSCP)</span> with Grade 60 high-tensile rebars, 3,000+ PSI ready-mix concrete, earthquake-tested shear walling, and PRC-licensed architectural &amp; civil engineering sign-offs.
+                      </>
+                    )}
                   </p>
                 </div>
 
@@ -429,7 +462,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                 {project.description && (
                   <div>
                     <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-[0.12em] text-neutral-400 dark:text-neutral-500 mb-1.5 sm:mb-2 select-none">
-                      Project Overview & Design Vision
+                      {isFil ? "Pangkalahatang-ideya at Disenyo ng Proyekto" : "Project Overview & Design Vision"}
                     </p>
                     <p className="text-[11.5px] sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
                       {project.description}
@@ -441,10 +474,10 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                 <div>
                   <div className="flex items-center justify-between mb-2 sm:mb-2.5">
                     <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-[0.12em] text-neutral-400 dark:text-neutral-500 select-none">
-                      Scope of Works &amp; Specifications
+                      {isFil ? "Saklaw ng Trabaho at mga Detalye" : "Scope of Works & Specifications"}
                     </p>
                     <span className="text-[8.5px] sm:text-[9px] font-mono text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
-                      Technical Schedule
+                      {isFil ? "Teknikal na Iskedyul" : "Technical Schedule"}
                     </span>
                   </div>
 
@@ -509,7 +542,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                 onClick={onClose}
                 className="px-4 py-2.5 rounded-[4px] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 font-semibold text-xs uppercase tracking-[0.06em] hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors duration-150 cursor-pointer shrink-0"
               >
-                Close
+                {isFil ? "Isara" : "Close"}
               </button>
 
               {/* Primary — inquire */}
@@ -518,7 +551,7 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                 onClick={handleInquire}
                 className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-[0.06em] transition-[background-color] duration-150 cursor-pointer shadow-xs whitespace-nowrap min-w-0"
               >
-                <span className="truncate">Inquire For This Style</span>
+                <span className="truncate">{isFil ? "Mag-inquire sa Estilong Ito" : "Inquire For This Style"}</span>
                 <ArrowRightIcon className="w-3.5 h-3.5 shrink-0" />
               </button>
             </div>

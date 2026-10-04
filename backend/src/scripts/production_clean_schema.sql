@@ -16,17 +16,55 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS public.users (
   user_id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255), -- NULLABLE FOR GOOGLE/FACEBOOK SOCIAL AUTH
   full_name VARCHAR(255) DEFAULT 'MCPA Administrator',
-  role VARCHAR(50) DEFAULT 'admin', -- 'admin', 'super_admin', 'client'
+  first_name VARCHAR(100),
+  middle_name VARCHAR(100),
+  last_name VARCHAR(100),
+  suffix VARCHAR(20),
+  role VARCHAR(50) DEFAULT 'client', -- 'admin', 'super_admin', 'client'
+  phone_number VARCHAR(50),
+  has_viber BOOLEAN DEFAULT FALSE,
+  has_whatsapp BOOLEAN DEFAULT FALSE,
+  has_viber_whatsapp BOOLEAN DEFAULT FALSE,
+  client_type VARCHAR(50) DEFAULT 'Local', -- 'Local', 'OFW'
+  country VARCHAR(100) DEFAULT 'Philippines',
+  city_province VARCHAR(150),
+  address TEXT,
+  location_address VARCHAR(255),
+  auth_provider VARCHAR(50) DEFAULT 'local', -- 'local', 'google', 'facebook'
+  provider_id VARCHAR(255),
+  avatar_url TEXT,
   failed_login_attempts INT DEFAULT 0,
   lockout_enabled BOOLEAN DEFAULT FALSE,
   lockout_end TIMESTAMP WITH TIME ZONE NULL,
+  last_login_at TIMESTAMP WITH TIME ZONE NULL,
+  email_verified BOOLEAN DEFAULT FALSE,
+  occupation VARCHAR(100),
+  civil_status VARCHAR(50),
+  birth_date VARCHAR(50),
+  employer_name VARCHAR(150),
+  monthly_income VARCHAR(100),
+  spouse_name VARCHAR(150),
+  preferred_contact_time VARCHAR(100),
+  emergency_contact VARCHAR(200),
+  lot_ownership_status VARCHAR(100),
+  subdivision_lot_details VARCHAR(255),
+  target_build_location VARCHAR(255),
+  target_project_type VARCHAR(100),
+  ofw_country VARCHAR(100),
+  ph_rep_name VARCHAR(150),
+  ph_rep_relationship VARCHAR(100),
+  ph_rep_phone VARCHAR(50),
+  facebook_url TEXT,
+  linkedin_url TEXT,
+  instagram_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);
+CREATE INDEX IF NOT EXISTS idx_users_provider ON public.users(auth_provider, provider_id);
 
 -- 1.2 OTP_CODES TABLE
 CREATE TABLE IF NOT EXISTS public.otp_codes (
@@ -99,6 +137,11 @@ CREATE TABLE IF NOT EXISTS public.client_briefs (
   quotation_notes TEXT,
   client_portal_code VARCHAR(50),
   map_coordinates VARCHAR(100),
+  user_id INT REFERENCES public.users(user_id) ON DELETE SET NULL,
+  wants_meeting BOOLEAN DEFAULT FALSE,
+  venue_type VARCHAR(100),
+  venue_details TEXT,
+  availability_status VARCHAR(100) DEFAULT 'Pending Availability Confirmation',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -126,11 +169,13 @@ CREATE TABLE IF NOT EXISTS public.site_projects (
   lead_engineer VARCHAR(255),
   virtual_tour_url TEXT,
   status VARCHAR(50) DEFAULT 'Active Site Execution',
+  user_id INT REFERENCES public.users(user_id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_site_projects_code ON public.site_projects(project_code);
 CREATE INDEX IF NOT EXISTS idx_site_projects_client_email ON public.site_projects(client_email);
+CREATE INDEX IF NOT EXISTS idx_site_projects_user_id ON public.site_projects(user_id);
 
 -- 3.2 SITE_MILESTONES TABLE (Gantt Milestones & Weightings)
 CREATE TABLE IF NOT EXISTS public.site_milestones (

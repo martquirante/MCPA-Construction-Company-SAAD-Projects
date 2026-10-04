@@ -25,6 +25,7 @@ export default function PreConsultationBooking({ selectedStyle }) {
   const [lotArea, setLotArea] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [location, setLocation] = useState("");
+  const [locationError, setLocationError] = useState("");
   const [mapCoordinates, setMapCoordinates] = useState("14.8871, 120.8572 (Plaridel)");
   const [locationType, setLocationType] = useState("Local"); // "Local" | "OFW"
   const [meetingMode, setMeetingMode] = useState("Online Meeting (Google Meet)"); // "Online Meeting (Google Meet)" | "In-Person Office Visit"
@@ -81,6 +82,37 @@ export default function PreConsultationBooking({ selectedStyle }) {
   };
 
   const handleNext = () => {
+    if (step === 2) {
+      if (!location.trim()) {
+        setLocationError("Pakilagay po ang lokasyon ng inyong lote sa Pilipinas (City/Province).");
+        return;
+      }
+
+      // Check if user entered a foreign country without a Philippine location
+      const foreignKeywords = [
+        "dubai", "uae", "abu dhabi", "canada", "united states", "usa",
+        "singapore", "australia", "saudi", "riyadh", "jeddah", "qatar",
+        "kuwait", "japan", "tokyo", "uk", "london", "italy", "taiwan",
+        "hong kong", "germany", "new zealand"
+      ];
+      const locLower = location.toLowerCase();
+      const isForeignOnly = foreignKeywords.some((k) => locLower.includes(k)) &&
+        !locLower.includes("philippines") &&
+        !locLower.includes("pilipinas") &&
+        !locLower.includes("bulacan") &&
+        !locLower.includes("pampanga") &&
+        !locLower.includes("manila") &&
+        !locLower.includes("luzon");
+
+      if (isForeignOnly) {
+        setLocationError(
+          "Paalala: Sa Pilipinas lamang po nagpapatayo ng proyekto ang MCPA (Bulacan, Pampanga, Metro Manila, atbp.). Pakilagay po ang lokasyon ng inyong lote sa Pilipinas."
+        );
+        return;
+      }
+
+      setLocationError("");
+    }
     if (step < 3) setStep((s) => s + 1);
   };
 
@@ -288,6 +320,33 @@ export default function PreConsultationBooking({ selectedStyle }) {
                 {/* STEP 2: LOT & SITE STATUS */}
                 {step === 2 && (
                   <div className="space-y-6 animate-fadeIn">
+                    {/* Exclusive Philippine Service Coverage Alert Banner */}
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <MapPinIcon className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-neutral-900 dark:text-white font-mono uppercase tracking-wider text-[11px]">
+                            🇵🇭 Philippine Project Coverage Only (Eksklusibo sa Pilipinas)
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-900 dark:text-amber-300 font-bold font-mono text-[9px]">
+                            Domestic Territory Only
+                          </span>
+                        </div>
+                        <p className="text-neutral-600 dark:text-neutral-300 text-[11.5px] leading-relaxed">
+                          Lahat ng construction, arkitektura, at site execution ng MCPA ay <strong>sa loob lamang ng Pilipinas isinasagawa</strong> (Bulacan, Pampanga, Metro Manila / NCR, at Central Luzon). Hindi po kami nagtatayo ng mga proyekto sa ibang bansa.
+                        </p>
+                      </div>
+                    </div>
+
+                    {locationError && (
+                      <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-medium flex items-center gap-2.5 animate-fadeIn">
+                        <MapPinIcon className="w-4 h-4 shrink-0 text-red-500" />
+                        <span>{locationError}</span>
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-xs font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-3">
                         Property / Lot Status (May Lupa Na Ba?)
@@ -318,16 +377,22 @@ export default function PreConsultationBooking({ selectedStyle }) {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-2">
-                          Site Location (City / Province) *
+                          Site Location in the Philippines (City / Province) *
                         </label>
                         <input
                           type="text"
                           required
                           value={location}
-                          onChange={(e) => setLocation(e.target.value)}
-                          placeholder="e.g. Plaridel Bulacan, Malolos, or Quezon City"
+                          onChange={(e) => {
+                            setLocation(e.target.value);
+                            if (locationError) setLocationError("");
+                          }}
+                          placeholder="e.g. Plaridel Bulacan, Malolos, Pampanga, or QC (PH Only)"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
+                        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono mt-1 block">
+                          * Ang lote/lupang pagtatayuan ay dapat nasa loob ng Pilipinas.
+                        </span>
                       </div>
 
                       <div>
@@ -373,11 +438,11 @@ export default function PreConsultationBooking({ selectedStyle }) {
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="text-[10px] font-mono text-neutral-400 mr-1 hidden sm:inline">Quick Presets:</span>
                           {[
-                            { label: "Plaridel HQ", coord: "14.8871Â° N, 120.8572Â° E" },
-                            { label: "Malolos", coord: "14.8527Â° N, 120.8160Â° E" },
-                            { label: "Guiguinto", coord: "14.8311Â° N, 120.8797Â° E" },
-                            { label: "San Fernando", coord: "15.0286Â° N, 120.6897Â° E" },
-                            { label: "NCR / QC", coord: "14.6760Â° N, 121.0437Â° E" },
+                            { label: "Plaridel HQ", coord: "14.8871° N, 120.8572° E" },
+                            { label: "Malolos", coord: "14.8527° N, 120.8160° E" },
+                            { label: "Guiguinto", coord: "14.8311° N, 120.8797° E" },
+                            { label: "San Fernando", coord: "15.0286° N, 120.6897° E" },
+                            { label: "NCR / QC", coord: "14.6760° N, 121.0437° E" },
                           ].map((preset) => (
                             <button
                               key={preset.label}
@@ -437,7 +502,9 @@ export default function PreConsultationBooking({ selectedStyle }) {
                             <HomeIcon className="w-4 h-4 shrink-0" />
                             <span className="text-xs font-mono uppercase">Local Resident (Philippines)</span>
                           </div>
-                          <div className="text-[11px] text-neutral-400 dark:text-neutral-400 font-normal">Based locally in Bulacan, Metro Manila, or Central Luzon</div>
+                          <div className="text-[11px] text-neutral-500 dark:text-neutral-400 font-normal">
+                            Nakatira at magpapatayo sa Bulacan, Metro Manila, o Central Luzon, Pilipinas
+                          </div>
                         </button>
                         <button
                           type="button"
@@ -453,11 +520,27 @@ export default function PreConsultationBooking({ selectedStyle }) {
                               <VideoIcon className="w-4 h-4 shrink-0" />
                               <span className="text-xs font-mono uppercase">OFW / Based Overseas</span>
                             </div>
-                            <span className="px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[9px] font-bold">OFW Priority</span>
+                            <span className="px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[9px] font-bold">
+                              Build Site: PH Only
+                            </span>
                           </div>
-                          <div className="text-[11px] text-neutral-400 dark:text-neutral-400 font-normal">Building a dream home from abroad (Requires online video meet)</div>
+                          <div className="text-[11px] text-neutral-500 dark:text-neutral-400 font-normal">
+                            Nasa ibang bansa ngunit magpapatayo sa Pilipinas (Online video consultation)
+                          </div>
                         </button>
                       </div>
+
+                      {locationType === "OFW" && (
+                        <div className="mt-3 p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/25 flex items-start gap-3 animate-fadeIn">
+                          <GlobeIcon className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
+                          <div className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                            <span className="font-bold text-purple-700 dark:text-purple-300 block font-mono uppercase tracking-wider text-[11px] mb-0.5">
+                              Paalala sa mga Kliyenteng OFW / Nasa Ibang Bansa:
+                            </span>
+                            Kahit po kayo ay kasalukuyang naninirahan o nagtatrabaho sa ibang bansa (UAE, Singapore, USA, Canada, atbp.), <strong>ang inyong ipapatayong bahay o gusali ay dapat nasa loob ng Pilipinas</strong> (Bulacan, Pampanga, Metro Manila, atbp.). Isasagawa ang inyong plano at blueprint consultation online via Google Meet o Zoom.
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* 1st Consultation Meeting Mode & Schedule */}

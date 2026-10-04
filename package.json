@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1",
     "@vercel/analytics": "^2.0.1",
     "gsap": "^3.15.0"
   }

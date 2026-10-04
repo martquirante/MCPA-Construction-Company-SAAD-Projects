@@ -45,7 +45,40 @@ async function initializeDatabase() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
-    console.log("[OK] Table 'users' verified/created.");
+
+    // Add profile columns to users table
+    const userCols = [
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number VARCHAR(50);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS has_viber_whatsapp BOOLEAN DEFAULT FALSE;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS client_type VARCHAR(50) DEFAULT 'Local';",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS location_address VARCHAR(255);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50) DEFAULT 'local';",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id VARCHAR(255);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS occupation VARCHAR(100);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS civil_status VARCHAR(50);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date VARCHAR(50);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS employer_name VARCHAR(150);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS monthly_income VARCHAR(100);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS spouse_name VARCHAR(150);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_contact_time VARCHAR(100);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contact VARCHAR(200);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS lot_ownership_status VARCHAR(100);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS subdivision_lot_details VARCHAR(255);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS target_build_location VARCHAR(255);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS target_project_type VARCHAR(100);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS ofw_country VARCHAR(100);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS ph_rep_name VARCHAR(150);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS ph_rep_relationship VARCHAR(100);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS ph_rep_phone VARCHAR(50);",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS facebook_url TEXT;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS linkedin_url TEXT;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS instagram_url TEXT;",
+    ];
+    for (const q of userCols) {
+      try { await db.query(q); } catch (e) {}
+    }
+    console.log("[OK] Table 'users' verified/created with client profile columns.");
 
     // 2. Create OTP_CODES table
     await db.query(`
@@ -141,11 +174,16 @@ async function initializeDatabase() {
       "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS quotation_notes TEXT;",
       "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS client_portal_code VARCHAR(50);",
       "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS map_coordinates VARCHAR(100);",
+      "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS user_id INT;",
+      "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS wants_meeting BOOLEAN DEFAULT FALSE;",
+      "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS venue_type VARCHAR(100);",
+      "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS venue_details TEXT;",
+      "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS availability_status VARCHAR(100) DEFAULT 'Pending Availability Confirmation';",
     ];
     for (const q of briefCols) {
       try { await db.query(q); } catch (e) {}
     }
-    console.log("[OK] Table 'client_briefs' verified/updated with SAAD Flowchart stages.");
+    console.log("[OK] Table 'client_briefs' verified/updated with SAAD Flowchart stages and meeting venues.");
 
     // 5. Create SITE_PROJECTS table (Active Execution)
     await db.query(`

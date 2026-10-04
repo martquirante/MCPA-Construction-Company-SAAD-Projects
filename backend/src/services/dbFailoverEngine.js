@@ -695,21 +695,37 @@ class DbFailoverEngine {
     const data = this.readMockData();
     const cleanSql = sql.trim().toUpperCase();
 
-    // 1. Select user by email
-    if (cleanSql.includes("FROM USERS") && cleanSql.includes("EMAIL")) {
-      const email = params[0]?.toLowerCase();
-      const user = data.users.find((u) => u.email.toLowerCase() === email);
-      return { rows: user ? [user] : [] };
+    // 1. Select user by email or all users for admin accounts
+    if (cleanSql.includes("FROM USERS")) {
+      if (cleanSql.includes("WHERE") && cleanSql.includes("EMAIL") && params.length > 0) {
+        const email = params[0]?.toLowerCase();
+        const user = data.users.find((u) => u.email.toLowerCase() === email);
+        return { rows: user ? [user] : [] };
+      }
+      // Return all users for accounts directory
+      const rows = (data.users || []).map((u) => {
+        const briefsCount = (data.client_briefs || []).filter(
+          (b) => (b.client_email || "").toLowerCase() === (u.email || "").toLowerCase()
+        ).length;
+        return {
+          ...u,
+          total_inquiries: briefsCount,
+        };
+      });
+      return { rows: rows.reverse() };
     }
 
     // 2. Insert user
     if (cleanSql.startsWith("INSERT INTO USERS")) {
+      const isClient = cleanSql.includes("'CLIENT'");
       const newUser = {
         user_id: data.users.length + 1,
         email: params[0],
         password_hash: params[1],
-        full_name: params[2] || "MCPA Administrator",
-        role: params[3] || "admin",
+        full_name: params[2] || (isClient ? "Client User" : "MCPA Administrator"),
+        first_name: params[3] || "",
+        last_name: params[5] || "",
+        role: isClient ? "client" : (params[3] || "admin"),
         failed_login_attempts: 0,
         lockout_enabled: false,
         lockout_end: null,
@@ -720,23 +736,35 @@ class DbFailoverEngine {
       return { rows: [newUser] };
     }
 
-    // 3. Update user (password or lockout)
+    // 3. Update user (password, lockout, failed attempts, or social link)
     if (cleanSql.startsWith("UPDATE USERS")) {
-      const email = params[params.length - 1]?.toLowerCase();
-      const user = data.users.find((u) => u.email.toLowerCase() === email);
+      const lastParam = params[params.length - 1];
+      const user = data.users.find((u) => {
+        if (typeof lastParam === "number") {
+          return u.user_id === lastParam;
+        }
+        if (typeof lastParam === "string") {
+          return (
+            u.email?.toLowerCase() === lastParam.toLowerCase() ||
+            String(u.user_id) === lastParam
+          );
+        }
+        return false;
+      });
+
       if (user) {
         if (cleanSql.includes("PASSWORD_HASH")) {
           user.password_hash = params[0];
           user.failed_login_attempts = 0;
           user.lockout_enabled = false;
           user.lockout_end = null;
-        } else if (cleanSql.includes("FAILED_LOGIN_ATTEMPTS = FAILED_LOGIN_ATTEMPTS + 1")) {
-          user.failed_login_attempts = (user.failed_login_attempts || 0) + 1;
-          if (user.failed_login_attempts >= 5) {
-            user.lockout_enabled = true;
-            user.lockout_end = new Date(Date.now() + 15 * 60000).toISOString();
-          }
-        } else if (cleanSql.includes("FAILED_LOGIN_ATTEMPTS = 0")) {
+        } else if (cleanSql.includes("LOCKOUT_ENABLED = TRUE")) {
+          user.failed_login_attempts = params[0];
+          user.lockout_enabled = true;
+          user.lockout_end = params[1] instanceof Date ? params[1].toISOString() : String(params[1]);
+        } else if (cleanSql.includes("FAILED_LOGIN_ATTEMPTS = $1")) {
+          user.failed_login_attempts = params[0];
+        } else if (cleanSql.includes("FAILED_LOGIN_ATTEMPTS = 0") || cleanSql.includes("LOCKOUT_ENABLED = FALSE")) {
           user.failed_login_attempts = 0;
           user.lockout_enabled = false;
           user.lockout_end = null;
@@ -842,6 +870,24 @@ class DbFailoverEngine {
     if (cleanSql.startsWith("DELETE FROM PROJECTS")) {
       const id = params[0];
       data.projects = data.projects.filter((p) => String(p.project_id) !== String(id));
+      this.writeMockData(data);
+      return { rowCount: 1 };
+    }
+    if (cleanSql.startsWith("DELETE FROM USERS")) {
+      const email = params[0]?.toLowerCase();
+      if (email) {
+        data.users = (data.users || []).filter((u) => u.email.toLowerCase() !== email);
+      } else {
+        data.users = (data.users || []).filter((u) => u.role === "admin");
+      }
+      this.writeMockData(data);
+      return { rowCount: 1 };
+    }
+    if (cleanSql.startsWith("DELETE FROM CLIENT_BRIEFS")) {
+      const email = params[0]?.toLowerCase();
+      if (email) {
+        data.client_briefs = (data.client_briefs || []).filter((b) => (b.client_email || b.clientEmail || "").toLowerCase() !== email);
+      }
       this.writeMockData(data);
       return { rowCount: 1 };
     }

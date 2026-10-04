@@ -50,10 +50,10 @@ export async function verifyAdminPassword(password) {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password: trimmed }),
+      body: JSON.stringify({ email, password: trimmed, portalType: "admin" }),
     });
     const data = await res.json();
-    if (res.ok && data?.success) {
+    if (res.ok && data?.success && (data.user?.role || "").toLowerCase() !== "client") {
       return true;
     }
   } catch (err) {

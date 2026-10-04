@@ -80,9 +80,9 @@ export default function ResetPasswordModal({
     return `${mins.toString().padStart(2, "0")}:${remSecs.toString().padStart(2, "0")}`;
   };
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // -------------------------------------------------------------------------
   // STEP 1: SEND RESET CODE
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // -------------------------------------------------------------------------
   const handleSendCode = async (e) => {
     e?.preventDefault();
     if (!email.trim()) {
@@ -97,12 +97,12 @@ export default function ResetPasswordModal({
       const res = await fetch("/api/auth/send-reset-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), portalType: "admin" }),
       });
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        setErrorMsg(data.message || "Failed to dispatch reset code.");
+        setErrorMsg(data.message || "Failed to send verification code.");
         setIsLoading(false);
         return;
       }
@@ -115,15 +115,14 @@ export default function ResetPasswordModal({
       }, 150);
     } catch (err) {
       setIsLoading(false);
-      setErrorMsg("Network error connecting to security service.");
+      setErrorMsg("Unable to connect to the server. Please check your connection.");
     }
   };
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // -------------------------------------------------------------------------
   // STEP 2: 6-BOX SEGMENTED OTP HANDLING
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // -------------------------------------------------------------------------
   const handleOtpChange = (index, value) => {
-    // Only accept numeric digit
     const cleaned = value.replace(/\D/g, "");
     if (!cleaned) {
       const newDigits = [...otpDigits];
@@ -137,7 +136,6 @@ export default function ResetPasswordModal({
     newDigits[index] = lastDigit;
     setOtpDigits(newDigits);
 
-    // Auto-advance to next box
     if (index < 5 && lastDigit) {
       otpInputRefs.current[index + 1]?.focus();
     }
@@ -146,7 +144,6 @@ export default function ResetPasswordModal({
   const handleOtpKeyDown = (index, e) => {
     if (e.key === "Backspace") {
       if (!otpDigits[index] && index > 0) {
-        // Move back and clear previous
         const newDigits = [...otpDigits];
         newDigits[index - 1] = "";
         setOtpDigits(newDigits);
@@ -190,7 +187,7 @@ export default function ResetPasswordModal({
       const res = await fetch("/api/auth/send-reset-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), portalType: "admin" }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -207,7 +204,7 @@ export default function ResetPasswordModal({
     e?.preventDefault();
     const code = otpDigits.join("");
     if (code.length !== 6) {
-      setErrorMsg("Please enter all 6 digits of the verification code.");
+      setErrorMsg("Please enter all 6 digits of the code sent to your email.");
       return;
     }
 
@@ -218,7 +215,7 @@ export default function ResetPasswordModal({
       const res = await fetch("/api/auth/verify-reset-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), otp: code }),
+        body: JSON.stringify({ email: email.trim(), otp: code, portalType: "admin" }),
       });
       const data = await res.json();
 
@@ -232,13 +229,13 @@ export default function ResetPasswordModal({
       setStep(3);
     } catch (err) {
       setIsLoading(false);
-      setErrorMsg("Error verifying OTP code.");
+      setErrorMsg("Error verifying confirmation code.");
     }
   };
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // -------------------------------------------------------------------------
   // STEP 3: RESET PASSWORD
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // -------------------------------------------------------------------------
   const handleSaveNewPassword = async (e) => {
     e?.preventDefault();
     if (!newPassword || newPassword.length < 6) {
@@ -246,7 +243,7 @@ export default function ResetPasswordModal({
       return;
     }
     if (newPassword !== confirmPassword) {
-      setErrorMsg("New Password and Confirm Password do not match.");
+      setErrorMsg("The two passwords you entered do not match.");
       return;
     }
 
@@ -262,6 +259,7 @@ export default function ResetPasswordModal({
           email: email.trim(),
           otp: code,
           newPassword: newPassword.trim(),
+          portalType: "admin",
         }),
       });
       const data = await res.json();
@@ -288,12 +286,12 @@ export default function ResetPasswordModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
       <div className="relative w-full max-w-md bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/[0.08] rounded-[8px] shadow-2xl overflow-hidden transition-all">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 z-20 p-2 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+          className="absolute top-5 right-5 z-20 p-2 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
           aria-label="Close dialog"
         >
           <CloseIcon className="w-5 h-5" />
@@ -306,12 +304,14 @@ export default function ResetPasswordModal({
           {step === 1 && (
             <div className="animate-fadeIn">
               <div className="flex flex-col items-center text-center mb-6">
-                <LockIcon className="w-6 h-6" />
-                <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
-                  Reset Account Password
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-3">
+                  <KeyRoundIcon className="w-6 h-6 text-amber-500" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
+                  Forgot Password
                 </h2>
-                <p className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 max-w-xs font-light">
-                  Enter your registered administrator email address to receive a secure 6-digit verification code.
+                <p className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 max-w-xs leading-relaxed">
+                  Enter your email address to receive a 6-digit confirmation code.
                 </p>
               </div>
 
@@ -323,8 +323,8 @@ export default function ResetPasswordModal({
 
               <form onSubmit={handleSendCode} className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-2">
-                    Registered Email Address
+                  <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200 mb-1.5">
+                    Your Email Address
                   </label>
                   <div className="relative">
                     <input
@@ -333,17 +333,17 @@ export default function ResetPasswordModal({
                       autoFocus
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@mcpa.com"
-                      className="w-full pl-10 pr-4 py-3 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-sm font-mono transition-colors"
+                      placeholder="e.g. rayquirante@gmail.com"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-xs sm:text-sm transition-colors"
                     />
-                    <MailIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                    <MailIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3" />
                   </div>
                 </div>
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-widest transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-wider transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isLoading ? (
                     <>
@@ -353,7 +353,7 @@ export default function ResetPasswordModal({
                   ) : (
                     <>
                       <ShieldCheckIcon className="w-4 h-4" />
-                      <span>Send Reset Code</span>
+                      <span>Send Confirmation Code</span>
                     </>
                   )}
                 </button>
@@ -362,9 +362,9 @@ export default function ResetPasswordModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="text-xs font-mono text-neutral-500 hover:text-amber-500 transition-colors"
+                    className="text-xs font-mono text-neutral-500 hover:text-amber-500 transition-colors cursor-pointer"
                   >
-                    â† Back to Login
+                    Cancel
                   </button>
                 </div>
               </form>
@@ -377,13 +377,15 @@ export default function ResetPasswordModal({
           {step === 2 && (
             <div className="animate-fadeIn">
               <div className="flex flex-col items-center text-center mb-6">
-                <ShieldCheckIcon className="w-6 h-6" />
-                <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
-                  Security Verification
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-3">
+                  <ShieldCheckIcon className="w-6 h-6 text-amber-500" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
+                  Check Your Email
                 </h2>
-                <p className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 max-w-xs font-light">
-                  Enter the 6-digit verification code sent to{" "}
-                  <strong className="text-amber-600 dark:text-amber-400">{email}</strong>
+                <p className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 max-w-xs leading-relaxed">
+                  We sent a 6-digit confirmation code to{" "}
+                  <strong className="text-amber-600 dark:text-amber-400 font-semibold">{email}</strong>
                 </p>
               </div>
 
@@ -416,10 +418,10 @@ export default function ResetPasswordModal({
                   <button
                     type="button"
                     onClick={handleResendOtp}
-                    className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
                   >
                     <RefreshCwIcon className="w-3.5 h-3.5" />
-                    <span>Resend Verification Code</span>
+                    <span>Resend Code</span>
                   </button>
                 ) : (
                   <p className="text-xs font-mono text-neutral-500">
@@ -436,17 +438,17 @@ export default function ResetPasswordModal({
                   type="button"
                   disabled={isLoading || otpDigits.join("").length !== 6}
                   onClick={handleVerifyOtp}
-                  className="w-full py-3 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-bold text-xs uppercase font-mono tracking-widest transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-bold text-xs uppercase font-mono tracking-wider transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isLoading ? (
                     <>
                       <RefreshCwIcon className="w-4 h-4 animate-spin" />
-                      <span>Verifying Code...</span>
+                      <span>Verifying...</span>
                     </>
                   ) : (
                     <>
                       <CheckCircle2Icon className="w-4 h-4" />
-                      <span>Verify Code</span>
+                      <span>Confirm Code</span>
                     </>
                   )}
                 </button>
@@ -458,9 +460,9 @@ export default function ResetPasswordModal({
                       setStep(1);
                       setErrorMsg("");
                     }}
-                    className="text-xs font-mono text-neutral-500 hover:text-amber-500 transition-colors"
+                    className="text-xs font-mono text-neutral-500 hover:text-amber-500 transition-colors cursor-pointer"
                   >
-                    â† Change Email Address
+                    Use a different email address
                   </button>
                 </div>
               </div>
@@ -473,12 +475,14 @@ export default function ResetPasswordModal({
           {step === 3 && (
             <div className="animate-fadeIn">
               <div className="flex flex-col items-center text-center mb-6">
-                <KeyRoundIcon className="w-6 h-6" />
-                <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-3">
+                  <LockIcon className="w-6 h-6 text-amber-500" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
                   Create New Password
                 </h2>
-                <p className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 max-w-xs font-light">
-                  Your identity has been verified. Enter your new administrative master password.
+                <p className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 max-w-xs leading-relaxed">
+                  Your code has been verified. Enter your new password below.
                 </p>
               </div>
 
@@ -490,8 +494,8 @@ export default function ResetPasswordModal({
 
               <form onSubmit={handleSaveNewPassword} className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-2">
-                    New Password (Min. 6 Characters)
+                  <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200 mb-1.5">
+                    New Password (at least 6 characters)
                   </label>
                   <div className="relative">
                     <input
@@ -500,13 +504,13 @@ export default function ResetPasswordModal({
                       autoFocus
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-4 pr-10 py-3 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-sm font-mono transition-colors"
+                      placeholder="Enter new password"
+                      className="w-full pl-4 pr-10 py-2.5 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-xs sm:text-sm transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-neutral-400 hover:text-amber-500 transition-colors"
+                      className="absolute right-3 top-2.5 text-neutral-400 hover:text-amber-500 transition-colors cursor-pointer"
                     >
                       {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                     </button>
@@ -514,7 +518,7 @@ export default function ResetPasswordModal({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-2">
+                  <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200 mb-1.5">
                     Confirm New Password
                   </label>
                   <div className="relative">
@@ -523,8 +527,8 @@ export default function ResetPasswordModal({
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-4 pr-10 py-3 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-sm font-mono transition-colors"
+                      placeholder="Type password again"
+                      className="w-full pl-4 pr-10 py-2.5 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-xs sm:text-sm transition-colors"
                     />
                   </div>
                 </div>
@@ -532,7 +536,7 @@ export default function ResetPasswordModal({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-widest transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2"
+                  className="w-full py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-wider transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2"
                 >
                   {isLoading ? (
                     <>
@@ -551,9 +555,9 @@ export default function ResetPasswordModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="text-xs font-mono text-neutral-500 hover:text-amber-500 transition-colors"
+                    className="text-xs font-mono text-neutral-500 hover:text-amber-500 transition-colors cursor-pointer"
                   >
-                    â† Cancel
+                    Cancel
                   </button>
                 </div>
               </form>
@@ -565,26 +569,28 @@ export default function ResetPasswordModal({
           {/* ================================================================= */}
           {step === 4 && (
             <div className="text-center py-4 animate-fadeIn">
-              <CheckCircle2Icon className="w-14 h-14 mx-auto text-emerald-500 mb-6" />
+              <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center mb-5">
+                <CheckCircle2Icon className="w-8 h-8 text-emerald-500" />
+              </div>
 
-              <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
-                Password Reset Successful!
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
+                Password Updated!
               </h2>
 
-              <p className="mt-3 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 font-light max-w-xs mx-auto">
-                Your administrative password has been updated. You may now sign in using your new credentials.
+              <p className="mt-2 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 max-w-xs mx-auto leading-relaxed">
+                Your password has been changed successfully. You can now use your new password to sign in.
               </p>
 
-              <div className="mt-8">
+              <div className="mt-7">
                 <button
                   type="button"
                   onClick={() => {
                     onClose();
                     if (onSuccessReturn) onSuccessReturn(email);
                   }}
-                  className="w-full py-3.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-colors shadow-sm cursor-pointer"
+                  className="w-full py-3 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
                 >
-                  Return to Sign In
+                  Done
                 </button>
               </div>
             </div>
@@ -594,6 +600,3 @@ export default function ResetPasswordModal({
     </div>
   );
 }
-
-
-

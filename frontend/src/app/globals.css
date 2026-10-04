@@ -475,3 +475,149 @@ html.dark .architectural-cta-card,
   filter: blur(8px);
 }
 
+/* =========================================================================
+   PORTAL AUTH FLOATING ANIMATIONS & DOT GRID
+   Smooth subtle floating cards and radar scanning animation
+   ========================================================================= */
+@keyframes floatGentle1 {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-0.5deg);
+  }
+}
+
+@keyframes floatGentle2 {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-11px) rotate(0.6deg);
+  }
+}
+
+@keyframes floatGentle3 {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(-0.4deg);
+  }
+}
+
+@keyframes scanLaser {
+  0% {
+    top: 8%;
+    opacity: 0.3;
+  }
+  50% {
+    top: 88%;
+    opacity: 0.95;
+  }
+  100% {
+    top: 8%;
+    opacity: 0.3;
+  }
+}
+
+.animate-float-1 {
+  animation: floatGentle1 6s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: floatGentle2 7s ease-in-out infinite 0.7s;
+}
+
+.animate-float-3 {
+  animation: floatGentle3 5.5s ease-in-out infinite 1.4s;
+}
+
+.animate-scan-laser {
+  animation: scanLaser 2.2s ease-in-out infinite;
+}
+
+.mcpa-dot-grid {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.075) 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+.dark .mcpa-dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+/* =========================================================================
+   MCPA COMPANY LOTTIE-STYLE ANIMATED ICONS
+   Crane jib swing, drafting compass arc, seal glow, and weld sparkle
+   ========================================================================= */
+@keyframes craneJibSwing {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(14deg);
+  }
+}
+
+@keyframes craneHookLift {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+
+@keyframes compassArcSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sealGlowSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes weldSparkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+.animate-crane-jib {
+  transform-origin: 10px 12px;
+  animation: craneJibSwing 4.5s ease-in-out infinite;
+}
+
+.animate-crane-hook {
+  animation: craneHookLift 3s ease-in-out infinite;
+}
+
+.animate-compass-spin {
+  transform-origin: center;
+  animation: compassArcSpin 8s linear infinite;
+}
+
+.animate-seal-spin {
+  transform-origin: center;
+  animation: sealGlowSpin 16s linear infinite;
+}
+
+.animate-weld-sparkle {
+  animation: weldSparkle 2s ease-in-out infinite;
+}
+

@@ -110,10 +110,25 @@ app.post("/api/translations", async (req, res) => {
 // AUTH ROUTES
 // -----------------------------------------------------------------------------
 app.post("/api/auth/login", (req, res) => authController.login(req, res));
+app.post("/api/auth/face-login", (req, res) => authController.faceLogin(req, res));
+app.post("/api/auth/client/register", (req, res) => authController.clientRegister(req, res));
+app.post("/api/auth/social-login", (req, res) => authController.socialLogin(req, res));
+app.post("/api/auth/google", (req, res) => {
+  req.body.provider = "google";
+  return authController.socialLogin(req, res);
+});
+app.post("/api/auth/facebook", (req, res) => {
+  req.body.provider = "facebook";
+  return authController.socialLogin(req, res);
+});
+app.get("/api/admin/accounts", (req, res) => authController.getAccounts(req, res));
+app.get("/api/client/inquiries", (req, res) => authController.getClientInquiries(req, res));
 app.post("/api/auth/send-reset-otp", (req, res) => authController.sendResetOtp(req, res));
 app.post("/api/auth/verify-reset-otp", (req, res) => authController.verifyResetOtp(req, res));
 app.post("/api/auth/reset-password-with-otp", (req, res) => authController.resetPasswordWithOtp(req, res));
 app.get("/api/auth/me", (req, res) => authController.me(req, res));
+app.get("/api/admin/profile", (req, res) => authController.getAdminProfile(req, res));
+app.put("/api/admin/profile", (req, res) => authController.updateAdminProfile(req, res));
 
 // -----------------------------------------------------------------------------
 // PROJECTS ROUTES (PORTFOLIO SHOWCASE)

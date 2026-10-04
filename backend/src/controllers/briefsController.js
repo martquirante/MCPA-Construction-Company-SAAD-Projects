@@ -1,6 +1,7 @@
 const db = require("../services/dbFailoverEngine");
 const storage = require("../services/storageService");
 const bcrypt = require("bcryptjs");
+const emailService = require("../services/emailService");
 
 class BriefsController {
   async getAll(req, res) {
@@ -34,10 +35,44 @@ class BriefsController {
         meetingDate,
         meetingTime,
         mapCoordinates,
+        userId,
+        wantsMeeting,
+        venueType,
+        venueDetails,
       } = req.body;
 
       if (!clientName || !clientEmail) {
         return res.status(400).json({ message: "Client name and email are required." });
+      }
+
+      const normalizedEmail = clientEmail.trim().toLowerCase();
+
+      // 1. Anti-Spam Check: Max 3 active/pending inquiries per client
+      const activeCheck = await db.query(
+        "SELECT COUNT(*) AS active_count FROM client_briefs WHERE LOWER(client_email) = LOWER($1) AND status IN ('Pending Review', 'Meeting Scheduled')",
+        [normalizedEmail]
+      );
+      const activeCount = parseInt(activeCheck.rows?.[0]?.active_count || "0", 10);
+      if (activeCount >= 3) {
+        return res.status(429).json({
+          message: "You have 3 active inquiries currently undergoing architectural review. Please wait for our team's response or manage your existing briefs in the Client Portal.",
+        });
+      }
+
+      // 2. Cooldown check: 5 minutes between submissions for same email
+      const cooldownCheck = await db.query(
+        "SELECT created_at FROM client_briefs WHERE LOWER(client_email) = LOWER($1) ORDER BY brief_id DESC LIMIT 1",
+        [normalizedEmail]
+      );
+      if (cooldownCheck.rows && cooldownCheck.rows.length > 0) {
+        const lastCreated = new Date(cooldownCheck.rows[0].created_at);
+        const diffMinutes = (Date.now() - lastCreated.getTime()) / (1000 * 60);
+        if (diffMinutes < 5) {
+          const waitMins = Math.ceil(5 - diffMinutes);
+          return res.status(429).json({
+            message: `Submission cooldown active. Please wait ${waitMins} minute(s) before submitting another inquiry.`,
+          });
+        }
       }
 
       const id = submissionId || `MCPA-CPB-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -48,13 +83,14 @@ class BriefsController {
           project_type, preferred_style, budget_range, lot_status,
           lot_area, target_date, location, financing_option,
           uploaded_files, status, location_type, meeting_mode,
-          meeting_date, meeting_time, map_coordinates
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending Review', $14, $15, $16, $17, $18)
+          meeting_date, meeting_time, map_coordinates,
+          user_id, wants_meeting, venue_type, venue_details, availability_status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending Review', $14, $15, $16, $17, $18, $19, $20, $21, $22, 'Pending Availability Confirmation')
         RETURNING *`,
         [
           id,
-          clientName,
-          clientEmail,
+          clientName.trim(),
+          normalizedEmail,
           clientPhone || "",
           projectType || "Residential Design & Build",
           preferredStyle || "",
@@ -66,16 +102,32 @@ class BriefsController {
           financingOption || "Milestone Progress Billing",
           uploadedFiles || [],
           locationType || "Local",
-          meetingMode || "Online Meeting (Google Meet)",
+          meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting (Google Meet)"),
           meetingDate || "",
           meetingTime || "",
           mapCoordinates || "",
+          userId ? parseInt(userId, 10) : null,
+          Boolean(wantsMeeting),
+          venueType || null,
+          venueDetails || null,
         ]
       );
 
+      const savedBrief = result.rows[0];
+
+      // Dual email notification (awaited for Vercel Serverless lifecycle stability)
+      try {
+        await Promise.allSettled([
+          emailService.sendInquiryClientReceipt(normalizedEmail, savedBrief),
+          emailService.sendInquiryAdminAlert(savedBrief),
+        ]);
+      } catch (err) {
+        console.warn("[BriefsController] Error dispatching inquiry emails:", err.message);
+      }
+
       return res.status(201).json({
         success: true,
-        brief: result.rows[0],
+        brief: savedBrief,
         message: "Consultation brief registered successfully with status: Pending Review.",
       });
     } catch (err) {

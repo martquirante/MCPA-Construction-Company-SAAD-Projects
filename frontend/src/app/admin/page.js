@@ -8,12 +8,14 @@ import ResetPasswordModal from "@/modules/admin/components/ResetPasswordModal";
 import DashboardTab from "@/modules/admin/components/DashboardTab";
 import InquiryPipelineTab from "@/modules/admin/components/InquiryPipelineTab";
 import ProjectsTab from "@/modules/admin/components/ProjectsTab";
+import AccountsTab from "@/modules/admin/components/AccountsTab";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
 import { useAuthoritativeClock } from "@/modules/admin/hooks/useAuthoritativeClock";
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
 import {
   LockIcon,
   ShieldCheckIcon,
+  UserIcon,
   ArrowLeftIcon,
   ExternalLinkIcon,
   CheckIcon,
@@ -263,11 +265,43 @@ export default function AdminPage() {
             sessionStorage.getItem("mcpa_admin_user");
 
           if (savedAuth === "true") {
-            setIsAuthenticated(true);
             if (savedUser) {
               try {
-                setCurrentUser(JSON.parse(savedUser));
+                const parsed = JSON.parse(savedUser);
+                if ((parsed?.role || "").toLowerCase() === "client") {
+                  // Purge non-admin user from admin session
+                  localStorage.removeItem("mcpa_admin_authenticated");
+                  sessionStorage.removeItem("mcpa_admin_authenticated");
+                  localStorage.removeItem("mcpa_admin_user");
+                  sessionStorage.removeItem("mcpa_admin_user");
+                  localStorage.removeItem("mcpa_admin_token");
+                  sessionStorage.removeItem("mcpa_admin_token");
+                  setIsAuthenticated(false);
+                  setCurrentUser(null);
+                } else {
+                  setIsAuthenticated(true);
+                  setCurrentUser(parsed);
+                  // Background refresh full profile from server
+                  if (parsed.email) {
+                    fetch(`/api/admin/profile?email=${encodeURIComponent(parsed.email)}`)
+                      .then((r) => r.json())
+                      .then((d) => {
+                        if (d?.success && d?.user) {
+                          const refreshed = {
+                            ...d.user,
+                            name: d.user.fullName || d.user.name || parsed.name || "MCPA Administrator",
+                          };
+                          setCurrentUser(refreshed);
+                          localStorage.setItem("mcpa_admin_user", JSON.stringify(refreshed));
+                          sessionStorage.setItem("mcpa_admin_user", JSON.stringify(refreshed));
+                        }
+                      })
+                      .catch(() => {});
+                  }
+                }
               } catch (e) {}
+            } else {
+              setIsAuthenticated(true);
             }
           }
         } catch (e) {
@@ -356,21 +390,39 @@ export default function AdminPage() {
         body: JSON.stringify({
           email: emailInput.trim(),
           password: passwordInput,
+          portalType: "admin",
         }),
       });
 
       const data = await res.json();
 
+      if (res.status === 403 || data.isRoleMismatch || (data.user && (data.user.role || "").toLowerCase() === "client")) {
+        setAuthError(data.message || "Access Denied: Ang account na ito ay para sa Client lamang. Mangyaring mag-log in sa Client Portal (/portal).");
+        setIsLoggingIn(false);
+        return;
+      }
+
       if (res.ok && data.success) {
+        if (data.user && (data.user.role || "").toLowerCase() !== "admin" && (data.user.role || "").toLowerCase() !== "super_admin") {
+          setAuthError("Access Denied: Administrative privileges required. Client accounts must log in via /portal.");
+          setIsLoggingIn(false);
+          return;
+        }
+
         setIsAuthenticated(true);
         setIsLoggingIn(false);
         setPasswordInput("");
         
-        const loggedUser = data.user || {
-          name: emailInput.trim() ? emailInput.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : "MCPA Administrator",
-          email: emailInput.trim() || "admin@mcpa.com",
-          role: "SUPER ADMIN",
-        };
+        const loggedUser = data.user
+          ? {
+              ...data.user,
+              name: data.user.fullName || data.user.name || "MCPA Administrator",
+            }
+          : {
+              name: emailInput.trim() ? emailInput.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : "MCPA Administrator",
+              email: emailInput.trim() || "admin@mcpa.com",
+              role: "SUPER ADMIN",
+            };
 
         setCurrentUser(loggedUser);
         localStorage.setItem("mcpa_admin_authenticated", "true");
@@ -433,6 +485,19 @@ export default function AdminPage() {
         setIsLoggingIn(false);
       }
     }
+  };
+
+  const handleUserUpdate = (updatedUser) => {
+    if (!updatedUser) return;
+    const formatted = {
+      ...updatedUser,
+      name: updatedUser.fullName || updatedUser.name || "MCPA Administrator",
+    };
+    setCurrentUser(formatted);
+    try {
+      localStorage.setItem("mcpa_admin_user", JSON.stringify(formatted));
+      sessionStorage.setItem("mcpa_admin_user", JSON.stringify(formatted));
+    } catch (e) {}
   };
 
   const handleLogout = () => {
@@ -790,11 +855,11 @@ export default function AdminPage() {
           <button
             type="button"
             onClick={() => setIsSettingsModalOpen(true)}
-            className="p-2 rounded-[4px] bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:text-amber-500 shadow-xs transition-colors cursor-pointer"
-            title="Console Settings"
+            className="p-2 rounded-[4px] text-neutral-900 dark:text-white hover:opacity-75 transition-opacity cursor-pointer"
+            title="Settings"
             aria-label="Settings"
           >
-            <SettingsIcon className="w-4 h-4" />
+            <SettingsIcon className="w-5 h-5 text-neutral-900 dark:text-white" />
           </button>
         </div>
         {/* Construction Architectural Texture: Concrete Hollow Blocks (CHB) matching client site */}
@@ -966,6 +1031,8 @@ export default function AdminPage() {
         <AdminSettingsModal
           isOpen={isSettingsModalOpen}
           onClose={() => setIsSettingsModalOpen(false)}
+          currentUser={currentUser}
+          onUserUpdate={handleUserUpdate}
           onOpenResetPin={() => setIsResetModalOpen(true)}
         />
       </div>
@@ -979,6 +1046,7 @@ export default function AdminPage() {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
     { id: "projects", label: "Projects", icon: FolderKanbanIcon },
     { id: "briefs", label: "Inquiries", icon: ClipboardListIcon, badge: clientBriefs.length || undefined },
+    { id: "accounts", label: "Accounts", icon: UserIcon },
   ];
 
   const currentTabInfo = navItems.find((n) => n.id === activeTab) || navItems[0];
@@ -1233,20 +1301,35 @@ export default function AdminPage() {
         <div className="border-t border-neutral-200 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]">
           {/* Mobile Profile View */}
           <div className="lg:hidden p-4 pb-8 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono">
-                {currentUser?.name
-                  ? currentUser.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase()
-                  : "RQ"}
+            <div
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="flex items-center gap-3 p-1.5 -m-1.5 rounded-[4px] hover:bg-neutral-200/50 dark:hover:bg-white/5 cursor-pointer transition-colors group"
+              role="button"
+              tabIndex={0}
+              title="Open Account Settings & Profile"
+            >
+              <div className="w-9 h-9 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs">
+                {currentUser?.avatar_url || currentUser?.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={currentUser.avatar_url || currentUser.avatarUrl}
+                    alt="Profile Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  (currentUser?.fullName || currentUser?.name || "Raymart Quirante")
+                    .replace(/^(Engr\.|Arch\.|Dr\.|Atty\.|Mr\.|Ms\.|Mrs\.)\s+/i, "")
+                    .trim()
+                    .split(/\s+/)
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase() || "RQ"
+                )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
-                  {currentUser?.name || "Raymart Quirante"}
+                <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                  {currentUser?.fullName || currentUser?.name || "Raymart Quirante"}
                 </p>
                 <div className="flex items-center">
                   <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
@@ -1282,31 +1365,43 @@ export default function AdminPage() {
           >
             {isSidebarCollapsed ? (
               <>
-                <div
-                  className="relative group cursor-pointer"
-                  title={`${currentUser?.name || "Raymart Quirante"} (${currentUser?.role || "ADMIN"})`}
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsModalOpen(true)}
+                  className="relative group cursor-pointer focus:outline-none"
+                  title={`${currentUser?.fullName || currentUser?.name || "Raymart Quirante"} (${currentUser?.role || "ADMIN"})`}
                 >
-                  <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono">
-                    {currentUser?.name
-                      ? currentUser.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase()
-                      : "RQ"}
+                  <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs">
+                    {currentUser?.avatar_url || currentUser?.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={currentUser.avatar_url || currentUser.avatarUrl}
+                        alt="Profile Avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      (currentUser?.fullName || currentUser?.name || "Raymart Quirante")
+                        .replace(/^(Engr\.|Arch\.|Dr\.|Atty\.|Mr\.|Ms\.|Mrs\.)\s+/i, "")
+                        .trim()
+                        .split(/\s+/)
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase() || "RQ"
+                    )}
                   </div>
 
                   {/* Tooltip */}
                   <div className="hidden lg:block absolute left-full bottom-0 ml-2 px-2.5 py-1 rounded-[4px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                    <p className="font-bold">{currentUser?.name || "Raymart Quirante"}</p>
+                    <p className="font-bold">{currentUser?.fullName || currentUser?.name || "Raymart Quirante"}</p>
                     <p className="text-[10px] text-neutral-400 uppercase">{currentUser?.role || "ADMIN"}</p>
+                    <p className="text-[9px] text-amber-400 mt-0.5 font-medium">Click to edit Profile & PFP</p>
                   </div>
-                </div>
+                </button>
 
                 <button
                   onClick={() => setIsSettingsModalOpen(true)}
-                  title="Admin Settings"
+                  title="Admin Settings & Profile"
                   aria-label="Settings"
                   className="w-8 h-8 flex items-center justify-center rounded-[4px] text-neutral-500 dark:text-neutral-400 hover:text-amber-500 hover:bg-neutral-200/60 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
                 >
@@ -1324,20 +1419,35 @@ export default function AdminPage() {
               </>
             ) : (
               <>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono">
-                    {currentUser?.name
-                      ? currentUser.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase()
-                      : "RQ"}
+                <div
+                  onClick={() => setIsSettingsModalOpen(true)}
+                  className="flex items-center gap-3 p-1.5 -m-1.5 rounded-[4px] hover:bg-neutral-200/50 dark:hover:bg-white/5 cursor-pointer transition-colors group"
+                  role="button"
+                  tabIndex={0}
+                  title="Click to edit Account Settings & Profile"
+                >
+                  <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs">
+                    {currentUser?.avatar_url || currentUser?.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={currentUser.avatar_url || currentUser.avatarUrl}
+                        alt="Profile Avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      (currentUser?.fullName || currentUser?.name || "Raymart Quirante")
+                        .replace(/^(Engr\.|Arch\.|Dr\.|Atty\.|Mr\.|Ms\.|Mrs\.)\s+/i, "")
+                        .trim()
+                        .split(/\s+/)
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase() || "RQ"
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
-                      {currentUser?.name || "Raymart Quirante"}
+                    <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                      {currentUser?.fullName || currentUser?.name || "Raymart Quirante"}
                     </p>
                     <div className="flex items-center">
                       <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
@@ -1517,6 +1627,15 @@ export default function AdminPage() {
           />
         )}
 
+        {/* ================================================================= */}
+        {/* TAB: ACCOUNTS MANAGEMENT                                          */}
+        {/* ================================================================= */}
+        {activeTab === "accounts" && (
+          <AccountsTab
+            clientBriefs={clientBriefs}
+          />
+        )}
+
       </main>
       </div>
 
@@ -1570,7 +1689,20 @@ export default function AdminPage() {
       <AdminSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
+        currentUser={currentUser}
+        onUserUpdate={handleUserUpdate}
         onOpenResetPin={() => setIsResetModalOpen(true)}
+      />
+
+      {/* 4-Step Forgot Password / Reset Password Modal for Authenticated Admin */}
+      <ResetPasswordModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        initialEmail={currentUser?.email || emailInput}
+        onSuccessReturn={(verifiedEmail) => {
+          setIsResetModalOpen(false);
+          showToast("Password updated successfully!");
+        }}
       />
 
       {/* Log Out Confirmation Dialog */}
