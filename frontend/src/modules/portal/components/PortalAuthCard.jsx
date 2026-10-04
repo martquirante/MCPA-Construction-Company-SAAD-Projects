@@ -1183,38 +1183,6 @@ export default function PortalAuthCard({ onLoginSuccess }) {
             </button>
           </form>
 
-          {/* BIOMETRIC FACE LOGIN BUTTON (GCASH / MEDIAPIPE STYLE) */}
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => {
-                setErrorMessage("");
-                setSocialSuccessBanner("");
-                if (!loginEmail.trim()) {
-                  setErrorMessage(
-                    activeLang === "fil"
-                      ? "Pakilagay muna ang iyong rehistradong Email Address sa itaas."
-                      : "Please enter your registered Email Address first."
-                  );
-                  return;
-                }
-                setLivenessPurpose("login");
-                setIsLivenessModalOpen(true);
-              }}
-              disabled={isSubmitting || lockoutMinutes > 0}
-              className="w-full py-2.5 px-4 rounded-[13px] border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/15 active:scale-[0.99] text-amber-700 dark:text-amber-300 text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
-            >
-              <div className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <CameraIcon className="w-3.5 h-3.5" />
-              </div>
-              <span>
-                {activeLang === "fil"
-                  ? "Mag-log in gamit ang Face Recognition"
-                  : "Sign In with Face Verification"}
-              </span>
-            </button>
-          </div>
-
           {/* OR DIVIDER */}
           <div className="relative my-3.5 sm:my-4 text-center">
             <div className="absolute inset-0 flex items-center">
