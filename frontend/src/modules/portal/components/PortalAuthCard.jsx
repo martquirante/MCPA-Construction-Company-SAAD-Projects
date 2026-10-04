@@ -1525,15 +1525,52 @@ export default function PortalAuthCard({ onLoginSuccess }) {
               {socialConnected ? (
                 <div className="py-2.5 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs animate-in fade-in duration-200">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    {capturedSelfie ? (
-                      <img
-                        src={capturedSelfie}
-                        alt="Profile Avatar"
-                        className="w-8 h-8 rounded-full object-cover border border-neutral-300 dark:border-neutral-700 shrink-0"
-                      />
-                    ) : (
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                    )}
+                    <div className="relative w-8 h-8 shrink-0 flex items-center justify-center">
+                      {capturedSelfie ? (
+                        <img
+                          src={capturedSelfie}
+                          alt="Profile Avatar"
+                          className="w-8 h-8 rounded-full object-cover border border-neutral-300 dark:border-neutral-700"
+                        />
+                      ) : socialConnected.avatarUrl ? (
+                        <div className="relative w-8 h-8">
+                          <img
+                            src={socialConnected.avatarUrl}
+                            alt="Social Profile"
+                            className="w-8 h-8 rounded-full object-cover border border-neutral-300 dark:border-neutral-700"
+                          />
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white dark:bg-[#11141e] border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs">
+                            {socialConnected.provider === "google" ? (
+                              <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24">
+                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-2.5 h-2.5 shrink-0 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                      ) : socialConnected.provider === "google" ? (
+                        <div className="w-8 h-8 rounded-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs">
+                          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                          </svg>
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-[#1877F2]/10 dark:bg-[#1877F2]/20 border border-[#1877F2]/30 flex items-center justify-center shadow-xs">
+                          <svg className="w-4 h-4 shrink-0 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
                     <div className="min-w-0">
                       <div className="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
                         <span>{t.socialConnectedBadge} <span className="capitalize">{socialConnected.provider === "google" ? "Google" : "Facebook"}</span></span>
@@ -1861,14 +1898,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1.5">
                     {t.classificationLabel}
                   </label>
-                  <div className="grid grid-cols-2 p-1 rounded-xl bg-neutral-100 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800">
+                  <div className="grid grid-cols-2 p-1 rounded-xl bg-neutral-100 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 gap-1">
                     <button
                       type="button"
                       onClick={() => {
                         setClientType("Local");
                         setCountryCode("+63");
                       }}
-                      className={`h-10 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      className={`min-h-[2.75rem] py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-center transition-all cursor-pointer ${
                         clientType === "Local"
                           ? "bg-amber-500 text-neutral-950 shadow-xs"
                           : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
@@ -1877,9 +1914,9 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       <img
                         src="https://flagcdn.com/w40/ph.png"
                         alt="PH"
-                        className="w-4 h-3 object-cover rounded-xs border border-black/10 dark:border-white/10"
+                        className="w-4 h-3 object-cover rounded-xs border border-black/10 dark:border-white/10 shrink-0"
                       />
-                      <span>{t.localTitle}</span>
+                      <span className="leading-tight">{t.localTitle}</span>
                     </button>
                     <button
                       type="button"
@@ -1889,14 +1926,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         setCountryCode(match.dial);
                         setSelectedCountryCode(match.code);
                       }}
-                      className={`h-10 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      className={`min-h-[2.75rem] py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-center transition-all cursor-pointer ${
                         clientType === "OFW"
                           ? "bg-amber-500 text-neutral-950 shadow-xs"
                           : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
                       }`}
                     >
-                      <PlaneIcon className="w-3.5 h-3.5" />
-                      <span>{t.ofwTitle}</span>
+                      <PlaneIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="leading-tight">{t.ofwTitle}</span>
                     </button>
                   </div>
                 </div>
@@ -1916,19 +1953,21 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 )}
 
                 {/* 2. Date of Birth & Civil Status */}
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-2.5 items-start">
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center justify-between mb-1.5 h-5">
                       <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center">
                         <span>{t.birthDateLabel}</span>
                         <span className="text-red-500 font-bold ml-1">*</span>
                       </label>
-                      {clientAge !== null && (
-                        <span className={`text-[11px] font-medium ${isValidAge(birthDate) ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                      {clientAge !== null ? (
+                        <span className={`text-[10.5px] font-medium font-mono ${isValidAge(birthDate) ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
                           {isValidAge(birthDate)
                             ? `(${clientAge} ${activeLang === "fil" ? "taon" : "yrs old"})`
-                            : `(${clientAge} ${activeLang === "fil" ? "taon - 18+ lamang" : "yrs old - 18+ only"})`}
+                            : `(${clientAge} ${activeLang === "fil" ? "taon - 18+" : "yrs - 18+"})`}
                         </span>
+                      ) : (
+                        <span className="text-[10px] text-neutral-400 font-mono">18+ req.</span>
                       )}
                     </div>
                     <input
@@ -1953,9 +1992,12 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1.5">
-                      {t.civilStatusLabel}
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5 h-5">
+                      <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center">
+                        <span>{t.civilStatusLabel}</span>
+                        <span className="text-red-500 font-bold ml-1">*</span>
+                      </label>
+                    </div>
                     <select
                       value={civilStatus}
                       onChange={(e) => setCivilStatus(e.target.value)}
