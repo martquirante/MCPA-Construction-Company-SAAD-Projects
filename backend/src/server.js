@@ -42,6 +42,7 @@ app.get("/", (req, res) => {
   res.json({
     status: "ONLINE",
     message: "MCPA Enterprise Backend API is running successfully.",
+    cloud: "Azure App Service (Japan East - Always On)",
     endpoints: {
       health: "/api/health",
       projects: "/api/projects",
