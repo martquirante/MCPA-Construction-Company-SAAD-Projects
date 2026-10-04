@@ -858,7 +858,7 @@ class AuthController {
    */
   async verifyFace(req, res) {
     try {
-      const { image } = req.body;
+      const { image, referenceAvatar } = req.body;
       if (!image) {
         return res.status(400).json({
           success: false,
@@ -884,7 +884,8 @@ class AuthController {
         stderrData += data.toString();
       });
 
-      pyProc.stdin.write(image);
+      // Pass JSON payload with image and optional referenceAvatar
+      pyProc.stdin.write(JSON.stringify({ image, referenceAvatar }));
       pyProc.stdin.end();
 
       pyProc.on("close", (code) => {

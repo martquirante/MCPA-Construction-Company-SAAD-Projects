@@ -86,7 +86,6 @@ function playSuccessFanfare() {
 
 /**
  * Transforms any camera, permission, or network error into plain, friendly language
- * designed for non-technical clients (eliminating developer jargon like 'getUserMedia', 'undefined', etc.)
  */
 export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
   if (!err) return "";
@@ -157,7 +156,6 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
       : "Internet connection issue while loading camera. Please try again or upload a photo below.";
   }
 
-  // 6. Non-technical friendly fallback
   return activeLang === "fil"
     ? "Hindi mabuksan ang live camera sa ngayon. Paki-pindot ang 'Buksan ang Mobile Camera' sa ibaba para mag-selfie."
     : "Unable to open live camera right now. Please tap 'Open Phone Camera' below to take a selfie.";
@@ -192,9 +190,7 @@ function loadMediaPipeScript() {
 }
 
 /**
- * 6-STAGE LIVENESS VERIFICATION SEQUENCE:
- * 1. Center / Lock -> 2. Turn Right -> 3. Turn Left -> 4. Tilt Up -> 5. Tilt Down -> 6. Blink
- * (Smile completely removed per design request)
+ * 6-STAGE LIVENESS VERIFICATION SEQUENCE
  */
 const CHALLENGES = [
   {
@@ -253,12 +249,140 @@ const CHALLENGES = [
   },
 ];
 
+/**
+ * 3D-STYLED DIRECTIONAL ARROW (INSIDE CIRCULAR CAMERA)
+ * Features:
+ * - Pure 3D beveled vector geometry with lighting depth
+ * - Subtle low opacity (~68%) so it never covers facial landmarks
+ * - Floating animation in the direction of the prompt
+ * - Zero text inside camera container
+ */
+function Directional3DArrow({ direction }) {
+  if (!direction || direction === "none") {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+        <div className="relative w-44 h-44 rounded-full border border-dashed border-amber-400/40 animate-[spin_14s_linear_infinite]" />
+        <div className="absolute w-36 h-36 rounded-full border border-amber-400/25 animate-ping opacity-30" />
+      </div>
+    );
+  }
+
+  if (direction === "blink") {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+        <div className="w-14 h-14 rounded-full bg-amber-500/10 backdrop-blur-xs flex items-center justify-center border border-amber-400/30 opacity-70 animate-pulse">
+          <Eye className="w-7 h-7 text-amber-300 stroke-[2.2] animate-bounce" />
+        </div>
+      </div>
+    );
+  }
+
+  // Rotations for 3D Arrow pointing direction
+  const rotationDegrees = {
+    right: 0,
+    down: 90,
+    left: 180,
+    up: 270,
+  };
+
+  const floatClass = {
+    right: "mcpa-float-right",
+    left: "mcpa-float-left",
+    up: "mcpa-float-up",
+    down: "mcpa-float-down",
+  }[direction] || "";
+
+  const deg = rotationDegrees[direction] ?? 0;
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+      <div
+        className={`${floatClass} transition-transform duration-300`}
+        style={{
+          transform: `rotate(${deg}deg)`,
+        }}
+      >
+        {/* Pure 3D Isometric Beveled Arrow SVG (No Text, Low Opacity ~68%) */}
+        <svg
+          width="54"
+          height="54"
+          viewBox="0 0 64 64"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="opacity-70 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.55)]"
+        >
+          <defs>
+            {/* Front Face Gradient */}
+            <linearGradient id="arrow3dFront" x1="8" y1="32" x2="56" y2="32" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#f59e0b" />
+              <stop offset="55%" stopColor="#fbbf24" />
+              <stop offset="100%" stopColor="#fef08a" />
+            </linearGradient>
+            {/* Top Bevel Highlight */}
+            <linearGradient id="arrow3dTopBevel" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.85" />
+              <stop offset="100%" stopColor="#fef08a" stopOpacity="0.25" />
+            </linearGradient>
+            {/* Bottom Bevel Depth */}
+            <linearGradient id="arrow3dBottomBevel" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#b45309" />
+              <stop offset="100%" stopColor="#78350f" />
+            </linearGradient>
+          </defs>
+
+          {/* 3D Extrusion Depth Layer */}
+          <path
+            d="M8 25 L32 25 L32 14 L56 32 L32 50 L32 39 L8 39 Z"
+            transform="translate(2, 4)"
+            fill="#451a03"
+            opacity="0.55"
+          />
+
+          {/* Bottom Depth Bevel */}
+          <path
+            d="M8 39 L32 39 L32 50 L56 32 L32 32 L32 39 Z"
+            fill="url(#arrow3dBottomBevel)"
+          />
+
+          {/* Top Highlight Bevel */}
+          <path
+            d="M8 25 L32 25 L32 14 L56 32 L32 32 L32 25 Z"
+            fill="url(#arrow3dTopBevel)"
+          />
+
+          {/* Main Front Body */}
+          <path
+            d="M10 26.5 L33 26.5 L33 17 L53 32 L33 47 L33 37.5 L10 37.5 Z"
+            fill="url(#arrow3dFront)"
+            stroke="#fef3c7"
+            strokeWidth="1.2"
+            strokeLinejoin="round"
+          />
+
+          {/* Inner 3D Central Ridge */}
+          <line
+            x1="12"
+            y1="32"
+            x2="48"
+            y2="32"
+            stroke="#ffffff"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            opacity="0.65"
+          />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 export default function MediaPipeLivenessModal({
   isOpen,
   onClose,
   onVerified,
   activeLang = "en",
   purpose = "kyc", // "kyc" | "login"
+  referenceAvatar = null, // Optional Google / Facebook linked profile photo
 }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -270,18 +394,22 @@ export default function MediaPipeLivenessModal({
   const [cameraError, setCameraError] = useState("");
   const [currentStepIndex, setCurrentStepIndex] = useState(0); // 0 to 5, 6 is complete
   const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [warningMessage, setWarningMessage] = useState(""); // PURE TEXT WARNING OUTSIDE CAM (NO BG BOX)
   const [faceDetected, setFaceDetected] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [isVerifyingWithPython, setIsVerifyingWithPython] = useState(false);
   const [capturedDataUrl, setCapturedDataUrl] = useState("");
-  const [envWarning, setEnvWarning] = useState(null); // { type: 'dark'|'bright'|'blur', text: string }
-  const [obstructionAlert, setObstructionAlert] = useState(null); // { code, type, fil, en }
+  const [obstructionAlert, setObstructionAlert] = useState(null);
 
-  // Baseline calibration refs
+  // Calibration and strict stability hold counters
   const baselineRef = useRef({ yaw: 0, pitch: 0.52 });
-  const centerHoldTimerRef = useRef(0);
+  const poseHoldCounterRef = useRef(0);
+  const prevNoseRef = useRef(null);
   const blinkStateRef = useRef({ hasOpened: false, hasClosed: false });
   const frameCounterRef = useRef(0);
+
+  // Strict hold requirement: 8 consecutive frames (~250-300ms) with 0 active warnings
+  const REQUIRED_HOLD_FRAMES = 8;
 
   // Stop camera & cleanup
   const cleanupStream = useCallback(() => {
@@ -319,17 +447,17 @@ export default function MediaPipeLivenessModal({
     return tempCanvas.toDataURL("image/jpeg", 0.92);
   }, []);
 
-  // Real-time canvas check for environmental lighting & blur
+  // Real-time canvas check for environmental lighting (Dark / Glare)
   const checkEnvironment = useCallback((video) => {
     if (!video || !video.videoWidth) return null;
     try {
       const testCanvas = document.createElement("canvas");
-      testCanvas.width = 80;
-      testCanvas.height = 60;
+      testCanvas.width = 64;
+      testCanvas.height = 48;
       const ctx = testCanvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return null;
-      ctx.drawImage(video, 0, 0, 80, 60);
-      const imgData = ctx.getImageData(0, 0, 80, 60).data;
+      ctx.drawImage(video, 0, 0, 64, 48);
+      const imgData = ctx.getImageData(0, 0, 64, 48).data;
 
       let totalLum = 0;
       const count = imgData.length / 4;
@@ -338,31 +466,36 @@ export default function MediaPipeLivenessModal({
       }
       const avgLum = totalLum / count;
 
-      if (avgLum < 45) {
+      if (avgLum < 52) {
         return {
           type: "dark",
-          text: activeLang === "fil" ? "Masyadong madilim. Lumipat sa maliwanag na lugar." : "Too dark. Move to a well-lit area.",
+          text: activeLang === "fil"
+            ? "Masyadong madilim. Lumipat sa maliwanag na lugar."
+            : "Too dark. Move to a well-lit area.",
         };
       }
-      if (avgLum > 220) {
+      if (avgLum > 218) {
         return {
           type: "bright",
-          text: activeLang === "fil" ? "Masyadong maliwanag o may silaw. Iwasan ang backlight." : "Too bright / direct glare detected.",
+          text: activeLang === "fil"
+            ? "Masyadong maliwanag o may silaw. Iwasan ang backlight."
+            : "Too bright / direct glare. Avoid harsh backlights.",
         };
       }
     } catch (e) {}
     return null;
   }, [activeLang]);
 
-  // Advance challenge step
+  // Advance challenge step (resets pose hold counter and warnings)
   const advanceStep = useCallback((nextStep) => {
     playStepChime();
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       navigator.vibrate(50);
     }
     setCurrentStepIndex(nextStep);
+    setWarningMessage("");
+    poseHoldCounterRef.current = 0;
     blinkStateRef.current = { hasOpened: false, hasClosed: false };
-    centerHoldTimerRef.current = 0;
   }, []);
 
   // Call Python face recognition verification endpoint
@@ -372,7 +505,10 @@ export default function MediaPipeLivenessModal({
       const response = await fetch("/api/auth/verify-face", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: base64Image }),
+        body: JSON.stringify({
+          image: base64Image,
+          referenceAvatar: referenceAvatar || undefined,
+        }),
       });
       const data = await response.json();
       return data;
@@ -382,14 +518,15 @@ export default function MediaPipeLivenessModal({
     } finally {
       setIsVerifyingWithPython(false);
     }
-  }, []);
+  }, [referenceAvatar]);
 
-  // Retry after obstruction detected
+  // Retry after obstruction or mismatch detected
   const handleRetryAfterObstruction = useCallback(() => {
     setObstructionAlert(null);
     setCurrentStepIndex(0);
+    poseHoldCounterRef.current = 0;
+    setWarningMessage("");
     blinkStateRef.current = { hasOpened: false, hasClosed: false };
-    centerHoldTimerRef.current = 0;
     setFeedbackMessage(
       activeLang === "fil"
         ? "Igitna ang mukha nang walang sagabal (walang sumbrero/salamin/mask)"
@@ -397,14 +534,14 @@ export default function MediaPipeLivenessModal({
     );
   }, [activeLang]);
 
-  // Complete entire verification with STRICT Python zero-obstruction check
+  // Complete entire verification with STRICT Python zero-obstruction check & PFP matching
   const completeVerification = useCallback(async () => {
     setObstructionAlert(null);
     setIsVerifyingWithPython(true);
     setFeedbackMessage(
       activeLang === "fil"
-        ? "Sinusuri ang litrato at mga sagabal (Python AI)..."
-        : "Analyzing face photo & obstructions..."
+        ? "Sinusuri ang biometric KYC at social profile..."
+        : "Analyzing face biometric & social profile..."
     );
 
     const snapshot = captureFrame();
@@ -415,10 +552,10 @@ export default function MediaPipeLivenessModal({
       return;
     }
 
-    // Call Python verification diagnostics
+    // Call Python verification diagnostics with reference photo
     const pyResult = await verifyWithPythonBackend(snapshot);
 
-    // STRICT VALIDATION: If any obstruction detected or verification fails, DO NOT COMPLETE!
+    // STRICT VALIDATION: If any obstruction detected, or mismatch with social pfp, DO NOT COMPLETE!
     if (!pyResult || !pyResult.passed || pyResult.obstructions?.has_obstruction) {
       playErrorBuzzer();
       if (typeof navigator !== "undefined" && navigator.vibrate) {
@@ -428,16 +565,16 @@ export default function MediaPipeLivenessModal({
       const alertData = {
         code: obs?.code || "OBSTRUCTION_DETECTED",
         type: obs?.type || "obstruction",
-        fil: obs?.fil || "May nakitang sagabal sa mukha. Pakitanggal ang sumbrero, salamin sa mata, o mask bago magpatuloy.",
-        en: obs?.en || "Face obstruction detected. Please remove any hat, glasses, or mask before proceeding.",
+        fil: obs?.fil || "May nakitang sagabal sa mukha o hindi tumutugma sa social photo. Pakitanggal ang sumbrero, salamin, o mask.",
+        en: obs?.en || "Face obstruction or profile mismatch detected. Please remove any hat, glasses, or mask before proceeding.",
       };
       setObstructionAlert(alertData);
       setFeedbackMessage(activeLang === "fil" ? alertData.fil : alertData.en);
       setIsVerifyingWithPython(false);
-      return; // STRICTLY PREVENTS VERIFICATION COMPLETION!
+      return; // STRICTLY BLOCKS COMPLETION!
     }
 
-    // PASSED ALL TESTS WITH ZERO OBSTRUCTIONS!
+    // PASSED ALL TESTS WITH ZERO OBSTRUCTIONS & VERIFIED FACE!
     playSuccessFanfare();
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       navigator.vibrate([70, 50, 120]);
@@ -452,7 +589,7 @@ export default function MediaPipeLivenessModal({
     }, 900);
   }, [captureFrame, onVerified, verifyWithPythonBackend, activeLang]);
 
-  // Direct Mobile Front Camera Capture (works seamlessly even over unsecure HTTP LAN/Wi-Fi)
+  // Direct Mobile Front Camera Capture (Fallback)
   const handleNativeMobileCapture = useCallback((e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -491,7 +628,7 @@ export default function MediaPipeLivenessModal({
     }
   }, [activeLang, onVerified, verifyWithPythonBackend]);
 
-  // Process MediaPipe landmarks frame-by-frame
+  // Process MediaPipe landmarks frame-by-frame with ULTRA-STRICT validation
   const onResults = useCallback((results) => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -500,60 +637,152 @@ export default function MediaPipeLivenessModal({
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Periodic environment check (~every 15 frames)
+    // -------------------------------------------------------------
+    // SCENARIO 1: LIGHTING & ENVIRONMENT (Run every 3 frames)
+    // -------------------------------------------------------------
     frameCounterRef.current += 1;
-    if (frameCounterRef.current % 15 === 0) {
+    if (frameCounterRef.current % 3 === 0) {
       const warn = checkEnvironment(video);
-      setEnvWarning(warn);
+      if (warn) {
+        setWarningMessage(warn.text);
+        poseHoldCounterRef.current = 0;
+        return; // STRICTLY HALT & BLOCK PROGRESSION IN BAD LIGHTING!
+      }
     }
 
-    // Face detection check
+    // -------------------------------------------------------------
+    // SCENARIO 2: NO FACE DETECTED
+    // -------------------------------------------------------------
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       setFaceDetected(false);
-      setFeedbackMessage(activeLang === "fil" ? "Walang mukhang nakikita. Tumingin sa camera." : "No face detected. Look directly at camera.");
+      poseHoldCounterRef.current = 0;
+      setWarningMessage(
+        activeLang === "fil"
+          ? "Walang mukhang nakikita. Tumingin nang diretso sa camera."
+          : "No face detected. Look directly at camera."
+      );
       return;
     }
 
-    // Multiple faces check
+    // -------------------------------------------------------------
+    // SCENARIO 3: MULTIPLE FACES DETECTED
+    // -------------------------------------------------------------
     if (results.multiFaceLandmarks.length > 1) {
       setFaceDetected(false);
-      setFeedbackMessage(activeLang === "fil" ? "Maraming mukha ang nakikita. Isang tao lamang." : "Multiple faces detected. One person only.");
+      poseHoldCounterRef.current = 0;
+      setWarningMessage(
+        activeLang === "fil"
+          ? "Maraming tao ang nakikita sa camera. Isang tao lamang ang kailangan."
+          : "Multiple faces detected. Only one person allowed."
+      );
       return;
     }
 
     setFaceDetected(true);
     const landmarks = results.multiFaceLandmarks[0];
 
-    // Subtle landmark points for tracking feel
+    // Subtle landmark points for tracking visual feedback
     const drawLandmarks = [1, 33, 263, 61, 291, 10, 152];
-    ctx.fillStyle = "rgba(245, 158, 11, 0.75)";
+    ctx.fillStyle = "rgba(245, 158, 11, 0.65)";
     drawLandmarks.forEach((idx) => {
       const lm = landmarks[idx];
       if (lm) {
         ctx.beginPath();
-        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 2.5, 0, 2 * Math.PI);
+        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 2, 0, 2 * Math.PI);
         ctx.fill();
       }
     });
 
-    // 1. Centeredness & Size
+    // Extract Face Biometric Coordinates
     const nose = landmarks[1];
     const chin = landmarks[152];
     const forehead = landmarks[10];
-    const faceHeight = Math.abs(chin.y - forehead.y);
-    const isCentered = nose.x >= 0.32 && nose.x <= 0.68 && nose.y >= 0.28 && nose.y <= 0.72 && faceHeight >= 0.20;
-
-    // 2. Head Yaw (Turn angle)
     const leftCheek = landmarks[234];
     const rightCheek = landmarks[454];
-    const cheekMidX = (leftCheek.x + rightCheek.x) / 2;
-    const cheekWidth = Math.abs(rightCheek.x - leftCheek.x) || 0.1;
-    const yawRatio = (nose.x - cheekMidX) / cheekWidth;
 
-    // 3. Head Pitch (Tilt up/down)
+    if (!nose || !chin || !forehead || !leftCheek || !rightCheek) {
+      poseHoldCounterRef.current = 0;
+      setWarningMessage(
+        activeLang === "fil"
+          ? "Hindi buo ang mukha. Iharap ang buong mukha sa camera."
+          : "Facial landmarks incomplete. Face the camera directly."
+      );
+      return;
+    }
+
+    const faceHeight = Math.abs(chin.y - forehead.y);
+    const cheekWidth = Math.abs(rightCheek.x - leftCheek.x) || 0.1;
+
+    // -------------------------------------------------------------
+    // SCENARIO 4: FACE DISTANCE (TOO FAR OR TOO CLOSE)
+    // -------------------------------------------------------------
+    if (faceHeight < 0.22 || cheekWidth < 0.17) {
+      poseHoldCounterRef.current = 0;
+      setWarningMessage(
+        activeLang === "fil"
+          ? "Masyadong malayo ang mukha. Lumapit nang bahagya sa camera."
+          : "Face too far. Move closer to the camera."
+      );
+      return;
+    }
+
+    if (faceHeight > 0.76 || cheekWidth > 0.62) {
+      poseHoldCounterRef.current = 0;
+      setWarningMessage(
+        activeLang === "fil"
+          ? "Masyadong malapit ang mukha. Umatras nang bahagya."
+          : "Face too close. Move back slightly."
+      );
+      return;
+    }
+
+    // -------------------------------------------------------------
+    // SCENARIO 5: CENTERING & BOUNDS
+    // -------------------------------------------------------------
+    const isCentered =
+      nose.x >= 0.28 &&
+      nose.x <= 0.72 &&
+      nose.y >= 0.24 &&
+      nose.y <= 0.76;
+
+    if (!isCentered) {
+      poseHoldCounterRef.current = 0;
+      setWarningMessage(
+        activeLang === "fil"
+          ? "Igitna ang mukha sa loob ng bilog."
+          : "Keep face centered inside the circle."
+      );
+      return;
+    }
+
+    // -------------------------------------------------------------
+    // SCENARIO 6: MOTION SPEED / SHAKE / BLUR CHECK
+    // -------------------------------------------------------------
+    if (prevNoseRef.current) {
+      const moveDelta = Math.hypot(nose.x - prevNoseRef.current.x, nose.y - prevNoseRef.current.y);
+      if (moveDelta > 0.10) {
+        poseHoldCounterRef.current = 0;
+        setWarningMessage(
+          activeLang === "fil"
+            ? "Mabilis ang galaw. Dahan-dahan lamang."
+            : "Moving too fast. Move slowly and steadily."
+        );
+        prevNoseRef.current = { x: nose.x, y: nose.y };
+        return;
+      }
+    }
+    prevNoseRef.current = { x: nose.x, y: nose.y };
+
+    // -------------------------------------------------------------
+    // HEAD YAW & PITCH ANGLES
+    // -------------------------------------------------------------
+    const cheekMidX = (leftCheek.x + rightCheek.x) / 2;
+    const yawRatio = (nose.x - cheekMidX) / cheekWidth;
     const pitchRatio = (nose.y - forehead.y) / (faceHeight || 0.1);
 
-    // 4. Eye Aspect Ratio (EAR) for Blinking
+    // -------------------------------------------------------------
+    // EYE ASPECT RATIO (EAR) FOR BLINKING & EYE OPENNESS
+    // -------------------------------------------------------------
     const leftDistV = Math.hypot(landmarks[159].x - landmarks[145].x, landmarks[159].y - landmarks[145].y);
     const leftDistH = Math.hypot(landmarks[133].x - landmarks[33].x, landmarks[133].y - landmarks[33].y) || 0.01;
     const leftEAR = leftDistV / leftDistH;
@@ -563,66 +792,181 @@ export default function MediaPipeLivenessModal({
     const rightEAR = rightDistV / rightDistH;
     const avgEAR = (leftEAR + rightEAR) / 2;
 
+    // SCENARIO 7: EYES CLOSED DURING DIRECTIONAL STEPS (0 to 4)
+    if (currentStepIndex < 5 && avgEAR < 0.12) {
+      poseHoldCounterRef.current = 0;
+      setWarningMessage(
+        activeLang === "fil"
+          ? "Panatilihing bukas ang mga mata."
+          : "Keep eyes open and look at the screen."
+      );
+      return;
+    }
+
     // -------------------------------------------------------------
-    // STEP EVALUATION ENGINE
+    // STEP EVALUATION ENGINE (ULTRA-STRICT ZERO PROGRESSION ON WARNING)
     // -------------------------------------------------------------
+    const baseYaw = baselineRef.current.yaw ?? 0;
+    const yawDelta = yawRatio - baseYaw;
+    const basePitch = baselineRef.current.pitch ?? 0.52;
+    const pitchDelta = pitchRatio - basePitch;
+
+    // STEP 0: CENTER FACE
     if (currentStepIndex === 0) {
-      // Step 0: Center Face Challenge
-      if (isCentered) {
-        centerHoldTimerRef.current += 1;
+      const isNeutralPose = Math.abs(yawDelta) < 0.10 && Math.abs(pitchDelta) < 0.08;
+      if (isNeutralPose) {
+        poseHoldCounterRef.current += 1;
+        setWarningMessage(""); // Clear warning
         setFeedbackMessage(activeLang === "fil" ? "Perpekto! Manatiling steady..." : "Great! Hold steady...");
-        if (centerHoldTimerRef.current >= 10) {
+        if (poseHoldCounterRef.current >= 10) {
           baselineRef.current = { yaw: yawRatio, pitch: pitchRatio };
           advanceStep(1); // Proceed to Right
         }
       } else {
-        centerHoldTimerRef.current = 0;
-        setFeedbackMessage(activeLang === "fil" ? "Igitna ang mukha sa bilog" : "Center your face inside the circle");
+        poseHoldCounterRef.current = 0;
+        setWarningMessage(
+          activeLang === "fil"
+            ? "Tumingin nang diretso sa gitna nang hindi nakatagilid."
+            : "Look straight into center without tilting."
+        );
       }
-    } else if (currentStepIndex === 1) {
-      // Step 1: Move Right
-      setFeedbackMessage(activeLang === "fil" ? "Ilingon ang ulo pakanan..." : "Turn head to the right...");
-      const baseYaw = baselineRef.current.yaw ?? 0;
-      const yawDelta = yawRatio - baseYaw;
-      if (Math.abs(yawDelta) > 0.09 || Math.abs(yawRatio) > 0.12) {
-        advanceStep(2); // Proceed to Left
+      return;
+    }
+
+    // STEP 1: TURN HEAD TO THE RIGHT
+    if (currentStepIndex === 1) {
+      // Check for wrong direction (turning left instead):
+      if (yawDelta < -0.06) {
+        poseHoldCounterRef.current = 0;
+        setWarningMessage(
+          activeLang === "fil"
+            ? "Maling direksyon! Ilingon ang ulo Pakanan."
+            : "Wrong direction! Turn your head to the Right."
+        );
+        return;
       }
-    } else if (currentStepIndex === 2) {
-      // Step 2: Move Left
-      setFeedbackMessage(activeLang === "fil" ? "Ilingon naman ang ulo pakaliwa..." : "Now turn head to the left...");
-      const baseYaw = baselineRef.current.yaw ?? 0;
-      const yawDelta = yawRatio - baseYaw;
-      if (Math.abs(yawDelta) > 0.09 || Math.abs(yawRatio) > 0.12) {
-        advanceStep(3); // Proceed to Up
+
+      // Check if correct turn reached
+      const isTurnedRight = yawDelta > 0.07 || yawRatio > 0.10;
+      if (isTurnedRight) {
+        setWarningMessage("");
+        setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
+        poseHoldCounterRef.current += 1;
+        if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
+          advanceStep(2); // Proceed to Left
+        }
+      } else {
+        poseHoldCounterRef.current = 0;
+        setWarningMessage("");
+        setFeedbackMessage(activeLang === "fil" ? "Mabagal na ilingon ang ulo pakanan..." : "Slowly turn head to the right...");
       }
-    } else if (currentStepIndex === 3) {
-      // Step 3: Tilt Up
-      setFeedbackMessage(activeLang === "fil" ? "Itingala nang bahagya ang ulo paitaas..." : "Tilt your head slightly upward...");
-      const basePitch = baselineRef.current.pitch ?? 0.52;
-      const pitchDelta = pitchRatio - basePitch;
-      if (pitchDelta < -0.045 || pitchRatio < 0.46) {
-        advanceStep(4); // Proceed to Down
+      return;
+    }
+
+    // STEP 2: TURN HEAD TO THE LEFT
+    if (currentStepIndex === 2) {
+      // Check for wrong direction (turning right instead):
+      if (yawDelta > 0.06) {
+        poseHoldCounterRef.current = 0;
+        setWarningMessage(
+          activeLang === "fil"
+            ? "Maling direksyon! Ilingon ang ulo Pakaliwa."
+            : "Wrong direction! Turn your head to the Left."
+        );
+        return;
       }
-    } else if (currentStepIndex === 4) {
-      // Step 4: Tilt Down
-      setFeedbackMessage(activeLang === "fil" ? "Iyuko nang bahagya ang ulo paibaba..." : "Tilt your head slightly downward...");
-      const basePitch = baselineRef.current.pitch ?? 0.52;
-      const pitchDelta = pitchRatio - basePitch;
-      if (pitchDelta > 0.045 || pitchRatio > 0.58) {
-        advanceStep(5); // Proceed to Blink
+
+      // Check if correct turn reached
+      const isTurnedLeft = yawDelta < -0.07 || yawRatio < -0.10;
+      if (isTurnedLeft) {
+        setWarningMessage("");
+        setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
+        poseHoldCounterRef.current += 1;
+        if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
+          advanceStep(3); // Proceed to Up
+        }
+      } else {
+        poseHoldCounterRef.current = 0;
+        setWarningMessage("");
+        setFeedbackMessage(activeLang === "fil" ? "Mabagal na ilingon ang ulo pakaliwa..." : "Slowly turn head to the left...");
       }
-    } else if (currentStepIndex === 5) {
-      // Step 5: Blink
+      return;
+    }
+
+    // STEP 3: TILT HEAD UPWARD
+    if (currentStepIndex === 3) {
+      // Check for wrong direction (tilting down instead):
+      if (pitchDelta > 0.04) {
+        poseHoldCounterRef.current = 0;
+        setWarningMessage(
+          activeLang === "fil"
+            ? "Maling direksyon! Itingala ang ulo Paitaas."
+            : "Wrong direction! Tilt your head Upward."
+        );
+        return;
+      }
+
+      // Check if correct tilt up reached
+      const isTiltedUp = pitchDelta < -0.04 || pitchRatio < 0.46;
+      if (isTiltedUp) {
+        setWarningMessage("");
+        setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
+        poseHoldCounterRef.current += 1;
+        if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
+          advanceStep(4); // Proceed to Down
+        }
+      } else {
+        poseHoldCounterRef.current = 0;
+        setWarningMessage("");
+        setFeedbackMessage(activeLang === "fil" ? "Bahagyang itingala ang ulo paitaas..." : "Tilt your head slightly upward...");
+      }
+      return;
+    }
+
+    // STEP 4: TILT HEAD DOWNWARD
+    if (currentStepIndex === 4) {
+      // Check for wrong direction (tilting up instead):
+      if (pitchDelta < -0.04) {
+        poseHoldCounterRef.current = 0;
+        setWarningMessage(
+          activeLang === "fil"
+            ? "Maling direksyon! Iyuko ang ulo Paibaba."
+            : "Wrong direction! Tilt your head Downward."
+        );
+        return;
+      }
+
+      // Check if correct tilt down reached
+      const isTiltedDown = pitchDelta > 0.04 || pitchRatio > 0.58;
+      if (isTiltedDown) {
+        setWarningMessage("");
+        setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
+        poseHoldCounterRef.current += 1;
+        if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
+          advanceStep(5); // Proceed to Blink
+        }
+      } else {
+        poseHoldCounterRef.current = 0;
+        setWarningMessage("");
+        setFeedbackMessage(activeLang === "fil" ? "Bahagyang iyuko ang ulo paibaba..." : "Tilt your head slightly downward...");
+      }
+      return;
+    }
+
+    // STEP 5: BLINK EYES NATURALLY
+    if (currentStepIndex === 5) {
+      setWarningMessage("");
       setFeedbackMessage(activeLang === "fil" ? "Kumurap ng iyong mga mata..." : "Blink your eyes naturally...");
       if (avgEAR > 0.22) {
         blinkStateRef.current.hasOpened = true;
       }
-      if (blinkStateRef.current.hasOpened && avgEAR < 0.14) {
+      if (blinkStateRef.current.hasOpened && avgEAR < 0.13) {
         blinkStateRef.current.hasClosed = true;
       }
       if (blinkStateRef.current.hasOpened && blinkStateRef.current.hasClosed && avgEAR > 0.20) {
         completeVerification();
       }
+      return;
     }
   }, [currentStepIndex, activeLang, advanceStep, checkEnvironment, completeVerification]);
 
@@ -633,7 +977,7 @@ export default function MediaPipeLivenessModal({
       setCurrentStepIndex(0);
       setIsCompleted(false);
       setCapturedDataUrl("");
-      setEnvWarning(null);
+      setWarningMessage("");
       return;
     }
 
@@ -698,6 +1042,7 @@ export default function MediaPipeLivenessModal({
             animFrameIdRef.current = requestAnimationFrame(renderLoop);
           }
         }
+
         animFrameIdRef.current = requestAnimationFrame(renderLoop);
       } catch (err) {
         console.warn("[MediaPipeLivenessModal] Camera Initialization Notice:", err);
@@ -734,7 +1079,6 @@ export default function MediaPipeLivenessModal({
 
   // Percentage calculation for circular progress ring (6 steps)
   const progressPercent = Math.min(100, Math.round((currentStepIndex / CHALLENGES.length) * 100));
-  // Circle radius = 126 for a 272x272 viewBox
   const radius = 126;
   const circumference = 2 * Math.PI * radius; // ~791.7
   const strokeDashoffset = circumference - (circumference * progressPercent) / 100;
@@ -744,9 +1088,36 @@ export default function MediaPipeLivenessModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-neutral-950/80 backdrop-blur-md animate-in fade-in duration-200">
+      {/* Dynamic Keyframes for 3D Directional Arrow Floating */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes mcpaFloatRight {
+              0%, 100% { transform: rotate(0deg) translateX(0px); }
+              50% { transform: rotate(0deg) translateX(8px); }
+            }
+            @keyframes mcpaFloatLeft {
+              0%, 100% { transform: rotate(180deg) translateX(0px); }
+              50% { transform: rotate(180deg) translateX(8px); }
+            }
+            @keyframes mcpaFloatUp {
+              0%, 100% { transform: rotate(270deg) translateX(0px); }
+              50% { transform: rotate(270deg) translateX(8px); }
+            }
+            @keyframes mcpaFloatDown {
+              0%, 100% { transform: rotate(90deg) translateX(0px); }
+              50% { transform: rotate(90deg) translateX(8px); }
+            }
+            .mcpa-float-right { animation: mcpaFloatRight 1.1s ease-in-out infinite; }
+            .mcpa-float-left { animation: mcpaFloatLeft 1.1s ease-in-out infinite; }
+            .mcpa-float-up { animation: mcpaFloatUp 1.1s ease-in-out infinite; }
+            .mcpa-float-down { animation: mcpaFloatDown 1.1s ease-in-out infinite; }
+          `,
+        }}
+      />
+
       {/* Container adapts to Light and Dark mode */}
       <div className="relative w-full max-w-[420px] rounded-3xl bg-white dark:bg-[#11141e] border border-neutral-200 dark:border-neutral-800 shadow-2xl overflow-hidden flex flex-col items-center p-5 text-neutral-900 dark:text-white transition-colors">
-        
         {/* Top Header Bar */}
         <div className="w-full flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-2">
@@ -759,8 +1130,12 @@ export default function MediaPipeLivenessModal({
               </h4>
               <p className="text-[10px] text-neutral-500 dark:text-neutral-400">
                 {purpose === "login"
-                  ? (activeLang === "fil" ? "Biometric 1-Click Login" : "Biometric Face Login")
-                  : (activeLang === "fil" ? "Architectural Client Identity Verification" : "Architectural Client Identity Verification")}
+                  ? activeLang === "fil"
+                    ? "Biometric 1-Click Login"
+                    : "Biometric Face Login"
+                  : activeLang === "fil"
+                  ? "Architectural Client Identity Verification"
+                  : "Architectural Client Identity Verification"}
               </p>
             </div>
           </div>
@@ -775,7 +1150,7 @@ export default function MediaPipeLivenessModal({
         </div>
 
         {/* Camera Viewport: PURE CIRCLE with CIRCULAR SVG PROGRESS RING */}
-        <div className="relative my-4 flex items-center justify-center">
+        <div className="relative mt-3.5 mb-1 flex items-center justify-center">
           {/* Circular SVG Progress Ring surrounding the camera */}
           <svg className="absolute w-[280px] h-[280px] pointer-events-none -rotate-90">
             {/* Background Track */}
@@ -794,7 +1169,7 @@ export default function MediaPipeLivenessModal({
               cy="140"
               r={radius}
               fill="none"
-              stroke={obstructionAlert ? "#f43f5e" : (isCompleted ? "#10b981" : "#f59e0b")}
+              stroke={obstructionAlert ? "#f43f5e" : isCompleted ? "#10b981" : "#f59e0b"}
               strokeWidth="5"
               strokeDasharray={circumference}
               strokeDashoffset={isCompleted ? 0 : strokeDashoffset}
@@ -822,69 +1197,12 @@ export default function MediaPipeLivenessModal({
               className="w-full h-full object-cover scale-x-[-1] rounded-full"
             />
 
-            {/* INSIDE ANIMATED ARROW GUIDANCE OVERLAY */}
+            {/* INSIDE ANIMATED 3D ARROW GUIDANCE OVERLAY (NO TEXT, LOW OPACITY ~68%) */}
             {!isLoadingEngine && !cameraError && !isCompleted && !obstructionAlert && (
-              <>
-                {/* Center Guide Dashed Circle */}
-                {currentChallenge.arrowDirection === "none" && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                    <div className="w-40 h-40 rounded-full border-2 border-dashed border-amber-400/60 animate-pulse" />
-                  </div>
-                )}
-
-                {/* Move Right Indicator: Animated Arrow pointing Right */}
-                {currentChallenge.arrowDirection === "right" && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-950/75 backdrop-blur-md text-amber-400 border border-amber-500/40 text-xs font-bold shadow-lg">
-                      <span>{activeLang === "fil" ? "Pakanan" : "Turn Right"}</span>
-                      <ArrowRight className="w-4 h-4 animate-[bounce_1s_infinite] rotate-0" />
-                    </div>
-                  </div>
-                )}
-
-                {/* Move Left Indicator: Animated Arrow pointing Left */}
-                {currentChallenge.arrowDirection === "left" && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-950/75 backdrop-blur-md text-amber-400 border border-amber-500/40 text-xs font-bold shadow-lg">
-                      <ArrowLeft className="w-4 h-4 animate-[bounce_1s_infinite]" />
-                      <span>{activeLang === "fil" ? "Pakaliwa" : "Turn Left"}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Move Up Indicator: Animated Arrow pointing Up */}
-                {currentChallenge.arrowDirection === "up" && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-950/75 backdrop-blur-md text-amber-400 border border-amber-500/40 text-xs font-bold shadow-lg">
-                      <ArrowUp className="w-4 h-4 animate-[bounce_1s_infinite]" />
-                      <span>{activeLang === "fil" ? "Itingala" : "Tilt Up"}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Move Down Indicator: Animated Arrow pointing Down */}
-                {currentChallenge.arrowDirection === "down" && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-950/75 backdrop-blur-md text-amber-400 border border-amber-500/40 text-xs font-bold shadow-lg">
-                      <ArrowDown className="w-4 h-4 animate-[bounce_1s_infinite]" />
-                      <span>{activeLang === "fil" ? "Iyuko" : "Tilt Down"}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Blink Indicator: Pulsating Eye Icon */}
-                {currentChallenge.arrowDirection === "blink" && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-950/75 backdrop-blur-md text-amber-400 border border-amber-500/40 text-xs font-bold shadow-lg">
-                      <Eye className="w-4 h-4 animate-ping" />
-                      <span>{activeLang === "fil" ? "Kumurap" : "Blink"}</span>
-                    </div>
-                  </div>
-                )}
-              </>
+              <Directional3DArrow direction={currentChallenge.arrowDirection} />
             )}
 
-            {/* Obstruction Warning Overlay (Hat, Sunglasses, Eyeglasses, Mask, Hand) */}
+            {/* Obstruction Warning Overlay (Hat, Sunglasses, Mask, Mismatch) */}
             {obstructionAlert && !isCompleted && (
               <div className="absolute inset-0 bg-neutral-950/92 backdrop-blur-xs flex flex-col items-center justify-center p-3 text-center z-35 animate-in zoom-in-95 duration-200 rounded-full">
                 <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/50 text-rose-400 flex items-center justify-center mb-1 animate-pulse">
@@ -904,16 +1222,6 @@ export default function MediaPipeLivenessModal({
                   <RotateCcw className="w-3 h-3" />
                   <span>{activeLang === "fil" ? "Subukan Muli (Nakatanggal)" : "Retry (Removed)"}</span>
                 </button>
-              </div>
-            )}
-
-            {/* Environmental Warning Overlay (Dark / Glare / Blur) */}
-            {envWarning && !isCompleted && (
-              <div className="absolute top-2 inset-x-2 z-25 flex justify-center pointer-events-none">
-                <div className="px-2.5 py-1 rounded-full bg-red-950/85 border border-red-500/50 text-[10px] text-red-200 font-medium flex items-center gap-1 backdrop-blur-xs">
-                  <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />
-                  <span className="truncate max-w-[200px]">{envWarning.text}</span>
-                </div>
               </div>
             )}
 
@@ -964,9 +1272,25 @@ export default function MediaPipeLivenessModal({
           </div>
         </div>
 
+        {/* PURE TEXT WARNING (OUTSIDE CAMERA, NO BACKGROUND BOX) */}
+        <div className="w-full min-h-[28px] my-1 flex items-center justify-center text-center px-4">
+          {warningMessage ? (
+            <div className="flex items-center justify-center gap-1.5 text-rose-600 dark:text-rose-400 font-bold text-xs sm:text-[13px] animate-pulse">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+              <span>{warningMessage}</span>
+            </div>
+          ) : (
+            <div className="text-[11px] text-neutral-400 dark:text-neutral-500 font-medium">
+              {activeLang === "fil"
+                ? "Sundin ang direksyon ng 3D arrow nang banayad"
+                : "Follow the 3D directional arrow smoothly"}
+            </div>
+          )}
+        </div>
+
         {/* Active Challenge Indicator Card */}
         <div className="w-full bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 rounded-2xl p-3.5 flex flex-col items-center text-center transition-colors">
-          {/* Pure clean text without background pill container */}
+          {/* Step Progress Pill */}
           <div className="flex items-center justify-center gap-1.5 text-amber-600 dark:text-amber-400 text-xs font-semibold mb-1">
             <ChallengeIcon className="w-3.5 h-3.5 text-amber-500" />
             <span>
@@ -999,7 +1323,6 @@ export default function MediaPipeLivenessModal({
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );

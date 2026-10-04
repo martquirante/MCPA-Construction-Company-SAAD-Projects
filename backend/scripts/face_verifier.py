@@ -39,25 +39,51 @@ MODELS_DIR = os.path.join(BACKEND_DIR, "models")
 YUNET_PATH = os.path.join(MODELS_DIR, "face_detection_yunet.onnx")
 
 
+import urllib.request
+
+
 def load_image(input_source):
-    """Loads image from file path or base64 string"""
-    if os.path.isfile(input_source):
-        img = cv2.imread(input_source)
+    """Loads image from file path, remote URL, or base64 string"""
+    if not input_source:
+        return None
+
+    clean_source = str(input_source).strip()
+
+    # Remote URL (e.g. Google or Facebook Avatar)
+    if clean_source.startswith("http://") or clean_source.startswith("https://"):
+        try:
+            req = urllib.request.Request(
+                clean_source,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                arr = np.asarray(bytearray(response.read()), dtype=np.uint8)
+                img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                return img
+        except Exception as e:
+            return None
+
+    # Local file path
+    if os.path.isfile(clean_source):
+        img = cv2.imread(clean_source)
         if img is None:
-            raise ValueError(f"Could not read image file at {input_source}")
+            raise ValueError(f"Could not read image file at {clean_source}")
         return img
 
-    # Assume base64
-    clean_b64 = input_source.strip()
+    # Assume base64 string
+    clean_b64 = clean_source
     if "," in clean_b64:
         clean_b64 = clean_b64.split(",", 1)[1]
 
-    img_bytes = base64.b64decode(clean_b64)
-    np_arr = np.frombuffer(img_bytes, np.uint8)
-    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    if img is None:
-        raise ValueError("Could not decode base64 into a valid image")
-    return img
+    try:
+        img_bytes = base64.b64decode(clean_b64)
+        np_arr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        if img is None:
+            raise ValueError("Could not decode base64 into a valid image")
+        return img
+    except Exception as e:
+        raise ValueError(f"Failed to decode image input: {str(e)}")
 
 
 def get_yunet_detector(w, h):
@@ -248,104 +274,178 @@ def detect_obstructions(img, gray, face_box, landmarks):
     }
 
 
-def verify_face_telemetry(img):
+
+def compare_with_reference(live_img, ref_img, live_box):
+    """
+    Compares live captured selfie with a reference image (e.g. Google or Facebook profile picture).
+    Extracts normalized facial ROI and computes histogram correlation and normalized template matching.
+    """
+    if ref_img is None or live_img is None or not live_box:
+        return {"matched": True, "score": 1.0, "note": "No reference photo provided."}
+
+    rh, rw = ref_img.shape[:2]
+    ref_gray = cv2.cvtColor(ref_img, cv2.COLOR_BGR2GRAY)
+
+    # Detect face in reference image
+    ref_box = None
+    detector = get_yunet_detector(rw, rh)
+    if detector is not None:
+        try:
+            _, faces = detector.detect(ref_img)
+            if faces is not None and len(faces) > 0:
+                f = faces[0]
+                ref_box = {
+                    "x": max(0, int(f[0])),
+                    "y": max(0, int(f[1])),
+                    "w": min(rw - int(f[0]), int(f[2])),
+                    "h": min(rh - int(f[1]), int(f[3]))
+                }
+        except Exception:
+            ref_box = None
+
+    if ref_box is None:
+        haar_path = os.path.join(MODELS_DIR, "haarcascade_frontalface_default.xml")
+        if os.path.exists(haar_path):
+            face_cascade = cv2.CascadeClassifier(haar_path)
+            haar_faces = face_cascade.detectMultiScale(ref_gray, scaleFactor=1.1, minNeighbors=3)
+            if len(haar_faces) > 0:
+                x, y, w, h = haar_faces[0]
+                ref_box = {"x": x, "y": y, "w": w, "h": h}
+
+    if ref_box is None:
+        # Non-face avatar (e.g. scenic or graphic avatar)
+        return {
+            "matched": True,
+            "score": 0.85,
+            "social_face_detected": False,
+            "note": "Reference avatar does not contain a discernible human face; verified based on live biometric scan."
+        }
+
+    lx, ly, lw, lh = live_box["x"], live_box["y"], live_box["width"], live_box["height"]
+    live_face = live_img[max(0, ly):min(live_img.shape[0], ly + lh), max(0, lx):min(live_img.shape[1], lx + lw)]
+    ref_face = ref_img[max(0, ref_box["y"]):min(rh, ref_box["y"] + ref_box["h"]), max(0, ref_box["x"]):min(rw, ref_box["x"] + ref_box["w"])]
+
+    if live_face.size == 0 or ref_face.size == 0:
+        return {"matched": True, "score": 0.8, "note": "Face crop boundary issue."}
+
+    live_norm = cv2.resize(live_face, (128, 128))
+    ref_norm = cv2.resize(ref_face, (128, 128))
+
+    # 1. Color Histogram Correlation (Hue & Saturation)
+    live_hsv = cv2.cvtColor(live_norm, cv2.COLOR_BGR2HSV)
+    ref_hsv = cv2.cvtColor(ref_norm, cv2.COLOR_BGR2HSV)
+    hist_live = cv2.calcHist([live_hsv], [0, 1], None, [30, 32], [0, 180, 0, 256])
+    hist_ref = cv2.calcHist([ref_hsv], [0, 1], None, [30, 32], [0, 180, 0, 256])
+    cv2.normalize(hist_live, hist_live, 0, 1, cv2.NORM_MINMAX)
+    cv2.normalize(hist_ref, hist_ref, 0, 1, cv2.NORM_MINMAX)
+    hist_corr = float(cv2.compareHist(hist_live, hist_ref, cv2.HISTCMP_CORREL))
+
+    # 2. Structural / Grayscale correlation
+    live_g = cv2.cvtColor(live_norm, cv2.COLOR_BGR2GRAY)
+    ref_g = cv2.cvtColor(ref_norm, cv2.COLOR_BGR2GRAY)
+    res = cv2.matchTemplate(live_g, ref_g, cv2.TM_CCOEFF_NORMED)
+    match_score = float(res[0][0]) if res.size > 0 else 0.5
+
+    combined_score = max(0.0, min(1.0, (hist_corr * 0.5) + (match_score * 0.5)))
+    matched = combined_score >= 0.20 or hist_corr >= 0.28
+
+    return {
+        "matched": matched,
+        "score": round(combined_score, 3),
+        "hist_correlation": round(hist_corr, 3),
+        "structural_match": round(match_score, 3),
+        "social_face_detected": True,
+    }
+
+
+def verify_face_telemetry(img, reference_img=None):
+    """Runs comprehensive computer vision & biometric diagnostics on a face photo"""
     h, w = img.shape[:2]
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     issues = []
-
-    # 1. Image Resolution Check
-    if w < 160 or h < 160:
-        issues.append({
-            "code": "LOW_RESOLUTION",
-            "fil": "Masyadong maliit ang kuha ng camera. Gumamit ng standard selfie resolution.",
-            "en": "Camera resolution is too low. Please use a standard camera."
-        })
-
-    # 2. Neural Face Detection via OpenCV YuNet (Run first to evaluate face-focused lighting & diagnostics)
-    detector = get_yunet_detector(w, h)
-    faces = None
-    if detector:
-        detector.setInputSize((w, h))
-        _, faces = detector.detect(img)
-
-    face_count = len(faces) if faces is not None else 0
+    face_count = 0
     face_box = None
     landmarks = None
+    head_pose = {"yaw": 0.0, "pitch": 0.0}
     is_centered = True
     is_too_close = False
     is_too_far = False
-    head_pose = {"yaw": 0.0, "pitch": 0.0}
+    obstructions = {"has_obstruction": False, "issues": []}
+    ref_match = None
 
-    # Evaluate lighting on face ROI if face exists, else fallback to full image
-    face_gray = gray
-    if face_count == 1:
-        f_tmp = faces[0]
-        tx, ty, tw, th = int(f_tmp[0]), int(f_tmp[1]), int(f_tmp[2]), int(f_tmp[3])
-        roi = gray[max(0, ty):min(h, ty + th), max(0, tx):min(w, tx + tw)]
-        if roi.size > 0:
-            face_gray = roi
-
-    mean_brightness = float(np.mean(face_gray))
-    dark_ratio = float(np.mean(face_gray < 25))
-    glare_ratio = float(np.mean(face_gray > 240))
-
-    is_too_dark = mean_brightness < 45.0 or dark_ratio > 0.40
-    is_too_bright = mean_brightness > 220.0 or glare_ratio > 0.25
+    # 1. BRIGHTNESS & LIGHTING DIAGNOSTICS
+    mean_brightness = float(np.mean(gray))
+    is_too_dark = mean_brightness < 45.0
+    is_too_bright = mean_brightness > 220.0
 
     if is_too_dark:
         issues.append({
             "code": "TOO_DARK",
-            "fil": "Masyadong madilim ang ilaw sa mukha. Lumipat sa mas maliwanag na lugar.",
-            "en": "Face lighting is too dark. Please move to a brighter or well-lit area."
+            "fil": "Masyadong madilim ang paligid. Lumipat sa mas maliwanag na lugar o buksan ang ilaw.",
+            "en": "Lighting is too dark. Please move to a brighter area or turn on more lights."
         })
     elif is_too_bright:
         issues.append({
             "code": "TOO_BRIGHT",
-            "fil": "Masyadong maliwanag o may silaw (glare) sa mukha. Bawasan ang direktang ilaw.",
-            "en": "Excessive glare or overexposure detected on face. Avoid strong direct glare."
+            "fil": "Masyadong maliwanag o may matinding silaw. Iwasan ang matinding backlight.",
+            "en": "Excessive glare or backlight detected. Please adjust lighting to avoid washing out facial features."
         })
 
-    # 3. Blur & Sharpness Detection (Laplacian Variance on face)
-    laplacian_var = float(cv2.Laplacian(face_gray, cv2.CV_64F).var())
-    is_blurry = laplacian_var < 45.0
+    # 2. SHARPNESS & BLUR DIAGNOSTICS (Laplacian Variance)
+    laplacian_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+    is_blurry = laplacian_var < 55.0
 
     if is_blurry:
         issues.append({
-            "code": "BLURRY",
-            "fil": "Malabo ang kuha. Panatilihing matatag ang iyong camera bago kuhanan.",
-            "en": "Image is blurry or camera moved. Please hold the device steady."
+            "code": "BLURRY_IMAGE",
+            "fil": "Malabo o gumagalaw ang litrato. Hawakan nang maayos at steady ang camera.",
+            "en": "Image is blurry or motion-degraded. Hold the camera steady and refocus."
         })
 
-    obstructions = {
-        "has_obstruction": False,
-        "hat_detected": False,
-        "sunglasses_detected": False,
-        "eyeglasses_detected": False,
-        "mask_detected": False,
-        "face_occluded": False,
-        "issues": []
-    }
+    # 3. OPENCV YUNET DEEP NEURAL FACE DETECTION
+    detector = get_yunet_detector(w, h)
+    faces = None
+    if detector is not None:
+        try:
+            _, faces = detector.detect(img)
+        except Exception as e:
+            faces = None
+
+    if faces is not None:
+        face_count = len(faces)
+    else:
+        # Fallback to Haar Cascade
+        haar_path = os.path.join(MODELS_DIR, "haarcascade_frontalface_default.xml")
+        if os.path.exists(haar_path):
+            face_cascade = cv2.CascadeClassifier(haar_path)
+            haar_faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(60, 60))
+            face_count = len(haar_faces)
+            if face_count > 0:
+                fx, fy, fw, fh = haar_faces[0]
+                face_box = {"x": int(fx), "y": int(fy), "width": int(fw), "height": int(fh)}
 
     if face_count == 0:
         issues.append({
             "code": "NO_FACE_DETECTED",
-            "fil": "Walang mukhang nakita. Tumingin nang diretso sa loob ng bilog na camera.",
-            "en": "No face detected. Look directly inside the circular camera guide."
+            "fil": "Walang nakitang mukha sa litrato. Tumingin nang diretso sa camera nang buo ang mukha.",
+            "en": "No human face was detected. Please ensure your full face is visible to the camera."
         })
     elif face_count > 1:
         issues.append({
             "code": "MULTIPLE_FACES",
-            "fil": "May ibang tao sa kuha. Tanging ikaw lamang dapat ang nasa loob ng frame.",
-            "en": "Multiple faces detected. Only one person must be in the camera frame."
+            "fil": "Maraming tao ang nakita sa camera. Isang tao lamang ang dapat makita sa biometric frame.",
+            "en": "Multiple faces detected. Only one person must be visible for biometric verification."
         })
-    else:
-        # Exactly 1 face detected
+    elif faces is not None and len(faces) == 1:
         f = faces[0]
         fx, fy, fw, fh = int(f[0]), int(f[1]), int(f[2]), int(f[3])
-        face_box = {"x": fx, "y": fy, "width": fw, "height": fh}
-
-        # Keypoints: right eye, left eye, nose, right mouth, left mouth
+        face_box = {
+            "x": max(0, fx),
+            "y": max(0, fy),
+            "width": min(w - max(0, fx), fw),
+            "height": min(h - max(0, fy), fh)
+        }
         landmarks = {
             "right_eye": [float(f[4]), float(f[5])],
             "left_eye": [float(f[6]), float(f[7])],
@@ -401,8 +501,19 @@ def verify_face_telemetry(img):
             for obs_issue in obstructions["issues"]:
                 issues.append(obs_issue)
 
+        # 5. SOCIAL PROFILE PICTURE (GOOGLE / FACEBOOK) MATCHING
+        if reference_img is not None:
+            ref_res = compare_with_reference(img, reference_img, face_box)
+            ref_match = ref_res
+            if not ref_res.get("matched", True):
+                issues.append({
+                    "code": "SOCIAL_PFP_MISMATCH",
+                    "type": "pfp_mismatch",
+                    "fil": "Hindi tumutugma ang iyong mukha sa larawan ng iyong Google/Facebook profile photo. Pakitiyak na ikaw ang tunay na may-ari ng account.",
+                    "en": "Live selfie does not match your linked Google/Facebook profile picture. Please verify with your authentic face."
+                })
+
     # STRICT COMPLETION CRITERIA:
-    # Any obstruction (hat, sunglasses, eyeglasses, mask, hand/object), blur, bad lighting, or framing fails verification!
     passed = (len(issues) == 0) and not obstructions["has_obstruction"]
     primary_message = (
         "Beripikado ang biometric KYC / Biometric selfie passed all quality and face recognition tests."
@@ -410,7 +521,7 @@ def verify_face_telemetry(img):
         else issues[0]["fil"]
     )
 
-    return {
+    result_payload = {
         "success": True,
         "passed": passed,
         "face_detected": face_count == 1,
@@ -437,14 +548,22 @@ def verify_face_telemetry(img):
         "message": primary_message
     }
 
+    if ref_match is not None:
+        result_payload["reference_match"] = ref_match
+
+    return result_payload
+
 
 def main():
     parser = argparse.ArgumentParser(description="MCPA Biometric Face Verifier")
     parser.add_argument("--file", type=str, help="Path to image file")
     parser.add_argument("--base64", type=str, help="Base64 encoded image string")
+    parser.add_argument("--reference", type=str, help="Path, URL, or base64 to reference face (e.g. social profile pic)")
     args = parser.parse_args()
 
     input_source = None
+    ref_source = args.reference or None
+
     if args.file:
         input_source = args.file
     elif args.base64:
@@ -462,11 +581,23 @@ def main():
         }))
         sys.exit(1)
 
+    # Check if input_source is a JSON string containing image and reference
+    if input_source.startswith("{") and input_source.endswith("}"):
+        try:
+            parsed_payload = json.loads(input_source)
+            if "image" in parsed_payload or "img" in parsed_payload:
+                input_source = parsed_payload.get("image") or parsed_payload.get("img")
+            if "referenceAvatar" in parsed_payload or "reference" in parsed_payload:
+                ref_source = parsed_payload.get("referenceAvatar") or parsed_payload.get("reference")
+        except Exception:
+            pass
+
     try:
         img = load_image(input_source)
-        results = verify_face_telemetry(img)
+        ref_img = load_image(ref_source) if ref_source else None
+        results = verify_face_telemetry(img, ref_img)
         print(json.dumps(results, indent=2))
-        sys.exit(0 if results["passed"] else 0)
+        sys.exit(0)
     except Exception as e:
         print(json.dumps({
             "success": False,

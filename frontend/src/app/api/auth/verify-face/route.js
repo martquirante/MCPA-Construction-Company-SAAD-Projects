@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { image } = body;
+    const { image, referenceAvatar } = body;
 
     if (!image) {
       return NextResponse.json(
@@ -64,7 +64,8 @@ export async function POST(req) {
             resolve(null);
           });
 
-          pyProc.stdin.write(image);
+          // Write JSON payload with image and optional referenceAvatar
+          pyProc.stdin.write(JSON.stringify({ image, referenceAvatar }));
           pyProc.stdin.end();
 
           // Safety timeout
@@ -94,7 +95,7 @@ export async function POST(req) {
         const remoteRes = await fetch(`${backendUrl}/api/auth/verify-face`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image }),
+          body: JSON.stringify({ image, referenceAvatar }),
         });
         if (remoteRes.ok) {
           const remoteData = await remoteRes.json();

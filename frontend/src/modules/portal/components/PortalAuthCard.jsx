@@ -798,8 +798,9 @@ export default function PortalAuthCard({ onLoginSuccess }) {
         const profile = data.profile || {};
         if (profile.firstName) setFirstName(profile.firstName);
         if (profile.lastName) setLastName(profile.lastName);
-        if (profile.email) setRegisterEmail(profile.email);
-        if (profile.avatarUrl) setCapturedSelfie(profile.avatarUrl);
+        // Do not auto-set capturedSelfie: Face verification is strictly mandatory even for Google & Facebook signups
+        setCapturedSelfie(null);
+        setIsLivenessVerified(false);
 
         setSocialConnected({
           provider: profile.provider || provider,
@@ -2546,9 +2547,31 @@ export default function PortalAuthCard({ onLoginSuccess }) {
               </div>
 
               <div className="space-y-3 max-h-[min(56vh,420px)] overflow-y-auto pr-1 scrollbar-thin">
-                {/* 1. STANDBY STATE: EDITORIAL BIOMETRIC REQUIREMENTS (NO GCASH CLENLINESS) */}
+                {/* 1. STANDBY STATE: EDITORIAL BIOMETRIC REQUIREMENTS */}
                 {!isCameraActive && !capturedSelfie && (
                   <div className="space-y-3 animate-in fade-in duration-150">
+                    {/* Social Profile Connected Notice (Google / Facebook) */}
+                    {socialConnected?.avatarUrl && (
+                      <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3 text-left">
+                        <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-amber-500 shrink-0 shadow-sm">
+                          <img src={socialConnected.avatarUrl} alt="Social Profile" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400">
+                              {socialConnected.provider === "google" ? "Google Account" : "Facebook Account"}
+                            </span>
+                            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">Linked Photo</span>
+                          </div>
+                          <p className="text-[11px] text-neutral-700 dark:text-neutral-300 font-medium leading-tight mt-0.5">
+                            {activeLang === "fil"
+                              ? "Kailangan pa rin ng live biometric verification upang itugma sa profile photo ng iyong account."
+                              : "Live biometric verification is required and will be matched with your social profile photo."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Visual Do & Don't KYC Instruction Guide */}
                     <div className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm bg-neutral-100 dark:bg-neutral-900/60 transition-colors">
                       <img
@@ -2852,10 +2875,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 </button>
                 <button
                   type="button"
-                  disabled={Boolean(faceObstructionError) || isFaceChecking}
+                  disabled={!capturedSelfie || !isLivenessVerified || Boolean(faceObstructionError) || isFaceChecking}
                   onClick={() => {
-                    if (!capturedSelfie) {
-                      setErrorMessage(t.errFacePhoto);
+                    if (!capturedSelfie || !isLivenessVerified) {
+                      setErrorMessage(
+                        activeLang === "fil"
+                          ? "Kailangan tapusin ang biometric face verification bago magpatuloy."
+                          : "Please complete the biometric face verification before proceeding."
+                      );
                       return;
                     }
                     if (faceObstructionError) {
@@ -2867,7 +2894,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     setSignupStep(4);
                   }}
                   className={`h-11 rounded-xl font-bold text-sm shadow-sm flex items-center justify-center gap-2 transition-all ${
-                    faceObstructionError || isFaceChecking
+                    !capturedSelfie || !isLivenessVerified || faceObstructionError || isFaceChecking
                       ? "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed"
                       : "bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-neutral-950 cursor-pointer"
                   }`}
@@ -3567,7 +3594,8 @@ export default function PortalAuthCard({ onLoginSuccess }) {
         onClose={() => setIsLivenessModalOpen(false)}
         activeLang={activeLang}
         purpose={livenessPurpose}
-        onVerified={async (verifiedImage) => {
+        referenceAvatar={socialConnected?.avatarUrl || null}
+        onVerified={async (verifiedImage, pyResult) => {
           setIsLivenessModalOpen(false);
 
           if (livenessPurpose === "login") {
@@ -3611,10 +3639,19 @@ export default function PortalAuthCard({ onLoginSuccess }) {
             setIsLivenessVerified(true);
             setFaceObstructionError("");
             setErrorMessage("");
+
+            const matchNotice =
+              pyResult?.reference_match && socialConnected?.avatarUrl
+                ? activeLang === "fil"
+                  ? " • Tugma sa iyong social profile photo!"
+                  : " • Matched with your linked profile photo!"
+                : "";
+
             setFaceCheckFeedback(
-              activeLang === "fil"
+              (activeLang === "fil"
                 ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
-                : "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified."
+                : "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified.") +
+                matchNotice
             );
           }
         }}
