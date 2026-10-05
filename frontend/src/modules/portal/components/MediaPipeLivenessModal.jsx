@@ -199,7 +199,7 @@ const CHALLENGES = [
     en: "Position face inside circle",
     subFil: "Manatiling nakatingin nang diretso sa gitna",
     subEn: "Look straight into the center of the camera",
-    icon: ShieldCheck,
+    icon: Camera,
     arrowDirection: "none",
   },
   {

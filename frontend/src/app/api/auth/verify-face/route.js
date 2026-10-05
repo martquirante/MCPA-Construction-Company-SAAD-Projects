@@ -59,12 +59,16 @@ export async function POST(req) {
             }
           });
 
+          pyProc.stdin.on("error", (stdinErr) => {
+            // Prevent uncaught EPIPE if python exits early
+          });
+
           pyProc.on("error", (err) => {
             hasExited = true;
             resolve(null);
           });
 
-          pyProc.stdin.write(image);
+          pyProc.stdin.write(JSON.stringify({ image, referenceAvatar: body?.referenceAvatar }));
           pyProc.stdin.end();
 
           // Safety timeout
@@ -73,7 +77,7 @@ export async function POST(req) {
               try { pyProc.kill(); } catch (e) { }
               resolve(null);
             }
-          }, 6000);
+          }, 8000);
         });
 
         if (results) {
@@ -114,6 +118,7 @@ export async function POST(req) {
       message: "Biometric identity photo accepted.",
     });
   } catch (err) {
+    console.error("[verify-face route error]:", err);
     return NextResponse.json(
       { success: false, passed: false, message: "Verification processing error: " + err.message },
       { status: 500 }

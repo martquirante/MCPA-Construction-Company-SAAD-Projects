@@ -155,8 +155,8 @@ def detect_obstructions(img, gray, face_box, landmarks):
     cheek_ref = img[ch_y1:ch_y2, max(0, fx + int(fw * 0.15)):min(w, fx + int(fw * 0.35))]
     cheek_gray_mean = float(np.mean(cv2.cvtColor(cheek_ref, cv2.COLOR_BGR2GRAY))) if cheek_ref.size > 0 else 140.0
 
-    # 1. Sunglasses: Dark lenses covering eyes
-    if (r_dark_ratio > 0.45 or l_dark_ratio > 0.45) or (mean_eye_gray < 55.0 and cheek_gray_mean > 85.0):
+    # 1. Sunglasses: Dark lenses covering both eyes
+    if (r_dark_ratio > 0.65 and l_dark_ratio > 0.65) or (mean_eye_gray < 45.0 and cheek_gray_mean > 95.0):
         sunglasses_detected = True
         obstruction_issues.append({
             "code": "SUNGLASSES_DETECTED",
@@ -165,25 +165,29 @@ def detect_obstructions(img, gray, face_box, landmarks):
             "en": "Sunglasses or tinted glasses detected. Please remove them to verify eye biometrics."
         })
     else:
-        # 2. Eyeglasses / Clear frames check on nose bridge
+        # 2. Eyeglasses / Heavy dark frames check on nose bridge
         bx1 = int(min(re_x, le_x) + fw * 0.12)
         bx2 = int(max(re_x, le_x) - fw * 0.12)
         by1 = int(min(re_y, le_y) - fh * 0.04)
         by2 = int(max(re_y, le_y) + fh * 0.04)
         if bx2 > bx1 and by2 > by1:
             bridge = img[by1:by2, bx1:bx2]
-            bridge_gray = cv2.cvtColor(bridge, cv2.COLOR_BGR2GRAY) if bridge.size > 0 else np.array([])
-            edges = cv2.Canny(bridge_gray, 50, 150) if bridge_gray.size > 0 else np.array([0])
-            bridge_edge_density = float(np.mean(edges > 0)) if edges.size > 0 else 0.0
+            if bridge.size > 0:
+                bridge_gray = cv2.cvtColor(bridge, cv2.COLOR_BGR2GRAY)
+                edges = cv2.Canny(bridge_gray, 80, 180)
+                bridge_edge_density = float(np.mean(edges > 0))
+                bridge_skin = float(np.mean(is_skin_pixel(bridge)))
+                bridge_dark_ratio = float(np.mean(bridge_gray < 55))
 
-            if bridge_edge_density > 0.14:
-                eyeglasses_detected = True
-                obstruction_issues.append({
-                    "code": "EYEGLASSES_DETECTED",
-                    "type": "eyeglasses",
-                    "fil": "Naka-salamin sa mata. Pakitanggal ang salamin upang maging malinaw ang beripikasyon.",
-                    "en": "Eyeglasses detected. Please remove eyeglasses for identity verification."
-                })
+                # Real dark eyeglass frames across bridge have high edge density, dark frame pixels, and low skin
+                if bridge_edge_density > 0.38 and bridge_dark_ratio > 0.30 and bridge_skin < 0.40:
+                    eyeglasses_detected = True
+                    obstruction_issues.append({
+                        "code": "EYEGLASSES_DETECTED",
+                        "type": "eyeglasses",
+                        "fil": "Naka-salamin sa mata na may makapal na frame. Pakitanggal ang salamin upang maging malinaw ang beripikasyon.",
+                        "en": "Eyeglasses with dark frames detected. Please remove eyeglasses for identity verification."
+                    })
 
     # --- B. HAT / HELMET / CAP DETECTION ---
     # Check skull cap zone directly above eyebrows/hairline
@@ -207,13 +211,17 @@ def detect_obstructions(img, gray, face_box, landmarks):
 
         if forehead_y2 > forehead_y1 and forehead_x2 > forehead_x1:
             forehead = img[forehead_y1:forehead_y2, forehead_x1:forehead_x2]
-            forehead_gray = cv2.cvtColor(forehead, cv2.COLOR_BGR2GRAY) if forehead.size > 0 else np.array([])
-            sobel_y = cv2.Sobel(forehead_gray, cv2.CV_64F, 0, 1, ksize=3) if forehead_gray.size > 0 else np.array([0])
-            sobel_strength = float(np.mean(np.abs(sobel_y))) if sobel_y.size > 0 else 0.0
+            forehead_hsv = cv2.cvtColor(forehead, cv2.COLOR_BGR2HSV) if forehead.size > 0 else np.zeros((1, 1, 3))
+            # Non-skin colored cloth (Hue outside human skin range 0-25 & 170-180, with saturation)
+            is_non_skin_cloth = (forehead_hsv[:, :, 0] > 26) & (forehead_hsv[:, :, 0] < 168) & (forehead_hsv[:, :, 1] > 65) & (forehead_hsv[:, :, 2] > 60)
+            cloth_ratio = float(np.mean(is_non_skin_cloth)) if forehead.size > 0 else 0.0
             forehead_skin = float(np.mean(is_skin_pixel(forehead))) if forehead.size > 0 else 1.0
 
-            # Cap or helmet condition
-            if helmet_ratio > 0.18 or (sobel_strength > 75.0 and forehead_skin < 0.80) or (forehead_skin < 0.35):
+            # Only trigger hat if:
+            # - Bright construction safety helmet detected above forehead (helmet_ratio > 0.32)
+            # - Solid non-skin colored cloth covering forehead (cloth_ratio > 0.35 and forehead_skin < 0.25)
+            # NOTE: Natural hair strands / bangs or bare skin must NEVER be flagged as hats!
+            if helmet_ratio > 0.32 or (cloth_ratio > 0.35 and forehead_skin < 0.25):
                 hat_detected = True
                 obstruction_issues.append({
                     "code": "HAT_DETECTED",
@@ -233,7 +241,7 @@ def detect_obstructions(img, gray, face_box, landmarks):
         lower_face = img[lower_y1:lower_y2, lower_x1:lower_x2]
         lower_skin = float(np.mean(is_skin_pixel(lower_face))) if lower_face.size > 0 else 1.0
 
-        if lower_skin < 0.38:
+        if lower_skin < 0.18:
             mask_detected = True
             obstruction_issues.append({
                 "code": "MASK_DETECTED",
@@ -254,7 +262,7 @@ def detect_obstructions(img, gray, face_box, landmarks):
         r_skin = float(np.mean(is_skin_pixel(r_cheek)))
         l_skin = float(np.mean(is_skin_pixel(l_cheek)))
 
-        if cheek_diff > 42.0 and (r_skin < 0.40 or l_skin < 0.40):
+        if cheek_diff > 60.0 and (r_skin < 0.25 and l_skin < 0.25):
             face_occluded = True
             obstruction_issues.append({
                 "code": "FACE_OBSTRUCTED",
@@ -394,11 +402,12 @@ def verify_face_telemetry(img, reference_img=None):
 
     # 2. SHARPNESS & BLUR DIAGNOSTICS (Laplacian Variance)
     laplacian_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-    is_blurry = laplacian_var < 55.0
+    is_blurry = laplacian_var < 18.0
 
     if is_blurry:
         issues.append({
             "code": "BLURRY_IMAGE",
+            "type": "quality",
             "fil": "Malabo o gumagalaw ang litrato. Hawakan nang maayos at steady ang camera.",
             "en": "Image is blurry or motion-degraded. Hold the camera steady and refocus."
         })

@@ -131,6 +131,7 @@ app.post("/api/auth/reset-password-with-otp", (req, res) => authController.reset
 app.get("/api/auth/me", (req, res) => authController.me(req, res));
 app.get("/api/admin/profile", (req, res) => authController.getAdminProfile(req, res));
 app.put("/api/admin/profile", (req, res) => authController.updateAdminProfile(req, res));
+app.put("/api/client/profile", (req, res) => authController.updateClientProfile(req, res));
 
 // -----------------------------------------------------------------------------
 // PROJECTS ROUTES (PORTFOLIO SHOWCASE)

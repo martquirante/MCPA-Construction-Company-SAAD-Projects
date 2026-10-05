@@ -48,9 +48,133 @@ export default function ClientPortalPage() {
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
+  const [isUploadingPfp, setIsUploadingPfp] = useState(false);
+  const [isUploadingKyc, setIsUploadingKyc] = useState(false);
+
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 4000);
+  };
+
+  const handlePfpUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast("Please select a valid image file (JPG, PNG, WebP).");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("Image size must be under 10MB.");
+      return;
+    }
+
+    setIsUploadingPfp(true);
+    showToast("Uploading profile picture...");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploadRes = await fetch("/api/upload?category=avatars", {
+        method: "POST",
+        body: formData,
+      });
+
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok || !uploadData.url) {
+        throw new Error(uploadData.message || "Failed to upload photo");
+      }
+
+      const newAvatarUrl = uploadData.url;
+
+      // Update backend profile
+      await fetch("/api/client/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: currentUser.email,
+          avatarUrl: newAvatarUrl,
+        }),
+      });
+
+      const updatedUser = {
+        ...currentUser,
+        avatarUrl: newAvatarUrl,
+        avatar_url: newAvatarUrl,
+      };
+
+      setCurrentUser(updatedUser);
+      localStorage.setItem("mcpa_client_user", JSON.stringify(updatedUser));
+      showToast("Profile picture updated successfully!");
+    } catch (err) {
+      console.error("Avatar update error:", err);
+      showToast("Could not update profile picture: " + err.message);
+    } finally {
+      setIsUploadingPfp(false);
+    }
+  };
+
+  const handleKycUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast("Please select a valid image file (JPG, PNG, WebP).");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("Image size must be under 10MB.");
+      return;
+    }
+
+    setIsUploadingKyc(true);
+    showToast("Uploading official biometric KYC verification photo...");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploadRes = await fetch("/api/upload?category=kyc", {
+        method: "POST",
+        body: formData,
+      });
+
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok || !uploadData.url) {
+        throw new Error(uploadData.message || "Failed to upload KYC photo");
+      }
+
+      const newKycUrl = uploadData.url;
+
+      // Update backend profile with KYC photo
+      await fetch("/api/client/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: currentUser.email,
+          kycPhotoUrl: newKycUrl,
+        }),
+      });
+
+      const updatedUser = {
+        ...currentUser,
+        kycPhotoUrl: newKycUrl,
+        kyc_photo_url: newKycUrl,
+        kycVerifiedAt: new Date().toISOString(),
+      };
+
+      setCurrentUser(updatedUser);
+      localStorage.setItem("mcpa_client_user", JSON.stringify(updatedUser));
+      showToast("Official KYC verification photo registered successfully!");
+    } catch (err) {
+      console.error("KYC photo update error:", err);
+      showToast("Could not register KYC photo: " + err.message);
+    } finally {
+      setIsUploadingKyc(false);
+    }
   };
 
   // 1. Check existing client session on mount
@@ -208,25 +332,14 @@ export default function ClientPortalPage() {
             {/* Right Column (Desktop) / Top Screen (Mobile): Auth Card Fitted to Viewport */}
             <div
               id="portal-auth"
-              className="w-full min-[920px]:w-1/2 flex flex-col justify-center items-center order-1 min-[920px]:order-2 min-h-[calc(100vh-4.5rem)] min-h-[calc(100dvh-4.5rem)] min-[920px]:min-h-0 py-1 min-[920px]:py-0"
+              className="w-full min-[920px]:w-1/2 flex flex-col justify-center items-center order-1 min-[920px]:order-2 min-h-[calc(100vh-4.5rem)] min-h-[calc(100dvh-4.5rem)] min-[920px]:min-h-0 py-1 min-[920px]:py-0 min-[920px]:mb-1"
             >
               <PortalAuthCard onLoginSuccess={handleLoginSuccess} />
-
-              {/* Mobile Scroll Indicator: guides user that showcase is below the fold */}
-              <div className="min-[920px]:hidden mt-2.5 text-center">
-                <a
-                  href="#portal-showcase"
-                  className="group inline-flex items-center gap-1 text-[11.5px] text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                >
-                  <span>{language === "fil" ? "I-scroll upang makita ang mga tampok" : "Scroll to view showcase & features"}</span>
-                  <span className="group-hover:translate-y-0.5 transition-transform text-amber-500 font-bold">↓</span>
-                </a>
-              </div>
             </div>
           </main>
 
           {/* Minimal Footer (Compact) */}
-          <footer className="w-full py-1.5 border-t border-neutral-200/60 dark:border-white/5 text-[10px] font-mono text-neutral-400 flex items-center justify-center gap-1 shrink-0 z-10 text-center">
+          <footer className="w-full py-2 border-t border-neutral-200/60 dark:border-white/5 text-[10px] font-mono text-neutral-400 flex items-center justify-center gap-1 shrink-0 z-10 text-center">
             <span>© {new Date().getFullYear()} MCPA Construction & Supply. {language === "fil" ? "Lahat ng karapatan ay nakalaan." : "All rights reserved."}</span>
           </footer>
         </div>
@@ -663,26 +776,45 @@ export default function ClientPortalPage() {
             )}
 
             {/* TAB 3: CLIENT PROFILE & SETTINGS */}
-            {/* TAB 3: CLIENT PROFILE & SETTINGS */}
             {portalTab === "profile" && (
               <div className="max-w-3xl rounded-[8px] bg-white dark:bg-[#0f121a] border border-neutral-200 dark:border-white/10 p-6 sm:p-8 space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 dark:border-white/10 pb-4">
                   <div className="flex items-center gap-3.5">
-                    {/* Biometric KYC Avatar Portrait */}
-                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-500 bg-neutral-900 shrink-0 shadow-md">
-                      {currentUser.avatarUrl || currentUser.avatar_url ? (
-                        <img
-                          src={currentUser.avatarUrl || currentUser.avatar_url}
-                          alt={currentUser.fullName || "Client Selfie"}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-amber-500/20 text-amber-500 font-bold font-mono text-xl">
-                          {(currentUser.fullName || "CL").substring(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center border-2 border-white dark:border-[#0f121a]">
-                        <CheckIcon className="w-3 h-3 stroke-[3]" />
+                    {/* Client Profile Avatar with Free-Will Upload Overlay */}
+                    <div className="relative group shrink-0">
+                      <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-amber-500/80 bg-neutral-900 shadow-md">
+                        {currentUser.avatarUrl || currentUser.avatar_url ? (
+                          <img
+                            src={currentUser.avatarUrl || currentUser.avatar_url}
+                            alt={currentUser.fullName || "Profile Avatar"}
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-amber-500/20 text-amber-500 font-bold font-mono text-xl">
+                            {(currentUser.fullName || "CL").substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        {/* Hover Overlay to Change PFP */}
+                        <label
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity"
+                          title="Change Profile Picture (Free Will)"
+                        >
+                          <span className="text-[9px] font-mono font-bold uppercase tracking-wider">
+                            {isUploadingPfp ? "Saving..." : "Change"}
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handlePfpUpload}
+                            disabled={isUploadingPfp}
+                          />
+                        </label>
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center border-2 border-white dark:border-[#0f121a]" title="Profile Picture">
+                        <UserIcon className="w-3 h-3" />
                       </div>
                     </div>
 
@@ -690,11 +822,18 @@ export default function ClientPortalPage() {
                       <h3 className="text-base font-bold text-neutral-900 dark:text-white">
                         {currentUser.fullName || "Client Account"}
                       </h3>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-semibold font-mono">
-                          <ShieldCheckIcon className="w-3 h-3" />
-                          <span>Biometric KYC Verified</span>
-                        </span>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {currentUser.kycPhotoUrl || currentUser.kyc_photo_url ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-semibold font-mono">
+                            <ShieldCheckIcon className="w-3 h-3" />
+                            <span>Biometric KYC Verified</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10.5px] font-semibold font-mono">
+                            <ShieldCheckIcon className="w-3 h-3" />
+                            <span>Account Verified</span>
+                          </span>
+                        )}
                         <span className="text-[11px] font-mono text-neutral-400">
                           ID: #{String(currentUser.userId || currentUser.user_id || "CL").padStart(4, "0")}
                         </span>
@@ -708,6 +847,120 @@ export default function ClientPortalPage() {
                 </div>
 
                 <div className="space-y-6 text-xs">
+                  {/* Dedicated Dual Photos Display: KYC vs PFP */}
+                  <div className="p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/10 space-y-3">
+                    <h4 className="text-[11px] font-mono uppercase tracking-wider text-neutral-700 dark:text-neutral-300 font-bold flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <ShieldCheckIcon className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Identity Verification &amp; Profile Media</span>
+                      </span>
+                      <span className="text-[9.5px] text-neutral-400 font-normal">
+                        KYC Biometrics ≠ Account Avatar (PFP)
+                      </span>
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Card A: Official Biometric KYC Face Verification Selfie */}
+                      <div className="p-3.5 rounded-lg bg-white dark:bg-[#0f121a] border border-emerald-500/25 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <ShieldCheckIcon className="w-3.5 h-3.5" />
+                            <span>Official Biometric KYC Photo</span>
+                          </span>
+                          {currentUser.kycPhotoUrl || currentUser.kyc_photo_url ? (
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                              Immutable Record
+                            </span>
+                          ) : (
+                            <label className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer transition-colors inline-flex items-center gap-1">
+                              <span>{isUploadingKyc ? "Registering..." : "Register KYC Photo"}</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleKycUpload}
+                                disabled={isUploadingKyc}
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-16 h-16 rounded-md overflow-hidden border border-emerald-500/40 bg-neutral-900 shrink-0">
+                            {currentUser.kycPhotoUrl || currentUser.kyc_photo_url ? (
+                              <img
+                                src={currentUser.kycPhotoUrl || currentUser.kyc_photo_url}
+                                alt="Biometric KYC Face Verification"
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                                crossOrigin="anonymous"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-emerald-500/10 text-emerald-500">
+                                <ShieldCheckIcon className="w-5 h-5" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 text-[11px] font-mono space-y-1">
+                            <p className="text-neutral-800 dark:text-neutral-200 font-semibold leading-tight">
+                              {currentUser.kycPhotoUrl || currentUser.kyc_photo_url
+                                ? "Biometric Live Scan Capture"
+                                : "Pending Live Biometric Selfie"}
+                            </p>
+                            <p className="text-[10px] text-neutral-400 leading-snug">
+                              Official compliance facial scan from Step 3. Secured under RA 10173.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card B: Profile Picture (PFP / Free Will Avatar) */}
+                      <div className="p-3.5 rounded-lg bg-white dark:bg-[#0f121a] border border-amber-500/25 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <UserIcon className="w-3.5 h-3.5" />
+                            <span>Account Profile Picture (PFP)</span>
+                          </span>
+                          <label className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 cursor-pointer transition-colors inline-flex items-center gap-1">
+                            <span>{isUploadingPfp ? "Uploading..." : "Upload New PFP"}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handlePfpUpload}
+                              disabled={isUploadingPfp}
+                            />
+                          </label>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-16 h-16 rounded-md overflow-hidden border border-amber-500/40 bg-neutral-900 shrink-0">
+                            {currentUser.avatarUrl || currentUser.avatar_url ? (
+                              <img
+                                src={currentUser.avatarUrl || currentUser.avatar_url}
+                                alt="User Profile Picture"
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                                crossOrigin="anonymous"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-amber-500/20 text-amber-500 font-bold font-mono text-base">
+                                {(currentUser.fullName || "CL").substring(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 text-[11px] font-mono space-y-1">
+                            <p className="text-neutral-800 dark:text-neutral-200 font-semibold leading-tight">
+                              {currentUser.avatarUrl || currentUser.avatar_url ? "Personalized Profile Avatar" : "Initials Monogram Avatar"}
+                            </p>
+                            <p className="text-[10px] text-neutral-400 leading-snug">
+                              You have the free will to update or replace your PFP anytime without changing your verified KYC file.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   {/* 1. Personal & Contact Profile */}
                   <div>
                     <h4 className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold mb-2.5 flex items-center gap-1.5">

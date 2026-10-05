@@ -124,58 +124,489 @@ function DataField({ label, value, sub, badge, icon, highlight = false }) {
   );
 }
 
-// ─── Photo Lightbox Component ─────────────────────────────────────────────────
-function PhotoLightbox({ imageUrl, clientName, onClose }) {
+// ─── SVG Helper Icons for Photo Lightbox ─────────────────────────────────────
+function ZoomInIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <line x1="11" y1="8" x2="11" y2="14" />
+      <line x1="8" y1="11" x2="14" y2="11" />
+    </svg>
+  );
+}
+
+function ZoomOutIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <line x1="8" y1="11" x2="14" y2="11" />
+    </svg>
+  );
+}
+
+function RotateIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+    </svg>
+  );
+}
+
+function Minimize2Icon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 14 10 14 10 20" />
+      <polyline points="20 10 14 10 14 4" />
+      <line x1="14" y1="10" x2="21" y2="3" />
+      <line x1="3" y1="21" x2="10" y2="14" />
+    </svg>
+  );
+}
+
+// ─── Full-Screen Responsive Photo Lightbox Component ───────────────────────────
+function PhotoLightbox({
+  kycPhotoUrl,
+  avatarUrl,
+  clientName,
+  kycVerifiedAt,
+  authProvider = "local",
+  initialTab = "kyc",
+  onClose,
+}) {
+  const [activeTab, setActiveTab] = useState(initialTab); // "kyc" | "pfp"
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const containerRef = useRef(null);
+
+  const rawUrl = activeTab === "kyc" ? kycPhotoUrl : avatarUrl;
+  // Automatically upscale Google user avatars so they are crystal-clear at 1200px in fullscreen
+  const currentUrl =
+    activeTab === "pfp" && rawUrl && rawUrl.includes("googleusercontent.com")
+      ? rawUrl.replace(/=s\d+(-c)?$/, "=s1200-c")
+      : rawUrl;
+  const hasCurrentPhoto = Boolean(currentUrl && currentUrl.trim().length > 5);
+  const hasKyc = Boolean(kycPhotoUrl && kycPhotoUrl.trim().length > 5);
+  const hasPfp = Boolean(avatarUrl && avatarUrl.trim().length > 5);
+
+  // Reset zoom & pan when switching tabs
   useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === "Escape") onClose();
+    setZoom(1);
+    setRotation(0);
+    setPan({ x: 0, y: 0 });
+    setImgLoaded(false);
+    setImgError(false);
+  }, [activeTab]);
+
+  // Fullscreen change listener
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
     };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else {
+          onClose();
+        }
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        setActiveTab((prev) => (prev === "kyc" ? "pfp" : "kyc"));
+      } else if (e.key === "+" || e.key === "=") {
+        setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)));
+      } else if (e.key === "-") {
+        setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)));
+      } else if (e.key === "0") {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+        setRotation(0);
+      } else if (e.key.toLowerCase() === "r") {
+        setRotation((r) => (r + 90) % 360);
+      } else if (e.key.toLowerCase() === "f") {
+        toggleFullscreen();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      if (containerRef.current?.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {});
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    if (zoom > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging && zoom > 1) {
+      setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
   return (
-    <div className="lightbox-backdrop" onClick={onClose}>
+    <div
+      ref={containerRef}
+      className="lightbox-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Full-screen photo inspector"
+    >
       <div className="lightbox-dialog" onClick={(e) => e.stopPropagation()}>
+        {/* ── Top Header Toolbar ────────────────────────────────────────── */}
         <div className="lightbox-header">
-          <div className="flex items-center gap-2">
-            <CameraIcon className="w-4 h-4 text-amber-500" />
-            <div>
-              <p className="text-xs font-bold text-neutral-900 dark:text-white uppercase tracking-wider font-mono">
-                Biometric KYC Verification Photo
-              </p>
-              <p className="text-[11px] text-neutral-500">{clientName}</p>
+          {/* Left Title & Client Info */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0">
+              {activeTab === "kyc" ? (
+                <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <UserIcon className="w-4 h-4 text-amber-400" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-500">
+                  MCPA Identity Inspector
+                </span>
+                <span className="text-[10px] font-mono text-neutral-400 hidden sm:inline">•</span>
+                <span className="text-[10px] font-mono text-neutral-400 truncate hidden sm:inline">
+                  {clientName}
+                </span>
+              </div>
+              <h3 className="text-xs sm:text-sm font-bold text-white truncate">
+                {activeTab === "kyc"
+                  ? "Biometric KYC Verification Capture"
+                  : "Client Profile Picture (PFP)"}
+              </h3>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="lightbox-close-btn"
-            aria-label="Close Photo Lightbox"
-          >
-            <CloseIcon className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="lightbox-body">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imageUrl}
-            alt={`Biometric KYC face verification capture for ${clientName}`}
-            className="lightbox-image"
-          />
-        </div>
-        <div className="lightbox-footer">
-          <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-mono">
-            <ShieldCheckIcon className="w-3.5 h-3.5" />
-            <span>Official Identity Biometric Capture • MCPA Security Verified</span>
+
+          {/* Center: Interactive Tabs */}
+          <div className="lightbox-tabs-group">
+            <button
+              type="button"
+              onClick={() => setActiveTab("kyc")}
+              className={`lightbox-tab-btn ${activeTab === "kyc" ? "active" : ""}`}
+              title="View Official Biometric KYC Face Verification Selfie"
+            >
+              <ShieldCheckIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Biometric KYC</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("pfp")}
+              className={`lightbox-tab-btn ${activeTab === "pfp" ? "active" : ""}`}
+              title="View Account Profile Photo (PFP)"
+            >
+              <UserIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Profile (PFP)</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1 rounded bg-neutral-100 dark:bg-white/10 text-xs font-mono font-medium hover:bg-neutral-200 dark:hover:bg-white/20 transition-colors"
-          >
-            Close Viewer (Esc)
-          </button>
+
+          {/* Right: Quick Action Controls */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {/* Zoom Controls */}
+            <div className="lightbox-zoom-bar hidden md:flex items-center">
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                disabled={zoom <= 0.5 || !hasCurrentPhoto}
+                className="lightbox-ctrl-btn"
+                title="Zoom Out (-)"
+              >
+                <ZoomOutIcon className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-[10px] font-mono text-neutral-300 px-2 select-none min-w-[42px] text-center">
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))}
+                disabled={zoom >= 3 || !hasCurrentPhoto}
+                className="lightbox-ctrl-btn"
+                title="Zoom In (+)"
+              >
+                <ZoomInIcon className="w-3.5 h-3.5" />
+              </button>
+              {zoom !== 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setZoom(1);
+                    setPan({ x: 0, y: 0 });
+                  }}
+                  className="px-1.5 py-0.5 text-[9px] font-mono text-amber-400 hover:text-amber-300 ml-1"
+                  title="Reset Zoom (0)"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+
+            {/* Rotate Button */}
+            <button
+              type="button"
+              onClick={() => setRotation((r) => (r + 90) % 360)}
+              disabled={!hasCurrentPhoto}
+              className="lightbox-ctrl-btn hidden sm:inline-flex"
+              title="Rotate 90° (R)"
+            >
+              <RotateIcon className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Fullscreen Toggle */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="lightbox-ctrl-btn"
+              title={isFullscreen ? "Exit Fullscreen (F)" : "Enter Fullscreen (F)"}
+            >
+              {isFullscreen ? (
+                <Minimize2Icon className="w-3.5 h-3.5 text-amber-400" />
+              ) : (
+                <Maximize2Icon className="w-3.5 h-3.5" />
+              )}
+            </button>
+
+            {/* Open Raw in New Tab */}
+            {hasCurrentPhoto && (
+              <a
+                href={currentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="lightbox-ctrl-btn hidden sm:inline-flex"
+                title="Open full resolution image in new browser tab"
+              >
+                <ExternalLinkIcon className="w-3.5 h-3.5" />
+              </a>
+            )}
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="lightbox-close-btn"
+              aria-label="Close Photo Lightbox"
+              title="Close Viewer (Esc)"
+            >
+              <CloseIcon className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* ── Center Stage Viewport ────────────────────────────────────── */}
+        <div
+          className="lightbox-body"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          style={{ cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "default" }}
+        >
+          {hasCurrentPhoto ? (
+            <div className="lightbox-stage-container">
+              {/* Loading spinner */}
+              {!imgLoaded && !imgError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-neutral-400">
+                  <div className="w-8 h-8 rounded-full border-2 border-amber-500/20 border-t-amber-500 animate-spin" />
+                  <span className="text-xs font-mono">Loading full-resolution image...</span>
+                </div>
+              )}
+
+              {/* Error fallback */}
+              {imgError && (
+                <div className="max-w-md p-6 rounded-lg bg-neutral-900/90 border border-red-500/30 text-center space-y-3">
+                  <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center mx-auto">
+                    <CloseIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Image Preview Blocked</h4>
+                    <p className="text-xs text-neutral-400 mt-1 font-mono">
+                      The image host blocked direct iframe rendering. You can view the raw photo directly in a new tab.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <a
+                      href={currentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 rounded bg-amber-500 text-black font-mono font-bold text-xs hover:bg-amber-400 inline-flex items-center gap-1.5"
+                    >
+                      <ExternalLinkIcon className="w-3.5 h-3.5" />
+                      <span>Open Raw Image</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImgError(false);
+                        setImgLoaded(false);
+                      }}
+                      className="px-3 py-1.5 rounded bg-white/10 text-white font-mono text-xs hover:bg-white/20 inline-flex items-center gap-1.5"
+                    >
+                      <RefreshCwIcon className="w-3.5 h-3.5" />
+                      <span>Retry</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={currentUrl}
+                alt={`${activeTab === "kyc" ? "Biometric KYC capture" : "Profile picture"} of ${clientName}`}
+                className="lightbox-image"
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
+                onLoad={() => {
+                  setImgLoaded(true);
+                  setImgError(false);
+                }}
+                onError={() => {
+                  setImgLoaded(false);
+                  setImgError(true);
+                }}
+                style={{
+                  transform: `scale(${zoom}) rotate(${rotation}deg) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                  transition: isDragging ? "none" : "transform 0.15s ease-out",
+                  display: imgError ? "none" : "block",
+                }}
+              />
+            </div>
+          ) : (
+            /* Empty State for Selected Tab */
+            <div className="lightbox-empty-card">
+              <div className="w-14 h-14 rounded-full bg-neutral-800 text-neutral-400 flex items-center justify-center mb-3">
+                {activeTab === "kyc" ? (
+                  <ShieldCheckIcon className="w-7 h-7 text-amber-500/70" />
+                ) : (
+                  <UserIcon className="w-7 h-7 text-amber-500/70" />
+                )}
+              </div>
+              <h4 className="text-base font-bold text-white mb-1">
+                {activeTab === "kyc"
+                  ? "No Biometric KYC Facial Scan on File"
+                  : "No Custom Profile Picture (PFP)"}
+              </h4>
+              <p className="text-xs text-neutral-400 font-mono max-w-sm mb-4">
+                {activeTab === "kyc"
+                  ? "This user signed in directly via Social OAuth or registered prior to mandatory biometric live capture. Biometric face verification is captured during Step 3 of registration."
+                  : "The client has not uploaded a custom profile picture. The portal automatically renders an initials monogram."}
+              </p>
+              {activeTab === "kyc" && hasPfp && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("pfp")}
+                  className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold flex items-center gap-2"
+                >
+                  <UserIcon className="w-3.5 h-3.5" />
+                  <span>Switch to Account Profile Picture (PFP)</span>
+                </button>
+              )}
+              {activeTab === "pfp" && hasKyc && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("kyc")}
+                  className="px-4 py-2 rounded bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-xs font-mono font-bold flex items-center gap-2"
+                >
+                  <ShieldCheckIcon className="w-3.5 h-3.5" />
+                  <span>Switch to Biometric KYC Photo</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Bottom Footer Status Bar ─────────────────────────────────── */}
+        <div className="lightbox-footer">
+          {/* Status info */}
+          <div className="flex items-center gap-2 text-[11px] font-mono">
+            {activeTab === "kyc" ? (
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                <ShieldCheckIcon className="w-3.5 h-3.5 shrink-0" />
+                <span className="font-semibold">
+                  {hasKyc
+                    ? `Official Biometric KYC Identity Capture • Verified ${kycVerifiedAt ? formatDate(kycVerifiedAt) : "Live"}`
+                    : "Biometric KYC Record • Pending Live Capture"}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-amber-400">
+                <UserIcon className="w-3.5 h-3.5 shrink-0" />
+                <span className="font-semibold">
+                  {hasPfp
+                    ? `Client Profile Picture • Provider: ${authProvider.toUpperCase()}`
+                    : "Account Monogram Avatar • Free Will Profile"}
+                </span>
+              </div>
+            )}
+            <span className="text-neutral-500 hidden md:inline">|</span>
+            <span className="text-neutral-400 text-[10px] hidden md:inline">
+              Republic Act 10173 Encrypted &amp; Protected
+            </span>
+          </div>
+
+          {/* Mobile Zoom Controls & Close */}
+          <div className="flex items-center gap-2">
+            {/* Quick Mobile Zoom Toggles */}
+            <div className="flex md:hidden items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                disabled={zoom <= 0.5 || !hasCurrentPhoto}
+                className="p-1 rounded bg-white/10 text-neutral-300 text-xs"
+                title="Zoom Out"
+              >
+                <ZoomOutIcon className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))}
+                disabled={zoom >= 3 || !hasCurrentPhoto}
+                className="p-1 rounded bg-white/10 text-neutral-300 text-xs"
+                title="Zoom In"
+              >
+                <ZoomInIcon className="w-3 h-3" />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1 rounded bg-white/10 hover:bg-white/20 text-neutral-200 text-xs font-mono font-medium transition-colors"
+            >
+              Close Viewer (Esc)
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -249,17 +680,23 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
     window.print();
   };
 
-  const hasPhoto = Boolean(account.avatar_url && account.avatar_url.trim().length > 5);
+  const hasKycPhoto = Boolean(account.kyc_photo_url && account.kyc_photo_url.trim().length > 5);
+  const hasAvatarPhoto = Boolean(account.avatar_url && account.avatar_url.trim().length > 5);
+  const [lightboxTab, setLightboxTab] = useState("kyc"); // "kyc" | "pfp"
 
   return (
     <>
       <style>{DOSSIER_STYLES}</style>
 
-      {/* Lightbox for full-res face photo */}
-      {lightboxOpen && hasPhoto && (
+      {/* Lightbox for full-res face photo and PFP */}
+      {lightboxOpen && (
         <PhotoLightbox
-          imageUrl={account.avatar_url}
+          kycPhotoUrl={account.kyc_photo_url}
+          avatarUrl={account.avatar_url}
           clientName={account.full_name || account.email}
+          kycVerifiedAt={account.kyc_verified_at || account.created_at}
+          authProvider={account.auth_provider || "local"}
+          initialTab={lightboxTab}
           onClose={() => setLightboxOpen(false)}
         />
       )}
@@ -347,62 +784,169 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
             {/* LEFT SIDEBAR: BIOMETRIC IDENTITY & CONTACT CHANNELS           */}
             {/* ═════════════════════════════════════════════════════════════ */}
             <div className="dossier-sidebar">
-              {/* Biometric KYC Portrait Photo Viewport */}
-              <div className="kyc-photo-card">
-                <div className="kyc-photo-wrapper">
-                  {hasPhoto ? (
-                    <div
-                      className="kyc-photo-container group cursor-pointer"
-                      onClick={() => setLightboxOpen(true)}
-                      title="Click to view full-resolution biometric capture"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={account.avatar_url}
-                        alt={`Biometric KYC face verification capture of ${account.full_name}`}
-                        className="kyc-photo-img"
-                      />
-                      <div className="kyc-photo-overlay">
-                        <Maximize2Icon className="w-5 h-5 text-white" />
-                        <span className="text-[10px] font-mono font-bold text-white mt-1">
-                          Inspect Photo
+              {/* Responsive Dual Photos Grid (KYC Verification vs Profile Picture) */}
+              <div className="dossier-photos-grid">
+                {/* 1. Official Biometric KYC Face Verification Card */}
+                <div className="kyc-photo-card">
+                  <div className="kyc-card-header">
+                    <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-neutral-800 dark:text-neutral-200">
+                      <ShieldCheckIcon className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>1. Biometric KYC Record</span>
+                    </div>
+                    <span className="text-[9px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                      Live Selfie
+                    </span>
+                  </div>
+
+                  <div className="kyc-photo-wrapper">
+                    {hasKycPhoto ? (
+                      <div
+                        className="kyc-photo-container group cursor-pointer"
+                        onClick={() => {
+                          setLightboxTab("kyc");
+                          setLightboxOpen(true);
+                        }}
+                        title="Click to view full-resolution biometric capture"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={account.kyc_photo_url}
+                          alt={`Official biometric KYC capture of ${account.full_name}`}
+                          className="kyc-photo-img"
+                          referrerPolicy="no-referrer"
+                          crossOrigin="anonymous"
+                        />
+                        <div className="kyc-photo-overlay">
+                          <Maximize2Icon className="w-5 h-5 text-white" />
+                          <span className="text-[10px] font-mono font-bold text-white mt-1">
+                            Inspect KYC Photo
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="kyc-placeholder-container group cursor-pointer"
+                        onClick={() => {
+                          setLightboxTab("kyc");
+                          setLightboxOpen(true);
+                        }}
+                        title="No biometric scan on file. Click for details."
+                      >
+                        <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-1 border border-amber-500/20">
+                          <FingerprintIcon className="w-5 h-5" />
+                        </div>
+                        <span className="text-[11px] font-mono font-bold text-neutral-700 dark:text-neutral-200 text-center">
+                          Pending KYC Selfie
+                        </span>
+                        <span className="text-[9.5px] font-mono text-neutral-400 text-center leading-tight">
+                          Captured at Step 3
                         </span>
                       </div>
-                    </div>
-                  ) : (
-                    <div
-                      className="kyc-monogram-container"
-                      style={{
-                        background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`,
-                      }}
-                    >
-                      <span className="kyc-monogram-text">{initials}</span>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Security Verification Tag */}
-                  <div className={`kyc-status-bar ${hasPhoto ? "verified" : "oauth"}`}>
-                    <ShieldCheckIcon className="w-3.5 h-3.5 shrink-0" />
-                    <span>
-                      {hasPhoto
-                        ? "Biometric Face KYC Verified"
-                        : "OAuth Identity Verified"}
-                    </span>
+                    {/* Security Verification Tag */}
+                    <div className={`kyc-status-bar ${hasKycPhoto ? "verified" : "oauth"}`}>
+                      <ShieldCheckIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {hasKycPhoto
+                          ? "Biometric KYC Verified"
+                          : "Pending Biometric Scan"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="kyc-photo-caption">
+                    <div className="flex items-center justify-between text-[10.5px] font-mono text-neutral-500 dark:text-neutral-400 mb-0.5">
+                      <span>KYC Verification:</span>
+                      <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                        {hasKycPhoto ? "MediaPipe Passed" : "Pending Capture"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10.5px] font-mono text-neutral-500 dark:text-neutral-400">
+                      <span>Identity Status:</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                        <CheckIcon className="w-3 h-3" /> Live Active
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="kyc-photo-caption">
-                  <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500 dark:text-neutral-400 mb-1">
-                    <span>KYC Standard:</span>
-                    <span className="font-semibold text-neutral-800 dark:text-neutral-200">
-                      DOs &amp; DONTs Passed
+                {/* 2. Client Profile Picture (PFP / Free Will Avatar) */}
+                <div className="kyc-photo-card pfp-card">
+                  <div className="kyc-card-header">
+                    <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-neutral-800 dark:text-neutral-200">
+                      <UserIcon className="w-3.5 h-3.5 text-amber-500" />
+                      <span>2. Profile Picture (PFP)</span>
+                    </div>
+                    <span className="text-[9px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase">
+                      Free Will
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
-                    <span>Identity Status:</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                      <CheckIcon className="w-3 h-3" /> Live Active
-                    </span>
+
+                  <div className="kyc-photo-wrapper">
+                    {hasAvatarPhoto ? (
+                      <div
+                        className="kyc-photo-container group cursor-pointer"
+                        onClick={() => {
+                          setLightboxTab("pfp");
+                          setLightboxOpen(true);
+                        }}
+                        title="Click to view full-resolution profile picture"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={account.avatar_url}
+                          alt={`Profile picture of ${account.full_name}`}
+                          className="kyc-photo-img"
+                          referrerPolicy="no-referrer"
+                          crossOrigin="anonymous"
+                        />
+                        <div className="kyc-photo-overlay">
+                          <Maximize2Icon className="w-5 h-5 text-white" />
+                          <span className="text-[10px] font-mono font-bold text-white mt-1">
+                            Inspect PFP
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="kyc-monogram-container"
+                        style={{
+                          background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`,
+                        }}
+                      >
+                        <span className="kyc-monogram-text">{initials}</span>
+                      </div>
+                    )}
+
+                    {/* PFP Source Tag */}
+                    <div className={`kyc-status-bar ${hasAvatarPhoto ? "pfp" : "neutral"}`}>
+                      <UserIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {hasAvatarPhoto
+                          ? account.auth_provider === "google"
+                            ? "Google Account Photo"
+                            : account.auth_provider === "facebook"
+                            ? "Facebook Account Photo"
+                            : "Uploaded Profile PFP"
+                          : "Initials Monogram Avatar"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="kyc-photo-caption">
+                    <div className="flex items-center justify-between text-[10.5px] font-mono text-neutral-500 dark:text-neutral-400 mb-0.5">
+                      <span>PFP Mode:</span>
+                      <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                        {hasAvatarPhoto ? "Custom User Photo" : "System Initials"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10.5px] font-mono text-neutral-500 dark:text-neutral-400">
+                      <span>Auth Sync:</span>
+                      <span className="font-mono text-neutral-700 dark:text-neutral-300">
+                        {account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -780,6 +1324,8 @@ function AccountCard({ acc, onClick }) {
                 src={acc.avatar_url}
                 alt={acc.full_name || acc.email}
                 className="client-avatar-img"
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
               />
             ) : (
               <div
@@ -791,11 +1337,15 @@ function AccountCard({ acc, onClick }) {
                 {initials}
               </div>
             )}
-            {hasPhoto && (
-              <span className="client-avatar-verified-dot" title="Face KYC Verified">
+            {acc.kyc_photo_url ? (
+              <span className="client-avatar-verified-dot" title="Official Biometric Face KYC Verified">
                 <CheckIcon className="w-2 h-2 text-white stroke-[3]" />
               </span>
-            )}
+            ) : hasPhoto ? (
+              <span className="client-avatar-verified-dot" title="Identity Verified">
+                <CheckIcon className="w-2 h-2 text-white stroke-[3]" />
+              </span>
+            ) : null}
           </div>
 
           {/* Name & Email */}
@@ -1149,6 +1699,8 @@ export default function AccountsTab({ clientBriefs = [] }) {
                                   src={acc.avatar_url}
                                   alt={acc.full_name}
                                   className="w-8 h-8 rounded-[4px] object-cover border border-neutral-300 dark:border-neutral-700"
+                                  referrerPolicy="no-referrer"
+                                  crossOrigin="anonymous"
                                 />
                               ) : (
                                 <div
@@ -1158,11 +1710,15 @@ export default function AccountsTab({ clientBriefs = [] }) {
                                   {initials}
                                 </div>
                               )}
-                              {hasPhoto && (
-                                <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border border-white dark:border-neutral-900 flex items-center justify-center">
+                              {acc.kyc_photo_url ? (
+                                <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border border-white dark:border-neutral-900 flex items-center justify-center" title="Biometric KYC Verified">
                                   <CheckIcon className="w-2 h-2 text-white stroke-[3]" />
                                 </span>
-                              )}
+                              ) : hasPhoto ? (
+                                <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-blue-500 border border-white dark:border-neutral-900 flex items-center justify-center" title="Identity Active">
+                                  <CheckIcon className="w-2 h-2 text-white stroke-[3]" />
+                                </span>
+                              ) : null}
                             </div>
                             <div>
                               <span className="font-bold text-neutral-900 dark:text-white block font-sans text-[13px]">
@@ -1791,23 +2347,47 @@ const DOSSIER_STYLES = `
   flex-direction: column;
   gap: 14px;
 }
+.dossier-photos-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+@media (max-width: 640px) {
+  .dossier-photos-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+}
 .kyc-photo-card {
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 .dark .kyc-photo-card {
   background: #11141f;
-  border-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.kyc-photo-card.pfp-card {
+  border-left: 3px solid #3b82f6;
+}
+.dark .kyc-photo-card.pfp-card {
+  border-left: 3px solid #60a5fa;
+}
+.kyc-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
 }
 .kyc-photo-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .kyc-photo-container {
   position: relative;
@@ -1833,7 +2413,7 @@ const DOSSIER_STYLES = `
 .kyc-photo-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1843,6 +2423,29 @@ const DOSSIER_STYLES = `
 }
 .kyc-photo-container:hover .kyc-photo-overlay {
   opacity: 1;
+}
+
+.kyc-placeholder-container {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  border: 1.5px dashed rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.03);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.dark .kyc-placeholder-container {
+  background: rgba(217, 119, 6, 0.05);
+  border-color: rgba(217, 119, 6, 0.35);
+}
+.kyc-placeholder-container:hover {
+  border-color: #d97706;
+  background: rgba(217, 119, 6, 0.08);
 }
 
 .kyc-monogram-container {
@@ -1855,7 +2458,7 @@ const DOSSIER_STYLES = `
   color: #ffffff;
 }
 .kyc-monogram-text {
-  font-size: 52px;
+  font-size: 42px;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
@@ -1863,12 +2466,13 @@ const DOSSIER_STYLES = `
 .kyc-status-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 5px;
+  padding: 5px 8px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10px;
   font-family: monospace;
   font-weight: 700;
+  line-height: 1.2;
 }
 .kyc-status-bar.verified {
   background: rgba(16, 185, 129, 0.12);
@@ -1890,10 +2494,30 @@ const DOSSIER_STYLES = `
   color: #fbbf24;
   border-color: rgba(217, 119, 6, 0.35);
 }
+.kyc-status-bar.pfp {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+}
+.dark .kyc-status-bar.pfp {
+  background: rgba(37, 99, 235, 0.18);
+  color: #60a5fa;
+  border-color: rgba(37, 99, 235, 0.35);
+}
+.kyc-status-bar.neutral {
+  background: rgba(0, 0, 0, 0.05);
+  color: #6b7280;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+.dark .kyc-status-bar.neutral {
+  background: rgba(255, 255, 255, 0.05);
+  color: #9ca3af;
+  border-color: rgba(255, 255, 255, 0.08);
+}
 
 .kyc-photo-caption {
   border-top: 1px dashed #e5e7eb;
-  padding-top: 8px;
+  padding-top: 6px;
 }
 .dark .kyc-photo-caption {
   border-color: rgba(255, 255, 255, 0.08);
@@ -2226,73 +2850,271 @@ const DOSSIER_STYLES = `
   background: #f59e0b;
 }
 
-/* Lightbox */
+/* Lightbox: Full-Screen Responsive Architecture */
 .lightbox-backdrop {
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.88);
-  backdrop-filter: blur(8px);
+  background: rgba(5, 7, 12, 0.95);
+  backdrop-filter: blur(14px);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  flex-direction: column;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
   animation: fadeIn 0.15s ease;
 }
 .lightbox-dialog {
-  max-width: 560px;
   width: 100%;
-  background: #ffffff;
-  border-radius: 8px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
   overflow: hidden;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
-}
-.dark .lightbox-dialog {
-  background: #11141e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .lightbox-header {
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #e5e7eb;
-}
-.dark .lightbox-header {
-  border-color: rgba(255, 255, 255, 0.08);
-}
-.lightbox-close-btn {
-  padding: 4px;
-  border-radius: 4px;
-  color: #6b7280;
-  cursor: pointer;
-}
-.lightbox-close-btn:hover {
-  color: #ef4444;
-}
-.lightbox-body {
-  padding: 12px;
-  background: #000000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.lightbox-image {
-  max-height: 70vh;
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
-  border-radius: 4px;
-}
-.lightbox-footer {
   padding: 10px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #e5e7eb;
+  gap: 12px;
+  background: rgba(14, 17, 24, 0.94);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
-.dark .lightbox-footer {
-  border-color: rgba(255, 255, 255, 0.08);
+.lightbox-tabs-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 3px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.lightbox-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 600;
+  color: #9ca3af;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+.lightbox-tab-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+.lightbox-tab-btn.active {
+  color: #ffffff;
+  background: #d97706;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
+}
+.lightbox-zoom-bar {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+.lightbox-ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d1d5db;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.lightbox-ctrl-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+.lightbox-ctrl-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.lightbox-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.lightbox-close-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+.lightbox-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  padding: 16px;
+  background: radial-gradient(circle at center, #111420 0%, #05070a 100%);
+  user-select: none;
+}
+.lightbox-stage-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.lightbox-image {
+  max-height: calc(100dvh - 130px);
+  max-width: 94vw;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  user-select: none;
+  pointer-events: auto;
+}
+.lightbox-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 36px 24px;
+  border-radius: 12px;
+  background: rgba(17, 20, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-width: 440px;
+  margin: auto;
+}
+.lightbox-footer {
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(14, 17, 24, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  /* Dossier Modal Mobile Architecture */
+  .dossier-overlay {
+    padding: 0;
+  }
+  .dossier-modal {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: none;
+  }
+  .dossier-header {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .dossier-header-actions {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .dossier-action-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 6px 8px;
+    font-size: 10.5px;
+  }
+  .dossier-close-btn {
+    padding: 6px 10px;
+  }
+  .dossier-body {
+    padding: 12px;
+    gap: 12px;
+  }
+  .dossier-photos-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .kyc-photo-card {
+    padding: 8px;
+    gap: 6px;
+  }
+  .kyc-card-header span {
+    font-size: 10px;
+  }
+  .kyc-status-bar {
+    padding: 4px 6px;
+    font-size: 9px;
+  }
+  .dossier-footer {
+    padding: 10px 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    text-align: center;
+  }
+
+  /* Fullscreen Lightbox Mobile Architecture */
+  .lightbox-header {
+    padding: 8px 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .lightbox-header > div:first-child {
+    max-width: calc(100% - 90px);
+  }
+  .lightbox-tabs-group {
+    order: 3;
+    width: 100%;
+    margin-top: 4px;
+    display: flex;
+  }
+  .lightbox-tab-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 6px 4px;
+    font-size: 10.5px;
+  }
+  .lightbox-body {
+    padding: 8px;
+  }
+  .lightbox-image {
+    max-height: calc(100dvh - 130px);
+    max-width: 98vw;
+  }
+  .lightbox-footer {
+    padding: 8px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    text-align: center;
+  }
 }
 
 @media print {

@@ -99,7 +99,7 @@ export function isValidEmail(email) {
 
 /**
  * Password strength evaluator:
- * Returns score, labels, and specific criteria flags.
+ * Returns score, labels, interactive criteria flags, and explicit missing items.
  */
 export function evaluatePassword(password, lang = "en") {
   const pwd = String(password || "");
@@ -107,32 +107,81 @@ export function evaluatePassword(password, lang = "en") {
   const hasUpper = /[A-Z]/.test(pwd);
   const hasLower = /[a-z]/.test(pwd);
   const hasNumber = /[0-9]/.test(pwd);
-  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
-
-  let score = 0;
-  if (minLength) score++;
-  if (hasUpper) score++;
-  if (hasLower) score++;
-  if (hasNumber) score++;
-  if (hasSpecial) score++;
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pwd);
+  const hasLetter = hasUpper || hasLower;
 
   const isFil = lang === "fil";
+
+  // Individual interactive criteria checkpoints
+  const criteria = [
+    {
+      id: "length",
+      met: minLength,
+      label: "8+ characters",
+      labelFil: "8+ karakter",
+    },
+    {
+      id: "letter",
+      met: hasLetter,
+      label: "Letters (A-Z / a-z)",
+      labelFil: "Mga titik (A-Z / a-z)",
+    },
+    {
+      id: "number",
+      met: hasNumber,
+      label: "At least 1 number (0-9)",
+      labelFil: "May numero (0-9)",
+    },
+    {
+      id: "symbol",
+      met: hasSpecial,
+      label: "Special symbol (!@#$...)",
+      labelFil: "Simbolo (!@#$...)",
+    },
+  ];
+
+  const metCount = criteria.filter((c) => c.met).length;
+  // Strictly require length, letters, number, and special symbol
+  const isValid = minLength && hasLetter && hasNumber && hasSpecial;
+
+  // Missing criteria list for explicit error feedback to the user
+  const missing = [];
+  if (!minLength) missing.push(isFil ? "8+ karakter" : "8+ characters");
+  if (!hasLetter) missing.push(isFil ? "titik (A-Z/a-z)" : "letters (A-Z/a-z)");
+  if (!hasNumber) missing.push(isFil ? "numero (0-9)" : "number (0-9)");
+  if (!hasSpecial) missing.push(isFil ? "simbolo (!@#$)" : "symbol (!@#$)");
+
   let label = isFil ? "Masyadong Mahina" : "Very Weak";
   let color = "text-red-500";
   let bg = "bg-red-500";
+  let score = 0;
 
-  if (score >= 4 && minLength) {
-    label = isFil ? "Malakas" : "Strong";
-    color = "text-emerald-500";
-    bg = "bg-emerald-500";
-  } else if (score >= 3 && minLength) {
+  if (isValid) {
+    score = 4;
+    if (pwd.length >= 12 && hasUpper && hasLower) {
+      label = isFil ? "Napakalakas" : "Very Strong";
+      color = "text-emerald-500";
+      bg = "bg-emerald-500";
+    } else {
+      label = isFil ? "Malakas" : "Strong";
+      color = "text-emerald-500";
+      bg = "bg-emerald-500";
+    }
+  } else if (metCount >= 3) {
+    score = 3;
     label = isFil ? "Katamtaman" : "Fair";
     color = "text-amber-500";
     bg = "bg-amber-500";
-  } else if (score >= 2) {
+  } else if (metCount >= 2) {
+    score = 2;
     label = isFil ? "Mahina" : "Weak";
     color = "text-orange-500";
     bg = "bg-orange-500";
+  } else if (pwd.length > 0) {
+    score = 1;
+    label = isFil ? "Masyadong Mahina" : "Very Weak";
+    color = "text-red-500";
+    bg = "bg-red-500";
   }
 
   return {
@@ -141,11 +190,15 @@ export function evaluatePassword(password, lang = "en") {
     hasLower,
     hasNumber,
     hasSpecial,
+    hasLetter,
+    criteria,
+    missing,
+    metCount,
     score,
     label,
     color,
     bg,
-    isValid: minLength && (hasUpper || hasLower) && hasNumber && hasSpecial,
+    isValid,
   };
 }
 

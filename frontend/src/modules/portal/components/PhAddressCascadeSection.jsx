@@ -43,6 +43,7 @@ export default function PhAddressCascadeSection({
   activeLang = "en",
   title = "Current Residential Address (Philippines)",
   isBuildSite = false,
+  isOptional = false,
   idPrefix = isBuildSite ? "field-build" : "field-res",
   onClearErrors,
 }) {
@@ -160,7 +161,7 @@ export default function PhAddressCascadeSection({
           <span>{title}</span>
         </label>
         <span className="text-[10px] text-neutral-400 font-mono">
-          {isBuildSite ? "Project Site" : "PH Official PSGC"}
+          {isOptional ? (activeLang === "fil" ? "Opsyonal" : "Optional") : isBuildSite ? "Project Site" : "PH Official PSGC"}
         </span>
       </div>
 
@@ -168,7 +169,11 @@ export default function PhAddressCascadeSection({
       <div>
         <PhLocationCombobox
           id={`${idPrefix}Province`}
-          label={activeLang === "fil" ? "1. Probinsya / Rehiyon" : "1. Province / Region"}
+          label={
+            activeLang === "fil"
+              ? `1. Probinsya / Rehiyon ${isOptional ? "(Opsyonal)" : "*"}`
+              : `1. Province / Region ${isOptional ? "(Optional)" : "*"}`
+          }
           placeholder={activeLang === "fil" ? "Pumili ng Probinsya o Rehiyon..." : "Select Province or Region..."}
           searchPlaceholder={activeLang === "fil" ? "Mag-type para hanapin ang probinsya..." : "Type to search province..."}
           emptyMessage={activeLang === "fil" ? "Walang nahanap na probinsya" : "No province found"}
@@ -176,12 +181,12 @@ export default function PhAddressCascadeSection({
           items={provincesList}
           isLoading={isLoadingProvinces}
           disabled={isLoadingProvinces && provincesList.length === 0}
-          hasError={attempted && !province}
-          required={true}
+          hasError={!isOptional && attempted && !province}
+          required={!isOptional}
           onSelect={handleProvinceSelect}
           icon={<Building2Icon className="w-3 h-3 text-amber-500/80" />}
         />
-        {attempted && !province && (
+        {!isOptional && attempted && !province && (
           <span className="text-[11px] text-red-500 font-medium mt-1 block">
             {activeLang === "fil" ? "Kailangan pong pumili ng Probinsya / Rehiyon." : "Please select your Province / Region."}
           </span>
@@ -194,7 +199,11 @@ export default function PhAddressCascadeSection({
         <div>
           <PhLocationCombobox
             id={`${idPrefix}City`}
-            label={activeLang === "fil" ? "2. Lungsod / Bayan" : "2. City / Municipality"}
+            label={
+              activeLang === "fil"
+                ? `2. Lungsod / Bayan ${isOptional ? "(Opsyonal)" : "*"}`
+                : `2. City / Municipality ${isOptional ? "(Optional)" : "*"}`
+            }
             placeholder={
               !province
                 ? activeLang === "fil"
@@ -210,11 +219,11 @@ export default function PhAddressCascadeSection({
             items={citiesList}
             isLoading={isLoadingCities}
             disabled={!provinceCode || isLoadingCities}
-            hasError={attempted && !city}
-            required={true}
+            hasError={!isOptional && attempted && !city}
+            required={!isOptional}
             onSelect={handleCitySelect}
           />
-          {attempted && !city && (
+          {!isOptional && attempted && !city && (
             <span className="text-[11px] text-red-500 font-medium mt-1 block">
               {activeLang === "fil" ? "Kailangan pong pumili ng Lungsod / Bayan." : "Please select your City / Municipality."}
             </span>
@@ -225,7 +234,11 @@ export default function PhAddressCascadeSection({
         <div>
           <PhLocationCombobox
             id={`${idPrefix}Barangay`}
-            label={activeLang === "fil" ? "3. Barangay" : "3. Barangay"}
+            label={
+              activeLang === "fil"
+                ? `3. Barangay ${isOptional ? "(Opsyonal)" : "*"}`
+                : `3. Barangay ${isOptional ? "(Optional)" : "*"}`
+            }
             placeholder={
               !city
                 ? activeLang === "fil"
@@ -241,11 +254,11 @@ export default function PhAddressCascadeSection({
             items={barangaysList}
             isLoading={isLoadingBarangays}
             disabled={!cityCode || isLoadingBarangays}
-            hasError={attempted && !barangay}
-            required={true}
+            hasError={!isOptional && attempted && !barangay}
+            required={!isOptional}
             onSelect={handleBarangaySelect}
           />
-          {attempted && !barangay && (
+          {!isOptional && attempted && !barangay && (
             <span className="text-[11px] text-red-500 font-medium mt-1 block">
               {activeLang === "fil" ? "Kailangan pong pumili ng Barangay." : "Please select your Barangay."}
             </span>

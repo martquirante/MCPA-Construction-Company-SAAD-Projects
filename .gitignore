@@ -59,4 +59,6 @@ Thumbs.db
 .vscode/
 .idea/
 scratch/
+__pycache__/
+*.pyc
 

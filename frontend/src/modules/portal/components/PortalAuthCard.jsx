@@ -27,6 +27,9 @@ import {
   FileTextIcon,
   ExternalLinkIcon,
   AlertTriangleIcon,
+  SmartphoneIcon,
+  VideoIcon,
+  UploadCloudIcon,
 } from "@/modules/shared/Icons";
 import CountryPicker from "./CountryPicker";
 import PuzzleCaptchaModal from "./PuzzleCaptchaModal";
@@ -427,6 +430,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
   const [isFaceChecking, setIsFaceChecking] = useState(false);
   const [faceCheckFeedback, setFaceCheckFeedback] = useState("");
   const [faceObstructionError, setFaceObstructionError] = useState("");
+  const [faceErrorType, setFaceErrorType] = useState(""); // "obstruction" | "quality"
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -475,6 +479,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [hasAcceptedPrivacy, setHasAcceptedPrivacy] = useState(false);
   const legalScrollRef = useRef(null);
+  const cardScrollRef = useRef(null);
+
+  // Auto-scroll card back to top whenever user changes steps or switches auth mode
+  useEffect(() => {
+    if (cardScrollRef.current) {
+      cardScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [signupStep, authMode]);
 
   const handleLegalScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -631,6 +643,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
       if (data && data.passed && !data.obstructions?.has_obstruction) {
         setIsLivenessVerified(true);
         setFaceObstructionError("");
+        setFaceErrorType("");
         setFaceCheckFeedback(
           activeLang === "fil"
             ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
@@ -638,6 +651,8 @@ export default function PortalAuthCard({ onLoginSuccess }) {
         );
       } else {
         setIsLivenessVerified(false);
+        const isRealObstruction = Boolean(data?.obstructions?.has_obstruction);
+        setFaceErrorType(isRealObstruction ? "obstruction" : "quality");
         const obsMsg = data?.obstructions?.issues?.[0] || data?.issues?.[0];
         const errorText = obsMsg
           ? (activeLang === "fil" ? obsMsg.fil : obsMsg.en)
@@ -666,6 +681,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
           setIsFaceChecking(true);
           setFaceCheckFeedback("");
           setFaceObstructionError("");
+          setFaceErrorType("");
           const res = await fetch("/api/auth/verify-face", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -675,6 +691,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
           if (data && data.passed && !data.obstructions?.has_obstruction) {
             setIsLivenessVerified(true);
             setFaceObstructionError("");
+            setFaceErrorType("");
             setFaceCheckFeedback(
               activeLang === "fil"
                 ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
@@ -682,6 +699,8 @@ export default function PortalAuthCard({ onLoginSuccess }) {
             );
           } else {
             setIsLivenessVerified(false);
+            const isRealObstruction = Boolean(data?.obstructions?.has_obstruction);
+            setFaceErrorType(isRealObstruction ? "obstruction" : "quality");
             const obsMsg = data?.obstructions?.issues?.[0] || data?.issues?.[0];
             const errorText = obsMsg
               ? (activeLang === "fil" ? obsMsg.fil : obsMsg.en)
@@ -798,6 +817,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
         const profile = data.profile || {};
         if (profile.firstName) setFirstName(profile.firstName);
         if (profile.lastName) setLastName(profile.lastName);
+        if (profile.email) setRegisterEmail(profile.email);
         // Do not auto-set capturedSelfie: Face verification is strictly mandatory even for Google & Facebook signups
         setCapturedSelfie(null);
         setIsLivenessVerified(false);
@@ -1031,63 +1051,34 @@ export default function PortalAuthCard({ onLoginSuccess }) {
     if (e && e.preventDefault) e.preventDefault();
     setAttemptedStep4(true);
 
-    if (!buildProvince.trim()) {
-      setErrorMessage(
-        activeLang === "fil"
-          ? "Pumili po ng Probinsya kung saan itatayo ang inyong proyekto."
-          : "Please select the target construction Province or Region."
-      );
-      scrollToField("field-buildProvince");
-      return;
-    }
-    if (!buildCity.trim()) {
-      setErrorMessage(
-        activeLang === "fil"
-          ? "Pumili po ng Lungsod / Bayan para sa inyong proyekto."
-          : "Please select the target construction City / Municipality."
-      );
-      scrollToField("field-buildCity");
-      return;
-    }
-    if (!buildBarangay.trim()) {
-      setErrorMessage(
-        activeLang === "fil"
-          ? "Pumili po ng Barangay kung saan itatayo ang proyekto."
-          : "Please select the target construction Barangay."
-      );
-      scrollToField("field-buildBarangay");
-      return;
-    }
-    if (!lotBlkLot.trim() && !lotPhaseStreet.trim() && !lotSubdivision.trim()) {
-      setErrorMessage(t.errLotDetails || "Please specify your lot, subdivision, or street details.");
-      scrollToField("field-buildBarangay");
-      return;
-    }
-    if (!targetLocation.trim() || targetLocation.trim().length < 3) {
-      setErrorMessage(t.errTargetLocation);
-      scrollToField("field-buildProvince");
-      return;
-    }
-    const foreignKeywords = [
-      "dubai", "uae", "united arab emirates", "saudi", "riyadh", "jeddah",
-      "canada", "usa", "united states", "california", "texas", "new york",
-      "singapore", "japan", "tokyo", "uk", "united kingdom", "london",
-      "australia", "sydney", "melbourne", "qatar", "doha", "kuwait",
-      "hong kong", "germany", "new zealand"
-    ];
-    const locLower = targetLocation.toLowerCase();
-    const isForeignOnly = foreignKeywords.some((k) => locLower.includes(k)) &&
-      !locLower.includes("philippines") &&
-      !locLower.includes("pilipinas") &&
-      !locLower.includes("bulacan") &&
-      !locLower.includes("pampanga") &&
-      !locLower.includes("manila") &&
-      !locLower.includes("luzon");
+    // Step 4: Project Type, Lot Ownership, and Philippine Build Location are OPTIONAL
+    // If client enters location details, ensure it is directed within the Philippines
+    if (targetLocation && targetLocation.trim().length > 0) {
+      const foreignKeywords = [
+        "dubai", "uae", "united arab emirates", "saudi", "riyadh", "jeddah",
+        "canada", "usa", "united states", "california", "texas", "new york",
+        "singapore", "japan", "tokyo", "uk", "united kingdom", "london",
+        "australia", "sydney", "melbourne", "qatar", "doha", "kuwait",
+        "hong kong", "germany", "new zealand"
+      ];
+      const locLower = targetLocation.toLowerCase();
+      const isForeignOnly = foreignKeywords.some((k) => locLower.includes(k)) &&
+        !locLower.includes("philippines") &&
+        !locLower.includes("pilipinas") &&
+        !locLower.includes("bulacan") &&
+        !locLower.includes("pampanga") &&
+        !locLower.includes("manila") &&
+        !locLower.includes("luzon");
 
-    if (isForeignOnly) {
-      setErrorMessage(t.errTargetLocationPhOnly || "MCPA constructs exclusively within the Philippines (Bulacan, Pampanga, Metro Manila, and Central Luzon). Please provide your Philippine lot location.");
-      scrollToField("field-buildProvince");
-      return;
+      if (isForeignOnly) {
+        setErrorMessage(
+          activeLang === "fil"
+            ? "Paalala para sa mga kliyente: Ang MCPA Construction ay tumatanggap lamang ng mga proyekto sa loob ng Pilipinas."
+            : (t.errTargetLocationPhOnly || "MCPA constructs exclusively within the Philippines. Please provide your Philippine lot location.")
+        );
+        scrollToField("field-buildProvince");
+        return;
+      }
     }
     if (!hasScrolledToBottom || !hasAcceptedTerms || !hasAcceptedPrivacy) {
       setErrorMessage(t.errLegalAccept);
@@ -1110,8 +1101,8 @@ export default function PortalAuthCard({ onLoginSuccess }) {
     try {
       const fullLocation =
         clientType === "OFW"
-          ? `${ofwCountry} (Build: ${targetLocation})`
-          : `${locationAddress || "Bulacan / NCR"} (Build: ${targetLocation})`;
+          ? (targetLocation?.trim() ? `${ofwCountry} (Build: ${targetLocation.trim()})` : ofwCountry)
+          : (targetLocation?.trim() ? `${locationAddress || "Bulacan / NCR"} (Build: ${targetLocation.trim()})` : (locationAddress || "Bulacan / NCR"));
 
       const res = await fetch("/api/auth/client/register", {
         method: "POST",
@@ -1143,7 +1134,8 @@ export default function PortalAuthCard({ onLoginSuccess }) {
           phoneNumber: `${countryCode} ${phoneNumber.trim()}`,
           clientType,
           locationAddress: fullLocation,
-          avatarUrl: capturedSelfie || socialConnected?.avatarUrl || "",
+          avatarUrl: socialConnected?.avatarUrl || "",
+          kycPhotoUrl: capturedSelfie || "",
           authProvider: socialConnected?.provider || "local",
           providerId: socialConnected?.providerId || "",
         }),
@@ -1169,14 +1161,15 @@ export default function PortalAuthCard({ onLoginSuccess }) {
 
   return (
     <>
-      <div className="relative w-full max-w-[465px] sm:max-w-[495px] mx-auto bg-white dark:bg-[#11141e] rounded-[24px] border border-neutral-200/90 dark:border-white/10 shadow-xl shadow-black/5 dark:shadow-black/40 px-6 py-5 sm:px-7.5 sm:py-6 transition-all duration-300">
+      {/* 1. OUTER CARD SHELL: Fixed 24px rounded frame with strict clipping to eliminate corner overflow */}
+      <div className="relative w-full max-w-[465px] sm:max-w-[495px] mx-auto bg-white dark:bg-[#11141e] rounded-[24px] border border-neutral-200/90 dark:border-white/10 shadow-xl shadow-black/5 dark:shadow-black/40 overflow-hidden transition-all duration-300 max-h-[calc(100dvh-5rem)] min-[920px]:max-h-[calc(100vh-5.5rem)] flex flex-col">
         {/* SUBMISSION LOADING OVERLAY SPINNER ("SPINNER PAG MAG SUSUBMIT") */}
         {isSubmitting && (
           <div className="absolute inset-0 bg-white/90 dark:bg-[#11141e]/95 backdrop-blur-xs rounded-[24px] z-30 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
             <div className="relative mb-3.5">
               <div className="w-14 h-14 rounded-full border-3 border-amber-500/20 border-t-amber-500 animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <ShieldCheckIcon className="w-6 h-6 text-amber-500 animate-pulse" />
+                <LockIcon className="w-5 h-5 text-amber-500 animate-pulse" />
               </div>
             </div>
             <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
@@ -1216,7 +1209,13 @@ export default function PortalAuthCard({ onLoginSuccess }) {
             }}
           />
         )}
-      {/* BRAND LOGO AT TOP (Crisp Black in Light Mode, Pure White in Dark Mode) */}
+
+        {/* 2. INNER SCROLL AREA: Inset scroll container protected from rounded corners */}
+        <div
+          ref={cardScrollRef}
+          className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-7 sm:py-5 portal-card-scroll flex flex-col"
+        >
+          {/* BRAND LOGO AT TOP (Crisp Black in Light Mode, Pure White in Dark Mode) */}
       <div className="flex justify-center mb-3 sm:mb-3.5">
         <Image
           src="/assets/mcpa-logo.svg"
@@ -1777,12 +1776,16 @@ export default function PortalAuthCard({ onLoginSuccess }) {
 
               {/* Password */}
               <div>
-                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                  <span>{t.passwordFieldLabel}</span>
-                  {!socialConnected && <span className="text-red-500 font-bold ml-1">*</span>}
+                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1">
+                    <span>{t.passwordFieldLabel}</span>
+                    <span className="text-red-500 font-bold">*</span>
+                  </div>
                   {socialConnected && (
-                    <span className="font-normal text-emerald-600 dark:text-emerald-400 ml-1">
-                      ({t.socialOptionalPassword})
+                    <span className="text-[11px] font-normal text-amber-600 dark:text-amber-400">
+                      {activeLang === "fil"
+                        ? "(Magtakda ng password para sa MCPA)"
+                        : "(Set a password for your MCPA account)"}
                     </span>
                   )}
                 </label>
@@ -1791,52 +1794,78 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   <input
                     id="field-registerPassword"
                     type={showPassword ? "text" : "password"}
-                    required={!socialConnected}
-                    placeholder={
-                      socialConnected
-                        ? t.socialOptionalPassword
-                        : t.passwordFieldPlaceholder
-                    }
+                    required
+                    placeholder={t.passwordFieldPlaceholder}
                     value={registerPassword}
                     onChange={(e) => {
                       setRegisterPassword(e.target.value);
                       if (errorMessage) setErrorMessage("");
                     }}
                     className={`w-full h-10 pl-10 pr-9 rounded-xl border ${
-                      ((!socialConnected && attemptedStep1 && !passwordEval.isValid) || (registerPassword && !passwordEval.isValid))
-                        ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                      attemptedStep1 && !passwordEval.isValid
+                        ? "bg-red-50/50 dark:bg-red-950/30 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                        : registerPassword && passwordEval.isValid
+                        ? "bg-neutral-50 dark:bg-[#161a23] border-emerald-500/60 focus:border-emerald-500 text-neutral-900 dark:text-neutral-100"
                         : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
                     } text-xs sm:text-sm focus:outline-none transition-all`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1 cursor-pointer"
                   >
                     {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                   </button>
                 </div>
 
-                {attemptedStep1 && !socialConnected && !passwordEval.isValid && (
-                  <span className="text-[11px] text-red-500 font-medium mt-1 block">
-                    {t.errPassword}
-                  </span>
-                )}
+                {/* Real-time Password Security Reminder Text */}
+                {(() => {
+                  if (registerPassword && passwordEval.isValid) {
+                    return (
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-emerald-600 dark:text-emerald-400 font-medium pl-0.5 animate-fadeIn">
+                        <CheckIcon className="w-3.5 h-3.5 stroke-[2.5] shrink-0" />
+                        <span>{t.passwordCriteriaSatisfied || (activeLang === "fil" ? "Kumpleto ang pamantayan sa seguridad" : "All security criteria met")}</span>
+                      </div>
+                    );
+                  }
 
-                {registerPassword && (
-                  <div className="mt-1.5 space-y-1">
-                    <div className="grid grid-cols-4 gap-1.5">
-                      <div className={`h-1.5 rounded-full ${passwordEval.score >= 1 ? passwordEval.bg : "bg-neutral-200 dark:bg-neutral-800"}`} />
-                      <div className={`h-1.5 rounded-full ${passwordEval.score >= 2 ? passwordEval.bg : "bg-neutral-200 dark:bg-neutral-800"}`} />
-                      <div className={`h-1.5 rounded-full ${passwordEval.score >= 3 ? passwordEval.bg : "bg-neutral-200 dark:bg-neutral-800"}`} />
-                      <div className={`h-1.5 rounded-full ${passwordEval.score >= 4 ? passwordEval.bg : "bg-neutral-200 dark:bg-neutral-800"}`} />
+                  const missingCount = passwordEval.missing?.length || 4;
+                  let colorClass = "text-neutral-500 dark:text-neutral-400 font-normal";
+                  let dotClass = "bg-neutral-400 dark:bg-neutral-500";
+                  let prefix = activeLang === "fil" ? "Kailangan" : "Missing";
+
+                  if (registerPassword) {
+                    prefix = activeLang === "fil" ? "Kulang pa ng" : "Missing";
+                    if (missingCount >= 3) {
+                      colorClass = "text-red-500 dark:text-red-400 font-medium";
+                      dotClass = "bg-red-500";
+                    } else if (missingCount === 2) {
+                      colorClass = "text-orange-500 dark:text-orange-400 font-medium";
+                      dotClass = "bg-orange-500";
+                    } else {
+                      colorClass = "text-amber-500 dark:text-amber-400 font-medium";
+                      dotClass = "bg-amber-500";
+                    }
+                  } else if (attemptedStep1) {
+                    prefix = activeLang === "fil" ? "Kulang pa ng" : "Missing";
+                    colorClass = "text-red-500 dark:text-red-400 font-medium";
+                    dotClass = "bg-red-500";
+                  }
+
+                  return (
+                    <div className={`mt-1.5 flex items-start gap-1.5 text-[11.5px] pl-0.5 transition-colors ${colorClass}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1 ${dotClass}`} />
+                      <p className="leading-tight">
+                        <strong className="font-semibold">{prefix}:</strong>{" "}
+                        {passwordEval.missing?.length
+                          ? passwordEval.missing.join(", ")
+                          : (activeLang === "fil"
+                              ? "8+ karakter, titik (A-Z/a-z), numero (0-9), simbolo (!@#$)"
+                              : "8+ characters, letters (A-Z/a-z), number (0-9), symbol (!@#$)")}
+                      </p>
                     </div>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className={`font-semibold ${passwordEval.color}`}>{t.passwordStrengthPrefix} {passwordEval.label}</span>
-                      <span className="text-neutral-400">{t.passwordCriteriaHelper}</span>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Next Button */}
@@ -1864,15 +1893,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     scrollToField("field-registerEmail");
                     return;
                   }
-                  // Password check: Mandatory for standard registration, optional if social account linked
-                  if (!socialConnected) {
-                    if (!passwordEval.isValid) {
-                      setErrorMessage(t.errPassword);
-                      scrollToField("field-registerPassword");
-                      return;
-                    }
-                  } else if (registerPassword && !passwordEval.isValid) {
-                    setErrorMessage(t.errPassword);
+                  // Password check: Mandatory for all registrations
+                  if (!passwordEval.isValid) {
+                    const missingText = registerPassword
+                      ? (passwordEval.missing?.length
+                          ? `${t.errPassword} (${activeLang === "fil" ? "Kulang: " : "Missing: "}${passwordEval.missing.join(", ")})`
+                          : t.errPassword)
+                      : (t.errPasswordEmpty || t.errPassword);
+                    setErrorMessage(missingText);
                     scrollToField("field-registerPassword");
                     return;
                   }
@@ -1892,7 +1920,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
               ----------------------------------------------------------------- */}
           {signupStep === 2 && (
             <div className="space-y-2.5 animate-in fade-in duration-200">
-              <div className="space-y-3 max-h-[min(55vh,400px)] overflow-y-auto pr-1 scrollbar-thin">
+              <div className="space-y-3 pb-2">
                 {/* 1. Client Residency */}
                 <div>
                   <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1.5">
@@ -2042,64 +2070,32 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   </div>
                 )}
 
-                {/* 3. Occupation & Employer */}
-                <div className="grid grid-cols-2 gap-2.5 items-start">
-                  <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center h-5 mb-1.5 truncate" title={t.occupationLabel}>
-                      <span>{t.occupationLabel}</span>
-                      <span className="text-red-500 font-bold ml-1">*</span>
-                    </label>
-                    <input
-                      id="field-occupation"
-                      type="text"
-                      placeholder={t.occupationPlaceholder}
-                      value={occupation}
-                      onChange={(e) => {
-                        setOccupation(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-\/\&.,]/g, ""));
-                        if (errorMessage) setErrorMessage("");
-                      }}
-                      className={`w-full h-10 px-3.5 rounded-xl border ${
-                        (attemptedStep2 && !isValidOccupation(occupation)) || (occupation && !isValidOccupation(occupation))
-                          ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
-                          : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
-                      } text-sm focus:outline-none transition-all`}
-                    />
-                    {((attemptedStep2 && !isValidOccupation(occupation)) || (occupation && !isValidOccupation(occupation))) && (
-                      <span className="text-[11px] text-red-500 font-medium mt-1 block">
-                        {t.errOccupation || "Please enter your occupation or profession (letters only)."}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center h-5 mb-1.5 truncate" title={t.employerLabel}>
-                      {t.employerLabel}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={t.employerPlaceholder}
-                      value={employerName}
-                      onChange={(e) => setEmployerName(e.target.value)}
-                      className="w-full h-10 px-3.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* 4. Estimated Monthly Household Income Range */}
+                {/* 3. Occupation */}
                 <div>
-                  <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1.5">
-                    {t.monthlyIncomeLabel}
+                  <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center mb-1.5" title={t.occupationLabel}>
+                    <span>{t.occupationLabel}</span>
+                    <span className="text-red-500 font-bold ml-1">*</span>
                   </label>
-                  <select
-                    value={monthlyIncome}
-                    onChange={(e) => setMonthlyIncome(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
-                  >
-                    <option value="Under ₱75,000 / month">Under ₱75,000 / month</option>
-                    <option value="₱75,000 – ₱150,000 / month">₱75,000 – ₱150,000 / month (Standard)</option>
-                    <option value="₱150,000 – ₱300,000 / month">₱150,000 – ₱300,000 / month (Executive)</option>
-                    <option value="₱300,000 – ₱500,000 / month">₱300,000 – ₱500,000 / month (High Net Worth)</option>
-                    <option value="₱500,000+ / month (Luxury Construction)">₱500,000+ / month (Luxury Estate)</option>
-                  </select>
+                  <input
+                    id="field-occupation"
+                    type="text"
+                    placeholder={t.occupationPlaceholder}
+                    value={occupation}
+                    onChange={(e) => {
+                      setOccupation(e.target.value.replace(/[^a-zA-ZÀ-ÿ\u00f1\u00d1\s\-\/\&.,]/g, ""));
+                      if (errorMessage) setErrorMessage("");
+                    }}
+                    className={`w-full h-10 px-3.5 rounded-xl border ${
+                      (attemptedStep2 && !isValidOccupation(occupation)) || (occupation && !isValidOccupation(occupation))
+                        ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
+                        : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+                    } text-sm focus:outline-none transition-all`}
+                  />
+                  {((attemptedStep2 && !isValidOccupation(occupation)) || (occupation && !isValidOccupation(occupation))) && (
+                    <span className="text-[11px] text-red-500 font-medium mt-1 block">
+                      {t.errOccupation || "Please enter your occupation or profession (letters only)."}
+                    </span>
+                  )}
                 </div>
 
                 {/* 5. Mobile Phone Number */}
@@ -2588,14 +2584,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 </p>
               </div>
 
-              <div className="space-y-3 max-h-[min(56vh,420px)] overflow-y-auto pr-1 scrollbar-thin">
+              <div className="space-y-2.5 pb-2">
                 {/* 1. STANDBY STATE: EDITORIAL BIOMETRIC REQUIREMENTS */}
                 {!isCameraActive && !capturedSelfie && (
-                  <div className="space-y-3 animate-in fade-in duration-150">
+                  <div className="space-y-2.5 animate-in fade-in duration-150">
                     {/* Social Profile Connected Notice (Google / Facebook) */}
                     {socialConnected?.avatarUrl && (
-                      <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3 text-left">
-                        <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-amber-500 shrink-0 shadow-sm">
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2.5 text-left">
+                        <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-amber-500 shrink-0 shadow-sm">
                           <img src={socialConnected.avatarUrl} alt="Social Profile" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -2607,25 +2603,32 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                           </div>
                           <p className="text-[11px] text-neutral-700 dark:text-neutral-300 font-medium leading-tight mt-0.5">
                             {activeLang === "fil"
-                              ? "Kailangan pa rin ng live biometric verification upang itugma sa profile photo ng iyong account."
-                              : "Live biometric verification is required and will be matched with your social profile photo."}
+                              ? "Kailangan pa rin ng live biometric verification upang itugma sa profile photo."
+                              : "Live biometric verification is required and will be matched with your profile photo."}
                           </p>
                         </div>
                       </div>
                     )}
 
-                    {/* Visual Do & Don't KYC Instruction Guide */}
-                    <div className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm bg-neutral-100 dark:bg-neutral-900/60 transition-colors">
+                    {/* Visual Do & Don't KYC Face Verification Guide Banner (Adaptive to Light & Dark Theme) */}
+                    <div className="rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-100/70 dark:bg-[#161a23]/60 p-1 flex items-center justify-center transition-colors">
+                      {/* Light Mode Variant */}
                       <img
                         src="/assets/kyc-face-guide.jpg"
                         alt={activeLang === "fil" ? "Gabay sa Pagsusuri ng Mukha: DO vs DON'T" : "Face Verification Guide: DO vs DON'T"}
-                        className="w-full h-auto object-cover max-h-52 sm:max-h-60 mx-auto"
+                        className="w-full h-24 sm:h-28 object-contain mx-auto block dark:hidden"
+                      />
+                      {/* Dark Mode Variant (sumasabay sa dark theme) */}
+                      <img
+                        src="/assets/kyc-face-guide-dark.jpg"
+                        alt={activeLang === "fil" ? "Gabay sa Pagsusuri ng Mukha: DO vs DON'T" : "Face Verification Guide: DO vs DON'T"}
+                        className="w-full h-24 sm:h-28 object-contain mx-auto hidden dark:block"
                       />
                     </div>
 
                     {/* Camera Error Alert if Live Cam blocked by HTTP Wi-Fi */}
                     {cameraError && (
-                      <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
+                      <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
                         <AlertTriangleIcon className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <p className="font-semibold">{cameraError}</p>
@@ -2633,71 +2636,38 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       </div>
                     )}
 
-                    {/* Guidance Card adapting to Light and Dark Mode */}
-                    <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 text-left space-y-2.5 transition-colors">
-                      <div className="flex items-center gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs font-bold">
-                        <ShieldCheckIcon className="w-4 h-4 text-amber-500" />
-                        <span>
-                          {activeLang === "fil" ? "Mga Gabay sa Pagkuha ng Litrato" : "Verification Guidelines"}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11.5px] leading-snug">
-                        <div className="flex items-start gap-2">
-                          <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px] mt-0.5">
-                            ✓
-                          </span>
-                          <span className="text-neutral-700 dark:text-neutral-300">
-                            <strong className="text-neutral-900 dark:text-white font-medium">
-                              {activeLang === "fil" ? "Maliwanag na Ilaw: " : "Good Lighting: "}
-                            </strong>
-                            {activeLang === "fil" ? "Iwasan ang anino o matinding silaw." : "Avoid dark shadows or direct backlight."}
-                          </span>
+                    {/* Compact Guidelines & Biometric Motion Sequence */}
+                    <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 space-y-1.5 transition-colors text-left">
+                      {/* 2-Column Rules */}
+                      <div className="grid grid-cols-2 gap-2 text-[11px] leading-tight">
+                        <div className="flex items-center gap-1.5 text-neutral-700 dark:text-neutral-300">
+                          <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px]">✓</span>
+                          <span className="truncate font-medium">{activeLang === "fil" ? "Maliwanag na Ilaw" : "Good Lighting"}</span>
                         </div>
-
-                        <div className="flex items-start gap-2">
-                          <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px] mt-0.5">
-                            ✓
-                          </span>
-                          <span className="text-neutral-700 dark:text-neutral-300">
-                            <strong className="text-neutral-900 dark:text-white font-medium">
-                              {activeLang === "fil" ? "Walang Harang: " : "Uncovered Face: "}
-                            </strong>
-                            {activeLang === "fil" ? "Tanggalin ang sumbrero, shades, o mask." : "No hardhats, caps, shades, or masks."}
-                          </span>
+                        <div className="flex items-center gap-1.5 text-neutral-700 dark:text-neutral-300">
+                          <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px]">✓</span>
+                          <span className="truncate font-medium">{activeLang === "fil" ? "Walang Harang sa Mukha" : "No Hats or Masks"}</span>
                         </div>
                       </div>
 
-                      {/* 5-step movement overview */}
-                      <div className="pt-1 border-t border-neutral-200/60 dark:border-neutral-800/60">
-                        <span className="text-[10px] uppercase font-mono tracking-wider text-neutral-400 block mb-1">
-                          {activeLang === "fil" ? "Pagkakasunod-sunod ng Paggalaw (Motion Steps):" : "Biometric Motion Sequence:"}
+                      {/* 6-step movement overview */}
+                      <div className="pt-1.5 border-t border-neutral-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
+                        <span className="shrink-0 font-semibold uppercase">{activeLang === "fil" ? "6 Hakbang:" : "6 Steps:"}</span>
+                        <span className="truncate font-sans font-medium text-neutral-600 dark:text-neutral-300">
+                          {activeLang === "fil" ? "Gitna → Kanan → Kaliwa → Tingala → Yuko → Kurap" : "Center → Right → Left → Tilt Up → Down → Blink"}
                         </span>
-                        <div className="flex items-center justify-between text-[10.5px] font-medium text-neutral-600 dark:text-neutral-300 gap-1 flex-wrap">
-                          <span className="flex items-center gap-1">{activeLang === "fil" ? "1. Gitna" : "1. Center"}</span>
-                          <span className="text-neutral-300 dark:text-neutral-700">→</span>
-                          <span className="flex items-center gap-1">{activeLang === "fil" ? "2. Pakanan" : "2. Right"}</span>
-                          <span className="text-neutral-300 dark:text-neutral-700">→</span>
-                          <span className="flex items-center gap-1">{activeLang === "fil" ? "3. Pakaliwa" : "3. Left"}</span>
-                          <span className="text-neutral-300 dark:text-neutral-700">→</span>
-                          <span className="flex items-center gap-1">{activeLang === "fil" ? "4. Itingala" : "4. Tilt Up"}</span>
-                          <span className="text-neutral-300 dark:text-neutral-700">→</span>
-                          <span className="flex items-center gap-1">{activeLang === "fil" ? "5. Iyuko" : "5. Tilt Down"}</span>
-                          <span className="text-neutral-300 dark:text-neutral-700">→</span>
-                          <span className="flex items-center gap-1">{activeLang === "fil" ? "6. Kurap" : "6. Blink"}</span>
-                        </div>
                       </div>
                     </div>
 
-                    {/* Launch Camera or Upload Photo */}
-                    <div className="pt-1 flex flex-col items-center gap-2.5">
+                    {/* Launch Camera or Alternative Capture Methods */}
+                    <div className="pt-0.5 flex flex-col items-center gap-2">
                       <button
                         type="button"
                         onClick={() => {
                           setLivenessPurpose("kyc");
                           setIsLivenessModalOpen(true);
                         }}
-                        className="w-full h-11 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-neutral-950 font-bold text-xs sm:text-sm shadow-md shadow-amber-500/15 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                        className="w-full h-10.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-neutral-950 font-bold text-xs sm:text-sm shadow-md shadow-amber-500/15 flex items-center justify-center gap-2 cursor-pointer transition-all"
                       >
                         <CameraIcon className="w-4 h-4" />
                         <span>
@@ -2707,25 +2677,42 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         </span>
                       </button>
 
-                      <div className="flex items-center justify-center gap-2 sm:gap-3 text-xs flex-wrap">
-                        <label className="text-amber-600 dark:text-amber-400 font-semibold underline cursor-pointer hover:opacity-80 flex items-center gap-1">
-                          <CameraIcon className="w-3.5 h-3.5" />
-                          <span>{activeLang === "fil" ? "Kunan gamit ang Phone Camera" : "Snap with Phone Camera"}</span>
-                          <input type="file" accept="image/*" capture="user" onChange={handleFileUploadSelfie} className="hidden" />
-                        </label>
-                        <span className="text-neutral-300 dark:text-neutral-700">•</span>
-                        <button
-                          type="button"
-                          onClick={startCamera}
-                          className="text-neutral-500 hover:text-amber-600 dark:text-neutral-400 dark:hover:text-amber-400 underline cursor-pointer"
-                        >
-                          {activeLang === "fil" ? "Buksan ang Circular Cam" : "Open In-page Camera"}
-                        </button>
-                        <span className="text-neutral-300 dark:text-neutral-700">•</span>
-                        <label className="text-neutral-500 hover:text-amber-600 dark:text-neutral-400 dark:hover:text-amber-400 underline cursor-pointer">
-                          {t.uploadFromDevice}
-                          <input type="file" accept="image/*" onChange={handleFileUploadSelfie} className="hidden" />
-                        </label>
+                      {/* Responsive 3-Button Alternative Options Bar */}
+                      <div className="w-full">
+                        <div className="relative my-0.5 text-center">
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-neutral-200 dark:border-neutral-800" />
+                          </div>
+                          <span className="relative px-2 bg-white dark:bg-[#11141e] text-[9.5px] font-mono uppercase tracking-wider text-neutral-400">
+                            {activeLang === "fil" ? "Iba pang Paraan ng Pagkuha" : "Alternative Capture Options"}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1.5 mt-1 w-full">
+                          {/* 1. Snap with Phone Camera */}
+                          <label className="h-8.5 px-2 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 hover:bg-amber-500/5 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 text-[11px] font-medium cursor-pointer transition-all flex items-center justify-center gap-1.5 text-center bg-white dark:bg-[#161a23]">
+                            <SmartphoneIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="truncate">{activeLang === "fil" ? "Phone Cam" : "Phone"}</span>
+                            <input type="file" accept="image/*" capture="user" onChange={handleFileUploadSelfie} className="hidden" />
+                          </label>
+
+                          {/* 2. Open In-page Camera */}
+                          <button
+                            type="button"
+                            onClick={startCamera}
+                            className="h-8.5 px-2 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 hover:bg-amber-500/5 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 text-[11px] font-medium cursor-pointer transition-all flex items-center justify-center gap-1.5 text-center bg-white dark:bg-[#161a23]"
+                          >
+                            <VideoIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="truncate">{activeLang === "fil" ? "In-page" : "Camera"}</span>
+                          </button>
+
+                          {/* 3. Upload Selfie Photo */}
+                          <label className="h-8.5 px-2 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 hover:bg-amber-500/5 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 text-[11px] font-medium cursor-pointer transition-all flex items-center justify-center gap-1.5 text-center bg-white dark:bg-[#161a23]">
+                            <UploadCloudIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="truncate">{activeLang === "fil" ? "Upload" : "Upload"}</span>
+                            <input type="file" accept="image/*" onChange={handleFileUploadSelfie} className="hidden" />
+                          </label>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2823,25 +2810,16 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                           : "border-emerald-500 shadow-emerald-500/20"
                       } bg-neutral-950 flex items-center justify-center mb-2.5 shadow-lg`}
                     >
-                      <img src={capturedSelfie} alt="Selfie Verification" className="w-full h-full object-cover rounded-full" />
-                      <div
-                        className={`absolute bottom-1 right-1 w-7 h-7 rounded-full ${
-                          faceObstructionError ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"
-                        } flex items-center justify-center shadow-md border-2 border-white dark:border-[#161a23]`}
-                      >
-                        {faceObstructionError ? (
-                          <AlertTriangleIcon className="w-4 h-4 stroke-[2.5]" />
-                        ) : (
-                          <CheckIcon className="w-4 h-4 stroke-[3]" />
-                        )}
-                      </div>
+                      <img src={capturedSelfie} alt="Selfie Verification" className="w-full h-full object-cover" />
                     </div>
 
                     {faceObstructionError ? (
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs font-semibold mb-1.5">
                         <AlertTriangleIcon className="w-3.5 h-3.5" />
                         <span>
-                          {activeLang === "fil" ? "May Sagabal sa Mukha (Di Pa Na-verify)" : "Face Obstructed (Not Verified)"}
+                          {faceErrorType === "obstruction"
+                            ? (activeLang === "fil" ? "May Sagabal sa Mukha (Di Pa Na-verify)" : "Face Obstructed (Not Verified)")
+                            : (activeLang === "fil" ? "Kailangang Ayusin ang Litrato" : "Photo Needs Adjustment")}
                         </span>
                       </div>
                     ) : (
@@ -2851,19 +2829,25 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       </div>
                     )}
 
-                    {/* Specific Obstruction Warning Box */}
+                    {/* Specific Feedback / Warning Box */}
                     {faceObstructionError && (
                       <div className="w-full p-3 my-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs flex items-start gap-2 text-left">
                         <AlertTriangleIcon className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
                         <div>
                           <p className="font-bold">
-                            {activeLang === "fil" ? "May Sagabal sa Mukha:" : "Facial Obstruction:"}
+                            {faceErrorType === "obstruction"
+                              ? (activeLang === "fil" ? "May Sagabal sa Mukha:" : "Facial Obstruction:")
+                              : (activeLang === "fil" ? "Paalala sa Kalidad ng Litrato:" : "Photo Quality Notice:")}
                           </p>
                           <p className="text-[11.5px] mt-0.5">{faceObstructionError}</p>
                           <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-1 font-mono">
-                            {activeLang === "fil"
-                              ? "Hindi maaaring magpatuloy sa registration hangga't may sumbrero, salamin, o mask."
-                              : "Registration is blocked until hats, sunglasses, eyeglasses, or masks are removed."}
+                            {faceErrorType === "obstruction"
+                              ? (activeLang === "fil"
+                                  ? "Hindi maaaring magpatuloy sa registration hangga't may sumbrero, salamin sa mata, o mask."
+                                  : "Registration is blocked until hats, sunglasses, or masks are removed.")
+                              : (activeLang === "fil"
+                                  ? "Siguraduhing maliwanag ang paligid, steady ang camera, at nakaharap nang maayos sa camera."
+                                  : "Please ensure lighting is clear, camera is steady, and you are facing forward.")}
                           </p>
                         </div>
                       </div>
@@ -2881,13 +2865,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       </p>
                     ) : null}
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
                       <button
                         type="button"
                         onClick={() => {
                           setCapturedSelfie(null);
                           setFaceCheckFeedback("");
                           setFaceObstructionError("");
+                          setFaceErrorType("");
                           startCamera();
                         }}
                         className="h-8.5 px-3.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-medium text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer flex items-center gap-1.5"
@@ -2895,6 +2880,12 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         <RefreshCwIcon className="w-3 h-3" />
                         <span>{t.retakePhotoButton}</span>
                       </button>
+
+                      <label className="h-8.5 px-3.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-medium text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer flex items-center gap-1.5">
+                        <UploadCloudIcon className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{activeLang === "fil" ? "Pumili ng Ibang Litrato" : "Choose Another Photo"}</span>
+                        <input type="file" accept="image/*" onChange={handleFileUploadSelfie} className="hidden" />
+                      </label>
                     </div>
                   </div>
                 )}
@@ -2953,7 +2944,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
               ----------------------------------------------------------------- */}
           {signupStep === 4 && (
             <div className="space-y-2.5 animate-in fade-in duration-200">
-              <div className="space-y-3 max-h-[min(55vh,400px)] overflow-y-auto pr-1 scrollbar-thin">
+              <div className="space-y-3 pb-2">
                 {/* 1. Project Type & Scope */}
                 <div>
                   <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1.5">
@@ -2964,6 +2955,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     onChange={(e) => setProjectType(e.target.value)}
                     className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
                   >
+                    <option value="">{activeLang === "fil" ? "-- Pumili ng Uri ng Proyekto (Opsyonal) --" : "-- Select Project Type (Optional) --"}</option>
                     <option value="2-Storey Modern Villa">{t.projectTypes.twoStorey}</option>
                     <option value="Single-Storey Bungalow">{t.projectTypes.bungalow}</option>
                     <option value="3-Storey Luxury Estate">{t.projectTypes.threeStorey}</option>
@@ -2982,6 +2974,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     onChange={(e) => setLotOwnershipStatus(e.target.value)}
                     className="w-full h-10 px-3 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all"
                   >
+                    <option value="">{activeLang === "fil" ? "-- Pumili ng Katayuan ng Lote (Opsyonal) --" : "-- Select Lot Ownership (Optional) --"}</option>
                     <option value="Titled under my name">{t.lotOwnershipOptions.titled}</option>
                     <option value="Under Family / Parents">{t.lotOwnershipOptions.family}</option>
                     <option value="Currently being purchased / in-process">{t.lotOwnershipOptions.purchasing}</option>
@@ -2992,10 +2985,10 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 {/* 3. Target Construction Lot Location (Philippines - Cascading PSGC) */}
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
-                    {activeLang === "fil" ? "Lokasyon sa Pilipinas" : "Philippine Build Location"}
+                    {activeLang === "fil" ? "3. Lokasyon ng Lote sa Pilipinas" : "3. Philippine Build Location"}
                   </span>
                   <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                    🇵🇭 {activeLang === "fil" ? "Eksklusibo sa Pilipinas" : "Philippines Coverage Only"}
+                    🇵🇭 {activeLang === "fil" ? "Pilipinas (Opsyonal)" : "Philippines (Optional)"}
                   </span>
                 </div>
                 {clientType === "OFW" && (
@@ -3003,7 +2996,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     <span className="text-sm">ℹ️</span>
                     <span>
                       {activeLang === "fil"
-                        ? "Paalala para sa mga OFW: Kahit kayo ay nasa abroad, ang lot o pagtatayuan ng proyekto ay dapat nasa loob ng Pilipinas."
+                        ? "Paalala para sa mga OFW: Kahit nasa ibang bansa kayo nagtatrabaho, ang pagtatayuang lote ay dapat nasa loob ng Pilipinas."
                         : "Notice for Overseas Clients: While you reside abroad, your target construction lot must be located within the Philippines."}
                     </span>
                   </div>
@@ -3038,8 +3031,9 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                   attempted={attemptedStep4}
                   t={t}
                   activeLang={activeLang}
-                  title={activeLang === "fil" ? "Lokasyon ng Proyekto / Lote (Pilipinas)" : "Target Construction Lot Location (Philippines)"}
+                  title={activeLang === "fil" ? "Lokasyon ng Proyekto / Lote (Opsyonal)" : "Target Construction Lot Location (Optional)"}
                   isBuildSite={true}
+                  isOptional={true}
                   idPrefix="field-build"
                   onClearErrors={() => {
                     if (errorMessage) setErrorMessage("");
@@ -3082,7 +3076,11 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     )}
                     <div>
                       <span className="text-neutral-400 block text-[11px]">{t.summaryLotOwnership}</span>
-                      <span className="font-medium text-neutral-800 dark:text-neutral-200">{lotOwnershipStatus.split("(")[0].trim()}</span>
+                      <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                        {lotOwnershipStatus
+                          ? lotOwnershipStatus.split("(")[0].trim()
+                          : (activeLang === "fil" ? "Hindi pa tinukoy (Opsyonal)" : "Not specified (Optional)")}
+                      </span>
                     </div>
                     <div>
                       <span className="text-neutral-400 block text-[11px]">{t.summaryIdentityStatus}</span>
@@ -3119,7 +3117,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <ShieldCheckIcon className="w-4 h-4 text-amber-500" />
+                      <FileTextIcon className="w-4 h-4 text-amber-500" />
                       <span className="text-xs font-bold text-neutral-900 dark:text-white">
                         {t.legalSectionTitle}
                       </span>
@@ -3258,7 +3256,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
           )}
 
           {/* TOGGLE BACK TO LOGIN */}
-          <div className="mt-4 text-center text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
+          <div className="mt-3 text-center text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
             <span>{t.haveAccountPrompt} </span>
             <button
               type="button"
@@ -3274,7 +3272,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
           </div>
 
           {/* LEGAL FOOTER */}
-          <div className="mt-2 text-center text-xs text-neutral-500 dark:text-neutral-400">
+          <div className="mt-1 text-center text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">
             <Link
               href="/terms"
               target="_blank"
@@ -3295,6 +3293,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
           </div>
         </div>
       )}
+        </div>
       </div>
 
       {/* ========================================================================= */}
@@ -3307,7 +3306,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
             <div className="p-4 sm:p-5 border-b border-neutral-200 dark:border-white/10 flex items-center justify-between shrink-0 bg-neutral-50/70 dark:bg-white/[0.02]">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-9 h-9 rounded-[11px] bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-                  <ShieldCheckIcon className="w-4.5 h-4.5 text-amber-500 stroke-[2.2]" />
+                  <FileTextIcon className="w-4.5 h-4.5 text-amber-500 stroke-[2.2]" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white truncate">

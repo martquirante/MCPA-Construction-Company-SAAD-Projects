@@ -266,11 +266,6 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                 className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-900 text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer"
                 aria-label="Select Theme Mode"
               >
-                {activeThemeMode === "dark" ? (
-                  <MoonIcon className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
-                ) : (
-                  <SunIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                )}
                 <span suppressHydrationWarning className="font-semibold text-[11px] tracking-wide">
                   {currentTheme === "system"
                     ? `${t("theme")} (Auto)`

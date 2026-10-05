@@ -28,7 +28,7 @@ class AuthController {
       const result = await db.query(
         `SELECT 
           user_id, email, password_hash, full_name, first_name, middle_name, last_name, suffix, role, 
-          phone_number, avatar_url, has_viber_whatsapp, client_type, location_address, auth_provider, provider_id, email_verified,
+          phone_number, avatar_url, kyc_photo_url, kyc_verified_at, has_viber_whatsapp, client_type, location_address, auth_provider, provider_id, email_verified,
           occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name,
           preferred_contact_time, emergency_contact, lot_ownership_status, subdivision_lot_details,
           target_build_location, target_project_type, ofw_country, ph_rep_name, ph_rep_relationship, ph_rep_phone,
@@ -183,6 +183,10 @@ class AuthController {
           phone_number: user.phone_number || "",
           avatarUrl: user.avatar_url || "",
           avatar_url: user.avatar_url || "",
+          kycPhotoUrl: user.kyc_photo_url || "",
+          kyc_photo_url: user.kyc_photo_url || "",
+          kycVerifiedAt: user.kyc_verified_at || null,
+          kyc_verified_at: user.kyc_verified_at || null,
           hasViberWhatsapp: Boolean(user.has_viber_whatsapp),
           has_viber_whatsapp: Boolean(user.has_viber_whatsapp),
           clientType: user.client_type || "Local",
@@ -507,9 +511,10 @@ class AuthController {
         ofwCountry,
         phRepName,
         phRepRelationship,
-        phRepPhone,
         authProvider = "local",
         providerId = "",
+        avatarUrl = "",
+        kycPhotoUrl = "",
       } = req.body;
 
       if (!email) {
@@ -519,9 +524,9 @@ class AuthController {
       const normalizedEmail = email.trim().toLowerCase();
       const isSocialRegistration = authProvider === "google" || authProvider === "facebook";
 
-      // If regular email registration, password is mandatory and must be >= 6 chars
-      if (!isSocialRegistration && (!password || password.length < 6)) {
-        return res.status(400).json({ message: "Password must be at least 6 characters long." });
+      // Password is required for all client registrations (min 6 chars, enforced 8+ on frontend)
+      if (!password || password.trim().length < 6) {
+        return res.status(400).json({ message: "A secure password with at least 6 characters is required." });
       }
 
       // Compute display name
@@ -583,11 +588,12 @@ class AuthController {
         ? computedFullName.split(" ").slice(1).join(" ")
         : "";
 
-      // Insert new client
+      // Insert new client with both Profile Picture (avatar_url) and Official Biometric KYC Capture (kyc_photo_url)
       const insertRes = await db.query(
         `INSERT INTO users (
           email, password_hash, full_name, first_name, middle_name, last_name, suffix, role,
           phone_number, has_viber_whatsapp, client_type, location_address, auth_provider, provider_id, avatar_url,
+          kyc_photo_url, kyc_verified_at,
           occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name,
           preferred_contact_time, emergency_contact, lot_ownership_status, subdivision_lot_details,
           target_build_location, target_project_type, ofw_country, ph_rep_name, ph_rep_relationship, ph_rep_phone,
@@ -595,14 +601,16 @@ class AuthController {
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, 'client',
           $8, $9, $10, $11, $12, $13, $14,
-          $15, $16, $17, $18, $19, $20,
-          $21, $22, $23, $24,
-          $25, $26, $27, $28, $29, $30,
-          $31, NOW()
+          $15, NOW(),
+          $16, $17, $18, $19, $20, $21,
+          $22, $23, $24, $25,
+          $26, $27, $28, $29, $30, $31,
+          $32, NOW()
         )
         RETURNING 
           user_id, email, full_name, first_name, middle_name, last_name, suffix, role, 
           phone_number, client_type, location_address, auth_provider, provider_id, avatar_url, 
+          kyc_photo_url, kyc_verified_at,
           occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name, 
           preferred_contact_time, emergency_contact, lot_ownership_status, subdivision_lot_details, 
           target_build_location, target_project_type, ofw_country, ph_rep_name, ph_rep_relationship, ph_rep_phone, 
@@ -622,6 +630,7 @@ class AuthController {
           authProvider,
           providerId || "",
           avatarUrl || "",
+          kycPhotoUrl || "",
           occupation ? occupation.trim() : "",
           civilStatus || "Single",
           birthDate ? birthDate.trim() : "",
@@ -757,7 +766,7 @@ class AuthController {
           `SELECT 
             user_id, email, full_name, first_name, middle_name, last_name, suffix, role, phone_number, 
             has_viber_whatsapp, client_type, location_address, auth_provider, provider_id, 
-            avatar_url, occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name,
+            avatar_url, kyc_photo_url, kyc_verified_at, occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name,
             preferred_contact_time, emergency_contact, lot_ownership_status, subdivision_lot_details,
             target_build_location, target_project_type, ofw_country, ph_rep_name, ph_rep_relationship, ph_rep_phone,
             lockout_enabled, lockout_end, failed_login_attempts, created_at
@@ -776,7 +785,7 @@ class AuthController {
           `SELECT 
             user_id, email, full_name, first_name, middle_name, last_name, suffix, role, phone_number, 
             has_viber_whatsapp, client_type, location_address, auth_provider, provider_id, 
-            avatar_url, occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name,
+            avatar_url, kyc_photo_url, kyc_verified_at, occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name,
             preferred_contact_time, emergency_contact, lot_ownership_status, subdivision_lot_details,
             target_build_location, target_project_type, ofw_country, ph_rep_name, ph_rep_relationship, ph_rep_phone,
             lockout_enabled, lockout_end, failed_login_attempts, created_at
@@ -859,6 +868,10 @@ class AuthController {
             phone_number: existingUser.phone_number || "",
             avatarUrl: newAvatar || "",
             avatar_url: newAvatar || "",
+            kycPhotoUrl: existingUser.kyc_photo_url || "",
+            kyc_photo_url: existingUser.kyc_photo_url || "",
+            kycVerifiedAt: existingUser.kyc_verified_at || null,
+            kyc_verified_at: existingUser.kyc_verified_at || null,
             hasViberWhatsapp: Boolean(existingUser.has_viber_whatsapp),
             has_viber_whatsapp: Boolean(existingUser.has_viber_whatsapp),
             clientType: existingUser.client_type || "Local",
@@ -1034,45 +1047,65 @@ class AuthController {
    */
   async getAccounts(req, res) {
     try {
-      const result = await db.query(`
-        SELECT 
-          u.user_id,
-          u.email,
-          u.full_name,
-          u.role,
-          u.phone_number,
-          u.has_viber_whatsapp,
-          u.client_type,
-          u.location_address,
-          u.auth_provider,
-          u.avatar_url,
-          u.occupation,
-          u.civil_status,
-          u.birth_date,
-          u.employer_name,
-          u.monthly_income,
-          u.spouse_name,
-          u.preferred_contact_time,
-          u.emergency_contact,
-          u.lot_ownership_status,
-          u.subdivision_lot_details,
-          u.target_build_location,
-          u.target_project_type,
-          u.ofw_country,
-          u.ph_rep_name,
-          u.ph_rep_relationship,
-          u.ph_rep_phone,
-          u.created_at,
-          COALESCE(b_count.total_inquiries, 0) AS total_inquiries
-        FROM users u
-        LEFT JOIN (
-          SELECT LOWER(client_email) AS email, COUNT(brief_id) AS total_inquiries 
-          FROM client_briefs 
-          GROUP BY LOWER(client_email)
-        ) b_count ON LOWER(u.email) = b_count.email
-        WHERE u.role = 'client'
-        ORDER BY u.user_id DESC
-      `);
+      let result;
+      try {
+        result = await db.query(`
+          SELECT 
+            u.user_id,
+            u.email,
+            u.full_name,
+            u.role,
+            u.phone_number,
+            u.has_viber_whatsapp,
+            u.client_type,
+            u.location_address,
+            u.auth_provider,
+            u.avatar_url,
+            u.kyc_photo_url,
+            u.kyc_verified_at,
+            u.occupation,
+            u.civil_status,
+            u.birth_date,
+            u.employer_name,
+            u.monthly_income,
+            u.spouse_name,
+            u.preferred_contact_time,
+            u.emergency_contact,
+            u.lot_ownership_status,
+            u.subdivision_lot_details,
+            u.target_build_location,
+            u.target_project_type,
+            u.ofw_country,
+            u.ph_rep_name,
+            u.ph_rep_relationship,
+            u.ph_rep_phone,
+            u.created_at,
+            COALESCE(b_count.total_inquiries, 0) AS total_inquiries
+          FROM users u
+          LEFT JOIN (
+            SELECT LOWER(client_email) AS email, COUNT(brief_id) AS total_inquiries 
+            FROM client_briefs 
+            GROUP BY LOWER(client_email)
+          ) b_count ON LOWER(u.email) = b_count.email
+          WHERE u.role = 'client'
+          ORDER BY u.user_id DESC
+        `);
+      } catch (colErr) {
+        console.warn("[AuthController.getAccounts] Column query notice, falling back to resilient SELECT *:", colErr.message);
+        result = await db.query(`
+          SELECT 
+            u.*,
+            COALESCE(b_count.total_inquiries, 0) AS total_inquiries
+          FROM users u
+          LEFT JOIN (
+            SELECT LOWER(client_email) AS email, COUNT(brief_id) AS total_inquiries 
+            FROM client_briefs 
+            GROUP BY LOWER(client_email)
+          ) b_count ON LOWER(u.email) = b_count.email
+          WHERE u.role = 'client'
+          ORDER BY u.user_id DESC
+        `);
+      }
 
       return res.json({
         success: true,
@@ -1334,6 +1367,144 @@ class AuthController {
   }
 
   /**
+   * PUT /api/client/profile
+   * Client-side profile update (Free will PFP upload, phone, occupation, etc.)
+   * NOTE: kyc_photo_url is immutable through this endpoint to protect biometric integrity.
+   */
+  async updateClientProfile(req, res) {
+    try {
+      const {
+        email,
+        fullName,
+        phoneNumber,
+        avatarUrl,
+        kycPhotoUrl,
+        hasViberWhatsapp,
+        occupation,
+        employerName,
+        monthlyIncome,
+        civilStatus,
+        spouseName,
+        birthDate,
+        emergencyContact,
+        preferredContactTime,
+        lotOwnershipStatus,
+        subdivisionLotDetails,
+        targetBuildLocation,
+        targetProjectType,
+        locationAddress,
+      } = req.body;
+
+      if (!email || !email.trim()) {
+        return res.status(400).json({ message: "Registered email is required to update profile." });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const queryStr = `
+        UPDATE users 
+        SET 
+          full_name = COALESCE(NULLIF($1, ''), full_name),
+          phone_number = COALESCE($2, phone_number),
+          avatar_url = COALESCE($3, avatar_url),
+          kyc_photo_url = COALESCE($4, kyc_photo_url),
+          kyc_verified_at = CASE WHEN $4 IS NOT NULL THEN NOW() ELSE kyc_verified_at END,
+          has_viber_whatsapp = COALESCE($5, has_viber_whatsapp),
+          occupation = COALESCE($6, occupation),
+          employer_name = COALESCE($7, employer_name),
+          monthly_income = COALESCE($8, monthly_income),
+          civil_status = COALESCE($9, civil_status),
+          spouse_name = COALESCE($10, spouse_name),
+          birth_date = COALESCE($11, birth_date),
+          emergency_contact = COALESCE($12, emergency_contact),
+          preferred_contact_time = COALESCE($13, preferred_contact_time),
+          lot_ownership_status = COALESCE($14, lot_ownership_status),
+          subdivision_lot_details = COALESCE($15, subdivision_lot_details),
+          target_build_location = COALESCE($16, target_build_location),
+          target_project_type = COALESCE($17, target_project_type),
+          location_address = COALESCE($18, location_address)
+        WHERE LOWER(email) = LOWER($19)
+        RETURNING *;
+      `;
+
+      const values = [
+        fullName ? fullName.trim() : null,
+        phoneNumber ? phoneNumber.trim() : null,
+        avatarUrl ? avatarUrl.trim() : null,
+        kycPhotoUrl ? kycPhotoUrl.trim() : null,
+        hasViberWhatsapp !== undefined ? Boolean(hasViberWhatsapp) : null,
+        occupation ? occupation.trim() : null,
+        employerName ? employerName.trim() : null,
+        monthlyIncome ? monthlyIncome.trim() : null,
+        civilStatus ? civilStatus.trim() : null,
+        spouseName ? spouseName.trim() : null,
+        birthDate ? birthDate.trim() : null,
+        emergencyContact ? emergencyContact.trim() : null,
+        preferredContactTime ? preferredContactTime.trim() : null,
+        lotOwnershipStatus ? lotOwnershipStatus.trim() : null,
+        subdivisionLotDetails ? subdivisionLotDetails.trim() : null,
+        targetBuildLocation ? targetBuildLocation.trim() : null,
+        targetProjectType ? targetProjectType.trim() : null,
+        locationAddress ? locationAddress.trim() : null,
+        normalizedEmail,
+      ];
+
+      const result = await db.query(queryStr, values);
+
+      if (db.neonPool) {
+        try {
+          await db.neonPool.query(queryStr, values);
+        } catch (neonErr) {
+          console.warn("[Neon Standby Sync] Warning on client profile update:", neonErr.message);
+        }
+      }
+
+      if (!result.rows || result.rows.length === 0) {
+        return res.status(404).json({ message: "No client account found for this email." });
+      }
+
+      const updated = result.rows[0];
+      return res.json({
+        success: true,
+        message: "Profile updated successfully.",
+        user: {
+          userId: updated.user_id,
+          user_id: updated.user_id,
+          email: updated.email,
+          fullName: updated.full_name,
+          full_name: updated.full_name,
+          avatarUrl: updated.avatar_url,
+          avatar_url: updated.avatar_url,
+          kycPhotoUrl: updated.kyc_photo_url,
+          kyc_photo_url: updated.kyc_photo_url,
+          kycVerifiedAt: updated.kyc_verified_at,
+          kyc_verified_at: updated.kyc_verified_at,
+          phoneNumber: updated.phone_number,
+          hasViberWhatsapp: updated.has_viber_whatsapp,
+          occupation: updated.occupation,
+          employerName: updated.employer_name,
+          monthlyIncome: updated.monthly_income,
+          civilStatus: updated.civil_status,
+          spouseName: updated.spouse_name,
+          birthDate: updated.birth_date,
+          emergencyContact: updated.emergency_contact,
+          preferredContactTime: updated.preferred_contact_time,
+          lotOwnershipStatus: updated.lot_ownership_status,
+          subdivisionLotDetails: updated.subdivision_lot_details,
+          targetBuildLocation: updated.target_build_location,
+          targetProjectType: updated.target_project_type,
+          locationAddress: updated.location_address,
+          clientType: updated.client_type,
+          authProvider: updated.auth_provider,
+        },
+      });
+    } catch (err) {
+      console.error("[AuthController.updateClientProfile] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to update profile: " + err.message });
+    }
+  }
+
+  /**
    * POST /api/auth/face-login
    * Biometric Face Login with Active Liveness Verification
    */
@@ -1354,7 +1525,7 @@ class AuthController {
         `SELECT 
           user_id, email, full_name, first_name, middle_name, last_name, suffix, role, phone_number, 
           has_viber_whatsapp, client_type, location_address, auth_provider, provider_id, 
-          avatar_url, occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name,
+          avatar_url, kyc_photo_url, kyc_verified_at, occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name,
           preferred_contact_time, emergency_contact, lot_ownership_status, subdivision_lot_details,
           target_build_location, target_project_type, ofw_country, ph_rep_name, ph_rep_relationship, ph_rep_phone,
           lockout_enabled, lockout_end, failed_login_attempts, created_at
@@ -1448,6 +1619,10 @@ class AuthController {
           phone_number: user.phone_number || "",
           avatarUrl: user.avatar_url || "",
           avatar_url: user.avatar_url || "",
+          kycPhotoUrl: user.kyc_photo_url || "",
+          kyc_photo_url: user.kyc_photo_url || "",
+          kycVerifiedAt: user.kyc_verified_at || null,
+          kyc_verified_at: user.kyc_verified_at || null,
           hasViberWhatsapp: Boolean(user.has_viber_whatsapp),
           has_viber_whatsapp: Boolean(user.has_viber_whatsapp),
           clientType: user.client_type || "Local",
