@@ -29,7 +29,6 @@ import {
   AlertTriangleIcon,
   SmartphoneIcon,
   VideoIcon,
-  UploadCloudIcon,
 } from "@/modules/shared/Icons";
 import CountryPicker from "./CountryPicker";
 import PuzzleCaptchaModal from "./PuzzleCaptchaModal";
@@ -669,57 +668,6 @@ export default function PortalAuthCard({ onLoginSuccess }) {
     }
   };
 
-  const handleFileUploadSelfie = async (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const dataUrl = event.target.result;
-        setCapturedSelfie(dataUrl);
-
-        try {
-          setIsFaceChecking(true);
-          setFaceCheckFeedback("");
-          setFaceObstructionError("");
-          setFaceErrorType("");
-          const res = await fetch("/api/auth/verify-face", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image: dataUrl }),
-          });
-          const data = await res.json();
-          if (data && data.passed && !data.obstructions?.has_obstruction) {
-            setIsLivenessVerified(true);
-            setFaceObstructionError("");
-            setFaceErrorType("");
-            setFaceCheckFeedback(
-              activeLang === "fil"
-                ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
-                : "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified."
-            );
-          } else {
-            setIsLivenessVerified(false);
-            const isRealObstruction = Boolean(data?.obstructions?.has_obstruction);
-            setFaceErrorType(isRealObstruction ? "obstruction" : "quality");
-            const obsMsg = data?.obstructions?.issues?.[0] || data?.issues?.[0];
-            const errorText = obsMsg
-              ? (activeLang === "fil" ? obsMsg.fil : obsMsg.en)
-              : (activeLang === "fil"
-                  ? "May sagabal sa mukha. Pakitanggal ang sumbrero, salamin sa mata, o mask bago magpatuloy."
-                  : "Face is obstructed. Please remove hat, glasses, or mask before continuing.");
-            setFaceObstructionError(errorText);
-            setFaceCheckFeedback(errorText);
-          }
-        } catch (err) {
-          console.warn("Python face check fallback:", err);
-        } finally {
-          setIsFaceChecking(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   // --- SOCIAL AUTHENTICATION HELPERS ---
   const ensureGoogleLoaded = () => {
     return new Promise((resolve, reject) => {
@@ -1150,6 +1098,9 @@ export default function PortalAuthCard({ onLoginSuccess }) {
         return;
       }
 
+      if (res.status === 409) {
+        setLoginEmail(registerEmail.trim());
+      }
       setErrorMessage(data.message || t.errRegistrationFailed);
     } catch (err) {
       setErrorMessage(t.errNetwork);
@@ -1178,16 +1129,6 @@ export default function PortalAuthCard({ onLoginSuccess }) {
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-[260px] font-mono">
               {submissionProgressText || t.processingRegistration}
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                setIsSubmitting(false);
-                setSubmissionProgressText("");
-              }}
-              className="mt-4 px-3.5 py-1.5 rounded-full text-[11px] font-mono font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 border border-neutral-300 dark:border-white/10 transition-colors cursor-pointer"
-            >
-              {activeLang === "fil" ? "Kanselahin" : "Cancel"}
-            </button>
           </div>
         )}
 
@@ -2677,42 +2618,16 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         </span>
                       </button>
 
-                      {/* Responsive 3-Button Alternative Options Bar */}
-                      <div className="w-full">
-                        <div className="relative my-0.5 text-center">
-                          <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-neutral-200 dark:border-neutral-800" />
-                          </div>
-                          <span className="relative px-2 bg-white dark:bg-[#11141e] text-[9.5px] font-mono uppercase tracking-wider text-neutral-400">
-                            {activeLang === "fil" ? "Iba pang Paraan ng Pagkuha" : "Alternative Capture Options"}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-1.5 mt-1 w-full">
-                          {/* 1. Snap with Phone Camera */}
-                          <label className="h-8.5 px-2 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 hover:bg-amber-500/5 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 text-[11px] font-medium cursor-pointer transition-all flex items-center justify-center gap-1.5 text-center bg-white dark:bg-[#161a23]">
-                            <SmartphoneIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                            <span className="truncate">{activeLang === "fil" ? "Phone Cam" : "Phone"}</span>
-                            <input type="file" accept="image/*" capture="user" onChange={handleFileUploadSelfie} className="hidden" />
-                          </label>
-
-                          {/* 2. Open In-page Camera */}
-                          <button
-                            type="button"
-                            onClick={startCamera}
-                            className="h-8.5 px-2 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 hover:bg-amber-500/5 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 text-[11px] font-medium cursor-pointer transition-all flex items-center justify-center gap-1.5 text-center bg-white dark:bg-[#161a23]"
-                          >
-                            <VideoIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                            <span className="truncate">{activeLang === "fil" ? "In-page" : "Camera"}</span>
-                          </button>
-
-                          {/* 3. Upload Selfie Photo */}
-                          <label className="h-8.5 px-2 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 hover:bg-amber-500/5 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 text-[11px] font-medium cursor-pointer transition-all flex items-center justify-center gap-1.5 text-center bg-white dark:bg-[#161a23]">
-                            <UploadCloudIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                            <span className="truncate">{activeLang === "fil" ? "Upload" : "Upload"}</span>
-                            <input type="file" accept="image/*" onChange={handleFileUploadSelfie} className="hidden" />
-                          </label>
-                        </div>
+                      {/* In-page Live Webcam Alternative (Zero file uploads allowed for KYC) */}
+                      <div className="w-full pt-1 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={startCamera}
+                          className="text-[11px] font-mono text-neutral-500 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <VideoIcon className="w-3.5 h-3.5 text-amber-500" />
+                          <span>{activeLang === "fil" ? "Buksan ang In-page Live Webcam" : "Open In-page Live Webcam"}</span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -2880,12 +2795,6 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         <RefreshCwIcon className="w-3 h-3" />
                         <span>{t.retakePhotoButton}</span>
                       </button>
-
-                      <label className="h-8.5 px-3.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-medium text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer flex items-center gap-1.5">
-                        <UploadCloudIcon className="w-3.5 h-3.5 text-amber-500" />
-                        <span>{activeLang === "fil" ? "Pumili ng Ibang Litrato" : "Choose Another Photo"}</span>
-                        <input type="file" accept="image/*" onChange={handleFileUploadSelfie} className="hidden" />
-                      </label>
                     </div>
                   </div>
                 )}
@@ -3634,67 +3543,34 @@ export default function PortalAuthCard({ onLoginSuccess }) {
         isOpen={isLivenessModalOpen}
         onClose={() => setIsLivenessModalOpen(false)}
         activeLang={activeLang}
-        purpose={livenessPurpose}
+        purpose="kyc"
         referenceAvatar={socialConnected?.avatarUrl || null}
         onVerified={async (verifiedImage, pyResult) => {
           setIsLivenessModalOpen(false);
 
-          if (livenessPurpose === "login") {
-            setIsSubmitting(true);
-            setSubmissionProgressText(
-              activeLang === "fil"
-                ? "Sinusuri ang Biometric Face Login..."
-                : "Authenticating Biometric Face Login..."
-            );
-            try {
-              const res = await fetch("/api/auth/face-login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  email: loginEmail.trim(),
-                  faceImage: verifiedImage,
-                  livenessVerified: true,
-                  portalType: "client",
-                }),
-              });
-              const data = await res.json();
-              if (res.ok && data.success) {
-                if (onLoginSuccess) onLoginSuccess(data.user, data.token);
-                return;
-              }
-              setErrorMessage(
-                data.message ||
-                  (activeLang === "fil"
-                    ? "Nabigo ang Face Verification login."
-                    : "Face recognition login failed.")
-              );
-            } catch (err) {
-              setErrorMessage(t.errNetwork);
-            } finally {
-              setIsSubmitting(false);
-              setSubmissionProgressText("");
-            }
-          } else {
-            // KYC Mode in Sign up Step 3
-            setCapturedSelfie(verifiedImage);
-            setIsLivenessVerified(true);
-            setFaceObstructionError("");
-            setErrorMessage("");
+          // KYC Biometric Verification Mode in Sign-up Step 3
+          setCapturedSelfie(verifiedImage);
+          setIsLivenessVerified(true);
+          setFaceObstructionError("");
+          setErrorMessage("");
 
-            const matchNotice =
-              pyResult?.reference_match && socialConnected?.avatarUrl
+          const matchNotice =
+            pyResult?.reference_match && socialConnected?.avatarUrl
+              ? pyResult.reference_match.matched
                 ? activeLang === "fil"
                   ? " • Tugma sa iyong social profile photo!"
                   : " • Matched with your linked profile photo!"
-                : "";
+                : activeLang === "fil"
+                  ? " • Naitala ang iyong live selfie bilang opisyal na KYC."
+                  : " • Live selfie verified and recorded for KYC."
+              : "";
 
-            setFaceCheckFeedback(
-              (activeLang === "fil"
-                ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
-                : "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified.") +
-                matchNotice
-            );
-          }
+          setFaceCheckFeedback(
+            (activeLang === "fil"
+              ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
+              : "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified.") +
+              matchNotice
+          );
         }}
       />
     </>

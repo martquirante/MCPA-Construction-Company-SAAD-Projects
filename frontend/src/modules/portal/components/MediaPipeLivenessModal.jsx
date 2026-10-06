@@ -102,8 +102,8 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
     raw.includes("insecure")
   ) {
     return activeLang === "fil"
-      ? "Kailangan po ng ligtas na koneksyon (HTTPS) para mabuksan ang live camera. Pindutin ang 'Buksan ang Mobile Camera' sa ibaba para mag-selfie."
-      : "A secure connection (HTTPS) is required for the live camera. Please tap 'Open Phone Camera' below to take your photo.";
+      ? "Kailangan po ng ligtas na koneksyon (HTTPS) para magamit ang live camera para sa biometric KYC."
+      : "A secure connection (HTTPS) is required for the live biometric camera.";
   }
 
   // 2. Camera Permission Blocked / Denied
@@ -115,7 +115,7 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
     raw.includes("blocked")
   ) {
     return activeLang === "fil"
-      ? "Naka-block ang camera access. Paki-allow po ang camera sa settings ng iyong browser o cellphone."
+      ? "Naka-block ang camera access. Paki-allow po ang camera permission sa settings ng iyong browser o cellphone."
       : "Camera access is blocked. Please allow camera permissions in your browser or phone settings.";
   }
 
@@ -128,7 +128,7 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
     raw.includes("not readable")
   ) {
     return activeLang === "fil"
-      ? "Kasalukuyang ginagamit ng ibang app ang iyong camera. Pakisara po muna ang ibang apps at subukan muli."
+      ? "Kasalukuyang ginagamit ng ibang app ang iyong camera. Pakisara po muna ang ibang camera apps at subukan muli."
       : "Your camera is currently in use by another application. Please close other camera apps and retry.";
   }
 
@@ -140,8 +140,8 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
     raw.includes("no camera")
   ) {
     return activeLang === "fil"
-      ? "Walang nakitang camera sa iyong device. Maaari kang mag-upload ng iyong litrato sa ibaba."
-      : "No camera detected on this device. You can upload a selfie photo below.";
+      ? "Walang nakitang camera sa iyong device. Ikonekta ang isang webcam upang makumpleto ang live KYC."
+      : "No camera detected on this device. Please connect a webcam or open this on a camera-enabled device.";
   }
 
   // 5. Internet / Script loading issue
@@ -152,13 +152,13 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
     raw.includes("failed to load")
   ) {
     return activeLang === "fil"
-      ? "Mabagal ang internet kaya hindi maihanda ang camera. Pakisubukan muli o mag-upload ng litrato sa ibaba."
-      : "Internet connection issue while loading camera. Please try again or upload a photo below.";
+      ? "Mabagal ang internet kaya hindi maihanda ang face recognition. Pakisubukang muli."
+      : "Network error loading biometric neural engine. Please check your connection and retry.";
   }
 
   return activeLang === "fil"
-    ? "Hindi mabuksan ang live camera sa ngayon. Paki-pindot ang 'Buksan ang Mobile Camera' sa ibaba para mag-selfie."
-    : "Unable to open live camera right now. Please tap 'Open Phone Camera' below to take a selfie.";
+    ? "Hindi mabuksan ang live camera sa ngayon. Paki-pindot ang 'Subukang Muli ang Camera' matapos ayusin ang permissions."
+    : "Unable to open live camera right now. Please check camera permissions and retry.";
 }
 
 /**
@@ -392,6 +392,7 @@ export default function MediaPipeLivenessModal({
 
   const [isLoadingEngine, setIsLoadingEngine] = useState(true);
   const [cameraError, setCameraError] = useState("");
+  const [retryTrigger, setRetryTrigger] = useState(0);
   const [currentStepIndex, setCurrentStepIndex] = useState(0); // 0 to 5, 6 is complete
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [warningMessage, setWarningMessage] = useState(""); // PURE TEXT WARNING OUTSIDE CAM (NO BG BOX)
@@ -408,6 +409,7 @@ export default function MediaPipeLivenessModal({
   const prevNoseRef = useRef(null);
   const blinkStateRef = useRef({ hasOpened: false, hasClosed: false });
   const frameCounterRef = useRef(0);
+  const latestMeshRef = useRef(null);
 
   // Responsive hold requirement: 6 consecutive frames (~180-200ms) with 0 active warnings
   const REQUIRED_HOLD_FRAMES = 6;
@@ -499,22 +501,26 @@ export default function MediaPipeLivenessModal({
     blinkStateRef.current = { hasOpened: false, hasClosed: false };
   }, []);
 
-  // Call Python face recognition verification endpoint
-  const verifyWithPythonBackend = useCallback(async (base64Image) => {
+  // Call face recognition verification endpoint
+  const verifyWithPythonBackend = useCallback(async (base64Image, meshData = null) => {
     try {
       setIsVerifyingWithPython(true);
+      const payload = {
+        image: base64Image,
+        referenceAvatar: referenceAvatar || undefined,
+      };
+      if (meshData?.landmarks) payload.landmarks = meshData.landmarks;
+      if (meshData?.faceBox) payload.faceBox = meshData.faceBox;
+
       const response = await fetch("/api/auth/verify-face", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image: base64Image,
-          referenceAvatar: referenceAvatar || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await response.json();
       return data;
     } catch (err) {
-      console.warn("[MediaPipeLivenessModal] Python verification fallback:", err);
+      console.warn("[MediaPipeLivenessModal] Verification fallback:", err);
       return { success: true, verified: true };
     } finally {
       setIsVerifyingWithPython(false);
@@ -555,8 +561,8 @@ export default function MediaPipeLivenessModal({
       return;
     }
 
-    // Call Python verification diagnostics with reference photo
-    const pyResult = await verifyWithPythonBackend(snapshot);
+    // Call verification diagnostics with reference photo & mesh
+    const pyResult = await verifyWithPythonBackend(snapshot, latestMeshRef.current);
 
     // STRICT VALIDATION: If any obstruction detected, or mismatch with social pfp, DO NOT COMPLETE!
     if (!pyResult || !pyResult.passed || pyResult.obstructions?.has_obstruction) {
@@ -591,45 +597,6 @@ export default function MediaPipeLivenessModal({
       }
     }, 900);
   }, [captureFrame, onVerified, verifyWithPythonBackend, activeLang]);
-
-  // Direct Mobile Front Camera Capture (Fallback)
-  const handleNativeMobileCapture = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const dataUrl = event.target.result;
-        setCapturedDataUrl(dataUrl);
-        setIsVerifyingWithPython(true);
-        setFeedbackMessage(
-          activeLang === "fil"
-            ? "Sinusuri ang selfie mula sa mobile camera..."
-            : "Analyzing mobile camera selfie..."
-        );
-        const pyResult = await verifyWithPythonBackend(dataUrl);
-        if (!pyResult || !pyResult.passed || pyResult.obstructions?.has_obstruction) {
-          playErrorBuzzer();
-          const obs = pyResult?.obstructions?.issues?.[0] || pyResult?.issues?.[0];
-          const alertData = {
-            code: obs?.code || "OBSTRUCTION_DETECTED",
-            type: obs?.type || "obstruction",
-            fil: obs?.fil || "May nakitang sagabal sa mukha. Pakitanggal ang sumbrero, salamin, o mask.",
-            en: obs?.en || "Face obstruction detected. Please remove any hat, glasses, or mask before proceeding.",
-          };
-          setObstructionAlert(alertData);
-          setIsVerifyingWithPython(false);
-          return;
-        }
-
-        playSuccessFanfare();
-        setIsCompleted(true);
-        setTimeout(() => {
-          if (onVerified) onVerified(dataUrl, pyResult);
-        }, 800);
-      };
-      reader.readAsDataURL(file);
-    }
-  }, [activeLang, onVerified, verifyWithPythonBackend]);
 
   // Process MediaPipe landmarks frame-by-frame with ULTRA-STRICT validation
   const onResults = useCallback((results) => {
@@ -696,7 +663,6 @@ export default function MediaPipeLivenessModal({
       }
     });
 
-    // Extract Face Biometric Coordinates
     const nose = landmarks[1];
     const chin = landmarks[152];
     const forehead = landmarks[10];
@@ -711,6 +677,30 @@ export default function MediaPipeLivenessModal({
           : "Facial landmarks incomplete. Face the camera directly."
       );
       return;
+    }
+
+    const lmRightEye = landmarks[33] || landmarks[133];
+    const lmLeftEye = landmarks[263] || landmarks[362];
+    const lmRightMouth = landmarks[61];
+    const lmLeftMouth = landmarks[291];
+
+    if (canvas && lmRightEye && lmLeftEye) {
+      latestMeshRef.current = {
+        landmarks: {
+          right_eye: [lmRightEye.x * canvas.width, lmRightEye.y * canvas.height],
+          left_eye: [lmLeftEye.x * canvas.width, lmLeftEye.y * canvas.height],
+          nose: [nose.x * canvas.width, nose.y * canvas.height],
+          right_mouth: lmRightMouth ? [lmRightMouth.x * canvas.width, lmRightMouth.y * canvas.height] : undefined,
+          left_mouth: lmLeftMouth ? [lmLeftMouth.x * canvas.width, lmLeftMouth.y * canvas.height] : undefined,
+          confidence: 0.98,
+        },
+        faceBox: {
+          x: Math.min(leftCheek.x, rightCheek.x) * canvas.width,
+          y: forehead.y * canvas.height,
+          width: Math.abs(rightCheek.x - leftCheek.x) * canvas.width,
+          height: Math.abs(chin.y - forehead.y) * canvas.height,
+        },
+      };
     }
 
     const faceHeight = Math.abs(chin.y - forehead.y);
@@ -1072,7 +1062,7 @@ export default function MediaPipeLivenessModal({
       isSubscribed = false;
       cleanupStream();
     };
-  }, [isOpen, cleanupStream, onResults, activeLang]);
+  }, [isOpen, cleanupStream, onResults, activeLang, retryTrigger]);
 
   // Handle manual fallback capture if requested
   const handleManualFallback = async () => {
@@ -1249,22 +1239,22 @@ export default function MediaPipeLivenessModal({
               </div>
             )}
 
-            {/* Error Message with Mobile Native Camera Action */}
+            {/* Error Message with Camera Retry (No File Upload Allowed - Biometric Anti-Spoofing) */}
             {cameraError && (
               <div className="absolute inset-0 bg-neutral-950/95 flex flex-col items-center justify-center p-3 text-center z-30 rounded-full animate-in fade-in duration-150">
                 <AlertCircle className="w-6 h-6 text-rose-500 mb-1" />
                 <p className="text-[10.5px] text-rose-300 leading-tight max-w-[210px] px-1">{cameraError}</p>
-                <label className="mt-2.5 px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[11px] shadow-md flex items-center gap-1.5 cursor-pointer transition-all active:scale-95">
-                  <Camera className="w-3.5 h-3.5" />
-                  <span>{activeLang === "fil" ? "Buksan ang Mobile Camera" : "Open Phone Camera"}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="user"
-                    onChange={handleNativeMobileCapture}
-                    className="hidden"
-                  />
-                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCameraError("");
+                    setRetryTrigger((prev) => prev + 1);
+                  }}
+                  className="mt-2.5 px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[11px] shadow-md flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{activeLang === "fil" ? "Subukang Muli ang Camera" : "Retry Camera Access"}</span>
+                </button>
               </div>
             )}
 

@@ -36,8 +36,7 @@ import {
   CloseIcon,
 } from "@/modules/shared/Icons";
 import { INITIAL_PROJECTS, deduplicateProjects, broadcastProjectsChange, subscribeProjectsChange } from "@/modules/shared/projectsHelper";
-
-const DEFAULT_ADMIN_PIN = "mcpa2026";
+import { authFetch } from "@/modules/shared/authFetch";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -283,7 +282,7 @@ export default function AdminPage() {
                   setCurrentUser(parsed);
                   // Background refresh full profile from server
                   if (parsed.email) {
-                    fetch(`/api/admin/profile?email=${encodeURIComponent(parsed.email)}`)
+                    authFetch(`/api/admin/profile`)
                       .then((r) => r.json())
                       .then((d) => {
                         if (d?.success && d?.user) {
@@ -440,50 +439,11 @@ export default function AdminPage() {
         return;
       }
 
-      // Offline / PIN fallback check if server returns error or is unreachable
-      if (passwordInput.trim() === DEFAULT_ADMIN_PIN) {
-        const fallbackUser = {
-          name: emailInput.trim() ? emailInput.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : "MCPA Administrator",
-          email: emailInput.trim() || "admin@mcpa.com",
-          role: "SUPER ADMIN",
-        };
-
-        setIsAuthenticated(true);
-        setIsLoggingIn(false);
-        setPasswordInput("");
-        setCurrentUser(fallbackUser);
-        localStorage.setItem("mcpa_admin_authenticated", "true");
-        sessionStorage.setItem("mcpa_admin_authenticated", "true");
-        localStorage.setItem("mcpa_admin_user", JSON.stringify(fallbackUser));
-        sessionStorage.setItem("mcpa_admin_user", JSON.stringify(fallbackUser));
-        loadProjectsAndBriefs();
-        return;
-      }
-
       setAuthError(data.message || "Invalid administrative credentials. Please verify your email and password.");
       setIsLoggingIn(false);
     } catch (err) {
-      // Network failure / offline check
-      if (passwordInput.trim() === DEFAULT_ADMIN_PIN) {
-        const fallbackUser = {
-          name: emailInput.trim() ? emailInput.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : "MCPA Administrator",
-          email: emailInput.trim() || "admin@mcpa.com",
-          role: "SUPER ADMIN",
-        };
-
-        setIsAuthenticated(true);
-        setIsLoggingIn(false);
-        setPasswordInput("");
-        setCurrentUser(fallbackUser);
-        localStorage.setItem("mcpa_admin_authenticated", "true");
-        sessionStorage.setItem("mcpa_admin_authenticated", "true");
-        localStorage.setItem("mcpa_admin_user", JSON.stringify(fallbackUser));
-        sessionStorage.setItem("mcpa_admin_user", JSON.stringify(fallbackUser));
-        loadProjectsAndBriefs();
-      } else {
-        setAuthError("Could not reach backend authentication server. Ensure the backend process is active.");
-        setIsLoggingIn(false);
-      }
+      setAuthError("Could not reach backend authentication server. Ensure the backend process is active.");
+      setIsLoggingIn(false);
     }
   };
 

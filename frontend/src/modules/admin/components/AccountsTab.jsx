@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { authFetch } from "@/modules/shared/authFetch";
 import {
   MailIcon,
   PhoneIcon,
@@ -1840,7 +1841,7 @@ export default function AccountsTab({ clientBriefs = [] }) {
   const fetchAccounts = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/admin/accounts");
+      const res = await authFetch("/api/admin/accounts");
       const data = await res.json();
       if (res.ok && data.success && Array.isArray(data.accounts)) {
         setAccounts(data.accounts);

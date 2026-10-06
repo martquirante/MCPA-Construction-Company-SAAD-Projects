@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
-import { spawn } from "child_process";
-import path from "path";
-import fs from "fs";
+import { verifyFaceTelemetry } from "@/modules/shared/faceVerifierService";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { image } = body;
+    const { image, referenceAvatar, landmarks, faceBox } = body;
 
     if (!image) {
       return NextResponse.json(
@@ -17,106 +15,9 @@ export async function POST(req) {
       );
     }
 
-    // Path to Python verifier in backend/scripts/face_verifier.py
-    const workspaceRoot = process.cwd();
-    const scriptCandidates = [
-      path.join(workspaceRoot, "..", "backend", "scripts", "face_verifier.py"),
-      path.join(workspaceRoot, "backend", "scripts", "face_verifier.py"),
-    ];
-
-    const scriptPath = scriptCandidates.find((p) => fs.existsSync(p));
-
-    // 1. If local Python script exists, attempt running locally (Local Dev / VPS)
-    if (scriptPath) {
-      try {
-        const results = await new Promise((resolve) => {
-          const pyProc = spawn("python", [scriptPath], {
-            env: { ...process.env, OPENCV_LOG_LEVEL: "OFF" },
-          });
-
-          let stdoutData = "";
-          let stderrData = "";
-          let hasExited = false;
-
-          pyProc.stdout.on("data", (data) => {
-            stdoutData += data.toString();
-          });
-          pyProc.stderr.on("data", (data) => {
-            stderrData += data.toString();
-          });
-
-          pyProc.on("close", (code) => {
-            hasExited = true;
-            try {
-              if (stdoutData.trim()) {
-                const parsed = JSON.parse(stdoutData.trim());
-                resolve(parsed);
-                return;
-              }
-              resolve(null);
-            } catch (e) {
-              resolve(null);
-            }
-          });
-
-          pyProc.stdin.on("error", (stdinErr) => {
-            // Prevent uncaught EPIPE if python exits early
-          });
-
-          pyProc.on("error", (err) => {
-            hasExited = true;
-            resolve(null);
-          });
-
-          pyProc.stdin.write(JSON.stringify({ image, referenceAvatar: body?.referenceAvatar }));
-          pyProc.stdin.end();
-
-          // Safety timeout
-          setTimeout(() => {
-            if (!hasExited) {
-              try { pyProc.kill(); } catch (e) { }
-              resolve(null);
-            }
-          }, 8000);
-        });
-
-        if (results) {
-          return NextResponse.json(results);
-        }
-      } catch (localErr) {
-        // Fall through to remote backend or fallback
-      }
-    }
-
-    // 2. If running on Vercel / serverless without local Python, forward to dedicated Backend API (e.g. Render/Railway)
-    const backendUrl =
-      process.env.BACKEND_API_URL ||
-      (process.env.NODE_ENV === "production" ? "https://mcpa-backend-gvcjbnh7dragbtc4.japaneast-01.azurewebsites.net" : "http://localhost:5000");
-
-    if (backendUrl) {
-      try {
-        const remoteRes = await fetch(`${backendUrl}/api/auth/verify-face`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image }),
-        });
-        if (remoteRes.ok) {
-          const remoteData = await remoteRes.json();
-          return NextResponse.json(remoteData);
-        }
-      } catch (remoteErr) {
-        console.warn("[verify-face] Remote backend forward error:", remoteErr.message);
-      }
-    }
-
-    // 3. Fallback if backend is not reachable
-    return NextResponse.json({
-      success: true,
-      passed: true,
-      face_detected: true,
-      issues: [],
-      message: "Biometric identity photo accepted.",
-    });
+    const clientMeta = landmarks && faceBox ? { landmarks, faceBox } : null;
+    const result = await verifyFaceTelemetry(image, referenceAvatar, clientMeta);
+    return NextResponse.json(result);
   } catch (err) {
     console.error("[verify-face route error]:", err);
     return NextResponse.json(

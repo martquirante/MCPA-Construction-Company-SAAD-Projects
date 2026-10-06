@@ -21,6 +21,7 @@ import {
   KeyRoundIcon,
 } from "@/modules/shared/Icons";
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
+import { authFetch } from "@/modules/shared/authFetch";
 
 // Helper to compute age from birthdate
 function computeAge(birthDateStr) {
@@ -350,7 +351,7 @@ export default function AdminSettingsModal({
         instagramUrl: instagramUrl.trim(),
       };
 
-      const res = await fetch("/api/admin/profile", {
+      const res = await authFetch("/api/admin/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -397,7 +398,7 @@ export default function AdminSettingsModal({
 
     setIsSaving(true);
     try {
-      const res = await fetch("/api/admin/profile", {
+      const res = await authFetch("/api/admin/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -6,9 +6,9 @@ const path = require("path");
 const db = require("../services/dbFailoverEngine");
 const emailService = require("../services/emailService");
 const socialAuthService = require("../services/socialAuthService");
+const faceVerifierService = require("../services/faceVerifierService");
 
-const JWT_SECRET = process.env.JWT_SECRET || "mcpa_super_secret_jwt_security_key_2026";
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+const { JWT_SECRET, JWT_EXPIRES_IN } = require("../config/authConfig");
 
 class AuthController {
   /**
@@ -458,22 +458,85 @@ class AuthController {
    * GET /api/auth/me
    */
   async me(req, res) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Authorization token missing." });
-    }
-
     try {
-      const token = authHeader.split(" ")[1];
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const userId = req.user?.userId || req.user?.user_id;
+      const userEmail = req.user?.email;
 
+      if (!userId && !userEmail) {
+        return res.status(401).json({ message: "Authentication required." });
+      }
+
+      const result = await db.query(
+        `SELECT 
+          user_id, email, full_name, first_name, middle_name, last_name, suffix, role, 
+          phone_number, avatar_url, kyc_photo_url, kyc_verified_at, has_viber_whatsapp, client_type, location_address, auth_provider, email_verified,
+          occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name,
+          preferred_contact_time, emergency_contact, lot_ownership_status, subdivision_lot_details,
+          target_build_location, target_project_type, ofw_country, ph_rep_name, ph_rep_relationship, ph_rep_phone,
+          facebook_url, linkedin_url, instagram_url, created_at
+        FROM users 
+        WHERE user_id = $1 OR LOWER(email) = LOWER($2) 
+        LIMIT 1`,
+        [userId || 0, userEmail || ""]
+      );
+
+      if (!result.rows || result.rows.length === 0) {
+        return res.status(404).json({ message: "User account not found." });
+      }
+
+      const user = result.rows[0];
       return res.json({
         success: true,
-        user: decoded,
+        user: {
+          userId: user.user_id,
+          user_id: user.user_id,
+          email: user.email,
+          fullName: user.full_name,
+          full_name: user.full_name,
+          name: user.full_name,
+          firstName: user.first_name || user.full_name?.split(" ")[0] || "",
+          first_name: user.first_name || user.full_name?.split(" ")[0] || "",
+          middleName: user.middle_name || "",
+          lastName: user.last_name || "",
+          suffix: user.suffix || "",
+          role: user.role,
+          phoneNumber: user.phone_number || "",
+          avatarUrl: user.avatar_url || "",
+          avatar_url: user.avatar_url || "",
+          kycPhotoUrl: user.kyc_photo_url || "",
+          kyc_photo_url: user.kyc_photo_url || "",
+          kycVerifiedAt: user.kyc_verified_at || null,
+          hasViberWhatsapp: Boolean(user.has_viber_whatsapp),
+          clientType: user.client_type || "Local",
+          locationAddress: user.location_address || "",
+          occupation: user.occupation || "",
+          civilStatus: user.civil_status || "",
+          birthDate: user.birth_date || "",
+          employerName: user.employer_name || "",
+          monthlyIncome: user.monthly_income || "",
+          spouseName: user.spouse_name || "",
+          preferredContactTime: user.preferred_contact_time || "Anytime (PH Daytime)",
+          emergencyContact: user.emergency_contact || "",
+          lotOwnershipStatus: user.lot_ownership_status || "Titled under my name",
+          subdivisionLotDetails: user.subdivision_lot_details || "",
+          targetBuildLocation: user.target_build_location || "",
+          targetProjectType: user.target_project_type || "",
+          ofwCountry: user.ofw_country || "",
+          phRepName: user.ph_rep_name || "",
+          phRepRelationship: user.ph_rep_relationship || "",
+          phRepPhone: user.ph_rep_phone || "",
+          authProvider: user.auth_provider || "local",
+          emailVerified: Boolean(user.email_verified),
+          createdAt: user.created_at,
+          facebookUrl: user.facebook_url || "",
+          linkedinUrl: user.linkedin_url || "",
+          instagramUrl: user.instagram_url || "",
+        },
         activeDbProvider: db.getActiveProviderName(),
       });
     } catch (err) {
-      return res.status(401).json({ message: "Session expired or invalid token." });
+      console.error("[AuthController.me] Error:", err);
+      return res.status(500).json({ message: "Failed to retrieve authenticated session: " + err.message });
     }
   }
 
@@ -543,33 +606,6 @@ class AuthController {
       );
 
       if (checkExisting.rows && checkExisting.rows.length > 0) {
-        const existing = checkExisting.rows[0];
-        // If this is a social registration for an existing local account, link it seamlessly
-        if (isSocialRegistration && !existing.provider_id) {
-          await db.query(
-            "UPDATE users SET auth_provider = $1, provider_id = $2, email_verified = TRUE, last_login_at = NOW() WHERE user_id = $3",
-            [authProvider, providerId || "", existing.user_id]
-          );
-
-          const token = jwt.sign(
-            {
-              userId: existing.user_id,
-              email: existing.email,
-              fullName: existing.full_name,
-              role: existing.role,
-            },
-            JWT_SECRET,
-            { expiresIn: JWT_EXPIRES_IN }
-          );
-
-          return res.json({
-            success: true,
-            message: "Your social account has been linked to your existing MCPA account.",
-            token,
-            user: existing,
-          });
-        }
-
         return res.status(409).json({
           message: "An account with this email address already exists. Please sign in instead.",
         });
@@ -707,6 +743,8 @@ class AuthController {
           phRepName: newUser.ph_rep_name,
           phRepRelationship: newUser.ph_rep_relationship,
           phRepPhone: newUser.ph_rep_phone,
+          kycPhotoUrl: newUser.kyc_photo_url,
+          kycVerifiedAt: newUser.kyc_verified_at,
           emailVerified: Boolean(newUser.email_verified),
         },
       });
@@ -732,29 +770,17 @@ class AuthController {
       let verifiedIdentity = null;
 
       // 1. Verify token cryptographically via SocialAuthService
-      if (token) {
-        try {
-          verifiedIdentity = await socialAuthService.verifyToken(authProvider, token);
-        } catch (verifyErr) {
-          console.warn("[AuthController.socialLogin] Token verification warning:", verifyErr.message);
-          return res.status(401).json({
-            message: "Social authentication verification failed: " + verifyErr.message,
-          });
-        }
-      } else if (req.body.email) {
-        // Fallback for development/testing when direct token is mocked
-        verifiedIdentity = {
-          email: req.body.email.trim().toLowerCase(),
-          fullName: req.body.fullName || req.body.email.split("@")[0],
-          firstName: req.body.firstName || req.body.fullName?.split(" ")[0] || "",
-          lastName: req.body.lastName || "",
-          avatarUrl: req.body.avatarUrl || "",
-          providerId: req.body.providerId || "",
-          provider: authProvider,
-          emailVerified: true,
-        };
-      } else {
-        return res.status(400).json({ message: "Authentication token or credential is required." });
+      if (!token) {
+        return res.status(400).json({ message: "Authentication token is required for social verification." });
+      }
+
+      try {
+        verifiedIdentity = await socialAuthService.verifyToken(authProvider, token);
+      } catch (verifyErr) {
+        console.warn("[AuthController.socialLogin] Token verification warning:", verifyErr.message);
+        return res.status(401).json({
+          message: "Social authentication verification failed: " + verifyErr.message,
+        });
       }
 
       const normalizedEmail = (verifiedIdentity.email || "").trim().toLowerCase();
@@ -925,7 +951,7 @@ class AuthController {
       // =========================================================================
 
       // Sub-case B.1: User is in registration mode and submitted remaining details
-      if (mode === "register" && registrationDetails.phoneNumber) {
+      if (mode === "register") {
         req.body = {
           ...registrationDetails,
           email: normalizedEmail,
@@ -967,7 +993,7 @@ class AuthController {
    */
   async verifyFace(req, res) {
     try {
-      const { image, referenceAvatar } = req.body;
+      const { image, referenceAvatar, landmarks, faceBox } = req.body;
       if (!image) {
         return res.status(400).json({
           success: false,
@@ -976,63 +1002,11 @@ class AuthController {
         });
       }
 
-      const scriptPath = path.join(__dirname, "..", "..", "scripts", "face_verifier.py");
-      const pyBin = process.env.PYTHON_BIN || (process.platform === "win32" ? "python" : "python3");
-
-      const pyProc = spawn(pyBin, [scriptPath], {
-        env: { ...process.env, OPENCV_LOG_LEVEL: "OFF" },
-      });
-
-      let stdoutData = "";
-      let stderrData = "";
-
-      pyProc.stdout.on("data", (data) => {
-        stdoutData += data.toString();
-      });
-      pyProc.stderr.on("data", (data) => {
-        stderrData += data.toString();
-      });
-
-      // Pass JSON payload with image and optional referenceAvatar
-      pyProc.stdin.write(JSON.stringify({ image, referenceAvatar }));
-      pyProc.stdin.end();
-
-      pyProc.on("close", (code) => {
-        try {
-          if (stdoutData.trim()) {
-            const parsed = JSON.parse(stdoutData.trim());
-            return res.json(parsed);
-          }
-          return res.json({
-            success: true,
-            passed: true,
-            face_detected: true,
-            issues: [],
-            message: "Biometric image accepted (Standard fallback)",
-          });
-        } catch (parseErr) {
-          return res.json({
-            success: true,
-            passed: true,
-            face_detected: true,
-            issues: [],
-            message: "Biometric image verified",
-          });
-        }
-      });
-
-      pyProc.on("error", (err) => {
-        console.warn("[AuthController.verifyFace] Python spawn error:", err.message);
-        return res.json({
-          success: true,
-          passed: true,
-          face_detected: true,
-          issues: [],
-          message: "Biometric image captured successfully",
-        });
-      });
+      const clientMeta = landmarks && faceBox ? { landmarks, faceBox } : null;
+      const result = await faceVerifierService.verifyFaceTelemetry(image, referenceAvatar, clientMeta);
+      return res.json(result);
     } catch (err) {
-      console.error("[AuthController.verifyFace] Error:", err);
+      console.error("[AuthController.verifyFace] Verification error:", err);
       return res.status(500).json({
         success: false,
         passed: false,
@@ -1123,9 +1097,9 @@ class AuthController {
    */
   async getClientInquiries(req, res) {
     try {
-      const email = req.query.email || req.user?.email;
+      const email = req.user?.email || req.query.email;
       if (!email) {
-        return res.status(400).json({ message: "Client email parameter is required." });
+        return res.status(400).json({ message: "Client email parameter or authenticated session is required." });
       }
 
       const result = await db.query(
@@ -1174,9 +1148,9 @@ class AuthController {
    */
   async getAdminProfile(req, res) {
     try {
-      const email = req.query.email || req.headers["x-user-email"];
+      const email = req.user?.email || req.query.email || req.headers["x-user-email"];
       if (!email || !email.trim()) {
-        return res.status(400).json({ success: false, message: "Email parameter required." });
+        return res.status(400).json({ success: false, message: "Email parameter or authenticated session required." });
       }
 
       const result = await db.query(
@@ -1229,11 +1203,12 @@ class AuthController {
         newPassword,
       } = req.body;
 
-      if (!email || !email.trim()) {
+      const targetEmail = (req.user?.email || email || "").trim().toLowerCase();
+      if (!targetEmail) {
         return res.status(400).json({ success: false, message: "Email is required to identify the account." });
       }
 
-      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedEmail = targetEmail;
 
       // Check user existence
       const userRes = await db.query(
@@ -1395,11 +1370,12 @@ class AuthController {
         locationAddress,
       } = req.body;
 
-      if (!email || !email.trim()) {
+      const targetEmail = (req.user?.email || email || "").trim().toLowerCase();
+      if (!targetEmail) {
         return res.status(400).json({ message: "Registered email is required to update profile." });
       }
 
-      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedEmail = targetEmail;
 
       const queryStr = `
         UPDATE users 
@@ -1506,180 +1482,13 @@ class AuthController {
 
   /**
    * POST /api/auth/face-login
-   * Biometric Face Login with Active Liveness Verification
+   * Biometric Face Login (Temporarily disabled for security)
    */
   async faceLogin(req, res) {
-    try {
-      const { email, faceImage, livenessVerified, portalType = "client" } = req.body;
-      if (!email || !email.trim()) {
-        return res.status(400).json({ message: "Email is required for Face Recognition Login." });
-      }
-      if (!faceImage || !livenessVerified) {
-        return res.status(400).json({ message: "Active liveness verification proof is required." });
-      }
-
-      const normalizedEmail = email.trim().toLowerCase();
-
-      // Check user existence
-      const userRes = await db.query(
-        `SELECT 
-          user_id, email, full_name, first_name, middle_name, last_name, suffix, role, phone_number, 
-          has_viber_whatsapp, client_type, location_address, auth_provider, provider_id, 
-          avatar_url, kyc_photo_url, kyc_verified_at, occupation, civil_status, birth_date, employer_name, monthly_income, spouse_name,
-          preferred_contact_time, emergency_contact, lot_ownership_status, subdivision_lot_details,
-          target_build_location, target_project_type, ofw_country, ph_rep_name, ph_rep_relationship, ph_rep_phone,
-          lockout_enabled, lockout_end, failed_login_attempts, created_at
-        FROM users 
-        WHERE LOWER(email) = LOWER($1) 
-        LIMIT 1`,
-        [normalizedEmail]
-      );
-
-      if (!userRes.rows || userRes.rows.length === 0) {
-        return res.status(404).json({ message: "No registered MCPA account found for this email." });
-      }
-
-      const user = userRes.rows[0];
-
-      // Enforce portal isolation
-      if (portalType === "client" && (user.role === "admin" || user.role === "super_admin")) {
-        return res.status(403).json({
-          message: "Administrator Account Detected: Please log in via the Admin Portal at /admin.",
-          isRoleMismatch: true,
-          expectedPortal: "admin",
-        });
-      }
-      if (portalType === "admin" && user.role === "client") {
-        return res.status(403).json({
-          message: "Access Denied: Client accounts cannot log into the Administrative console.",
-          isRoleMismatch: true,
-          expectedPortal: "client",
-        });
-      }
-
-      // Check lockout status
-      if (user.lockout_enabled && user.lockout_end) {
-        const lockoutEnd = new Date(user.lockout_end);
-        const now = new Date();
-        if (lockoutEnd > now) {
-          const remainingMinutes = Math.max(1, Math.ceil((lockoutEnd - now) / 60000));
-          return res.status(423).json({
-            message: `Account temporarily locked. Please try again in ${remainingMinutes} minute(s).`,
-            locked: true,
-            remainingMinutes,
-          });
-        }
-      }
-
-      // Verify that user has an avatar/selfie registered
-      if (!user.avatar_url) {
-        return res.status(400).json({
-          message: "No registered biometric face photo found for this account. Please log in with your password and complete Face KYC in your profile.",
-        });
-      }
-
-      // Update last login & clear attempts
-      await db.query(
-        "UPDATE users SET failed_login_attempts = 0, lockout_enabled = FALSE, lockout_end = NULL, last_login_at = NOW() WHERE user_id = $1",
-        [user.user_id]
-      );
-
-      // Issue JWT
-      const token = jwt.sign(
-        {
-          userId: user.user_id,
-          email: user.email,
-          fullName: user.full_name,
-          role: user.role,
-        },
-        JWT_SECRET,
-        { expiresIn: JWT_EXPIRES_IN }
-      );
-
-      return res.json({
-        success: true,
-        message: `Biometric face verification successful! Welcome back, ${user.first_name || user.full_name}.`,
-        token,
-        user: {
-          userId: user.user_id,
-          user_id: user.user_id,
-          email: user.email,
-          fullName: user.full_name,
-          full_name: user.full_name,
-          name: user.full_name,
-          firstName: user.first_name || user.full_name.split(" ")[0] || "",
-          first_name: user.first_name || user.full_name.split(" ")[0] || "",
-          middleName: user.middle_name || "",
-          middle_name: user.middle_name || "",
-          lastName: user.last_name || "",
-          last_name: user.last_name || "",
-          suffix: user.suffix || "",
-          role: user.role,
-          phoneNumber: user.phone_number || "",
-          phone_number: user.phone_number || "",
-          avatarUrl: user.avatar_url || "",
-          avatar_url: user.avatar_url || "",
-          kycPhotoUrl: user.kyc_photo_url || "",
-          kyc_photo_url: user.kyc_photo_url || "",
-          kycVerifiedAt: user.kyc_verified_at || null,
-          kyc_verified_at: user.kyc_verified_at || null,
-          hasViberWhatsapp: Boolean(user.has_viber_whatsapp),
-          has_viber_whatsapp: Boolean(user.has_viber_whatsapp),
-          clientType: user.client_type || "Local",
-          client_type: user.client_type || "Local",
-          locationAddress: user.location_address || "",
-          location_address: user.location_address || "",
-          occupation: user.occupation || "",
-          civilStatus: user.civil_status || "",
-          civil_status: user.civil_status || "",
-          birthDate: user.birth_date || "",
-          birth_date: user.birth_date || "",
-          employerName: user.employer_name || "",
-          employer_name: user.employer_name || "",
-          monthlyIncome: user.monthly_income || "",
-          monthly_income: user.monthly_income || "",
-          spouseName: user.spouse_name || "",
-          spouse_name: user.spouse_name || "",
-          preferredContactTime: user.preferred_contact_time || "Anytime (PH Daytime)",
-          preferred_contact_time: user.preferred_contact_time || "Anytime (PH Daytime)",
-          emergencyContact: user.emergency_contact || "",
-          emergency_contact: user.emergency_contact || "",
-          lotOwnershipStatus: user.lot_ownership_status || "Titled under my name",
-          lot_ownership_status: user.lot_ownership_status || "Titled under my name",
-          subdivisionLotDetails: user.subdivision_lot_details || "",
-          subdivision_lot_details: user.subdivision_lot_details || "",
-          targetBuildLocation: user.target_build_location || "",
-          target_build_location: user.target_build_location || "",
-          targetProjectType: user.target_project_type || "",
-          target_project_type: user.target_project_type || "",
-          ofwCountry: user.ofw_country || "",
-          ofw_country: user.ofw_country || "",
-          phRepName: user.ph_rep_name || "",
-          ph_rep_name: user.ph_rep_name || "",
-          phRepRelationship: user.ph_rep_relationship || "",
-          ph_rep_relationship: user.ph_rep_relationship || "",
-          phRepPhone: user.ph_rep_phone || "",
-          ph_rep_phone: user.ph_rep_phone || "",
-          authProvider: user.auth_provider || "local",
-          auth_provider: user.auth_provider || "local",
-          emailVerified: true,
-          email_verified: true,
-          createdAt: user.created_at,
-          created_at: user.created_at,
-        },
-        activeDbProvider: db.getActiveProviderName(),
-      });
-    } catch (err) {
-      console.error("[AuthController.faceLogin] Error:", err);
-      return res.status(500).json({ message: "Face recognition service error: " + err.message });
-    }
-  }
-
-  /**
-   * GET /api/auth/me
-   */
-  async me(req, res) {
-    return this.getAdminProfile(req, res);
+    return res.status(503).json({
+      success: false,
+      message: "Biometric face recognition login is temporarily disabled for security enhancement. Please sign in with your email & password or Google account.",
+    });
   }
 }
 

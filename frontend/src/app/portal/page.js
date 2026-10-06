@@ -26,6 +26,7 @@ import {
   PlaneIcon,
   PhoneIcon,
 } from "@/modules/shared/Icons";
+import { authFetch } from "@/modules/shared/authFetch";
 
 export default function ClientPortalPage() {
   const { language } = useLanguage();
@@ -49,7 +50,6 @@ export default function ClientPortalPage() {
   const [toastMessage, setToastMessage] = useState("");
 
   const [isUploadingPfp, setIsUploadingPfp] = useState(false);
-  const [isUploadingKyc, setIsUploadingKyc] = useState(false);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -90,7 +90,7 @@ export default function ClientPortalPage() {
       const newAvatarUrl = uploadData.url;
 
       // Update backend profile
-      await fetch("/api/client/profile", {
+      await authFetch("/api/client/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -113,67 +113,6 @@ export default function ClientPortalPage() {
       showToast("Could not update profile picture: " + err.message);
     } finally {
       setIsUploadingPfp(false);
-    }
-  };
-
-  const handleKycUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      showToast("Please select a valid image file (JPG, PNG, WebP).");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      showToast("Image size must be under 10MB.");
-      return;
-    }
-
-    setIsUploadingKyc(true);
-    showToast("Uploading official biometric KYC verification photo...");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const uploadRes = await fetch("/api/upload?category=kyc", {
-        method: "POST",
-        body: formData,
-      });
-
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok || !uploadData.url) {
-        throw new Error(uploadData.message || "Failed to upload KYC photo");
-      }
-
-      const newKycUrl = uploadData.url;
-
-      // Update backend profile with KYC photo
-      await fetch("/api/client/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: currentUser.email,
-          kycPhotoUrl: newKycUrl,
-        }),
-      });
-
-      const updatedUser = {
-        ...currentUser,
-        kycPhotoUrl: newKycUrl,
-        kyc_photo_url: newKycUrl,
-        kycVerifiedAt: new Date().toISOString(),
-      };
-
-      setCurrentUser(updatedUser);
-      localStorage.setItem("mcpa_client_user", JSON.stringify(updatedUser));
-      showToast("Official KYC verification photo registered successfully!");
-    } catch (err) {
-      console.error("KYC photo update error:", err);
-      showToast("Could not register KYC photo: " + err.message);
-    } finally {
-      setIsUploadingKyc(false);
     }
   };
 
@@ -202,7 +141,7 @@ export default function ClientPortalPage() {
     setIsLoadingInquiries(true);
 
     try {
-      const res = await fetch(`/api/client/inquiries?email=${encodeURIComponent(userEmail)}`);
+      const res = await authFetch(`/api/client/inquiries?email=${encodeURIComponent(userEmail)}`);
       const data = await res.json();
 
       if (res.ok && data.success && Array.isArray(data.briefs) && data.briefs.length > 0) {
@@ -872,16 +811,9 @@ export default function ClientPortalPage() {
                               Immutable Record
                             </span>
                           ) : (
-                            <label className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer transition-colors inline-flex items-center gap-1">
-                              <span>{isUploadingKyc ? "Registering..." : "Register KYC Photo"}</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handleKycUpload}
-                                disabled={isUploadingKyc}
-                              />
-                            </label>
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                              Live Camera Only
+                            </span>
                           )}
                         </div>
 
@@ -908,7 +840,9 @@ export default function ClientPortalPage() {
                                 : "Pending Live Biometric Selfie"}
                             </p>
                             <p className="text-[10px] text-neutral-400 leading-snug">
-                              Official compliance facial scan from Step 3. Secured under RA 10173.
+                              {currentUser.kycPhotoUrl || currentUser.kyc_photo_url
+                                ? "Official compliance facial scan from Step 3. Secured under RA 10173."
+                                : "Naka-lock sa live camera biometric scan lamang. Hindi pinapayagan ang pag-upload ng gallery litrato upang maiwasan ang identity theft."}
                             </p>
                           </div>
                         </div>

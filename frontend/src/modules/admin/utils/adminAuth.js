@@ -1,38 +1,19 @@
-export const DEFAULT_ADMIN_PIN = "mcpa2026";
+/**
+ * MCPA Construction & Supply - Admin Credential Verification Utility
+ * Validates admin action authorization directly against the backend auth service.
+ */
 
 /**
- * Validates entered password or PIN against:
- * 1. Default admin PIN ("mcpa2026")
- * 2. Locally stored admin PIN override (localStorage / sessionStorage "mcpa_admin_pin")
- * 3. Backend auth endpoint (/api/auth/login) using the current logged-in user email
+ * Validates entered password against the backend auth endpoint (/api/auth/login)
+ * using the current logged-in admin user email.
  *
- * @param {string} password - The entered password or PIN
+ * @param {string} password - The entered admin password
  * @returns {Promise<boolean>} - True if valid, false otherwise
  */
 export async function verifyAdminPassword(password) {
   const trimmed = typeof password === "string" ? password.trim() : "";
   if (!trimmed) return false;
 
-  // 1. Immediate match with DEFAULT_ADMIN_PIN
-  if (trimmed === DEFAULT_ADMIN_PIN) {
-    return true;
-  }
-
-  // 2. Check local PIN overrides
-  if (typeof window !== "undefined") {
-    try {
-      const localPin =
-        localStorage.getItem("mcpa_admin_pin") ||
-        sessionStorage.getItem("mcpa_admin_pin");
-      if (localPin && trimmed === localPin.trim()) {
-        return true;
-      }
-    } catch (e) {
-      // storage access denied or disabled
-    }
-  }
-
-  // 3. Check against backend API using the active admin user's email
   try {
     let email = "admin@mcpa.com";
     if (typeof window !== "undefined") {
@@ -40,10 +21,12 @@ export async function verifyAdminPassword(password) {
         localStorage.getItem("mcpa_admin_user") ||
         sessionStorage.getItem("mcpa_admin_user");
       if (rawUser) {
-        const parsed = JSON.parse(rawUser);
-        if (parsed?.email) {
-          email = parsed.email;
-        }
+        try {
+          const parsed = JSON.parse(rawUser);
+          if (parsed?.email) {
+            email = parsed.email;
+          }
+        } catch (e) {}
       }
     }
 
@@ -57,8 +40,10 @@ export async function verifyAdminPassword(password) {
       return true;
     }
   } catch (err) {
-    // Backend offline or unreachable
+    // Network or server error
   }
 
   return false;
 }
+
+export default verifyAdminPassword;

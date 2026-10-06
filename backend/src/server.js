@@ -15,8 +15,37 @@ const initializeDatabase = require("./scripts/initDb");
 const { translateDictionary } = require("./services/translationService");
 const phLocationService = require("./services/phLocationService");
 
+const { rateLimit } = require("express-rate-limit");
+const { requireAuth, requireRole, optionalAuth } = require("./middleware/auth");
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Trust reverse proxies (Azure App Service / Vercel Edge / Cloudflare)
+app.set("trust proxy", 1);
+
+// Rate limiters for security against brute-force and email flooding
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many authentication requests from this network. Please try again after 15 minutes.",
+  },
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many verification code requests. Please wait 15 minutes before requesting another code.",
+  },
+});
 
 // Setup Multer for memory buffering
 const upload = multer({
@@ -43,12 +72,6 @@ app.get("/", (req, res) => {
     status: "ONLINE",
     message: "MCPA Enterprise Backend API is running successfully.",
     cloud: "Azure App Service (Japan East - Always On)",
-    endpoints: {
-      health: "/api/health",
-      projects: "/api/projects",
-      briefs: "/api/briefs",
-      legalPdf: "/api/legal/pdf/:docType",
-    },
   });
 });
 
@@ -110,28 +133,28 @@ app.post("/api/translations", async (req, res) => {
 // -----------------------------------------------------------------------------
 // AUTH ROUTES
 // -----------------------------------------------------------------------------
-app.post("/api/auth/login", (req, res) => authController.login(req, res));
+app.post("/api/auth/login", authLimiter, (req, res) => authController.login(req, res));
 app.post("/api/auth/face-login", (req, res) => authController.faceLogin(req, res));
-app.post("/api/auth/client/register", (req, res) => authController.clientRegister(req, res));
-app.post("/api/auth/social-login", (req, res) => authController.socialLogin(req, res));
-app.post("/api/auth/google", (req, res) => {
+app.post("/api/auth/client/register", authLimiter, (req, res) => authController.clientRegister(req, res));
+app.post("/api/auth/social-login", authLimiter, (req, res) => authController.socialLogin(req, res));
+app.post("/api/auth/google", authLimiter, (req, res) => {
   req.body.provider = "google";
   return authController.socialLogin(req, res);
 });
-app.post("/api/auth/facebook", (req, res) => {
+app.post("/api/auth/facebook", authLimiter, (req, res) => {
   req.body.provider = "facebook";
   return authController.socialLogin(req, res);
 });
 app.post("/api/auth/verify-face", (req, res) => authController.verifyFace(req, res));
-app.get("/api/admin/accounts", (req, res) => authController.getAccounts(req, res));
-app.get("/api/client/inquiries", (req, res) => authController.getClientInquiries(req, res));
-app.post("/api/auth/send-reset-otp", (req, res) => authController.sendResetOtp(req, res));
-app.post("/api/auth/verify-reset-otp", (req, res) => authController.verifyResetOtp(req, res));
-app.post("/api/auth/reset-password-with-otp", (req, res) => authController.resetPasswordWithOtp(req, res));
-app.get("/api/auth/me", (req, res) => authController.me(req, res));
-app.get("/api/admin/profile", (req, res) => authController.getAdminProfile(req, res));
-app.put("/api/admin/profile", (req, res) => authController.updateAdminProfile(req, res));
-app.put("/api/client/profile", (req, res) => authController.updateClientProfile(req, res));
+app.get("/api/admin/accounts", requireAuth, requireRole("admin", "super_admin"), (req, res) => authController.getAccounts(req, res));
+app.get("/api/client/inquiries", requireAuth, (req, res) => authController.getClientInquiries(req, res));
+app.post("/api/auth/send-reset-otp", otpLimiter, (req, res) => authController.sendResetOtp(req, res));
+app.post("/api/auth/verify-reset-otp", otpLimiter, (req, res) => authController.verifyResetOtp(req, res));
+app.post("/api/auth/reset-password-with-otp", otpLimiter, (req, res) => authController.resetPasswordWithOtp(req, res));
+app.get("/api/auth/me", requireAuth, (req, res) => authController.me(req, res));
+app.get("/api/admin/profile", requireAuth, requireRole("admin", "super_admin"), (req, res) => authController.getAdminProfile(req, res));
+app.put("/api/admin/profile", requireAuth, requireRole("admin", "super_admin"), (req, res) => authController.updateAdminProfile(req, res));
+app.put("/api/client/profile", requireAuth, (req, res) => authController.updateClientProfile(req, res));
 
 // -----------------------------------------------------------------------------
 // PROJECTS ROUTES (PORTFOLIO SHOWCASE)
