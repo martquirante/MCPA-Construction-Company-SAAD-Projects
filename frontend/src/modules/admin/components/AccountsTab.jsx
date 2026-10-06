@@ -30,7 +30,6 @@ import {
   UserIcon,
   LockIcon,
   CopyIcon,
-  PrinterIcon,
   Maximize2Icon,
 } from "@/modules/shared/Icons";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
@@ -1839,10 +1838,6 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const hasKycPhoto = Boolean(account.kyc_photo_url && account.kyc_photo_url.trim().length > 5);
   const hasAvatarPhoto = Boolean(account.avatar_url && account.avatar_url.trim().length > 5);
   const [lightboxTab, setLightboxTab] = useState("kyc"); // "kyc" | "pfp"
@@ -1929,16 +1924,6 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                     <span>Copy Summary</span>
                   </>
                 )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="dossier-action-btn print-highlight print-only-hide"
-                title="Print official black & white Word-style client document"
-              >
-                <PrinterIcon className="w-3.5 h-3.5 text-amber-500" />
-                <span>Print Document</span>
               </button>
 
               <button
