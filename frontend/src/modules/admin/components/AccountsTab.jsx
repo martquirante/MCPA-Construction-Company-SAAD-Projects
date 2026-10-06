@@ -978,6 +978,7 @@ function ClientWordDocument({ account, clientBriefs }) {
 function ClientDossierModal({ account, clientBriefs, onClose }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copiedNotification, setCopiedNotification] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const colors = getAvatarGradient(account.full_name);
   const initials = getInitials(account.full_name);
@@ -1002,6 +1003,344 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
+
+  // Download official certified PDF client dossier
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const safeName = (account.full_name || "Client").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const docUid = `MCPA-CRD-2026-${String(account.user_id || 1).padStart(4, "0")}`;
+      const currentDate = new Date().toLocaleDateString("en-PH", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      // ── Header / Letterhead ──────────────────────────────────────────────
+      // Left: Company Branding
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text("MCPA CONSTRUCTION AND SUPPLY", 14, 17);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text("Design & Build Contractor • General Building & Engineering Services", 14, 21.5);
+      doc.text("Provincial Highway, Bulacan & Metro Manila, Philippines • Contact: (044) 794-4822", 14, 25.5);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.text("System: SAAD Project Development & Client Records System", 14, 29.5);
+
+      // Right: Control Box
+      doc.setDrawColor(15, 23, 42);
+      doc.setLineWidth(0.35);
+      doc.setFillColor(248, 250, 252);
+      doc.rect(136, 12, 60, 19, "FD");
+
+      const drawControlRow = (lbl, val, rowY) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(lbl, 138.5, rowY);
+        doc.setTextColor(15, 23, 42);
+        doc.text(val, 193.5, rowY, { align: "right" });
+      };
+
+      drawControlRow("FORM REF:", "MCPA-CRD-01", 16);
+      drawControlRow("RECORD NO:", docUid, 20.5);
+      drawControlRow("DATE ISSUED:", currentDate, 25);
+      drawControlRow("CLASSIFICATION:", isOfw ? "OFW CLIENT" : "LOCAL RESIDENT", 29.5);
+
+      // Header Divider Line
+      doc.setDrawColor(15, 23, 42);
+      doc.setLineWidth(0.6);
+      doc.line(14, 33.5, 196, 33.5);
+
+      // ── Document Title Banner ───────────────────────────────────────────
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.25);
+      doc.rect(14, 36.5, 182, 10.5, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text("CLIENT PROFILE & REGISTRATION RECORD", 105, 42, { align: "center" });
+
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text("(Official Customer Bio-Data, Architectural Preferences & Identity Verification Attestation)", 105, 45.5, { align: "center" });
+
+      let curY = 50.5;
+
+      // Section Header Drawer
+      const drawSection = (title) => {
+        doc.setFillColor(241, 245, 249);
+        doc.rect(14, curY, 182, 5.5, "F");
+        doc.setFillColor(217, 119, 6); // amber accent
+        doc.rect(14, curY, 2.5, 5.5, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.8);
+        doc.setTextColor(15, 23, 42);
+        doc.text(title.toUpperCase(), 18.5, curY + 3.9);
+        curY += 6.5;
+      };
+
+      // 2-Column Row Drawer
+      const draw2ColRow = (lbl1, val1, lbl2, val2, bold1 = false, bold2 = false) => {
+        const rowH = 6;
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+
+        // Col 1 Label
+        doc.setFillColor(248, 250, 252);
+        doc.rect(14, curY, 34, rowH, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(lbl1, 16, curY + 4.1);
+
+        // Col 1 Value
+        doc.setFillColor(255, 255, 255);
+        doc.rect(48, curY, 57, rowH, "FD");
+        doc.setFont("helvetica", bold1 ? "bold" : "normal");
+        doc.setFontSize(7.8);
+        doc.setTextColor(bold1 ? 15 : 30, bold1 ? 23 : 41, bold1 ? 42 : 59);
+        doc.text(String(val1 || "—"), 50, curY + 4.1, { maxWidth: 54 });
+
+        // Col 2 Label
+        doc.setFillColor(248, 250, 252);
+        doc.rect(105, curY, 34, rowH, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(lbl2, 107, curY + 4.1);
+
+        // Col 2 Value
+        doc.setFillColor(255, 255, 255);
+        doc.rect(139, curY, 57, rowH, "FD");
+        doc.setFont("helvetica", bold2 ? "bold" : "normal");
+        doc.setFontSize(7.8);
+        doc.setTextColor(bold2 ? 15 : 30, bold2 ? 23 : 41, bold2 ? 42 : 59);
+        doc.text(String(val2 || "—"), 141, curY + 4.1, { maxWidth: 54 });
+
+        curY += rowH;
+      };
+
+      // Full Width Row Drawer
+      const drawFullRow = (lbl, val) => {
+        const rowH = 6;
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+
+        doc.setFillColor(248, 250, 252);
+        doc.rect(14, curY, 34, rowH, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text(lbl, 16, curY + 4.1);
+
+        doc.setFillColor(255, 255, 255);
+        doc.rect(48, curY, 148, rowH, "FD");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.8);
+        doc.setTextColor(30, 41, 59);
+        doc.text(String(val || "—"), 50, curY + 4.1, { maxWidth: 144 });
+
+        curY += rowH;
+      };
+
+      // ── I. Personal & Demographic Information ─────────────────────────
+      drawSection("I. Personal & Demographic Information");
+      draw2ColRow(
+        "Full Legal Name",
+        account.full_name || "—",
+        "Civil Status",
+        account.civil_status || "Not declared",
+        true
+      );
+      draw2ColRow(
+        "Date of Birth & Age",
+        `${account.birth_date ? formatDate(account.birth_date) : "—"} ${age !== null ? `(${age} y/o)` : ""}`,
+        "Spouse / Co-Borrower",
+        account.spouse_name || "N/A (Single / Unmarried)",
+        true,
+        Boolean(account.spouse_name)
+      );
+      draw2ColRow(
+        "Emergency Contact",
+        account.emergency_contact || "None recorded",
+        "Preferred Call Time",
+        account.preferred_contact_time || "Anytime during office hours"
+      );
+      curY += 2;
+
+      // ── II. Contact & Geographical Location ────────────────────────────
+      drawSection("II. Contact & Geographical Location");
+      draw2ColRow(
+        "Primary Mobile",
+        `${account.phone_number || "—"}${account.has_viber_whatsapp ? " [Viber/WA]" : ""}`,
+        "Email Address",
+        account.email || "—"
+      );
+      drawFullRow("Residential Address", account.location_address || "Not specified");
+      if (isOfw) {
+        draw2ColRow(
+          "OFW Host Country",
+          account.ofw_country || "Overseas Worker",
+          "PH Representative",
+          account.ph_rep_name ? `${account.ph_rep_name} (${account.ph_rep_relationship || "Rep"}) - ${account.ph_rep_phone || "—"}` : "None designated",
+          false,
+          Boolean(account.ph_rep_name)
+        );
+      }
+      curY += 2;
+
+      // ── III. Occupational & Financial Background ───────────────────────
+      drawSection("III. Occupational & Financial Background");
+      draw2ColRow(
+        "Occupation / Role",
+        account.occupation || "Not declared",
+        "Monthly Income",
+        account.monthly_income || "Confidential / Undisclosed"
+      );
+      draw2ColRow(
+        "Employer / Business",
+        account.employer_name || "Not indicated",
+        "Client Category",
+        isOfw ? "Overseas Filipino Worker" : "Local Resident (Philippines)"
+      );
+      curY += 2;
+
+      // ── IV. Architectural & Lot Preferences ────────────────────────────
+      drawSection("IV. Architectural & Lot Specifications");
+      draw2ColRow(
+        "Target Project Type",
+        account.target_project_type || "Custom Residential Project",
+        "Lot Ownership",
+        account.lot_ownership_status || "Undisclosed"
+      );
+      draw2ColRow(
+        "Lot Specifications",
+        account.subdivision_lot_details || "Lot area pending site survey",
+        "Target Location",
+        account.target_build_location || "Bulacan / Metro Manila"
+      );
+      curY += 2;
+
+      // ── V. Consultation Briefs (if any) ───────────────────────────────
+      if (briefs.length > 0) {
+        drawSection(`V. Consultation & Project Briefs (${briefs.length} Active Records)`);
+        briefs.slice(0, 3).forEach((b) => {
+          const bUid = `#BRF-${String(b.id || 1).padStart(4, "0")}`;
+          const bTitle = b.project_type || b.title || "Architectural Project Brief";
+          const bStatus = (b.status || "Submitted").toUpperCase();
+          const bDate = b.created_at ? formatDate(b.created_at) : "—";
+          draw2ColRow(
+            `Brief ${bUid}`,
+            bTitle,
+            "Status & Date",
+            `${bStatus} • ${bDate}`,
+            true
+          );
+        });
+        curY += 2;
+      }
+
+      // ── VI. System Compliance & Legal Attestation ──────────────────────
+      drawSection("VI. System Compliance & Legal Attestation");
+      draw2ColRow(
+        "Biometric KYC",
+        account.kyc_photo_url ? "Verified Live Biometric Face Scan" : "Verified Account Record",
+        "Auth Provider",
+        account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL CREDENTIALS"
+      );
+      draw2ColRow(
+        "Registration Date",
+        formatDateTime(account.created_at),
+        "Record Ref No.",
+        uid
+      );
+      drawFullRow(
+        "Data Privacy Law",
+        "Processed in strict compliance with RA 10173 (Philippine Data Privacy Act of 2012) and MCPA protocols."
+      );
+      curY += 6;
+
+      // ── Signatures Block ───────────────────────────────────────────────
+      const signY = Math.max(curY, 218);
+      
+      // Left: Engr. Raymart Quirante
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text("Prepared & Verified by:", 16, signY);
+
+      doc.setDrawColor(15, 23, 42);
+      doc.setLineWidth(0.4);
+      doc.line(16, signY + 14, 85, signY + 14);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("ENGR. RAYMART QUIRANTE", 16, signY + 18);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Lead Project Engineer / System Administrator", 16, signY + 21.5);
+      doc.text("MCPA Construction and Supply", 16, signY + 25);
+
+      // Right: Client
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text("Client Attestation / Acknowledged by:", 115, signY);
+
+      doc.line(115, signY + 14, 194, signY + 14);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text((account.full_name || "CLIENT / HOMEOWNER").toUpperCase(), 115, signY + 18);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Registered Homeowner / Project Proponent", 115, signY + 21.5);
+      doc.text(isOfw ? "Overseas Filipino Worker Client" : "Philippine Resident Client", 115, signY + 25);
+
+      // ── Bottom Page Footer ─────────────────────────────────────────────
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.25);
+      doc.line(14, 283, 196, 283);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text(
+        "MCPA CONSTRUCTION AND SUPPLY • OFFICIAL CLIENT RECORD • SAAD ARCHITECTURAL SYSTEM • CONFIDENTIAL",
+        105,
+        287,
+        { align: "center" }
+      );
+
+      // Trigger instant direct download
+      doc.save(`MCPA_Client_Dossier_${safeName}.pdf`);
+    } catch (err) {
+      console.error("Failed to generate client dossier PDF:", err);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   // Download official Microsoft Word (.doc) client dossier
   const handleDownloadWord = () => {
@@ -1560,15 +1899,16 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
 
             {/* Header Action Tools */}
             <div className="dossier-header-actions">
-              {/* Download official Microsoft Word (.doc) client dossier */}
+              {/* Download official PDF client dossier */}
               <button
                 type="button"
-                onClick={handleDownloadWord}
-                className="dossier-action-btn word-download-btn print-only-hide"
-                title="Download official Microsoft Word (.doc) client dossier"
+                onClick={handleDownloadPdf}
+                disabled={isGeneratingPdf}
+                className="dossier-action-btn pdf-download-btn print-only-hide"
+                title="Download official certified PDF client dossier"
               >
-                <FileTextIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <span>Word Document</span>
+                <FileTextIcon className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                <span>{isGeneratingPdf ? "Generating PDF..." : "PDF Document"}</span>
               </button>
 
 
@@ -3152,6 +3492,14 @@ const DOSSIER_STYLES = `
 .dark .dossier-action-btn.word-download-btn:hover {
   border-color: #60a5fa;
   color: #60a5fa;
+}
+.dossier-action-btn.pdf-download-btn:hover {
+  border-color: #e11d48;
+  color: #e11d48;
+}
+.dark .dossier-action-btn.pdf-download-btn:hover {
+  border-color: #fb7185;
+  color: #fb7185;
 }
 .dossier-close-btn {
   display: inline-flex;
