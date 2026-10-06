@@ -217,20 +217,41 @@ function estimateFaceAndLandmarks(img, clientMeta = null) {
   if (clientMeta?.landmarks && clientMeta?.faceBox) {
     const fb = clientMeta.faceBox;
     const lm = clientMeta.landmarks;
+
+    const toPt = (pt, fallbackX, fallbackY) => {
+      if (!pt) return [fallbackX, fallbackY];
+      if (Array.isArray(pt)) return [Number(pt[0]) || fallbackX, Number(pt[1]) || fallbackY];
+      if (typeof pt === "object") return [Number(pt.x ?? pt[0] ?? fallbackX), Number(pt.y ?? pt[1] ?? fallbackY)];
+      return [fallbackX, fallbackY];
+    };
+
+    const fx = Math.max(0, Math.round(fb.x || 0));
+    const fy = Math.max(0, Math.round(fb.y || 0));
+    const fw = Math.min(width - fx, Math.round(fb.width || width * 0.5));
+    const fh = Math.min(height - fy, Math.round(fb.height || height * 0.5));
+
+    const defaultNoseX = fx + fw * 0.5;
+    const defaultNoseY = fy + fh * 0.55;
+    const nosePt = toPt(lm.nose || lm.noseTip || lm.nose_tip, defaultNoseX, defaultNoseY);
+    const rightEyePt = toPt(lm.right_eye || lm.rightEye || lm.right, fx + fw * 0.35, fy + fh * 0.4);
+    const leftEyePt = toPt(lm.left_eye || lm.leftEye || lm.left, fx + fw * 0.65, fy + fh * 0.4);
+    const rightMouthPt = toPt(lm.right_mouth || lm.mouthRight || lm.mouth_right, nosePt[0] - fw * 0.15, nosePt[1] + fh * 0.25);
+    const leftMouthPt = toPt(lm.left_mouth || lm.mouthLeft || lm.mouth_left, nosePt[0] + fw * 0.15, nosePt[1] + fh * 0.25);
+
     return {
       faceBox: {
-        x: Math.max(0, Math.round(fb.x)),
-        y: Math.max(0, Math.round(fb.y)),
-        width: Math.min(width - Math.round(fb.x), Math.round(fb.width)),
-        height: Math.min(height - Math.round(fb.y), Math.round(fb.height)),
+        x: fx,
+        y: fy,
+        width: fw,
+        height: fh,
       },
       landmarks: {
-        right_eye: [lm.right_eye[0], lm.right_eye[1]],
-        left_eye: [lm.left_eye[0], lm.left_eye[1]],
-        nose: [lm.nose[0], lm.nose[1]],
-        right_mouth: [lm.right_mouth ? lm.right_mouth[0] : lm.nose[0] - 20, lm.right_mouth ? lm.right_mouth[1] : lm.nose[1] + 30],
-        left_mouth: [lm.left_mouth ? lm.left_mouth[0] : lm.nose[0] + 20, lm.left_mouth ? lm.left_mouth[1] : lm.nose[1] + 30],
-        confidence: lm.confidence || 0.95,
+        right_eye: rightEyePt,
+        left_eye: leftEyePt,
+        nose: nosePt,
+        right_mouth: rightMouthPt,
+        left_mouth: leftMouthPt,
+        confidence: Number(lm.confidence) || 0.95,
       },
       faceCount: 1,
     };
