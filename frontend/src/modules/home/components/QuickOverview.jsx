@@ -196,10 +196,6 @@ export default function QuickOverview() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
 
           <div className="relative z-10 max-w-2xl mx-auto">
-            <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-[10px] sm:text-xs uppercase tracking-[0.18em] font-mono font-bold text-amber-600 dark:text-amber-400 mb-4 select-none">
-              <span>🇵🇭 Philippine Projects Only · Bulacan, NCR &amp; Central Luzon</span>
-            </div>
-
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight mb-4">
               Let&apos;s Build Something
               <br />

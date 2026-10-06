@@ -510,6 +510,7 @@ class AuthController {
         ofwCountry,
         phRepName,
         phRepRelationship,
+        phRepPhone,
         authProvider = "local",
         providerId = "",
         avatarUrl = "",
