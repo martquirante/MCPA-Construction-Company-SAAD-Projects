@@ -495,7 +495,6 @@ class AuthController {
         hasViberWhatsapp,
         clientType,
         locationAddress,
-        avatarUrl,
         occupation,
         civilStatus,
         birthDate,
