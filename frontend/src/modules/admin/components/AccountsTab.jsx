@@ -124,7 +124,19 @@ function DataField({ label, value, sub, badge, icon, highlight = false }) {
   );
 }
 
-// ─── SVG Helper Icons for Photo Lightbox ─────────────────────────────────────
+// ─── SVG Helper Icons for Photo Lightbox & Documents ─────────────────────────
+function FileTextIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
+    </svg>
+  );
+}
+
 function ZoomInIcon({ className = "w-4 h-4" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -613,8 +625,357 @@ function PhotoLightbox({
   );
 }
 
+// ─── Formal Black & White Microsoft Word / Resume Style Document ──────────────
+function ClientWordDocument({ account, clientBriefs }) {
+  const isOfw = (account.client_type || "").toLowerCase() === "ofw";
+  const age = computeAge(account.birth_date);
+  const uid = `MCPA-CRD-2026-${String(account.user_id || 1).padStart(4, "0")}`;
+  const currentDate = new Date().toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const briefs = useMemo(() => {
+    return (clientBriefs || []).filter(
+      (b) =>
+        (b.clientEmail || b.client_email || "").toLowerCase() ===
+        (account.email || "").toLowerCase()
+    );
+  }, [clientBriefs, account.email]);
+
+  const photoUrl = account.kyc_photo_url || account.avatar_url;
+
+  return (
+    <div className="word-doc-container">
+      {/* ── Official Corporate Letterhead ─────────────────────────────── */}
+      <div className="word-doc-header">
+        <div className="word-doc-header-left">
+          <div className="word-doc-logo-box">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/mcpa-logo.svg"
+              alt="MCPA Construction & Supply Logo"
+              className="word-doc-logo-img"
+            />
+          </div>
+          <div className="word-doc-company-details">
+            <h1 className="word-doc-company-name">MCPA CONSTRUCTION AND SUPPLY</h1>
+            <p className="word-doc-company-tagline">
+              Design &amp; Build Contractor • General Building &amp; Engineering Services
+            </p>
+            <p className="word-doc-company-sub">
+              Provincial Highway, Bulacan &amp; Metro Manila, Philippines • Contact: (044) 794-4822 / 0917-888-9999
+            </p>
+            <p className="word-doc-company-sub">
+              System: SAAD Project Development &amp; Client Records System (mcpa-construction.vercel.app)
+            </p>
+          </div>
+        </div>
+
+        {/* Document Control Metadata Box */}
+        <div className="word-doc-control-box">
+          <table className="word-doc-control-table">
+            <tbody>
+              <tr>
+                <td className="control-label">FORM REF</td>
+                <td className="control-val">MCPA-CRD-01</td>
+              </tr>
+              <tr>
+                <td className="control-label">RECORD NO</td>
+                <td className="control-val">{uid}</td>
+              </tr>
+              <tr>
+                <td className="control-label">DATE ISSUED</td>
+                <td className="control-val">{currentDate}</td>
+              </tr>
+              <tr>
+                <td className="control-label">CLASSIFICATION</td>
+                <td className="control-val">{isOfw ? "OFW CLIENT" : "LOCAL RESIDENT"}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Formal Double Horizontal Rule */}
+      <div className="word-doc-double-divider" />
+
+      {/* ── Formal Document Title ─────────────────────────────────────── */}
+      <div className="word-doc-title-block">
+        <h2 className="word-doc-main-title">CLIENT PROFILE &amp; REGISTRATION RECORD</h2>
+        <p className="word-doc-subtitle">
+          (Official Customer Bio-Data, Architectural Preferences &amp; Identity Verification Attestation)
+        </p>
+      </div>
+
+      {/* ── Client Bio-Data & 2x2 Photo (Classic Resume Style) ────────── */}
+      <div className="word-doc-bio-section">
+        <div className="word-doc-bio-info">
+          <h3 className="word-doc-client-fullname">
+            {account.full_name ? account.full_name.toUpperCase() : "CLIENT ACCOUNT"}
+          </h3>
+          <p className="word-doc-client-occupation">
+            {account.occupation || "Registered Homeowner / Project Proponent"}
+          </p>
+
+          <table className="word-doc-mini-table">
+            <tbody>
+              <tr>
+                <td className="mini-lbl">Email Address:</td>
+                <td className="mini-val">{account.email || "—"}</td>
+              </tr>
+              <tr>
+                <td className="mini-lbl">Primary Mobile:</td>
+                <td className="mini-val">
+                  {account.phone_number || "Not recorded"}
+                  {account.has_viber_whatsapp ? " [Viber / WhatsApp Connected]" : ""}
+                </td>
+              </tr>
+              <tr>
+                <td className="mini-lbl">Residential Address:</td>
+                <td className="mini-val">{account.location_address || "—"}</td>
+              </tr>
+              <tr>
+                <td className="mini-lbl">Territorial Category:</td>
+                <td className="mini-val">
+                  {isOfw ? "Overseas Filipino Worker (OFW Client)" : "Philippine Domestic Resident"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* 2x2 ID Photo Box (Clean, Proportional, Formal Resume Style) */}
+        <div className="word-doc-photo-box">
+          <div className="word-doc-photo-frame">
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoUrl}
+                alt={`Photo of ${account.full_name || "Client"}`}
+                className="word-doc-photo-img"
+              />
+            ) : (
+              <div className="word-doc-photo-placeholder">
+                <span>[ 2x2 ID PHOTO ]</span>
+              </div>
+            )}
+          </div>
+          <span className="word-doc-photo-caption">
+            {account.kyc_photo_url ? "Biometric KYC Record" : "Attached ID Photo"}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Section I: Personal & Demographic Particulars ──────────────── */}
+      <div className="word-doc-section">
+        <h4 className="word-doc-sec-heading">I. PERSONAL &amp; DEMOGRAPHIC INFORMATION</h4>
+        <table className="word-doc-table">
+          <tbody>
+            <tr>
+              <th>Full Legal Name</th>
+              <td>{account.full_name || "—"}</td>
+              <th>Civil Status</th>
+              <td>{account.civil_status || "Not declared"}</td>
+            </tr>
+            <tr>
+              <th>Date of Birth</th>
+              <td>
+                {account.birth_date ? formatDate(account.birth_date) : "—"}
+                {age !== null ? ` (${age} years old)` : ""}
+              </td>
+              <th>Spouse Name</th>
+              <td>
+                {(account.civil_status || "").toLowerCase() === "married" || account.spouse_name
+                  ? account.spouse_name || "Not specified"
+                  : "N/A (Single / Unmarried)"}
+              </td>
+            </tr>
+            <tr>
+              <th>Emergency Contact</th>
+              <td>{account.emergency_contact || "None recorded"}</td>
+              <th>Preferred Call Time</th>
+              <td>{account.preferred_contact_time || "Anytime (PH Daytime)"}</td>
+            </tr>
+            <tr>
+              <th>System Account UID</th>
+              <td>{uid}</td>
+              <th>Registration Date</th>
+              <td>{formatDateTime(account.created_at)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Section II: Occupational & Financial Background ────────────── */}
+      <div className="word-doc-section">
+        <h4 className="word-doc-sec-heading">II. OCCUPATIONAL &amp; FINANCIAL BACKGROUND</h4>
+        <table className="word-doc-table">
+          <tbody>
+            <tr>
+              <th>Occupation / Profession</th>
+              <td>{account.occupation || "Not declared"}</td>
+              <th>Employer / Business Firm</th>
+              <td>{account.employer_name || "Not declared"}</td>
+            </tr>
+            <tr>
+              <th>Monthly Income Bracket</th>
+              <td>{account.monthly_income || "Not declared"}</td>
+              <th>Client Category</th>
+              <td>{isOfw ? "Overseas Filipino Worker (OFW)" : "Local Resident (Philippines)"}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Section III: Residential Location & Territorial Assignment ─── */}
+      <div className="word-doc-section">
+        <h4 className="word-doc-sec-heading">III. RESIDENTIAL LOCATION &amp; TERRITORIAL ASSIGNMENT</h4>
+        <table className="word-doc-table">
+          <tbody>
+            <tr>
+              <th>Registered Residence</th>
+              <td colSpan={3}>
+                {account.location_address || (isOfw ? (account.ofw_country || "Overseas") : "Not specified")}
+              </td>
+            </tr>
+            {isOfw && (
+              <>
+                <tr>
+                  <th>OFW Host Country</th>
+                  <td>{account.ofw_country || "Overseas"}</td>
+                  <th>Designated PH Representative</th>
+                  <td>
+                    {account.ph_rep_name || "Not assigned"}
+                    {account.ph_rep_relationship ? ` (${account.ph_rep_relationship})` : ""}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Representative Contact</th>
+                  <td colSpan={3}>{account.ph_rep_phone || "Not provided"}</td>
+                </tr>
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Section IV: Architectural Project & Lot Specifications ─────── */}
+      <div className="word-doc-section">
+        <h4 className="word-doc-sec-heading">IV. ARCHITECTURAL PROJECT &amp; LOT SPECIFICATIONS</h4>
+        <table className="word-doc-table">
+          <tbody>
+            <tr>
+              <th>Target Project Archetype</th>
+              <td>{account.target_project_type || "Not specified"}</td>
+              <th>Lot Ownership Status</th>
+              <td>{account.lot_ownership_status || "Not specified"}</td>
+            </tr>
+            <tr>
+              <th>Lot &amp; Subdivision Details</th>
+              <td>{account.subdivision_lot_details || "Not specified"}</td>
+              <th>Target Build Location</th>
+              <td>{account.target_build_location || account.location_address || "Not specified"}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Section V: Consultation Inquiries & Project Briefs ─────────── */}
+      <div className="word-doc-section">
+        <h4 className="word-doc-sec-heading">
+          V. CONSULTATION INQUIRIES &amp; PROJECT BRIEFS ({briefs.length})
+        </h4>
+        {briefs.length === 0 ? (
+          <p className="word-doc-empty-note">
+            No active project inquiry briefs submitted to date. Homeowner account registered in system records.
+          </p>
+        ) : (
+          <table className="word-doc-table">
+            <thead>
+              <tr>
+                <th style={{ width: "12%" }}>Brief #</th>
+                <th style={{ width: "24%" }}>Project Type</th>
+                <th style={{ width: "26%" }}>Site Location</th>
+                <th style={{ width: "20%" }}>Budget Bracket</th>
+                <th style={{ width: "18%" }}>Filing Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {briefs.map((b, idx) => (
+                <tr key={b.id || b.brief_id || idx}>
+                  <td>#{b.brief_id || b.id || idx + 1}</td>
+                  <td>{b.projectType || b.project_type || "Residential Construction"}</td>
+                  <td>{b.location || "—"}</td>
+                  <td>{b.budgetRange || b.budget_range || "—"}</td>
+                  <td>{b.status || "Open / In Review"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* ── Section VI: System Verification & Data Privacy Compliance ─── */}
+      <div className="word-doc-section">
+        <h4 className="word-doc-sec-heading">VI. SYSTEM VERIFICATION &amp; DATA PRIVACY ATTESTATION</h4>
+        <table className="word-doc-table">
+          <tbody>
+            <tr>
+              <th>Authentication Method</th>
+              <td>{account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL CREDENTIALS"}</td>
+              <th>Biometric KYC Status</th>
+              <td>{account.kyc_photo_url ? "Verified Live Selfie (MediaPipe Face Mesh)" : "Verified Registration"}</td>
+            </tr>
+            <tr>
+              <th>Data Privacy Compliance</th>
+              <td colSpan={3}>
+                All personal and architectural data recorded herein is processed in strict compliance with Republic Act No. 10173 (Philippine Data Privacy Act of 2012) and MCPA corporate security protocols. User passwords remain cryptographically hashed via salted Bcrypt.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Section VII: Official Signatures & Attestation Block ───────── */}
+      <div className="word-doc-sign-block word-break-avoid">
+        <div className="word-doc-sign-col">
+          <p className="word-doc-sign-label">Prepared &amp; Verified by:</p>
+          <div className="word-doc-sign-space" />
+          <div className="word-doc-sign-line" />
+          <p className="word-doc-signer-name">ENGR. RAYMART QUIRANTE</p>
+          <p className="word-doc-signer-title">Lead Project Engineer / System Administrator</p>
+          <p className="word-doc-signer-sub">MCPA Construction and Supply</p>
+          <p className="word-doc-sign-date">Date: {currentDate}</p>
+        </div>
+
+        <div className="word-doc-sign-col">
+          <p className="word-doc-sign-label">Client Identity Acknowledgment:</p>
+          <div className="word-doc-sign-space" />
+          <div className="word-doc-sign-line" />
+          <p className="word-doc-signer-name">
+            {account.full_name ? account.full_name.toUpperCase() : "REGISTERED CLIENT"}
+          </p>
+          <p className="word-doc-signer-title">Client Signature / Account Holder</p>
+          <p className="word-doc-signer-sub">Official Registration Record</p>
+          <p className="word-doc-sign-date">Date: {currentDate}</p>
+        </div>
+      </div>
+
+      {/* ── Document Footer ───────────────────────────────────────────── */}
+      <div className="word-doc-footer">
+        <p>
+          MCPA CONSTRUCTION AND SUPPLY • OFFICIAL CLIENT RECORD • SAAD ARCHITECTURAL SYSTEM • CONFIDENTIAL
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Comprehensive Client Dossier Modal ────────────────────────────────────────
 function ClientDossierModal({ account, clientBriefs, onClose }) {
+  const [viewMode, setViewMode] = useState("cards"); // "cards" | "document"
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copiedNotification, setCopiedNotification] = useState(false);
 
@@ -736,6 +1097,28 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
 
             {/* Header Action Tools */}
             <div className="dossier-header-actions">
+              {/* Segmented View Mode Toggle */}
+              <div className="dossier-mode-pills print-only-hide">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("cards")}
+                  className={`dossier-mode-btn ${viewMode === "cards" ? "active" : ""}`}
+                  title="Interactive System Cards View"
+                >
+                  <LayoutGridIcon className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Interactive View</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("document")}
+                  className={`dossier-mode-btn ${viewMode === "document" ? "active" : ""}`}
+                  title="Official Microsoft Word / Resume Style View"
+                >
+                  <FileTextIcon className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Word Document</span>
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={handleCopyProfile}
@@ -758,11 +1141,11 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
               <button
                 type="button"
                 onClick={handlePrint}
-                className="dossier-action-btn print-only-hide"
-                title="Print official client profile dossier"
+                className="dossier-action-btn print-highlight print-only-hide"
+                title="Print official black & white Word-style client document"
               >
-                <PrinterIcon className="w-3.5 h-3.5" />
-                <span>Print</span>
+                <PrinterIcon className="w-3.5 h-3.5 text-amber-500" />
+                <span>Print Document</span>
               </button>
 
               <button
@@ -778,12 +1161,17 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
             </div>
           </div>
 
-          {/* ── Modal Scrollable Body ───────────────────────────────────── */}
-          <div className="dossier-body">
-            {/* ═════════════════════════════════════════════════════════════ */}
-            {/* LEFT SIDEBAR: BIOMETRIC IDENTITY & CONTACT CHANNELS           */}
-            {/* ═════════════════════════════════════════════════════════════ */}
-            <div className="dossier-sidebar">
+          {/* ── Modal Scrollable Body: Word Document vs Interactive Cards ── */}
+          {viewMode === "document" ? (
+            <div className="dossier-doc-viewport">
+              <ClientWordDocument account={account} clientBriefs={clientBriefs} />
+            </div>
+          ) : (
+            <div className="dossier-body">
+              {/* ═════════════════════════════════════════════════════════════ */}
+              {/* LEFT SIDEBAR: BIOMETRIC IDENTITY & CONTACT CHANNELS           */}
+              {/* ═════════════════════════════════════════════════════════════ */}
+              <div className="dossier-sidebar">
               {/* Responsive Dual Photos Grid (KYC Verification vs Profile Picture) */}
               <div className="dossier-photos-grid">
                 {/* 1. Official Biometric KYC Face Verification Card */}
@@ -1269,6 +1657,7 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
               </div>
             </div>
           </div>
+        )}
 
           {/* ── Modal Footer Bar ────────────────────────────────────────── */}
           <div className="dossier-footer">
@@ -1286,6 +1675,11 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
               Close Dossier
             </button>
           </div>
+        </div>
+
+        {/* ── Formal Black & White Word Document Exclusively for Print ─── */}
+        <div className="dossier-print-sheet">
+          <ClientWordDocument account={account} clientBriefs={clientBriefs} />
         </div>
       </div>
     </>
@@ -3117,29 +3511,441 @@ const DOSSIER_STYLES = `
   }
 }
 
+/* ── Segmented Mode Toggle (Interactive Cards vs Word Document) ── */
+.dossier-mode-pills {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 2px;
+  gap: 2px;
+}
+.dark .dossier-mode-pills {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.dossier-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.15s ease;
+}
+.dark .dossier-mode-btn {
+  color: #9ca3af;
+}
+.dossier-mode-btn.active {
+  background: #ffffff;
+  color: #111827;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.dark .dossier-mode-btn.active {
+  background: #1f2432;
+  color: #ffffff;
+}
+
+/* ── Screen Document Viewport ── */
+.dossier-doc-viewport {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  background: #e5e9f0;
+  display: flex;
+  justify-content: center;
+}
+.dark .dossier-doc-viewport {
+  background: #090b10;
+}
+
+/* ── Formal Microsoft Word / Resume Style Document Container ── */
+.word-doc-container {
+  width: 100%;
+  max-width: 820px;
+  background: #ffffff;
+  color: #111827;
+  padding: 38px 46px;
+  border: 1px solid #d1d5db;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  font-family: "Calibri", "Segoe UI", Arial, sans-serif;
+  line-height: 1.35;
+  box-sizing: border-box;
+}
+
+.word-doc-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.word-doc-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+}
+.word-doc-logo-box {
+  width: 90px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.word-doc-logo-img {
+  width: 85px;
+  height: auto;
+  object-fit: contain;
+}
+.word-doc-company-details {
+  flex: 1;
+}
+.word-doc-company-name {
+  font-size: 14pt;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0 0 2px 0;
+  color: #000000;
+  line-height: 1.15;
+}
+.word-doc-company-tagline {
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: #222222;
+  margin: 0 0 2px 0;
+  letter-spacing: 0.01em;
+}
+.word-doc-company-sub {
+  font-size: 8pt;
+  color: #444444;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.word-doc-control-box {
+  flex-shrink: 0;
+  border: 1.5px solid #000000;
+  padding: 3px 6px;
+  background: #fbfbfb;
+}
+.word-doc-control-table {
+  border-collapse: collapse;
+  font-size: 7.5pt;
+  font-family: "Calibri", Arial, sans-serif;
+}
+.word-doc-control-table td {
+  padding: 1.5px 4px;
+  border: none;
+}
+.word-doc-control-table .control-label {
+  font-weight: 700;
+  color: #000000;
+  text-transform: uppercase;
+}
+.word-doc-control-table .control-val {
+  font-weight: 600;
+  color: #111111;
+  font-family: monospace;
+}
+
+.word-doc-double-divider {
+  border-top: 1px solid #000000;
+  border-bottom: 2px solid #000000;
+  height: 3px;
+  margin: 10px 0 12px 0;
+}
+
+.word-doc-title-block {
+  text-align: center;
+  margin: 0 0 14px 0;
+}
+.word-doc-main-title {
+  font-size: 12.5pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 2px 0;
+  color: #000000;
+}
+.word-doc-subtitle {
+  font-size: 8pt;
+  font-style: italic;
+  color: #555555;
+  margin: 0;
+}
+
+.word-doc-bio-section {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #cccccc;
+}
+.word-doc-bio-info {
+  flex: 1;
+}
+.word-doc-client-fullname {
+  font-size: 15pt;
+  font-weight: 800;
+  color: #000000;
+  margin: 0 0 2px 0;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+.word-doc-client-occupation {
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: #333333;
+  margin: 0 0 6px 0;
+}
+.word-doc-mini-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 8.5pt;
+}
+.word-doc-mini-table td {
+  padding: 1.5px 0;
+  border: none;
+  vertical-align: top;
+}
+.word-doc-mini-table .mini-lbl {
+  width: 135px;
+  font-weight: 700;
+  color: #222222;
+}
+.word-doc-mini-table .mini-val {
+  color: #000000;
+  font-weight: 500;
+}
+
+.word-doc-photo-box {
+  width: 110px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.word-doc-photo-frame {
+  width: 105px;
+  height: 125px;
+  border: 1.5px solid #000000;
+  background: #f9f9f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 1px;
+}
+.word-doc-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.word-doc-photo-placeholder {
+  font-size: 7.5pt;
+  font-weight: 700;
+  color: #666666;
+  text-align: center;
+  padding: 6px;
+}
+.word-doc-photo-caption {
+  font-size: 7pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #444444;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.word-doc-section {
+  margin-bottom: 9px;
+}
+.word-doc-sec-heading {
+  font-size: 9.5pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #000000;
+  border-bottom: 1.5px solid #000000;
+  padding-bottom: 2px;
+  margin: 0 0 4px 0;
+}
+.word-doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+  margin: 0 0 5px 0;
+}
+.word-doc-table th,
+.word-doc-table td {
+  border: 1px solid #333333;
+  padding: 3.5px 6px;
+  vertical-align: top;
+  line-height: 1.3;
+}
+.word-doc-table th {
+  background: #f2f2f2;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 8pt;
+  color: #000000;
+  width: 24%;
+}
+.word-doc-table td {
+  color: #111111;
+  background: #ffffff;
+}
+.word-doc-empty-note {
+  font-size: 8pt;
+  color: #555555;
+  font-style: italic;
+  margin: 2px 0 5px 0;
+}
+
+.word-doc-sign-block {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  margin-top: 14px;
+  padding-top: 8px;
+}
+.word-doc-sign-col {
+  flex: 1;
+}
+.word-doc-sign-label {
+  font-size: 8pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #222222;
+  margin: 0;
+}
+.word-doc-sign-space {
+  height: 36px;
+}
+.word-doc-sign-line {
+  border-bottom: 1.5px solid #000000;
+  width: 100%;
+  margin-bottom: 3px;
+}
+.word-doc-signer-name {
+  font-size: 9pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #000000;
+  margin: 0;
+  line-height: 1.2;
+}
+.word-doc-signer-title {
+  font-size: 8pt;
+  color: #333333;
+  margin: 0;
+  line-height: 1.2;
+}
+.word-doc-signer-sub {
+  font-size: 7.5pt;
+  color: #666666;
+  margin: 0;
+}
+.word-doc-sign-date {
+  font-size: 7.5pt;
+  font-weight: 600;
+  color: #444444;
+  margin: 3px 0 0 0;
+}
+
+.word-doc-footer {
+  border-top: 1px solid #000000;
+  margin-top: 12px;
+  padding-top: 5px;
+  text-align: center;
+}
+.word-doc-footer p {
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #555555;
+  margin: 0;
+}
+
+.dossier-print-sheet {
+  display: none;
+}
+
 @media print {
-  body * {
-    visibility: hidden;
+  @page {
+    size: A4 portrait;
+    margin: 8mm 12mm 8mm 12mm;
   }
-  .dossier-overlay, .dossier-overlay * {
-    visibility: visible;
+  body * {
+    visibility: hidden !important;
+  }
+  .dossier-print-sheet,
+  .dossier-print-sheet * {
+    visibility: visible !important;
   }
   .dossier-overlay {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    padding: 0;
-    background: transparent;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    display: block !important;
   }
   .dossier-modal {
-    box-shadow: none;
-    border: none;
-    max-height: none;
-    width: 100%;
-  }
-  .print-only-hide, .dossier-close-btn, .dossier-footer-close-btn {
     display: none !important;
+  }
+  .dossier-print-sheet {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .word-doc-container {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+  .word-doc-photo-img {
+    max-height: 125px !important;
+    max-width: 105px !important;
+    width: 105px !important;
+    height: 125px !important;
+    object-fit: cover !important;
+  }
+  .word-break-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  .word-doc-table th {
+    background: #f2f2f2 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
 `;
