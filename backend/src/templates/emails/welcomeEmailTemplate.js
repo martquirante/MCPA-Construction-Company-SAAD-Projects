@@ -25,7 +25,7 @@ function getWelcomeEmailTemplate({
   // Image Sources (CID for SMTP, data URI for Resend)
   logoDarkSrc = "cid:mcpalogodark",
   logoWhiteSrc = "cid:mcpalogowhite",
-  logoSrc = "cid:mcpalogowhite",
+  logoSrc = "cid:mcpalogodark",
   heroImgSrc = "cid:mcpahero",
   projectsImgSrc = "cid:mcpacardprojects",
   servicesImgSrc = "cid:mcpacardservices",
@@ -78,6 +78,8 @@ function getWelcomeEmailTemplate({
     .text-muted { color: #64748b !important; }
     .welcome-headline { color: #0f172a !important; }
     .logo-img { display: block !important; margin: 0 auto !important; }
+    .logo-light { display: block !important; margin: 0 auto !important; }
+    .logo-dark { display: none !important; }
 
     /* Dark Theme (Automatic for clients with dark theme preference) */
     @media (prefers-color-scheme: dark) {
@@ -93,7 +95,8 @@ function getWelcomeEmailTemplate({
       .text-muted { color: #94a3b8 !important; }
       .border-line { border-color: rgba(255,255,255,0.08) !important; }
       .welcome-headline { color: #ffffff !important; }
-      .logo-img { display: block !important; margin: 0 auto !important; }
+      .logo-light { display: none !important; }
+      .logo-dark { display: block !important; margin: 0 auto !important; }
     }
 
     /* Outlook Web dark mode support */
@@ -106,7 +109,8 @@ function getWelcomeEmailTemplate({
     [data-ogsc] .text-title { color: #f8fafc !important; }
     [data-ogsc] .text-muted { color: #94a3b8 !important; }
     [data-ogsc] .welcome-headline { color: #ffffff !important; }
-    [data-ogsc] .logo-img { display: block !important; margin: 0 auto !important; }
+    [data-ogsc] .logo-light { display: none !important; }
+    [data-ogsc] .logo-dark { display: block !important; margin: 0 auto !important; }
 
     /* Mobile Responsive Optimizations (Spacious, Comfortable, Un-squeezed) */
     @media only screen and (max-width: 680px) {
@@ -194,7 +198,12 @@ function getWelcomeEmailTemplate({
                 <tr>
                   <td align="center">
                     <a href="${websiteUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                      <img src="${logoWhiteSrc || logoSrc}" alt="MCPA Construction &amp; Supply" width="185" class="logo-img" style="width: 185px; max-width: 185px; height: auto; display: block; margin: 0 auto; border: 0;" />
+                      <!-- Light Mode Logo: Black logo displayed on light background -->
+                      <img src="${logoDarkSrc || logoSrc}" alt="MCPA Construction &amp; Supply" width="185" class="logo-img logo-light" style="width: 185px; max-width: 185px; height: auto; display: block; margin: 0 auto; border: 0;" />
+                      <!-- Dark Mode Logo: White logo displayed on dark background (hidden in light mode) -->
+                      <!--[if !mso]><!-->
+                      <img src="${logoWhiteSrc}" alt="MCPA Construction &amp; Supply" width="185" class="logo-img logo-dark" style="width: 185px; max-width: 185px; height: auto; display: none; margin: 0 auto; border: 0; mso-hide: all;" />
+                      <!--<![endif]-->
                     </a>
                   </td>
                 </tr>

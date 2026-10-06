@@ -135,30 +135,32 @@ class EmailService {
     });
 
     // 1. Try Primary Provider (Gmail SMTP default)
+    const otpAttachments = [];
+    if (hasDarkLogo) {
+      otpAttachments.push({
+        filename: "mcpa-logo.png",
+        path: activeDarkLogoPath,
+        cid: "mcpalogodark",
+        contentDisposition: "inline",
+      });
+    }
+    if (hasWhiteLogo) {
+      otpAttachments.push({
+        filename: "mcpa-logo-white.png",
+        path: logoWhitePath,
+        cid: "mcpalogowhite",
+        contentDisposition: "inline",
+      });
+    }
+
     if (this.transporter && this.primaryProvider === "gmail") {
       try {
-        const attachments = [];
-        if (hasDarkLogo) {
-          attachments.push({
-            filename: "mcpa-logo.png",
-            path: activeDarkLogoPath,
-            cid: "mcpalogodark",
-          });
-        }
-        if (hasWhiteLogo) {
-          attachments.push({
-            filename: "mcpa-logo-white.png",
-            path: logoWhitePath,
-            cid: "mcpalogowhite",
-          });
-        }
-
         const mailOptions = {
           from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
           to: toEmail,
           subject,
           html: htmlContent,
-          attachments,
+          attachments: otpAttachments,
         };
 
         await this.transporter.sendMail(mailOptions);
@@ -185,6 +187,7 @@ class EmailService {
           to: toEmail,
           subject,
           html: htmlContent,
+          attachments: otpAttachments,
         });
         console.log(`\x1b[32m[EmailService] Gmail SMTP fallback OTP delivered to ${toEmail}\x1b[0m`);
         return true;
@@ -335,7 +338,7 @@ class EmailService {
         // Image Sources: Base64 for Resend HTTP API, CID for SMTP
         logoDarkSrc: isResend ? toBase64Uri(assetFiles.logoDark, "image/png") : "cid:mcpalogodark",
         logoWhiteSrc: isResend ? toBase64Uri(assetFiles.logoWhite, "image/png") : "cid:mcpalogowhite",
-        logoSrc: isResend ? toBase64Uri(assetFiles.logoWhite, "image/png") : "cid:mcpalogowhite",
+        logoSrc: isResend ? toBase64Uri(assetFiles.logoDark, "image/png") : "cid:mcpalogodark",
         heroImgSrc: isResend ? toBase64Uri(assetFiles.hero, "image/jpeg") : "cid:mcpahero",
         projectsImgSrc: isResend ? toBase64Uri(assetFiles.cardProjects, "image/jpeg") : "cid:mcpacardprojects",
         servicesImgSrc: isResend ? toBase64Uri(assetFiles.cardServices, "image/jpeg") : "cid:mcpacardservices",

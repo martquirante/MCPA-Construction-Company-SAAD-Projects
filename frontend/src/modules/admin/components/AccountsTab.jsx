@@ -31,6 +31,10 @@ import {
   LockIcon,
   CopyIcon,
   Maximize2Icon,
+  PrinterIcon,
+  GoogleIcon,
+  FacebookIcon,
+  GmailIcon,
 } from "@/modules/shared/Icons";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 
@@ -103,7 +107,7 @@ function computeAge(birthDateStr) {
 }
 
 // ─── Data Row Component for Structured Dossier ────────────────────────────────
-function DataField({ label, value, sub, badge, icon, highlight = false }) {
+function DataField({ label, value, sub, badge, icon, highlight = false, href, target = "_blank" }) {
   const displayVal = value !== null && value !== undefined && String(value).trim() !== "" ? String(value) : "—";
   const isMuted = displayVal === "—";
 
@@ -114,9 +118,21 @@ function DataField({ label, value, sub, badge, icon, highlight = false }) {
         <span className="data-field-label">{label}</span>
       </div>
       <div className="data-field-body">
-        <span className={`data-field-value ${isMuted ? "muted" : ""}`}>
-          {displayVal}
-        </span>
+        {href && !isMuted ? (
+          <a
+            href={href}
+            target={target}
+            rel="noopener noreferrer"
+            className="data-field-value hover:text-amber-500 hover:underline inline-flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            <span>{displayVal}</span>
+            <ExternalLinkIcon className="w-3 h-3 shrink-0 opacity-70" />
+          </a>
+        ) : (
+          <span className={`data-field-value ${isMuted ? "muted" : ""}`}>
+            {displayVal}
+          </span>
+        )}
         {badge && <div className="data-field-badge">{badge}</div>}
       </div>
       {sub && <span className="data-field-sub">{sub}</span>}
@@ -226,6 +242,18 @@ function PhotoLightbox({
     return () => document.removeEventListener("fullscreenchange", handleFsChange);
   }, []);
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      if (containerRef.current?.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {});
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  };
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -254,18 +282,6 @@ function PhotoLightbox({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      if (containerRef.current?.requestFullscreen) {
-        containerRef.current.requestFullscreen().catch(() => {});
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      }
-    }
-  };
 
   const handleMouseDown = (e) => {
     if (zoom > 1) {
@@ -626,7 +642,7 @@ function PhotoLightbox({
 }
 
 // ─── Formal Black & White Microsoft Word / Resume Style Document ──────────────
-function ClientWordDocument({ account, clientBriefs }) {
+function ClientWordDocument({ account, clientBriefs, photoDataUrl, logoDataUrl }) {
   const isOfw = (account.client_type || "").toLowerCase() === "ofw";
   const age = computeAge(account.birth_date);
   const uid = `MCPA-CRD-2026-${String(account.user_id || 1).padStart(4, "0")}`;
@@ -644,7 +660,8 @@ function ClientWordDocument({ account, clientBriefs }) {
     );
   }, [clientBriefs, account.email]);
 
-  const photoUrl = account.kyc_photo_url || account.avatar_url;
+  const photoUrl = photoDataUrl || account.kyc_photo_url || account.avatar_url;
+  const logoUrl = logoDataUrl || "/assets/mcpa-logo.svg";
 
   return (
     <div className="word-doc-container">
@@ -654,9 +671,10 @@ function ClientWordDocument({ account, clientBriefs }) {
           <div className="word-doc-logo-box">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/assets/mcpa-logo.svg"
+              src={logoUrl}
               alt="MCPA Construction & Supply Logo"
               className="word-doc-logo-img"
+              crossOrigin="anonymous"
             />
           </div>
           <div className="word-doc-company-details">
@@ -755,6 +773,7 @@ function ClientWordDocument({ account, clientBriefs }) {
                 src={photoUrl}
                 alt={`Photo of ${account.full_name || "Client"}`}
                 className="word-doc-photo-img"
+                crossOrigin="anonymous"
               />
             ) : (
               <div className="word-doc-photo-placeholder">
@@ -1003,342 +1022,149 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  // Download official certified PDF client dossier
+  const printDocRef = useRef(null);
+  const [docPhotoDataUrl, setDocPhotoDataUrl] = useState(null);
+  const [docLogoDataUrl, setDocLogoDataUrl] = useState(null);
+
+  // Pre-rasterize logo and client KYC photo to base64 Data URLs for offline/CORS-safe PDF rendering
+  useEffect(() => {
+    let isMounted = true;
+
+    // Rasterize logo
+    const loadLogo = () => {
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = 340;
+            canvas.height = 108;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, 340, 108);
+            if (isMounted) setDocLogoDataUrl(canvas.toDataURL("image/png"));
+          } catch (e) {
+            console.warn("Could not rasterize logo:", e);
+          }
+        };
+        img.src = "/assets/mcpa-logo.svg";
+      } catch (err) {
+        console.warn("Logo load error:", err);
+      }
+    };
+
+    // Rasterize client photo
+    const loadPhoto = () => {
+      const rawUrl = account?.kyc_photo_url || account?.avatar_url;
+      if (!rawUrl) return;
+      if (rawUrl.startsWith("data:")) {
+        if (isMounted) setDocPhotoDataUrl(rawUrl);
+        return;
+      }
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth || 300;
+            canvas.height = img.naturalHeight || 360;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            if (isMounted) setDocPhotoDataUrl(canvas.toDataURL("image/jpeg", 0.95));
+          } catch (e) {
+            console.warn("Could not rasterize photo to dataURL:", e);
+            if (isMounted) setDocPhotoDataUrl(rawUrl);
+          }
+        };
+        img.onerror = () => {
+          if (isMounted) setDocPhotoDataUrl(rawUrl);
+        };
+        img.src = rawUrl;
+      } catch (err) {
+        if (isMounted) setDocPhotoDataUrl(rawUrl);
+      }
+    };
+
+    loadLogo();
+    loadPhoto();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [account?.kyc_photo_url, account?.avatar_url]);
+
+  // Download official certified PDF client dossier matching the official print document layout
   const handleDownloadPdf = async () => {
+    if (isGeneratingPdf) return;
     setIsGeneratingPdf(true);
+
     try {
-      const { jsPDF } = await import("jspdf");
+      const [{ jsPDF }, html2canvasModule] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas"),
+      ]);
+      const html2canvas = html2canvasModule.default || html2canvasModule;
+
+      const element = printDocRef.current;
+      if (!element) throw new Error("Print document ref not found");
+
+      // Small pause to allow images and layout to settle
+      await new Promise((r) => setTimeout(r, 120));
+
+      const canvas = await html2canvas(element, {
+        scale: 2.5, // 2.5x retina resolution for razor-sharp typography and borders
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        windowWidth: 794,
+      });
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      const safeName = (account.full_name || "Client").replace(/[^a-zA-Z0-9_-]/g, "_");
+
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: "a4",
       });
 
-      const safeName = (account.full_name || "Client").replace(/[^a-zA-Z0-9_-]/g, "_");
-      const docUid = `MCPA-CRD-2026-${String(account.user_id || 1).padStart(4, "0")}`;
-      const currentDate = new Date().toLocaleDateString("en-PH", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+      const pdfWidth = doc.internal.pageSize.getWidth(); // 210mm
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pageHeight = doc.internal.pageSize.getHeight(); // 297mm
 
-      // ── Header / Letterhead ──────────────────────────────────────────────
-      // Left: Company Branding
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      doc.setTextColor(15, 23, 42); // slate-900
-      doc.text("MCPA CONSTRUCTION AND SUPPLY", 14, 17);
+      if (pdfHeight <= pageHeight) {
+        // Fits perfectly on single A4 page
+        doc.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight, undefined, "FAST");
+      } else {
+        // Multi-page slicing if extensive brief tables
+        let heightLeft = pdfHeight;
+        let position = 0;
+        doc.addImage(imgData, "JPEG", 0, position, pdfWidth, pdfHeight, undefined, "FAST");
+        heightLeft -= pageHeight;
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(71, 85, 105); // slate-600
-      doc.text("Design & Build Contractor • General Building & Engineering Services", 14, 21.5);
-      doc.text("Provincial Highway, Bulacan & Metro Manila, Philippines • Contact: (044) 794-4822", 14, 25.5);
-      doc.setTextColor(100, 116, 139); // slate-500
-      doc.text("System: SAAD Project Development & Client Records System", 14, 29.5);
-
-      // Right: Control Box
-      doc.setDrawColor(15, 23, 42);
-      doc.setLineWidth(0.35);
-      doc.setFillColor(248, 250, 252);
-      doc.rect(136, 12, 60, 19, "FD");
-
-      const drawControlRow = (lbl, val, rowY) => {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.8);
-        doc.setTextColor(100, 116, 139);
-        doc.text(lbl, 138.5, rowY);
-        doc.setTextColor(15, 23, 42);
-        doc.text(val, 193.5, rowY, { align: "right" });
-      };
-
-      drawControlRow("FORM REF:", "MCPA-CRD-01", 16);
-      drawControlRow("RECORD NO:", docUid, 20.5);
-      drawControlRow("DATE ISSUED:", currentDate, 25);
-      drawControlRow("CLASSIFICATION:", isOfw ? "OFW CLIENT" : "LOCAL RESIDENT", 29.5);
-
-      // Header Divider Line
-      doc.setDrawColor(15, 23, 42);
-      doc.setLineWidth(0.6);
-      doc.line(14, 33.5, 196, 33.5);
-
-      // ── Document Title Banner ───────────────────────────────────────────
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.25);
-      doc.rect(14, 36.5, 182, 10.5, "FD");
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(15, 23, 42);
-      doc.text("CLIENT PROFILE & REGISTRATION RECORD", 105, 42, { align: "center" });
-
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7);
-      doc.setTextColor(100, 116, 139);
-      doc.text("(Official Customer Bio-Data, Architectural Preferences & Identity Verification Attestation)", 105, 45.5, { align: "center" });
-
-      let curY = 50.5;
-
-      // Section Header Drawer
-      const drawSection = (title) => {
-        doc.setFillColor(241, 245, 249);
-        doc.rect(14, curY, 182, 5.5, "F");
-        doc.setFillColor(217, 119, 6); // amber accent
-        doc.rect(14, curY, 2.5, 5.5, "F");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.8);
-        doc.setTextColor(15, 23, 42);
-        doc.text(title.toUpperCase(), 18.5, curY + 3.9);
-        curY += 6.5;
-      };
-
-      // 2-Column Row Drawer
-      const draw2ColRow = (lbl1, val1, lbl2, val2, bold1 = false, bold2 = false) => {
-        const rowH = 6;
-        doc.setDrawColor(226, 232, 240);
-        doc.setLineWidth(0.2);
-
-        // Col 1 Label
-        doc.setFillColor(248, 250, 252);
-        doc.rect(14, curY, 34, rowH, "FD");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.2);
-        doc.setTextColor(71, 85, 105);
-        doc.text(lbl1, 16, curY + 4.1);
-
-        // Col 1 Value
-        doc.setFillColor(255, 255, 255);
-        doc.rect(48, curY, 57, rowH, "FD");
-        doc.setFont("helvetica", bold1 ? "bold" : "normal");
-        doc.setFontSize(7.8);
-        doc.setTextColor(bold1 ? 15 : 30, bold1 ? 23 : 41, bold1 ? 42 : 59);
-        doc.text(String(val1 || "—"), 50, curY + 4.1, { maxWidth: 54 });
-
-        // Col 2 Label
-        doc.setFillColor(248, 250, 252);
-        doc.rect(105, curY, 34, rowH, "FD");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.2);
-        doc.setTextColor(71, 85, 105);
-        doc.text(lbl2, 107, curY + 4.1);
-
-        // Col 2 Value
-        doc.setFillColor(255, 255, 255);
-        doc.rect(139, curY, 57, rowH, "FD");
-        doc.setFont("helvetica", bold2 ? "bold" : "normal");
-        doc.setFontSize(7.8);
-        doc.setTextColor(bold2 ? 15 : 30, bold2 ? 23 : 41, bold2 ? 42 : 59);
-        doc.text(String(val2 || "—"), 141, curY + 4.1, { maxWidth: 54 });
-
-        curY += rowH;
-      };
-
-      // Full Width Row Drawer
-      const drawFullRow = (lbl, val) => {
-        const rowH = 6;
-        doc.setDrawColor(226, 232, 240);
-        doc.setLineWidth(0.2);
-
-        doc.setFillColor(248, 250, 252);
-        doc.rect(14, curY, 34, rowH, "FD");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.2);
-        doc.setTextColor(71, 85, 105);
-        doc.text(lbl, 16, curY + 4.1);
-
-        doc.setFillColor(255, 255, 255);
-        doc.rect(48, curY, 148, rowH, "FD");
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(7.8);
-        doc.setTextColor(30, 41, 59);
-        doc.text(String(val || "—"), 50, curY + 4.1, { maxWidth: 144 });
-
-        curY += rowH;
-      };
-
-      // ── I. Personal & Demographic Information ─────────────────────────
-      drawSection("I. Personal & Demographic Information");
-      draw2ColRow(
-        "Full Legal Name",
-        account.full_name || "—",
-        "Civil Status",
-        account.civil_status || "Not declared",
-        true
-      );
-      draw2ColRow(
-        "Date of Birth & Age",
-        `${account.birth_date ? formatDate(account.birth_date) : "—"} ${age !== null ? `(${age} y/o)` : ""}`,
-        "Spouse / Co-Borrower",
-        account.spouse_name || "N/A (Single / Unmarried)",
-        true,
-        Boolean(account.spouse_name)
-      );
-      draw2ColRow(
-        "Emergency Contact",
-        account.emergency_contact || "None recorded",
-        "Preferred Call Time",
-        account.preferred_contact_time || "Anytime during office hours"
-      );
-      curY += 2;
-
-      // ── II. Contact & Geographical Location ────────────────────────────
-      drawSection("II. Contact & Geographical Location");
-      draw2ColRow(
-        "Primary Mobile",
-        `${account.phone_number || "—"}${account.has_viber_whatsapp ? " [Viber/WA]" : ""}`,
-        "Email Address",
-        account.email || "—"
-      );
-      drawFullRow("Residential Address", account.location_address || "Not specified");
-      if (isOfw) {
-        draw2ColRow(
-          "OFW Host Country",
-          account.ofw_country || "Overseas Worker",
-          "PH Representative",
-          account.ph_rep_name ? `${account.ph_rep_name} (${account.ph_rep_relationship || "Rep"}) - ${account.ph_rep_phone || "—"}` : "None designated",
-          false,
-          Boolean(account.ph_rep_name)
-        );
-      }
-      curY += 2;
-
-      // ── III. Occupational & Financial Background ───────────────────────
-      drawSection("III. Occupational & Financial Background");
-      draw2ColRow(
-        "Occupation / Role",
-        account.occupation || "Not declared",
-        "Monthly Income",
-        account.monthly_income || "Confidential / Undisclosed"
-      );
-      draw2ColRow(
-        "Employer / Business",
-        account.employer_name || "Not indicated",
-        "Client Category",
-        isOfw ? "Overseas Filipino Worker" : "Local Resident (Philippines)"
-      );
-      curY += 2;
-
-      // ── IV. Architectural & Lot Preferences ────────────────────────────
-      drawSection("IV. Architectural & Lot Specifications");
-      draw2ColRow(
-        "Target Project Type",
-        account.target_project_type || "Custom Residential Project",
-        "Lot Ownership",
-        account.lot_ownership_status || "Undisclosed"
-      );
-      draw2ColRow(
-        "Lot Specifications",
-        account.subdivision_lot_details || "Lot area pending site survey",
-        "Target Location",
-        account.target_build_location || "Bulacan / Metro Manila"
-      );
-      curY += 2;
-
-      // ── V. Consultation Briefs (if any) ───────────────────────────────
-      if (briefs.length > 0) {
-        drawSection(`V. Consultation & Project Briefs (${briefs.length} Active Records)`);
-        briefs.slice(0, 3).forEach((b) => {
-          const bUid = `#BRF-${String(b.id || 1).padStart(4, "0")}`;
-          const bTitle = b.project_type || b.title || "Architectural Project Brief";
-          const bStatus = (b.status || "Submitted").toUpperCase();
-          const bDate = b.created_at ? formatDate(b.created_at) : "—";
-          draw2ColRow(
-            `Brief ${bUid}`,
-            bTitle,
-            "Status & Date",
-            `${bStatus} • ${bDate}`,
-            true
-          );
-        });
-        curY += 2;
+        while (heightLeft > 4) {
+          position -= pageHeight;
+          doc.addPage();
+          doc.addImage(imgData, "JPEG", 0, position, pdfWidth, pdfHeight, undefined, "FAST");
+          heightLeft -= pageHeight;
+        }
       }
 
-      // ── VI. System Compliance & Legal Attestation ──────────────────────
-      drawSection("VI. System Compliance & Legal Attestation");
-      draw2ColRow(
-        "Biometric KYC",
-        account.kyc_photo_url ? "Verified Live Biometric Face Scan" : "Verified Account Record",
-        "Auth Provider",
-        account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL CREDENTIALS"
-      );
-      draw2ColRow(
-        "Registration Date",
-        formatDateTime(account.created_at),
-        "Record Ref No.",
-        uid
-      );
-      drawFullRow(
-        "Data Privacy Law",
-        "Processed in strict compliance with RA 10173 (Philippine Data Privacy Act of 2012) and MCPA protocols."
-      );
-      curY += 6;
-
-      // ── Signatures Block ───────────────────────────────────────────────
-      const signY = Math.max(curY, 218);
-      
-      // Left: Engr. Raymart Quirante
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text("Prepared & Verified by:", 16, signY);
-
-      doc.setDrawColor(15, 23, 42);
-      doc.setLineWidth(0.4);
-      doc.line(16, signY + 14, 85, signY + 14);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.setTextColor(15, 23, 42);
-      doc.text("ENGR. RAYMART QUIRANTE", 16, signY + 18);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(71, 85, 105);
-      doc.text("Lead Project Engineer / System Administrator", 16, signY + 21.5);
-      doc.text("MCPA Construction and Supply", 16, signY + 25);
-
-      // Right: Client
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text("Client Attestation / Acknowledged by:", 115, signY);
-
-      doc.line(115, signY + 14, 194, signY + 14);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.setTextColor(15, 23, 42);
-      doc.text((account.full_name || "CLIENT / HOMEOWNER").toUpperCase(), 115, signY + 18);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(71, 85, 105);
-      doc.text("Registered Homeowner / Project Proponent", 115, signY + 21.5);
-      doc.text(isOfw ? "Overseas Filipino Worker Client" : "Philippine Resident Client", 115, signY + 25);
-
-      // ── Bottom Page Footer ─────────────────────────────────────────────
-      doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.25);
-      doc.line(14, 283, 196, 283);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.setTextColor(148, 163, 184); // slate-400
-      doc.text(
-        "MCPA CONSTRUCTION AND SUPPLY • OFFICIAL CLIENT RECORD • SAAD ARCHITECTURAL SYSTEM • CONFIDENTIAL",
-        105,
-        287,
-        { align: "center" }
-      );
-
-      // Trigger instant direct download
+      // Save official dossier PDF
       doc.save(`MCPA_Client_Dossier_${safeName}.pdf`);
     } catch (err) {
       console.error("Failed to generate client dossier PDF:", err);
+      // Clean fallback: open browser print dialog so user can Save as PDF
+      window.print();
     } finally {
       setIsGeneratingPdf(false);
     }
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   // Download official Microsoft Word (.doc) client dossier
@@ -1859,6 +1685,30 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
         />
       )}
 
+      {/* ── Off-screen Dedicated Container for PDF Canvas Capture ── */}
+      <div
+        ref={printDocRef}
+        className="dossier-print-capture-container"
+        aria-hidden="true"
+      >
+        <ClientWordDocument
+          account={account}
+          clientBriefs={clientBriefs}
+          photoDataUrl={docPhotoDataUrl}
+          logoDataUrl={docLogoDataUrl}
+        />
+      </div>
+
+      {/* ── Native Browser Print Sheet (Active during window.print) ── */}
+      <div className="dossier-print-sheet" aria-hidden="true">
+        <ClientWordDocument
+          account={account}
+          clientBriefs={clientBriefs}
+          photoDataUrl={docPhotoDataUrl}
+          logoDataUrl={docLogoDataUrl}
+        />
+      </div>
+
       <div
         className="dossier-overlay"
         onClick={(e) => {
@@ -1886,9 +1736,32 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                   {isOfw ? <PlaneIcon className="w-3 h-3" /> : <MapPinIcon className="w-3 h-3" />}
                   <span>{isOfw ? "OFW Client" : "Local Resident"}</span>
                 </span>
+                {(account.auth_provider || "").toLowerCase() === "google" && (
+                  <span className="client-card-pill google-pill" title="Verified Google Account">
+                    <GoogleIcon className="w-3 h-3 shrink-0" />
+                    <span>Google</span>
+                  </span>
+                )}
+                {(account.auth_provider || "").toLowerCase() === "facebook" && (
+                  <span className="client-card-pill facebook-pill" title="Verified Facebook Account">
+                    <FacebookIcon className="w-3 h-3 shrink-0" />
+                    <span>Facebook</span>
+                  </span>
+                )}
               </div>
-              <p className="dossier-client-sub">
-                Account registered on {formatDateTime(account.created_at)} via {account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL"}
+              <p className="dossier-client-sub flex items-center gap-1.5 flex-wrap">
+                <span>Account registered on {formatDateTime(account.created_at)}</span>
+                <span className="text-neutral-400">&bull;</span>
+                <span className="inline-flex items-center gap-1 font-semibold text-neutral-800 dark:text-neutral-200">
+                  <span>via</span>
+                  {(account.auth_provider || "").toLowerCase() === "google" && (
+                    <GoogleIcon className="w-3 h-3 shrink-0" />
+                  )}
+                  {(account.auth_provider || "").toLowerCase() === "facebook" && (
+                    <FacebookIcon className="w-3 h-3 shrink-0" />
+                  )}
+                  <span>{account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL"}</span>
+                </span>
               </p>
             </div>
 
@@ -1903,7 +1776,18 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                 title="Download official certified PDF client dossier"
               >
                 <FileTextIcon className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-                <span>{isGeneratingPdf ? "Generating PDF..." : "PDF Document"}</span>
+                <span>{isGeneratingPdf ? "Generating PDF..." : "Download PDF"}</span>
+              </button>
+
+              {/* Print official black & white Word-style client document */}
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="dossier-action-btn print-highlight print-only-hide"
+                title="Print official black & white Word-style client document"
+              >
+                <PrinterIcon className="w-3.5 h-3.5 text-amber-500" />
+                <span>Print Document</span>
               </button>
 
 
@@ -2082,12 +1966,18 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
 
                     {/* PFP Source Tag */}
                     <div className={`kyc-status-bar ${hasAvatarPhoto ? "pfp" : "neutral"}`}>
-                      <UserIcon className="w-3.5 h-3.5 shrink-0" />
+                      {hasAvatarPhoto && (account.auth_provider || "").toLowerCase() === "google" ? (
+                        <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+                      ) : hasAvatarPhoto && (account.auth_provider || "").toLowerCase() === "facebook" ? (
+                        <FacebookIcon className="w-3.5 h-3.5 shrink-0" />
+                      ) : (
+                        <UserIcon className="w-3.5 h-3.5 shrink-0" />
+                      )}
                       <span>
                         {hasAvatarPhoto
-                          ? account.auth_provider === "google"
+                          ? (account.auth_provider || "").toLowerCase() === "google"
                             ? "Google Account Photo"
-                            : account.auth_provider === "facebook"
+                            : (account.auth_provider || "").toLowerCase() === "facebook"
                             ? "Facebook Account Photo"
                             : "Uploaded Profile PFP"
                           : "Initials Monogram Avatar"}
@@ -2104,8 +1994,22 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                     </div>
                     <div className="flex items-center justify-between text-[10.5px] font-mono text-neutral-500 dark:text-neutral-400">
                       <span>Auth Sync:</span>
-                      <span className="font-mono text-neutral-700 dark:text-neutral-300">
-                        {account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL"}
+                      <span className="font-mono inline-flex items-center gap-1.5 font-bold">
+                        {(account.auth_provider || "").toLowerCase() === "google" && (
+                          <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+                        )}
+                        {(account.auth_provider || "").toLowerCase() === "facebook" && (
+                          <FacebookIcon className="w-3.5 h-3.5 shrink-0" />
+                        )}
+                        <span className={
+                          (account.auth_provider || "").toLowerCase() === "google"
+                            ? "text-blue-600 dark:text-blue-400"
+                            : (account.auth_provider || "").toLowerCase() === "facebook"
+                            ? "text-[#1877F2]"
+                            : "text-neutral-700 dark:text-neutral-300"
+                        }>
+                          {account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL"}
+                        </span>
                       </span>
                     </div>
                   </div>
@@ -2124,11 +2028,27 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                   <div className="sidebar-meta-row">
                     <span className="sidebar-meta-label">Primary Mobile:</span>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono font-bold text-neutral-900 dark:text-white">
-                        {account.phone_number || "No mobile number recorded"}
-                      </span>
-                      {account.has_viber_whatsapp && (
-                        <span className="sidebar-viber-pill">Viber / WA</span>
+                      {account.phone_number ? (
+                        <a
+                          href={`tel:${account.phone_number.replace(/\s+/g, "")}`}
+                          title="Click to dial mobile number"
+                          className="font-mono font-bold text-neutral-900 dark:text-white hover:text-amber-500 hover:underline cursor-pointer transition-colors"
+                        >
+                          {account.phone_number}
+                        </a>
+                      ) : (
+                        <span className="font-mono font-bold text-neutral-400 italic">No mobile number recorded</span>
+                      )}
+                      {account.has_viber_whatsapp && account.phone_number && (
+                        <a
+                          href={`https://wa.me/${account.phone_number.replace(/[^0-9]/g, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Open WhatsApp chat with client"
+                          className="sidebar-viber-pill hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer"
+                        >
+                          Viber / WA ↗
+                        </a>
                       )}
                     </div>
                   </div>
@@ -2136,9 +2056,57 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                   {/* Primary Email */}
                   <div className="sidebar-meta-row">
                     <span className="sidebar-meta-label">Email Address:</span>
-                    <span className="font-mono text-neutral-800 dark:text-neutral-200 break-all select-all">
-                      {account.email}
-                    </span>
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <a
+                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(account.email || "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Click to compose email directly in Gmail"
+                        className="font-mono text-amber-600 dark:text-amber-400 hover:underline break-all select-all text-xs font-semibold flex items-center gap-1 group/gmail cursor-pointer"
+                      >
+                        <span>{account.email}</span>
+                        <ExternalLinkIcon className="w-3 h-3 shrink-0 opacity-70 group-hover/gmail:opacity-100" />
+                      </a>
+                      <a
+                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(account.email || "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 transition-all flex items-center gap-1 cursor-pointer"
+                        title="Compose email directly in Gmail"
+                      >
+                        <GmailIcon className="w-3 h-3 shrink-0" />
+                        <span>Gmail</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Social Profile & Identity */}
+                  <div className="sidebar-meta-row">
+                    <span className="sidebar-meta-label">Connected Accounts:</span>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                      {(account.auth_provider || "").toLowerCase() === "google" && (
+                        <a
+                          href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(account.email || "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Verified Google Account — Click to message on Gmail"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-mono font-bold bg-neutral-100 dark:bg-white/5 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10 hover:border-blue-400 transition-all cursor-pointer"
+                        >
+                          <GoogleIcon className="w-3 h-3 shrink-0" />
+                          <span>Google Sync</span>
+                        </a>
+                      )}
+                      <a
+                        href={account.facebook_url || `https://www.facebook.com/search/top?q=${encodeURIComponent(account.full_name || account.email || "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={account.facebook_url ? "View verified Facebook Profile" : "Search client profile on Facebook"}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-mono font-bold bg-blue-500/10 text-[#1877F2] dark:text-blue-400 hover:bg-[#1877F2] hover:text-white border border-blue-500/20 transition-all cursor-pointer"
+                      >
+                        <FacebookIcon className="w-3 h-3 shrink-0" />
+                        <span>{account.facebook_url ? "Facebook" : "Find on FB ↗"}</span>
+                      </a>
+                    </div>
                   </div>
 
                   {/* Preferred Time Window */}
@@ -2275,8 +2243,9 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                   <DataField
                     label="Registered Full Residence Address"
                     value={account.location_address || (isOfw ? (account.ofw_country || "Overseas") : "Not specified")}
-                    sub="Complete residential location recorded at registration"
+                    sub="Complete residential location recorded at registration (Click to open in Google Maps)"
                     highlight
+                    href={account.location_address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(account.location_address)}` : undefined}
                   />
 
                   {/* OFW Dedicated Rep & Host Country Panel */}
@@ -2291,9 +2260,22 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                           <span className="text-[10px] font-mono text-neutral-500 uppercase block mb-0.5">
                             Host Country / Workplace:
                           </span>
-                          <span className="font-bold text-neutral-900 dark:text-white">
-                            {account.ofw_country || "Overseas"}
-                          </span>
+                          {account.ofw_country ? (
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(account.ofw_country)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-neutral-900 dark:text-white hover:text-amber-500 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                              title="Search country on Google Maps"
+                            >
+                              <span>{account.ofw_country}</span>
+                              <ExternalLinkIcon className="w-2.5 h-2.5 opacity-70" />
+                            </a>
+                          ) : (
+                            <span className="font-bold text-neutral-900 dark:text-white">
+                              Overseas
+                            </span>
+                          )}
                         </div>
                         <div>
                           <span className="text-[10px] font-mono text-neutral-500 uppercase block mb-0.5">
@@ -2519,7 +2501,17 @@ function AccountCard({ acc, onClick }) {
             <h3 className="client-card-name group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
               {acc.full_name || "Client"}
             </h3>
-            <p className="client-card-email">{acc.email}</p>
+            <a
+              href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(acc.email || "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Click to compose email directly in Gmail"
+              className="client-card-email hover:text-amber-500 hover:underline transition-colors inline-flex items-center gap-1 group/mail cursor-pointer"
+            >
+              <span className="truncate">{acc.email}</span>
+              <ExternalLinkIcon className="w-2.5 h-2.5 opacity-0 group-hover/mail:opacity-100 transition-opacity shrink-0 text-amber-500" />
+            </a>
           </div>
         </div>
 
@@ -2529,7 +2521,19 @@ function AccountCard({ acc, onClick }) {
             {isOfw ? <PlaneIcon className="w-2.5 h-2.5" /> : <MapPinIcon className="w-2.5 h-2.5" />}
             <span>{isOfw ? "OFW" : "Local"}</span>
           </span>
-          {acc.auth_provider && acc.auth_provider !== "local" && (
+          {(acc.auth_provider || "").toLowerCase() === "google" && (
+            <span className="client-card-pill google-pill" title="Verified Google Account">
+              <GoogleIcon className="w-2.5 h-2.5 shrink-0" />
+              <span>Google</span>
+            </span>
+          )}
+          {(acc.auth_provider || "").toLowerCase() === "facebook" && (
+            <span className="client-card-pill facebook-pill" title="Verified Facebook Account">
+              <FacebookIcon className="w-2.5 h-2.5 shrink-0" />
+              <span>Facebook</span>
+            </span>
+          )}
+          {acc.auth_provider && !["google", "facebook", "local"].includes(acc.auth_provider.toLowerCase()) && (
             <span className="client-card-pill oauth">
               <BadgeCheckIcon className="w-2.5 h-2.5" />
               <span>{acc.auth_provider}</span>
@@ -2553,19 +2557,52 @@ function AccountCard({ acc, onClick }) {
         {/* Location */}
         <div className="client-meta-line">
           <MapPinIcon className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
-          <span className="truncate">
-            {acc.location_address || (isOfw ? (acc.ofw_country || "Overseas") : "No address specified")}
-          </span>
+          {acc.location_address ? (
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(acc.location_address)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Open address in Google Maps"
+              className="truncate hover:text-amber-500 hover:underline cursor-pointer transition-colors"
+            >
+              {acc.location_address}
+            </a>
+          ) : (
+            <span className="truncate">
+              {isOfw ? (acc.ofw_country || "Overseas") : "No address specified"}
+            </span>
+          )}
         </div>
 
         {/* Phone */}
         <div className="client-meta-line">
           <PhoneIcon className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
-          <span className="font-mono text-[11px] truncate">
-            {acc.phone_number || "No contact recorded"}
-          </span>
-          {acc.has_viber_whatsapp && (
-            <span className="mini-viber-pill">Viber/WA</span>
+          {acc.phone_number ? (
+            <a
+              href={`tel:${acc.phone_number.replace(/\s+/g, "")}`}
+              onClick={(e) => e.stopPropagation()}
+              title="Click to call mobile number"
+              className="font-mono text-[11px] truncate hover:text-amber-500 hover:underline cursor-pointer transition-colors"
+            >
+              {acc.phone_number}
+            </a>
+          ) : (
+            <span className="font-mono text-[11px] truncate">
+              No contact recorded
+            </span>
+          )}
+          {acc.has_viber_whatsapp && acc.phone_number && (
+            <a
+              href={`https://wa.me/${acc.phone_number.replace(/[^0-9]/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Open in WhatsApp / Viber"
+              className="mini-viber-pill hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer"
+            >
+              Viber/WA
+            </a>
           )}
         </div>
       </div>
@@ -2887,10 +2924,28 @@ export default function AccountsTab({ clientBriefs = [] }) {
                               ) : null}
                             </div>
                             <div>
-                              <span className="font-bold text-neutral-900 dark:text-white block font-sans text-[13px]">
-                                {acc.full_name || "Client"}
-                              </span>
-                              <span className="text-[11px] text-neutral-500 block">{acc.email}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-neutral-900 dark:text-white block font-sans text-[13px]">
+                                  {acc.full_name || "Client"}
+                                </span>
+                                {(acc.auth_provider || "").toLowerCase() === "google" && (
+                                  <span title="Verified Google Account"><GoogleIcon className="w-3 h-3 shrink-0" /></span>
+                                )}
+                                {(acc.auth_provider || "").toLowerCase() === "facebook" && (
+                                  <span title="Verified Facebook Account"><FacebookIcon className="w-3 h-3 shrink-0" /></span>
+                                )}
+                              </div>
+                              <a
+                                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(acc.email || "")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                title="Compose email directly in Gmail"
+                                className="text-[11px] text-neutral-500 hover:text-amber-500 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>{acc.email}</span>
+                                <ExternalLinkIcon className="w-2.5 h-2.5 opacity-60" />
+                              </a>
                             </div>
                           </div>
                         </td>
@@ -2904,8 +2959,30 @@ export default function AccountsTab({ clientBriefs = [] }) {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span>{acc.phone_number || "—"}</span>
-                            {acc.has_viber_whatsapp && <span className="sidebar-viber-pill">Viber/WA</span>}
+                            {acc.phone_number ? (
+                              <a
+                                href={`tel:${acc.phone_number.replace(/\s+/g, "")}`}
+                                onClick={(e) => e.stopPropagation()}
+                                title="Click to call mobile"
+                                className="text-neutral-900 dark:text-white hover:text-amber-500 hover:underline cursor-pointer"
+                              >
+                                {acc.phone_number}
+                              </a>
+                            ) : (
+                              <span>—</span>
+                            )}
+                            {acc.has_viber_whatsapp && acc.phone_number && (
+                              <a
+                                href={`https://wa.me/${acc.phone_number.replace(/[^0-9]/g, "")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                title="Open WhatsApp chat"
+                                className="sidebar-viber-pill hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer"
+                              >
+                                Viber/WA
+                              </a>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-4">
@@ -2915,9 +2992,22 @@ export default function AccountsTab({ clientBriefs = [] }) {
                             ) : (
                               <MapPinIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                             )}
-                            <span className="truncate max-w-[160px] text-neutral-800 dark:text-neutral-200">
-                              {acc.location_address || (isOfw ? (acc.ofw_country || "Overseas") : "—")}
-                            </span>
+                            {acc.location_address ? (
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(acc.location_address)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                title="Open address in Google Maps"
+                                className="truncate max-w-[160px] text-neutral-800 dark:text-neutral-200 hover:text-amber-500 hover:underline cursor-pointer"
+                              >
+                                {acc.location_address}
+                              </a>
+                            ) : (
+                              <span className="truncate max-w-[160px] text-neutral-800 dark:text-neutral-200">
+                                {isOfw ? (acc.ofw_country || "Overseas") : "—"}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-4">
@@ -3203,6 +3293,27 @@ const PAGE_STYLES = `
   background: rgba(255, 255, 255, 0.06);
   color: #d1d5db;
   border-color: rgba(255, 255, 255, 0.1);
+}
+.client-card-pill.google-pill {
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.dark .client-card-pill.google-pill {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f4f6;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.client-card-pill.facebook-pill {
+  background: rgba(24, 119, 242, 0.1);
+  color: #1877f2;
+  border: 1px solid rgba(24, 119, 242, 0.25);
+}
+.dark .client-card-pill.facebook-pill {
+  background: rgba(24, 119, 242, 0.18);
+  color: #60a5fa;
+  border-color: rgba(24, 119, 242, 0.35);
 }
 
 .client-card-divider {
@@ -4673,7 +4784,33 @@ const DOSSIER_STYLES = `
   display: none;
 }
 
+.dossier-print-capture-container {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  width: 794px;
+  background: #ffffff;
+  color: #111827;
+  z-index: -9999;
+  pointer-events: none;
+  opacity: 1;
+}
+
+.dossier-print-capture-container .word-doc-container {
+  box-shadow: none !important;
+  border: none !important;
+  padding: 30px 42px !important;
+  margin: 0 !important;
+  width: 794px !important;
+  max-width: 794px !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
 @media print {
+  .dossier-print-capture-container {
+    display: none !important;
+  }
   @page {
     size: A4 portrait;
     margin: 8mm 12mm 8mm 12mm;
