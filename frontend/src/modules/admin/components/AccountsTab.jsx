@@ -976,7 +976,6 @@ function ClientWordDocument({ account, clientBriefs }) {
 
 // ─── Comprehensive Client Dossier Modal ────────────────────────────────────────
 function ClientDossierModal({ account, clientBriefs, onClose }) {
-  const [viewMode, setViewMode] = useState("cards"); // "cards" | "document"
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copiedNotification, setCopiedNotification] = useState(false);
 
@@ -1004,34 +1003,497 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  // Copy full profile summary to clipboard
-  const handleCopyProfile = () => {
-    const lines = [
-      `=== MCPA ARCHITECTURAL CLIENT DOSSIER ===`,
-      `Client ID: ${uid}`,
-      `Full Name: ${account.full_name || "—"}`,
-      `Email: ${account.email || "—"}`,
-      `Phone: ${account.phone_number || "—"}${account.has_viber_whatsapp ? " (Viber/WhatsApp Active)" : ""}`,
-      `Client Type: ${isOfw ? "Overseas Filipino Worker (OFW)" : "Local Resident (Philippines)"}`,
-      account.occupation ? `Occupation: ${account.occupation}` : null,
-      account.employer_name ? `Employer/Company: ${account.employer_name}` : null,
-      account.monthly_income ? `Income Bracket: ${account.monthly_income}` : null,
-      account.civil_status ? `Civil Status: ${account.civil_status}` : null,
-      account.spouse_name ? `Spouse: ${account.spouse_name}` : null,
-      account.birth_date ? `Birth Date: ${account.birth_date}${age ? ` (${age} years old)` : ""}` : null,
-      `Residential Address: ${account.location_address || "—"}`,
-      isOfw && account.ofw_country ? `OFW Host Country: ${account.ofw_country}` : null,
-      isOfw && account.ph_rep_name ? `PH Representative: ${account.ph_rep_name} (${account.ph_rep_relationship || "Representative"}) - Phone: ${account.ph_rep_phone || "—"}` : null,
-      account.target_project_type ? `Target Project: ${account.target_project_type}` : null,
-      account.lot_ownership_status ? `Lot Ownership: ${account.lot_ownership_status}` : null,
-      account.subdivision_lot_details ? `Lot Specifications: ${account.subdivision_lot_details}` : null,
-      account.target_build_location ? `Build Location: ${account.target_build_location}` : null,
-      `Registered: ${formatDateTime(account.created_at)}`,
-      `Total Briefs: ${briefs.length}`,
-    ].filter(Boolean).join("\n");
+  // Download official Microsoft Word (.doc) client dossier
+  const handleDownloadWord = () => {
+    const safeName = (account.full_name || "Client").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const docUid = `MCPA-CRD-2026-${String(account.user_id || 1).padStart(4, "0")}`;
+    const currentDate = new Date().toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
 
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(lines).then(() => {
+    const wordHtml = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta charset="utf-8">
+  <title>MCPA Client Dossier - ${account.full_name || "Client"}</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    @page {
+      size: letter portrait;
+      margin: 0.8in 0.8in 0.8in 0.8in;
+      mso-header-margin: 0.5in;
+      mso-footer-margin: 0.5in;
+    }
+    body {
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.45;
+      color: #111827;
+      background-color: #ffffff;
+    }
+    .header-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 8pt;
+      border-bottom: 2pt solid #0f172a;
+      padding-bottom: 8pt;
+    }
+    .header-table td {
+      border: none;
+      vertical-align: middle;
+      padding: 0;
+    }
+    .company-title {
+      font-size: 16pt;
+      font-weight: bold;
+      color: #0f172a;
+      letter-spacing: 0.5pt;
+      margin: 0;
+    }
+    .company-sub {
+      font-size: 9pt;
+      color: #475569;
+      margin: 2pt 0;
+    }
+    .control-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.5pt;
+      border: 1.5pt solid #0f172a;
+      background: #f8fafc;
+    }
+    .control-table td {
+      border: none;
+      padding: 3pt 5pt;
+    }
+    .control-lbl {
+      font-weight: bold;
+      color: #475569;
+    }
+    .control-val {
+      font-weight: bold;
+      color: #0f172a;
+      text-align: right;
+    }
+    .doc-title {
+      text-align: center;
+      margin: 14pt 0 6pt 0;
+    }
+    .doc-title h2 {
+      font-size: 13.5pt;
+      font-weight: bold;
+      color: #0f172a;
+      letter-spacing: 0.5pt;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .doc-title p {
+      font-size: 9pt;
+      color: #64748b;
+      font-style: italic;
+      margin: 2pt 0;
+    }
+    .sec-heading {
+      font-size: 10.5pt;
+      font-weight: bold;
+      color: #0f172a;
+      background-color: #f1f5f9;
+      border-left: 4pt solid #d97706;
+      padding: 4pt 8pt;
+      margin: 14pt 0 6pt 0;
+      text-transform: uppercase;
+      letter-spacing: 0.3pt;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 8pt;
+      font-size: 9.5pt;
+    }
+    .data-table th, .data-table td {
+      border: 1pt solid #cbd5e1;
+      padding: 5pt 7pt;
+      vertical-align: top;
+    }
+    .data-table th {
+      background-color: #f8fafc;
+      font-weight: bold;
+      color: #334155;
+      width: 25%;
+      text-align: left;
+    }
+    .data-table td {
+      color: #0f172a;
+    }
+    .sign-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 24pt;
+      page-break-inside: avoid;
+    }
+    .sign-table td {
+      border: none;
+      vertical-align: top;
+      width: 50%;
+      padding: 8pt;
+    }
+    .sign-line {
+      border-bottom: 1.5pt solid #0f172a;
+      width: 80%;
+      margin: 32pt 0 6pt 0;
+    }
+    .sign-name {
+      font-weight: bold;
+      font-size: 10pt;
+      margin: 0;
+    }
+    .sign-title {
+      font-size: 8.5pt;
+      color: #475569;
+      margin: 1pt 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header / Letterhead -->
+  <table class="header-table">
+    <tr>
+      <td style="width: 65%;">
+        <div class="company-title">MCPA CONSTRUCTION AND SUPPLY</div>
+        <div class="company-sub">Design &amp; Build Contractor • General Building &amp; Engineering Services</div>
+        <div class="company-sub">Provincial Highway, Bulacan &amp; Metro Manila, Philippines • Contact: (044) 794-4822 / 0917-888-9999</div>
+        <div class="company-sub" style="font-size: 8pt; color: #64748b;">System: SAAD Project Development &amp; Client Records System</div>
+      </td>
+      <td style="width: 35%; text-align: right;">
+        <table class="control-table">
+          <tr><td class="control-lbl">FORM REF:</td><td class="control-val">MCPA-CRD-01</td></tr>
+          <tr><td class="control-lbl">RECORD NO:</td><td class="control-val">${docUid}</td></tr>
+          <tr><td class="control-lbl">DATE ISSUED:</td><td class="control-val">${currentDate}</td></tr>
+          <tr><td class="control-lbl">CLASSIFICATION:</td><td class="control-val">${isOfw ? "OFW CLIENT" : "LOCAL RESIDENT"}</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <div class="doc-title">
+    <h2>Client Profile &amp; Registration Record</h2>
+    <p>(Official Customer Bio-Data, Architectural Preferences &amp; Identity Verification Attestation)</p>
+  </div>
+
+  <div class="sec-heading">I. Personal &amp; Demographic Information</div>
+  <table class="data-table">
+    <tr>
+      <th>Full Legal Name</th>
+      <td style="font-weight: bold; font-size: 10.5pt;">${account.full_name || "—"}</td>
+      <th>Civil Status</th>
+      <td>${account.civil_status || "Not declared"}</td>
+    </tr>
+    <tr>
+      <th>Date of Birth</th>
+      <td>${account.birth_date ? formatDate(account.birth_date) : "—"} ${age !== null ? `(${age} years old)` : ""}</td>
+      <th>Spouse / Co-Borrower</th>
+      <td>${account.spouse_name || "N/A (Single / Unmarried)"}</td>
+    </tr>
+    <tr>
+      <th>Emergency Contact</th>
+      <td>${account.emergency_contact || "None recorded"}</td>
+      <th>Preferred Call Time</th>
+      <td>${account.preferred_contact_time || "Anytime (PH Daytime)"}</td>
+    </tr>
+    <tr>
+      <th>System Account UID</th>
+      <td>${docUid}</td>
+      <th>Registration Date</th>
+      <td>${formatDateTime(account.created_at)}</td>
+    </tr>
+  </table>
+
+  <div class="sec-heading">II. Occupational &amp; Financial Background</div>
+  <table class="data-table">
+    <tr>
+      <th>Occupation / Profession</th>
+      <td>${account.occupation || "Not declared"}</td>
+      <th>Employer / Business Firm</th>
+      <td>${account.employer_name || "Not declared"}</td>
+    </tr>
+    <tr>
+      <th>Monthly Income Bracket</th>
+      <td>${account.monthly_income || "Not declared"}</td>
+      <th>Client Category</th>
+      <td>${isOfw ? "Overseas Filipino Worker (OFW)" : "Local Resident (Philippines)"}</td>
+    </tr>
+  </table>
+
+  <div class="sec-heading">III. Contact Channels &amp; Residential Location</div>
+  <table class="data-table">
+    <tr>
+      <th>Email Address</th>
+      <td>${account.email || "—"}</td>
+      <th>Primary Phone</th>
+      <td>${account.phone_number || "—"}${account.has_viber_whatsapp ? " [Viber/WhatsApp Active]" : ""}</td>
+    </tr>
+    <tr>
+      <th>Registered Residence</th>
+      <td colspan="3">${account.location_address || "—"}</td>
+    </tr>
+    ${isOfw ? `
+    <tr>
+      <th>OFW Host Country</th>
+      <td>${account.ofw_country || "Overseas"}</td>
+      <th>PH Representative</th>
+      <td>${account.ph_rep_name || "—"} (${account.ph_rep_relationship || "Representative"}) • Phone: ${account.ph_rep_phone || "—"}</td>
+    </tr>` : ""}
+  </table>
+
+  <div class="sec-heading">IV. Architectural Project &amp; Lot Specifications</div>
+  <table class="data-table">
+    <tr>
+      <th>Target Project Archetype</th>
+      <td>${account.target_project_type || "Not specified"}</td>
+      <th>Lot Ownership Status</th>
+      <td>${account.lot_ownership_status || "Not specified"}</td>
+    </tr>
+    <tr>
+      <th>Lot Specifications</th>
+      <td>${account.subdivision_lot_details || "Not specified"}</td>
+      <th>Target Build Location</th>
+      <td>${account.target_build_location || account.location_address || "Not specified"}</td>
+    </tr>
+  </table>
+
+  <div class="sec-heading">V. Active Consultation Inquiries &amp; Project Briefs (${briefs.length})</div>
+  ${briefs.length === 0 ? `
+  <p style="font-size: 9pt; color: #64748b; font-style: italic; padding: 4pt 0;">No active project inquiry briefs submitted to date. Homeowner account registered in system records.</p>
+  ` : `
+  <table class="data-table">
+    <tr style="background: #f1f5f9;">
+      <th style="width: 15%;">Brief Ref</th>
+      <th style="width: 30%;">Project Type</th>
+      <th style="width: 25%;">Site Location</th>
+      <th style="width: 18%;">Budget Bracket</th>
+      <th style="width: 12%;">Status</th>
+    </tr>
+    ${briefs.map((b, idx) => `
+    <tr>
+      <td>#${b.brief_id || b.id || idx + 1}</td>
+      <td>${b.projectType || b.project_type || "Residential Construction"}</td>
+      <td>${b.location || "—"}</td>
+      <td>${b.budgetRange || b.budget_range || "—"}</td>
+      <td>${b.status || "Open / In Review"}</td>
+    </tr>`).join("")}
+  </table>
+  `}
+
+  <div class="sec-heading">VI. System Verification &amp; Data Privacy Attestation</div>
+  <table class="data-table">
+    <tr>
+      <th>Authentication Method</th>
+      <td>${account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL CREDENTIALS"}</td>
+      <th>Biometric KYC Status</th>
+      <td>${account.kyc_photo_url ? "Verified Live Biometric Facial Scan (MediaPipe)" : "Verified Registration"}</td>
+    </tr>
+    <tr>
+      <th>Data Privacy Compliance</th>
+      <td colspan="3">All personal and architectural data recorded herein is processed in strict compliance with Republic Act No. 10173 (Philippine Data Privacy Act of 2012) and MCPA corporate security protocols.</td>
+    </tr>
+  </table>
+
+  <!-- Official Signatures Block -->
+  <table class="sign-table">
+    <tr>
+      <td>
+        <p style="font-size: 8.5pt; color: #475569; margin: 0;">Prepared &amp; Verified by:</p>
+        <div class="sign-line"></div>
+        <p class="sign-name">ENGR. RAYMART QUIRANTE</p>
+        <p class="sign-title">Lead Project Engineer / System Administrator</p>
+        <p class="sign-title">MCPA Construction and Supply</p>
+      </td>
+      <td>
+        <p style="font-size: 8.5pt; color: #475569; margin: 0;">Client Attestation / Acknowledged by:</p>
+        <div class="sign-line"></div>
+        <p class="sign-name">${(account.full_name || "CLIENT / HOMEOWNER").toUpperCase()}</p>
+        <p class="sign-title">Registered Homeowner / Project Proponent</p>
+        <p class="sign-title">${isOfw ? "Overseas Filipino Worker Client" : "Philippine Resident Client"}</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    const blob = new Blob(["\ufeff" + wordHtml], { type: "application/msword;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `MCPA_Client_Dossier_${safeName}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Copy beautifully formatted profile summary to clipboard (Rich HTML + clean Markdown plain text)
+  const handleCopyProfile = async () => {
+    // ── 1. Plain Text / Markdown Format (ZERO ====, proper section spacing & bold formatting) ──
+    const sections = [];
+
+    // Header Banner (clean, professional, no ===)
+    sections.push([
+      `MCPA CONSTRUCTION AND SUPPLY`,
+      `Client Identity Dossier • Record Ref: ${uid}`,
+    ].join("\n"));
+
+    // I. Client Identification
+    sections.push([
+      `CLIENT IDENTIFICATION`,
+      `• **Full Name:** **${account.full_name || "—"}**`,
+      `• Client ID: ${uid}`,
+      `• Category: ${isOfw ? "Overseas Filipino Worker (OFW Client)" : "Local Resident (Philippines)"}`,
+    ].join("\n"));
+
+    // II. Personal & Demographics (Name, Age, Birthdate bolded/clean)
+    const personal = [
+      `PERSONAL & DEMOGRAPHIC DETAILS`,
+      age !== null ? `• **Age:** **${age} years old**` : null,
+      account.birth_date ? `• Date of Birth: ${formatDate(account.birth_date)}` : null,
+      account.civil_status ? `• Civil Status: ${account.civil_status}` : null,
+      account.spouse_name ? `• **Spouse / Co-Borrower:** **${account.spouse_name}**` : null,
+      account.emergency_contact ? `• Emergency Contact: ${account.emergency_contact}` : null,
+      account.preferred_contact_time ? `• Preferred Call Time: ${account.preferred_contact_time}` : null,
+    ].filter(Boolean);
+    if (personal.length > 1) sections.push(personal.join("\n"));
+
+    // III. Contact & Location
+    const contact = [
+      `CONTACT & LOCATION DETAILS`,
+      `• Primary Mobile: ${account.phone_number || "—"}${account.has_viber_whatsapp ? " (Viber/WhatsApp Active)" : ""}`,
+      `• Email Address: ${account.email || "—"}`,
+      `• Residential Address: ${account.location_address || "—"}`,
+      isOfw && account.ofw_country ? `• OFW Host Country: ${account.ofw_country}` : null,
+      isOfw && account.ph_rep_name ? `• **PH Representative:** **${account.ph_rep_name}** (${account.ph_rep_relationship || "Representative"}) • Phone: ${account.ph_rep_phone || "—"}` : null,
+    ].filter(Boolean);
+    sections.push(contact.join("\n"));
+
+    // IV. Occupational & Financial Background
+    const employment = [
+      `OCCUPATIONAL & FINANCIAL BACKGROUND`,
+      account.occupation ? `• Occupation: ${account.occupation}` : null,
+      account.employer_name ? `• Employer / Firm: ${account.employer_name}` : null,
+      account.monthly_income ? `• Income Bracket: ${account.monthly_income}` : null,
+    ].filter(Boolean);
+    if (employment.length > 1) sections.push(employment.join("\n"));
+
+    // V. Project & Lot Specifications
+    const project = [
+      `PROJECT & LOT SPECIFICATIONS`,
+      account.target_project_type ? `• Target Project: ${account.target_project_type}` : null,
+      account.lot_ownership_status ? `• Lot Ownership: ${account.lot_ownership_status}` : null,
+      account.subdivision_lot_details ? `• Lot Specifications: ${account.subdivision_lot_details}` : null,
+      account.target_build_location ? `• Target Build Location: ${account.target_build_location}` : null,
+    ].filter(Boolean);
+    if (project.length > 1) sections.push(project.join("\n"));
+
+    // VI. System & Compliance Record
+    sections.push([
+      `SYSTEM & COMPLIANCE RECORD`,
+      `• Biometric KYC: ${account.kyc_photo_url ? "Verified Live Biometric Facial Scan (MediaPipe)" : "Verified Registration"}`,
+      `• Authentication Method: ${account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL"}`,
+      `• Registration Timestamp: ${formatDateTime(account.created_at)}`,
+      `• Active Consultation Briefs: ${briefs.length}`,
+    ].join("\n"));
+
+    const plainText = sections.join("\n\n");
+
+    // ── 2. Rich Text HTML Format (styled bold typography, clean spacing, amber accent) ──
+    const richTextHtml = `
+<div style="font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #1e293b; line-height: 1.6; max-width: 600px;">
+  <div style="border-bottom: 2px solid #d97706; padding-bottom: 6px; margin-bottom: 14px;">
+    <h3 style="margin: 0; font-size: 16px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">MCPA Construction and Supply</h3>
+    <p style="margin: 2px 0 0; font-size: 11.5px; color: #64748b; font-weight: 600;">Official Client Identity Dossier • Record Ref: <strong>${uid}</strong></p>
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <h4 style="margin: 0 0 4px; font-size: 12px; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Client Identification</h4>
+    <p style="margin: 2px 0;"><strong>Full Legal Name:</strong> <strong style="font-size: 13.5px; color: #0f172a;">${account.full_name || "—"}</strong></p>
+    <p style="margin: 2px 0;"><strong>Client ID:</strong> ${uid}</p>
+    <p style="margin: 2px 0;"><strong>Territorial Category:</strong> ${isOfw ? "Overseas Filipino Worker (OFW Client)" : "Local Resident (Philippines)"}</p>
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <h4 style="margin: 0 0 4px; font-size: 12px; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Personal &amp; Demographic Details</h4>
+    ${age !== null ? `<p style="margin: 2px 0;"><strong>Age:</strong> <strong style="color: #0f172a;">${age} years old</strong></p>` : ""}
+    ${account.birth_date ? `<p style="margin: 2px 0;"><strong>Date of Birth:</strong> ${formatDate(account.birth_date)}</p>` : ""}
+    ${account.civil_status ? `<p style="margin: 2px 0;"><strong>Civil Status:</strong> ${account.civil_status}</p>` : ""}
+    ${account.spouse_name ? `<p style="margin: 2px 0;"><strong>Spouse / Co-Borrower:</strong> <strong>${account.spouse_name}</strong></p>` : ""}
+    ${account.emergency_contact ? `<p style="margin: 2px 0;"><strong>Emergency Contact:</strong> ${account.emergency_contact}</p>` : ""}
+    ${account.preferred_contact_time ? `<p style="margin: 2px 0;"><strong>Preferred Call Time:</strong> ${account.preferred_contact_time}</p>` : ""}
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <h4 style="margin: 0 0 4px; font-size: 12px; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Contact &amp; Location Details</h4>
+    <p style="margin: 2px 0;"><strong>Primary Mobile:</strong> ${account.phone_number || "—"}${account.has_viber_whatsapp ? " [Viber/WhatsApp Active]" : ""}</p>
+    <p style="margin: 2px 0;"><strong>Email Address:</strong> ${account.email || "—"}</p>
+    <p style="margin: 2px 0;"><strong>Residential Address:</strong> ${account.location_address || "—"}</p>
+    ${isOfw && account.ofw_country ? `<p style="margin: 2px 0;"><strong>OFW Host Country:</strong> ${account.ofw_country}</p>` : ""}
+    ${isOfw && account.ph_rep_name ? `<p style="margin: 2px 0;"><strong>PH Representative:</strong> <strong>${account.ph_rep_name}</strong> (${account.ph_rep_relationship || "Representative"}) • Phone: ${account.ph_rep_phone || "—"}</p>` : ""}
+  </div>
+
+  ${(account.occupation || account.employer_name || account.monthly_income) ? `
+  <div style="margin-bottom: 12px;">
+    <h4 style="margin: 0 0 4px; font-size: 12px; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Occupational &amp; Financial Background</h4>
+    ${account.occupation ? `<p style="margin: 2px 0;"><strong>Occupation / Profession:</strong> ${account.occupation}</p>` : ""}
+    ${account.employer_name ? `<p style="margin: 2px 0;"><strong>Employer / Business Firm:</strong> ${account.employer_name}</p>` : ""}
+    ${account.monthly_income ? `<p style="margin: 2px 0;"><strong>Monthly Income Bracket:</strong> ${account.monthly_income}</p>` : ""}
+  </div>` : ""}
+
+  ${(account.target_project_type || account.lot_ownership_status || account.subdivision_lot_details || account.target_build_location) ? `
+  <div style="margin-bottom: 12px;">
+    <h4 style="margin: 0 0 4px; font-size: 12px; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Project &amp; Lot Specifications</h4>
+    ${account.target_project_type ? `<p style="margin: 2px 0;"><strong>Target Project:</strong> ${account.target_project_type}</p>` : ""}
+    ${account.lot_ownership_status ? `<p style="margin: 2px 0;"><strong>Lot Ownership:</strong> ${account.lot_ownership_status}</p>` : ""}
+    ${account.subdivision_lot_details ? `<p style="margin: 2px 0;"><strong>Lot Specifications:</strong> ${account.subdivision_lot_details}</p>` : ""}
+    ${account.target_build_location ? `<p style="margin: 2px 0;"><strong>Target Build Location:</strong> ${account.target_build_location}</p>` : ""}
+  </div>` : ""}
+
+  <div style="margin-bottom: 10px;">
+    <h4 style="margin: 0 0 4px; font-size: 12px; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">System &amp; Compliance Record</h4>
+    <p style="margin: 2px 0;"><strong>Biometric KYC Status:</strong> ${account.kyc_photo_url ? "Verified Live Biometric Facial Scan (MediaPipe)" : "Verified Registration"}</p>
+    <p style="margin: 2px 0;"><strong>Authentication:</strong> ${account.auth_provider ? account.auth_provider.toUpperCase() : "LOCAL"}</p>
+    <p style="margin: 2px 0;"><strong>Registration Timestamp:</strong> ${formatDateTime(account.created_at)}</p>
+    <p style="margin: 2px 0;"><strong>Active Consultation Briefs:</strong> ${briefs.length}</p>
+  </div>
+</div>`;
+
+    // ── 3. Write to Clipboard with Dual MIME-type Support ──
+    try {
+      if (typeof window !== "undefined" && navigator.clipboard?.write && window.ClipboardItem) {
+        const textBlob = new Blob([plainText], { type: "text/plain" });
+        const htmlBlob = new Blob([richTextHtml], { type: "text/html" });
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/plain": textBlob,
+            "text/html": htmlBlob,
+          }),
+        ]);
+        setCopiedNotification(true);
+        setTimeout(() => setCopiedNotification(false), 2500);
+        return;
+      }
+    } catch (err) {
+      console.warn("ClipboardItem rich text write failed, falling back to writeText:", err);
+    }
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(plainText).then(() => {
         setCopiedNotification(true);
         setTimeout(() => setCopiedNotification(false), 2500);
       });
@@ -1098,27 +1560,17 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
 
             {/* Header Action Tools */}
             <div className="dossier-header-actions">
-              {/* Segmented View Mode Toggle */}
-              <div className="dossier-mode-pills print-only-hide">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("cards")}
-                  className={`dossier-mode-btn ${viewMode === "cards" ? "active" : ""}`}
-                  title="Interactive System Cards View"
-                >
-                  <LayoutGridIcon className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Interactive View</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("document")}
-                  className={`dossier-mode-btn ${viewMode === "document" ? "active" : ""}`}
-                  title="Official Microsoft Word / Resume Style View"
-                >
-                  <FileTextIcon className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Word Document</span>
-                </button>
-              </div>
+              {/* Download official Microsoft Word (.doc) client dossier */}
+              <button
+                type="button"
+                onClick={handleDownloadWord}
+                className="dossier-action-btn word-download-btn print-only-hide"
+                title="Download official Microsoft Word (.doc) client dossier"
+              >
+                <FileTextIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>Word Document</span>
+              </button>
+
 
               <button
                 type="button"
@@ -1162,13 +1614,8 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
             </div>
           </div>
 
-          {/* ── Modal Scrollable Body: Word Document vs Interactive Cards ── */}
-          {viewMode === "document" ? (
-            <div className="dossier-doc-viewport">
-              <ClientWordDocument account={account} clientBriefs={clientBriefs} />
-            </div>
-          ) : (
-            <div className="dossier-body">
+          {/* ── Modal Scrollable Body: Interactive System Cards ── */}
+          <div className="dossier-body">
               {/* ═════════════════════════════════════════════════════════════ */}
               {/* LEFT SIDEBAR: BIOMETRIC IDENTITY & CONTACT CHANNELS           */}
               {/* ═════════════════════════════════════════════════════════════ */}
@@ -1658,7 +2105,6 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
               </div>
             </div>
           </div>
-        )}
 
           {/* ── Modal Footer Bar ────────────────────────────────────────── */}
           <div className="dossier-footer">
@@ -2698,6 +3144,14 @@ const DOSSIER_STYLES = `
 .dossier-action-btn:hover {
   border-color: #d97706;
   color: #d97706;
+}
+.dossier-action-btn.word-download-btn:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+.dark .dossier-action-btn.word-download-btn:hover {
+  border-color: #60a5fa;
+  color: #60a5fa;
 }
 .dossier-close-btn {
   display: inline-flex;
