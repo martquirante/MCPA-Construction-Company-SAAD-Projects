@@ -2603,7 +2603,6 @@ export default function AccountsTab({ clientBriefs = [] }) {
   const [filterType, setFilterType] = useState("all");
   const [viewMode, setViewMode] = useState("grid"); // "grid" | "table"
   const [selectedAccount, setSelectedAccount] = useState(null);
-  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [newAccountFlashId, setNewAccountFlashId] = useState(null);
   const [liveToast, setLiveToast] = useState(null);
 
@@ -2719,9 +2718,7 @@ export default function AccountsTab({ clientBriefs = [] }) {
           : window.location.host;
       ws = new WebSocket(`${wsProto}//${host}/ws/accounts`);
 
-      ws.onopen = () => {
-        if (isMounted) setIsRealtimeConnected(true);
-      };
+      ws.onopen = () => {};
 
       ws.onmessage = (e) => {
         try {
@@ -2743,9 +2740,7 @@ export default function AccountsTab({ clientBriefs = [] }) {
     try {
       eventSource = new EventSource("/api/admin/realtime-stream");
 
-      eventSource.onopen = () => {
-        if (isMounted) setIsRealtimeConnected(true);
-      };
+      eventSource.onopen = () => {};
 
       eventSource.addEventListener("ACCOUNT_REGISTERED", (e) => {
         try {
@@ -2842,35 +2837,6 @@ export default function AccountsTab({ clientBriefs = [] }) {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Live Sync Active Status Pill */}
-            <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] border text-[11px] font-mono transition-colors shadow-2xs"
-              style={{
-                borderColor: isRealtimeConnected ? "rgba(16, 185, 129, 0.35)" : "rgba(245, 158, 11, 0.35)",
-                background: isRealtimeConnected ? "rgba(16, 185, 129, 0.08)" : "rgba(245, 158, 11, 0.08)",
-                color: isRealtimeConnected ? "#10b981" : "#f59e0b",
-              }}
-              title={
-                isRealtimeConnected
-                  ? "Real-time active via WebSocket & Server-Sent Events. Registrations appear instantly without page refresh."
-                  : "Connecting to real-time sync stream..."
-              }
-            >
-              <span className="relative flex h-2 w-2">
-                {isRealtimeConnected && (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                )}
-                <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${
-                    isRealtimeConnected ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
-                  }`}
-                ></span>
-              </span>
-              <span className="font-bold tracking-wider uppercase text-[10px]">
-                {isRealtimeConnected ? "Live Sync Active" : "Connecting..."}
-              </span>
-            </div>
-
             {/* Grid / Table toggle */}
             <div className="view-toggle-group">
               <button
