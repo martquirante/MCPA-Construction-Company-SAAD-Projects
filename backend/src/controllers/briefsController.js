@@ -125,6 +125,14 @@ class BriefsController {
         console.warn("[BriefsController] Error dispatching inquiry emails:", err.message);
       }
 
+      // Broadcast in real-time to Admin dashboard
+      try {
+        const realtimeService = require("../services/realtimeService");
+        realtimeService.broadcastBriefSubmitted(savedBrief);
+      } catch (rtErr) {
+        console.warn("[BriefsController] Realtime broadcast warning:", rtErr.message);
+      }
+
       return res.status(201).json({
         success: true,
         brief: savedBrief,

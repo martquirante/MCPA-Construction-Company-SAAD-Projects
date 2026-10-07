@@ -689,6 +689,17 @@ class AuthController {
 
       const newUser = insertRes.rows[0];
 
+      // Broadcast in real-time across WebSockets & SSE to Admin Accounts Directory
+      try {
+        const realtimeService = require("../services/realtimeService");
+        realtimeService.broadcastAccountRegistered({
+          ...newUser,
+          total_inquiries: 0,
+        });
+      } catch (rtErr) {
+        console.warn("[AuthController] Realtime broadcast warning:", rtErr.message);
+      }
+
       // Dispatch automated welcome email to new client (awaited for Vercel Serverless lifecycle stability)
       try {
         await emailService.sendWelcomeClientEmail(newUser.email, newUser);

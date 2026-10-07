@@ -90,13 +90,20 @@ class DbFailoverEngine {
       const isSsl = connectionString.includes("sslmode") || !connectionString.includes("localhost");
       // Strip sslmode from query string so pg-connection-string doesn't override rejectUnauthorized
       const cleanConnStr = connectionString.replace(/([?&])sslmode=[^&]+(&|$)/, (m, p1, p2) => p1 === "?" && p2 ? "?" : "").replace(/\?$/, "");
-      return new Pool({
+      const pool = new Pool({
         connectionString: cleanConnStr,
         ssl: isSsl ? { rejectUnauthorized: false } : false,
         connectionTimeoutMillis: 10000,
         idleTimeoutMillis: 10000,
         max: this.isProduction ? 2 : 5,
       });
+
+      // Crucial: Handle errors on idle clients so ECONNRESET / cloud idle timeouts do not crash the Node.js process
+      pool.on("error", (err) => {
+        console.warn("[DbFailoverEngine] Idle client connection notice (auto-recovered):", err.message);
+      });
+
+      return pool;
     } catch (e) {
       console.warn("[DbFailoverEngine] Pool creation error:", e.message);
       return null;

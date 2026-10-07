@@ -17,9 +17,15 @@ const phLocationService = require("./services/phLocationService");
 
 const { rateLimit } = require("express-rate-limit");
 const { requireAuth, requireRole, optionalAuth } = require("./middleware/auth");
+const http = require("http");
+const realtimeService = require("./services/realtimeService");
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
+
+// Initialize native WebSocket server on the HTTP server instance (/ws/accounts)
+realtimeService.initWebSocket(server);
 
 // Trust reverse proxies (Azure App Service / Vercel Edge / Cloudflare)
 app.set("trust proxy", 1);
@@ -293,13 +299,21 @@ app.get("/api/time", (req, res) => {
   });
 });
 
+// -----------------------------------------------------------------------------
+// REAL-TIME SERVER-SENT EVENTS (SSE) STREAM FOR ADMIN DIRECTORY & CLIENT LOGS
+// -----------------------------------------------------------------------------
+app.get("/api/admin/realtime-stream", (req, res) => {
+  realtimeService.handleSseConnection(req, res);
+});
+
 // Startup & Database Sync
 if (!process.env.VERCEL) {
   initializeDatabase().then(() => {
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`\n\x1b[32m[SERVER] MCPA Enterprise Backend listening on http://localhost:${PORT}\x1b[0m`);
       console.log(`[DATABASE] Active DB Provider: \x1b[33m${db.getActiveProviderName()}\x1b[0m`);
-      console.log(`[STORAGE] Cloud Storage: \x1b[36mAzure Blob (Tier 1 Primary) -> Supabase Storage (Tier 2 Backup) -> Neon S3 (Tier 3 Standby)\x1b[0m\n`);
+      console.log(`[STORAGE] Cloud Storage: \x1b[36mAzure Blob (Tier 1 Primary) -> Supabase Storage (Tier 2 Backup) -> Neon S3 (Tier 3 Standby)\x1b[0m`);
+      console.log(`[REALTIME] WebSocket hub active on ws://localhost:${PORT}/ws/accounts & SSE on /api/admin/realtime-stream\n`);
 
       // Non-blocking self-healing reconciliation check
       setTimeout(() => {

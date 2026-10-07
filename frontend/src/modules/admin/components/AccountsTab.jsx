@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { authFetch } from "@/modules/shared/authFetch";
+import { UserPlusIcon, RadioIcon, SparklesIcon } from "lucide-react";
 import {
   MailIcon,
   PhoneIcon,
@@ -2391,7 +2392,7 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
 }
 
 // ─── Main Grid Card Component ─────────────────────────────────────────────────
-function AccountCard({ acc, onClick }) {
+function AccountCard({ acc, onClick, isNewFlash = false }) {
   const colors = getAvatarGradient(acc.full_name);
   const isOfw = (acc.client_type || "").toLowerCase() === "ofw";
   const inquiries = parseInt(acc.total_inquiries || "0", 10);
@@ -2401,7 +2402,7 @@ function AccountCard({ acc, onClick }) {
   return (
     <div
       onClick={() => onClick(acc)}
-      className="client-directory-card group"
+      className={`client-directory-card group ${isNewFlash ? "card-live-flash" : ""}`}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -2467,6 +2468,12 @@ function AccountCard({ acc, onClick }) {
 
         {/* Classification Badges */}
         <div className="flex flex-col items-end gap-1 shrink-0">
+          {isNewFlash && (
+            <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-neutral-950 font-bold text-[9px] uppercase font-mono animate-bounce tracking-wider shadow-sm flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-neutral-950"></span>
+              <span>LIVE NEW</span>
+            </span>
+          )}
           <span className={`client-card-pill ${isOfw ? "ofw" : "local"}`}>
             {isOfw ? <PlaneIcon className="w-2.5 h-2.5" /> : <MapPinIcon className="w-2.5 h-2.5" />}
             <span>{isOfw ? "OFW" : "Local"}</span>
@@ -2596,9 +2603,12 @@ export default function AccountsTab({ clientBriefs = [] }) {
   const [filterType, setFilterType] = useState("all");
   const [viewMode, setViewMode] = useState("grid"); // "grid" | "table"
   const [selectedAccount, setSelectedAccount] = useState(null);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  const [newAccountFlashId, setNewAccountFlashId] = useState(null);
+  const [liveToast, setLiveToast] = useState(null);
 
-  const fetchAccounts = async () => {
-    setIsLoading(true);
+  const fetchAccounts = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     setFetchError(null);
     try {
       const res = await authFetch("/api/admin/accounts");
@@ -2616,12 +2626,173 @@ export default function AccountsTab({ clientBriefs = [] }) {
       console.warn("Could not load accounts from server:", e);
       setFetchError("Unable to connect to the backend server. Please verify backend is running on port 5000.");
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
+  // Initial load
   useEffect(() => {
     fetchAccounts();
+  }, []);
+
+  // Real-time Dual Transport Connection (Native WebSocket + Server-Sent Events SSE + Silent Polling)
+  useEffect(() => {
+    let ws = null;
+    let eventSource = null;
+    let pollInterval = null;
+    let isMounted = true;
+
+    const handleRealtimePayload = (payload) => {
+      if (!payload || !isMounted) return;
+      const { type, data } = payload;
+
+      if (type === "ACCOUNT_REGISTERED") {
+        const newAcc = data?.account;
+        if (newAcc) {
+          setAccounts((prev) => {
+            const exists = prev.some(
+              (a) =>
+                String(a.user_id) === String(newAcc.user_id) ||
+                (a.email && a.email.toLowerCase() === (newAcc.email || "").toLowerCase())
+            );
+            if (exists) {
+              return prev.map((a) =>
+                String(a.user_id) === String(newAcc.user_id) ||
+                (a.email && a.email.toLowerCase() === (newAcc.email || "").toLowerCase())
+                  ? { ...a, ...newAcc }
+                  : a
+              );
+            }
+            return [{ ...newAcc, total_inquiries: 0 }, ...prev];
+          });
+
+          // Flash highlight the newly entered card
+          setNewAccountFlashId(newAcc.user_id);
+          setTimeout(() => {
+            if (isMounted) setNewAccountFlashId(null);
+          }, 8000);
+
+          // Toast alert banner
+          setLiveToast({
+            title: "New Client Registered",
+            name: newAcc.full_name || newAcc.email,
+            subtitle: `${newAcc.client_type || "Local"} • ${newAcc.location_address || "Registered Just Now"}`,
+          });
+          setTimeout(() => {
+            if (isMounted) setLiveToast(null);
+          }, 6000);
+        }
+      } else if (type === "ACCOUNT_UPDATED") {
+        const updatedAcc = data?.account;
+        if (updatedAcc) {
+          setAccounts((prev) =>
+            prev.map((a) =>
+              String(a.user_id) === String(updatedAcc.user_id) ||
+              (a.email && a.email.toLowerCase() === (updatedAcc.email || "").toLowerCase())
+                ? { ...a, ...updatedAcc }
+                : a
+            )
+          );
+        }
+      } else if (type === "ACCOUNT_DELETED") {
+        const targetEmail = (data?.email || "").toLowerCase();
+        const targetId = data?.userId;
+        setAccounts((prev) =>
+          prev.filter(
+            (a) =>
+              String(a.user_id) !== String(targetId) &&
+              (a.email || "").toLowerCase() !== targetEmail
+          )
+        );
+      } else if (type === "BRIEF_SUBMITTED") {
+        fetchAccounts(true);
+      }
+    };
+
+    // 1. WebSocket Channel
+    try {
+      const isHttps = window.location.protocol === "https:";
+      const wsProto = isHttps ? "wss:" : "ws:";
+      const host =
+        window.location.port === "3000"
+          ? `${window.location.hostname}:5000`
+          : window.location.host;
+      ws = new WebSocket(`${wsProto}//${host}/ws/accounts`);
+
+      ws.onopen = () => {
+        if (isMounted) setIsRealtimeConnected(true);
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          const parsed = JSON.parse(e.data);
+          handleRealtimePayload(parsed);
+        } catch (err) {}
+      };
+
+      ws.onclose = () => {
+        // Will fallback to SSE
+      };
+
+      ws.onerror = () => {
+        // Will fallback to SSE
+      };
+    } catch (e) {}
+
+    // 2. Server-Sent Events (SSE) Channel
+    try {
+      eventSource = new EventSource("/api/admin/realtime-stream");
+
+      eventSource.onopen = () => {
+        if (isMounted) setIsRealtimeConnected(true);
+      };
+
+      eventSource.addEventListener("ACCOUNT_REGISTERED", (e) => {
+        try {
+          handleRealtimePayload(JSON.parse(e.data));
+        } catch (err) {}
+      });
+
+      eventSource.addEventListener("ACCOUNT_UPDATED", (e) => {
+        try {
+          handleRealtimePayload(JSON.parse(e.data));
+        } catch (err) {}
+      });
+
+      eventSource.addEventListener("ACCOUNT_DELETED", (e) => {
+        try {
+          handleRealtimePayload(JSON.parse(e.data));
+        } catch (err) {}
+      });
+
+      eventSource.addEventListener("BRIEF_SUBMITTED", (e) => {
+        try {
+          handleRealtimePayload(JSON.parse(e.data));
+        } catch (err) {}
+      });
+    } catch (e) {}
+
+    // 3. Ambient Silent Background Sync (Every 5s for zero drift)
+    pollInterval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchAccounts(true);
+      }
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      if (ws) {
+        try {
+          ws.close();
+        } catch (e) {}
+      }
+      if (eventSource) {
+        try {
+          eventSource.close();
+        } catch (e) {}
+      }
+      if (pollInterval) clearInterval(pollInterval);
+    };
   }, []);
 
   const filteredAccounts = accounts.filter((acc) => {
@@ -2671,6 +2842,35 @@ export default function AccountsTab({ clientBriefs = [] }) {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Live Sync Active Status Pill */}
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] border text-[11px] font-mono transition-colors shadow-2xs"
+              style={{
+                borderColor: isRealtimeConnected ? "rgba(16, 185, 129, 0.35)" : "rgba(245, 158, 11, 0.35)",
+                background: isRealtimeConnected ? "rgba(16, 185, 129, 0.08)" : "rgba(245, 158, 11, 0.08)",
+                color: isRealtimeConnected ? "#10b981" : "#f59e0b",
+              }}
+              title={
+                isRealtimeConnected
+                  ? "Real-time active via WebSocket & Server-Sent Events. Registrations appear instantly without page refresh."
+                  : "Connecting to real-time sync stream..."
+              }
+            >
+              <span className="relative flex h-2 w-2">
+                {isRealtimeConnected && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                )}
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                    isRealtimeConnected ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+                  }`}
+                ></span>
+              </span>
+              <span className="font-bold tracking-wider uppercase text-[10px]">
+                {isRealtimeConnected ? "Live Sync Active" : "Connecting..."}
+              </span>
+            </div>
+
             {/* Grid / Table toggle */}
             <div className="view-toggle-group">
               <button
@@ -2695,7 +2895,7 @@ export default function AccountsTab({ clientBriefs = [] }) {
 
             <button
               type="button"
-              onClick={fetchAccounts}
+              onClick={() => fetchAccounts(false)}
               className="px-3.5 py-2 rounded-[4px] border border-neutral-300 dark:border-white/10 hover:border-amber-500 text-xs font-mono font-semibold text-neutral-700 dark:text-neutral-300 transition-colors flex items-center gap-1.5 cursor-pointer bg-white dark:bg-transparent"
             >
               <RefreshCwIcon className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-amber-500" : ""}`} />
@@ -2845,7 +3045,12 @@ export default function AccountsTab({ clientBriefs = [] }) {
           /* Cards Grid View */
           <div className="accounts-grid">
             {filteredAccounts.map((acc) => (
-              <AccountCard key={acc.user_id} acc={acc} onClick={setSelectedAccount} />
+              <AccountCard
+                key={acc.user_id}
+                acc={acc}
+                onClick={setSelectedAccount}
+                isNewFlash={String(acc.user_id) === String(newAccountFlashId)}
+              />
             ))}
           </div>
         ) : (
@@ -2873,10 +3078,14 @@ export default function AccountsTab({ clientBriefs = [] }) {
                     const initials = getInitials(acc.full_name);
                     const hasPhoto = Boolean(acc.avatar_url && acc.avatar_url.trim().length > 5);
 
+                    const isCardFlash = String(acc.user_id) === String(newAccountFlashId);
+
                     return (
                       <tr
                         key={acc.user_id}
-                        className="hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
+                        className={`hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors cursor-pointer ${
+                          isCardFlash ? "row-live-flash" : ""
+                        }`}
                         onClick={() => setSelectedAccount(acc)}
                       >
                         <td className="py-3 px-4">
@@ -2911,6 +3120,12 @@ export default function AccountsTab({ clientBriefs = [] }) {
                             </div>
                             <div>
                               <div className="flex items-center gap-1.5">
+                                {isCardFlash && (
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-neutral-950 font-bold text-[9px] uppercase font-mono animate-bounce tracking-wider shadow-sm flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-neutral-950"></span>
+                                    <span>LIVE NEW</span>
+                                  </span>
+                                )}
                                 <span className="font-bold text-neutral-900 dark:text-white block font-sans text-[13px]">
                                   {acc.full_name || "Client"}
                                 </span>
@@ -3042,6 +3257,41 @@ export default function AccountsTab({ clientBriefs = [] }) {
           onClose={() => setSelectedAccount(null)}
         />
       )}
+
+      {/* ── Floating Real-time Toast Notification (Live Registrations) ─── */}
+      {liveToast && (
+        <aside
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 p-3.5 pr-4 rounded-xl bg-neutral-950/95 dark:bg-[#10131c]/95 text-white border border-amber-500/50 shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300 max-w-sm pointer-events-auto"
+        >
+          <div className="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+            <UserPlusIcon className="w-5 h-5 animate-pulse" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="font-bold text-amber-400 font-mono text-[10px] uppercase tracking-wider">
+                {liveToast.title}
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+            </div>
+            <div className="font-bold text-neutral-100 text-xs truncate font-sans">
+              {liveToast.name}
+            </div>
+            <div className="text-[11px] text-neutral-400 font-mono truncate">
+              {liveToast.subtitle}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLiveToast(null)}
+            className="text-neutral-400 hover:text-white p-1 rounded-md text-xs cursor-pointer ml-1"
+            title="Dismiss notification"
+          >
+            ✕
+          </button>
+        </aside>
+      )}
     </>
   );
 }
@@ -3166,6 +3416,48 @@ const PAGE_STYLES = `
 }
 .dark .client-directory-card:hover {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.client-directory-card.card-live-flash {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3), 0 8px 24px rgba(245, 158, 11, 0.2) !important;
+  animation: liveCardEntrance 0.7s cubic-bezier(0.16, 1, 0.3, 1), livePulseGlow 2.5s infinite ease-in-out;
+}
+
+@keyframes liveCardEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes livePulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3), 0 8px 24px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.5), 0 12px 32px rgba(245, 158, 11, 0.3);
+  }
+}
+
+tr.row-live-flash {
+  background-color: rgba(245, 158, 11, 0.14) !important;
+  animation: liveRowEntrance 0.6s ease-out;
+}
+
+@keyframes liveRowEntrance {
+  0% {
+    opacity: 0;
+    background-color: rgba(245, 158, 11, 0.35);
+  }
+  100% {
+    opacity: 1;
+    background-color: rgba(245, 158, 11, 0.14);
+  }
 }
 
 .client-avatar-frame {
