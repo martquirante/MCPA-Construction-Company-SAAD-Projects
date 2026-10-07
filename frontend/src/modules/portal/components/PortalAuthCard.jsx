@@ -33,7 +33,7 @@ import {
 import CountryPicker from "./CountryPicker";
 import PuzzleCaptchaModal from "./PuzzleCaptchaModal";
 import ForgotPasswordModal from "./ForgotPasswordModal";
-import MediaPipeLivenessModal, { getHumanFriendlyCameraMessage } from "./MediaPipeLivenessModal";
+import MediaPipeLivenessModal from "./MediaPipeLivenessModal";
 import PhAddressCascadeSection from "./PhAddressCascadeSection";
 import ArchitecturalEntranceAnimation from "./ArchitecturalEntranceAnimation";
 import { COUNTRIES, getFlagUrl, PHILIPPINES } from "../data/countries";
@@ -420,16 +420,11 @@ export default function PortalAuthCard({ onLoginSuccess }) {
   }, [isPhoneDropdownOpen]);
 
   // Step 3: Biometric KYC & Face Recognition
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [cameraStream, setCameraStream] = useState(null);
   const [capturedSelfie, setCapturedSelfie] = useState(null);
-  const [cameraError, setCameraError] = useState("");
   const [isFaceChecking, setIsFaceChecking] = useState(false);
   const [faceCheckFeedback, setFaceCheckFeedback] = useState("");
   const [faceObstructionError, setFaceObstructionError] = useState("");
   const [faceErrorType, setFaceErrorType] = useState(""); // "obstruction" | "quality"
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
 
   // Step 4: Lot & Project Profile & Privacy - Hierarchical (Province -> City -> Barangay)
   const [projectType, setProjectType] = useState("");
@@ -510,14 +505,6 @@ export default function PortalAuthCard({ onLoginSuccess }) {
     }
   };
 
-  // Clean up camera stream on unmount or step change
-  useEffect(() => {
-    return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [cameraStream]);
 
   // Pre-load Google Identity Services and Facebook SDK for instant popup interaction
   useEffect(() => {
@@ -573,100 +560,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
     return () => clearInterval(interval);
   }, [lockoutEndTime]);
 
-  // --- CAMERA HELPERS ---
-  const startCamera = async () => {
-    setCameraError("");
-    try {
-      if (!navigator?.mediaDevices?.getUserMedia) {
-        throw new Error("HTTP_INSECURE_OR_UNSUPPORTED");
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 480 } },
-        audio: false,
-      });
-      setCameraStream(stream);
-      setIsCameraActive(true);
-    } catch (err) {
-      console.warn("Camera access notice:", err);
-      setCameraError(getHumanFriendlyCameraMessage(err, activeLang));
-      setIsCameraActive(false);
-    }
-  };
 
-  // Ensure video stream connects reliably once video DOM mounts
-  useEffect(() => {
-    if (isCameraActive && cameraStream && videoRef.current) {
-      if (videoRef.current.srcObject !== cameraStream) {
-        videoRef.current.srcObject = cameraStream;
-      }
-      videoRef.current.play().catch((err) => console.warn("Video play error:", err));
-    }
-  }, [isCameraActive, cameraStream]);
-
-  const stopCamera = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => track.stop());
-      setCameraStream(null);
-    }
-    setIsCameraActive(false);
-  };
-
-  const capturePhoto = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-
-    canvas.width = video.videoWidth || 480;
-    canvas.height = video.videoHeight || 480;
-
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.90);
-    setCapturedSelfie(dataUrl);
-    stopCamera();
-
-    // Call Python face recognition verification
-    try {
-      setIsFaceChecking(true);
-      setFaceCheckFeedback("");
-      setFaceObstructionError("");
-      const res = await fetch("/api/auth/verify-face", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: dataUrl }),
-      });
-      const data = await res.json();
-      if (data && data.passed && !data.obstructions?.has_obstruction) {
-        setIsLivenessVerified(true);
-        setFaceObstructionError("");
-        setFaceErrorType("");
-        setFaceCheckFeedback(
-          activeLang === "fil"
-            ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
-            : "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified."
-        );
-      } else {
-        setIsLivenessVerified(false);
-        const isRealObstruction = Boolean(data?.obstructions?.has_obstruction);
-        setFaceErrorType(isRealObstruction ? "obstruction" : "quality");
-        const obsMsg = data?.obstructions?.issues?.[0] || data?.issues?.[0];
-        const errorText = obsMsg
-          ? (activeLang === "fil" ? obsMsg.fil : obsMsg.en)
-          : (activeLang === "fil"
-              ? "May sagabal sa mukha. Pakitanggal ang sumbrero, salamin sa mata, o mask bago magpatuloy."
-              : "Face is obstructed. Please remove hat, glasses, or mask before continuing.");
-        setFaceObstructionError(errorText);
-        setFaceCheckFeedback(errorText);
-      }
-    } catch (e) {
-      console.warn("Python face check fallback:", e);
-    } finally {
-      setIsFaceChecking(false);
-    }
-  };
 
   // --- SOCIAL AUTHENTICATION HELPERS ---
   const ensureGoogleLoaded = () => {
@@ -2527,7 +2421,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
 
               <div className="space-y-2.5 pb-2">
                 {/* 1. STANDBY STATE: EDITORIAL BIOMETRIC REQUIREMENTS */}
-                {!isCameraActive && !capturedSelfie && (
+                {!capturedSelfie && (
                   <div className="space-y-2.5 animate-in fade-in duration-150">
                     {/* Social Profile Connected Notice (Google / Facebook) */}
                     {socialConnected?.avatarUrl && (
@@ -2567,16 +2461,6 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       />
                     </div>
 
-                    {/* Camera Error Alert if Live Cam blocked by HTTP Wi-Fi */}
-                    {cameraError && (
-                      <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
-                        <AlertTriangleIcon className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="font-semibold">{cameraError}</p>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Compact Guidelines & Biometric Motion Sequence */}
                     <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 space-y-1.5 transition-colors text-left">
                       {/* 2-Column Rules */}
@@ -2600,7 +2484,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       </div>
                     </div>
 
-                    {/* Launch Camera or Alternative Capture Methods */}
+                    {/* Launch Camera: Strict 6-Step MediaPipe Biometric Modal */}
                     <div className="pt-0.5 flex flex-col items-center gap-2">
                       <button
                         type="button"
@@ -2617,105 +2501,12 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                             : "Start Biometric Face Verification"}
                         </span>
                       </button>
-
-                      {/* In-page Live Webcam Alternative (Zero file uploads allowed for KYC) */}
-                      <div className="w-full pt-1 flex justify-center">
-                        <button
-                          type="button"
-                          onClick={startCamera}
-                          className="text-[11px] font-mono text-neutral-500 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1.5 transition-colors cursor-pointer"
-                        >
-                          <VideoIcon className="w-3.5 h-3.5 text-amber-500" />
-                          <span>{activeLang === "fil" ? "Buksan ang In-page Live Webcam" : "Open In-page Live Webcam"}</span>
-                        </button>
-                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* 2. LIVE CAMERA STREAM (PURE CIRCLE FRAME WITH CIRCULAR PROGRESS RING) */}
-                {isCameraActive && (
-                  <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 text-center flex flex-col items-center animate-in fade-in duration-150 transition-colors">
-                    {/* Circular Frame with SVG Ring */}
-                    <div className="relative w-56 h-56 sm:w-60 sm:h-60 flex items-center justify-center mb-3">
-                      {/* Circular SVG Ring */}
-                      <svg className="absolute inset-0 w-full h-full pointer-events-none -rotate-90">
-                        <circle
-                          cx="50%"
-                          cy="50%"
-                          r="45%"
-                          fill="none"
-                          stroke="currentColor"
-                          className="text-neutral-200 dark:text-neutral-800"
-                          strokeWidth="4"
-                        />
-                        <circle
-                          cx="50%"
-                          cy="50%"
-                          r="45%"
-                          fill="none"
-                          stroke="#f59e0b"
-                          strokeWidth="4"
-                          strokeDasharray="680"
-                          strokeDashoffset="120"
-                          strokeLinecap="round"
-                          className="transition-all duration-300"
-                        />
-                      </svg>
-
-                      {/* Pure Circular Viewport */}
-                      <div className="relative w-[84%] h-[84%] rounded-full overflow-hidden bg-neutral-950 border border-white/20 shadow-inner flex items-center justify-center">
-                        <video
-                          ref={(el) => {
-                            videoRef.current = el;
-                            if (el && cameraStream && el.srcObject !== cameraStream) {
-                              el.srcObject = cameraStream;
-                              el.play().catch(() => {});
-                            }
-                          }}
-                          autoPlay
-                          playsInline
-                          muted
-                          className="w-full h-full object-cover scale-x-[-1] rounded-full"
-                        />
-                        {/* Inside dashed guide circle */}
-                        <div className="absolute inset-3 border-2 border-dashed border-amber-400/40 rounded-full pointer-events-none animate-pulse" />
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-neutral-600 dark:text-neutral-300 font-medium mb-3">
-                      {activeLang === "fil"
-                        ? "Igitna ang iyong mukha sa bilog at kumuha ng litrato"
-                        : "Center your face in the circle and capture photo"}
-                    </p>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={capturePhoto}
-                        disabled={isFaceChecking}
-                        className="h-10 px-5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-neutral-950 font-bold text-xs shadow-sm flex items-center gap-1.5 cursor-pointer transition-all"
-                      >
-                        {isFaceChecking ? (
-                          <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <CameraIcon className="w-3.5 h-3.5" />
-                        )}
-                        <span>{isFaceChecking ? (activeLang === "fil" ? "Sinusuri..." : "Checking...") : t.capturePhotoButton}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={stopCamera}
-                        className="h-10 px-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
-                      >
-                        {activeLang === "fil" ? "Kanselahin" : "Cancel"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. CAPTURED SELFIE CONFIRMATION (PURE CIRCULAR PORTRAIT WITH VERIFIED / OBSTRUCTION BADGE) */}
-                {!isCameraActive && capturedSelfie && (
+                {/* 2. CAPTURED SELFIE CONFIRMATION (PURE CIRCULAR PORTRAIT WITH VERIFIED / OBSTRUCTION BADGE) */}
+                {capturedSelfie && (
                   <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 text-center flex flex-col items-center animate-in fade-in duration-150 transition-colors">
                     {/* Pure Circular Image Container */}
                     <div
@@ -2785,10 +2576,12 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         type="button"
                         onClick={() => {
                           setCapturedSelfie(null);
+                          setIsLivenessVerified(false);
                           setFaceCheckFeedback("");
                           setFaceObstructionError("");
                           setFaceErrorType("");
-                          startCamera();
+                          setLivenessPurpose("kyc");
+                          setIsLivenessModalOpen(true);
                         }}
                         className="h-8.5 px-3.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-medium text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer flex items-center gap-1.5"
                       >
@@ -2798,8 +2591,6 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     </div>
                   </div>
                 )}
-
-                <canvas ref={canvasRef} className="hidden" />
               </div>
 
               {/* Navigation */}
@@ -2807,7 +2598,6 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                 <button
                   type="button"
                   onClick={() => {
-                    stopCamera();
                     setSignupStep(2);
                   }}
                   className="h-11 rounded-xl border border-neutral-300 dark:border-neutral-700 text-sm font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center justify-center gap-2 cursor-pointer transition-colors"
@@ -2832,7 +2622,6 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       return;
                     }
                     setErrorMessage("");
-                    stopCamera();
                     setSignupStep(4);
                   }}
                   className={`h-11 rounded-xl font-bold text-sm shadow-sm flex items-center justify-center gap-2 transition-all ${
@@ -3171,7 +2960,6 @@ export default function PortalAuthCard({ onLoginSuccess }) {
               type="button"
               onClick={() => {
                 setErrorMessage("");
-                stopCamera();
                 setAuthMode("login");
               }}
               className="font-bold text-amber-600 hover:text-amber-500 dark:text-amber-400 underline underline-offset-2 ml-1 cursor-pointer"

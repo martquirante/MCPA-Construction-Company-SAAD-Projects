@@ -450,7 +450,7 @@ export default function MediaPipeLivenessModal({
     return tempCanvas.toDataURL("image/jpeg", 0.92);
   }, []);
 
-  // Real-time canvas check for environmental lighting (Dark / Glare)
+  // Real-time canvas check for environmental lighting (Dark / Glare / Face Silhouette)
   const checkEnvironment = useCallback((video) => {
     if (!video || !video.videoWidth) return null;
     try {
@@ -463,25 +463,43 @@ export default function MediaPipeLivenessModal({
       const imgData = ctx.getImageData(0, 0, 64, 48).data;
 
       let totalLum = 0;
+      let centerLum = 0;
+      let centerCount = 0;
       const count = imgData.length / 4;
-      for (let i = 0; i < imgData.length; i += 4) {
-        totalLum += 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
-      }
-      const avgLum = totalLum / count;
 
-      if (avgLum < 52) {
+      // Central facial region bounds (approx center 50% width and height)
+      const minX = 16, maxX = 48;
+      const minY = 12, maxY = 36;
+
+      for (let y = 0; y < 48; y++) {
+        for (let x = 0; x < 64; x++) {
+          const idx = (y * 64 + x) * 4;
+          const lum = 0.299 * imgData[idx] + 0.587 * imgData[idx + 1] + 0.114 * imgData[idx + 2];
+          totalLum += lum;
+          if (x >= minX && x < maxX && y >= minY && y < maxY) {
+            centerLum += lum;
+            centerCount++;
+          }
+        }
+      }
+
+      const avgLum = totalLum / count;
+      const avgCenterLum = centerCount > 0 ? centerLum / centerCount : avgLum;
+
+      // Check for dark room OR face silhouette caused by backlighting
+      if (avgLum < 50 || avgCenterLum < 45) {
         return {
           type: "dark",
           text: activeLang === "fil"
-            ? "Masyadong madilim. Lumipat sa maliwanag na lugar."
-            : "Too dark. Move to a well-lit area.",
+            ? "Masyadong madilim ang iyong mukha. Lumipat sa maliwanag na lugar at iharap ang mukha sa ilaw."
+            : "Face is too dark or backlit. Please face a light source and ensure your face is well-lit.",
         };
       }
-      if (avgLum > 218) {
+      if (avgLum > 220 || avgCenterLum > 225) {
         return {
           type: "bright",
           text: activeLang === "fil"
-            ? "Masyadong maliwanag o may silaw. Iwasan ang backlight."
+            ? "Masyadong maliwanag o may matinding silaw. Iwasan ang backlight."
             : "Too bright / direct glare. Avoid harsh backlights.",
         };
       }
@@ -1064,19 +1082,6 @@ export default function MediaPipeLivenessModal({
     };
   }, [isOpen, cleanupStream, onResults, activeLang, retryTrigger]);
 
-  // Handle manual fallback capture if requested
-  const handleManualFallback = async () => {
-    const shot = captureFrame();
-    if (shot && onVerified) {
-      playSuccessFanfare();
-      setCapturedDataUrl(shot);
-      setIsCompleted(true);
-      await verifyWithPythonBackend(shot);
-      setTimeout(() => {
-        onVerified(shot);
-      }, 700);
-    }
-  };
 
   if (!isOpen) return null;
 
@@ -1312,19 +1317,6 @@ export default function MediaPipeLivenessModal({
             {feedbackMessage || (activeLang === "fil" ? currentChallenge.subFil : currentChallenge.subEn)}
           </p>
 
-          {/* Fallback Manual Snapshot (if user has difficult lighting or device issues) */}
-          <div className="mt-3 pt-2 border-t border-neutral-200 dark:border-neutral-800 w-full flex items-center justify-between text-[11px]">
-            <span className="text-neutral-400">
-              {activeLang === "fil" ? "May problema sa ilaw?" : "Lighting issue?"}
-            </span>
-            <button
-              type="button"
-              onClick={handleManualFallback}
-              className="text-amber-600 dark:text-amber-400 hover:underline font-medium cursor-pointer"
-            >
-              {activeLang === "fil" ? "Kumuha ng litrato" : "Capture photo manually"}
-            </button>
-          </div>
         </div>
       </div>
     </div>

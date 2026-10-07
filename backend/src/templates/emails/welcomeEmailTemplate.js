@@ -22,24 +22,24 @@ function getWelcomeEmailTemplate({
   companyFacebook = "https://www.facebook.com/MCPA.ConstructionandSupply/",
   companyInstagram = "https://www.instagram.com/mcpa.constructionandsupply/",
   companyTikTok = "https://www.tiktok.com/@mcpa.construction",
-  // Image Sources (CID for SMTP, data URI for Resend)
-  logoDarkSrc = "cid:mcpalogodark",
-  logoWhiteSrc = "cid:mcpalogowhite",
-  logoSrc = "cid:mcpalogodark",
-  heroImgSrc = "cid:mcpahero",
-  projectsImgSrc = "cid:mcpacardprojects",
-  servicesImgSrc = "cid:mcpacardservices",
-  processImgSrc = "cid:mcpacardprocess",
-  userIconSrc = "cid:mcpaiconuser",
-  projectsIconSrc = "cid:mcpaiconprojects",
-  servicesIconSrc = "cid:mcpaiconservices",
-  processIconSrc = "cid:mcpaiconprocess",
-  phoneIconSrc = "cid:mcpaiconphone",
-  mailIconSrc = "cid:mcpaiconmail",
-  locationIconSrc = "cid:mcpaiconlocation",
-  fbIconSrc = "cid:mcpaiconfb",
-  igIconSrc = "cid:mcpaiconig",
-  tiktokIconSrc = "cid:mcpaicontiktok",
+  // Image Sources: High-resolution public CDN assets (100% visible on Gmail, Outlook, Apple Mail)
+  logoDarkSrc = "https://mcpa-construction.vercel.app/assets/email/email_logo_dark.png",
+  logoWhiteSrc = "https://mcpa-construction.vercel.app/assets/email/email_logo_white.png",
+  logoSrc = "https://mcpa-construction.vercel.app/assets/email/email_logo_white.png",
+  heroImgSrc = "https://mcpa-construction.vercel.app/assets/email/projects/email_hero_villa.jpg",
+  projectsImgSrc = "https://mcpa-construction.vercel.app/assets/email/projects/email_card_projects.jpg",
+  servicesImgSrc = "https://mcpa-construction.vercel.app/assets/email/projects/email_card_services.jpg",
+  processImgSrc = "https://mcpa-construction.vercel.app/assets/email/projects/email_card_process.jpg",
+  userIconSrc = "https://mcpa-construction.vercel.app/assets/email/icons/user.png",
+  projectsIconSrc = "https://mcpa-construction.vercel.app/assets/email/icons/projects.png",
+  servicesIconSrc = "https://mcpa-construction.vercel.app/assets/email/icons/services.png",
+  processIconSrc = "https://mcpa-construction.vercel.app/assets/email/icons/process.png",
+  phoneIconSrc = "https://mcpa-construction.vercel.app/assets/email/icons/phone.png",
+  mailIconSrc = "https://mcpa-construction.vercel.app/assets/email/icons/mail.png",
+  locationIconSrc = "https://mcpa-construction.vercel.app/assets/email/icons/location.png",
+  fbIconSrc = "https://mcpa-construction.vercel.app/assets/email/icons/facebook.png",
+  igIconSrc = "https://mcpa-construction.vercel.app/assets/email/icons/instagram.png",
+  tiktokIconSrc = "https://mcpa-construction.vercel.app/assets/email/icons/tiktok.png",
 }) {
   const inquireUrl = `${websiteUrl}/book`;
   const projectsUrl = `${websiteUrl}/projects`;
@@ -193,23 +193,25 @@ function getWelcomeEmailTemplate({
           <tr>
             <td style="padding: 38px 36px;" class="canvas-padding">
 
-              <!-- 1. TOP HEADER: MCPA BRAND LOGO & SUBTITLE DASH -->
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 28px;">
+              <!-- 1. TOP BRAND BANNER: HIGH CONTRAST ARCHITECTURAL HEADER (PERMANENT DARK BACKGROUND ENSURES SHARP LOGO IN BOTH LIGHT & DARK THEMES) -->
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 22px; background-color: #0c0f17; background: #0c0f17 !important; border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.22);">
                 <tr>
-                  <td align="center">
+                  <td align="center" style="padding: 24px 20px 20px 20px;">
                     <a href="${websiteUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                      <!-- Light Mode Logo: Black logo displayed on light background -->
-                      <img src="${logoDarkSrc || logoSrc}" alt="MCPA Construction &amp; Supply" width="185" class="logo-img logo-light" style="width: 185px; max-width: 185px; height: auto; display: block; margin: 0 auto; border: 0;" />
-                      <!-- Dark Mode Logo: White logo displayed on dark background (hidden in light mode) -->
-                      <!--[if !mso]><!-->
-                      <img src="${logoWhiteSrc}" alt="MCPA Construction &amp; Supply" width="185" class="logo-img logo-dark" style="width: 185px; max-width: 185px; height: auto; display: none; margin: 0 auto; border: 0; mso-hide: all;" />
-                      <!--<![endif]-->
+                      <img src="${logoWhiteSrc}" alt="MCPA Construction &amp; Supply" width="195" style="width: 195px; max-width: 195px; height: auto; display: block; margin: 0 auto; border: 0;" />
                     </a>
+                    <div style="font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #f59e0b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin-top: 10px;">
+                      Architectural Design &amp; Build • General Construction
+                    </div>
                   </td>
                 </tr>
+              </table>
+
+              <!-- WELCOME HEADLINE -->
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 22px;">
                 <tr>
-                  <td align="center" style="padding-top: 16px;">
-                    <div class="welcome-headline" style="font-size: 22px; font-weight: 800; letter-spacing: 0.5px; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.2;">
+                  <td align="center">
+                    <div class="welcome-headline" style="font-size: 22px; font-weight: 800; letter-spacing: 0.3px; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.25;">
                       Welcome to <span style="color: #f59e0b;">MCPA Construction and Supply</span>
                     </div>
                   </td>

@@ -617,6 +617,41 @@ class AuthController {
         hashedPassword = await bcrypt.hash(password, 10);
       }
 
+      // Enforce strict server-side Biometric KYC face recognition & lighting check
+      if (!kycPhotoUrl) {
+        return res.status(400).json({
+          message: "Kailangan tapusin ang biometric face verification bago makapagpatuloy / Biometric face verification is required.",
+          kyc_error: true,
+        });
+      }
+
+      let kycTelemetry = null;
+      try {
+        kycTelemetry = await faceVerifierService.verifyFaceTelemetry(kycPhotoUrl, avatarUrl || null);
+      } catch (kErr) {
+        console.warn("[AuthController] KYC telemetry processing error:", kErr.message);
+        return res.status(400).json({
+          message: "Hindi ma-decode ang kuha ng iyong mukha. Pakisubukang muli sa maliwanag na lugar / Could not process biometric facial snapshot.",
+          kyc_error: true,
+        });
+      }
+
+      if (
+        !kycTelemetry ||
+        !kycTelemetry.passed ||
+        !kycTelemetry.face_detected ||
+        kycTelemetry.brightness?.is_too_dark ||
+        kycTelemetry.obstructions?.has_obstruction
+      ) {
+        const errorFil = kycTelemetry?.issues?.[0]?.fil || kycTelemetry?.message || "Hindi pumasa ang biometric KYC verification. Siguraduhing maliwanag ang mukha at walang sagabal.";
+        const errorEn = kycTelemetry?.issues?.[0]?.en || "Biometric KYC selfie verification failed. Please ensure your face is well-lit and unobstructed.";
+        return res.status(400).json({
+          message: `${errorFil} (${errorEn})`,
+          kyc_error: true,
+          details: kycTelemetry?.issues || [],
+        });
+      }
+
       const cleanFirstName = firstName ? firstName.trim() : computedFullName.split(" ")[0] || "";
       const cleanLastName = lastName
         ? lastName.trim()

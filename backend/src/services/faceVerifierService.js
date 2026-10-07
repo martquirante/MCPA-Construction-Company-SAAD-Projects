@@ -755,7 +755,31 @@ async function verifyFaceTelemetry(imageInput, referenceInput = null, clientMeta
       });
     }
 
-    // 4. Obstruction & Occlusion Checks
+    // 4. Facial ROI Brightness Check (Detects face silhouettes caused by backlighting)
+    let faceGraySum = 0;
+    let facePixelCount = 0;
+    const startX = Math.max(0, Math.floor(fx));
+    const endX = Math.min(w, Math.floor(fx + fw));
+    const startY = Math.max(0, Math.floor(fy));
+    const endY = Math.min(h, Math.floor(fy + fh));
+
+    for (let y = startY; y < endY; y += 2) {
+      for (let x = startX; x < endX; x += 2) {
+        const idx = (y * w + x) * 4;
+        faceGraySum += 0.299 * liveImg.data[idx] + 0.587 * liveImg.data[idx + 1] + 0.114 * liveImg.data[idx + 2];
+        facePixelCount++;
+      }
+    }
+    const faceMeanBrightness = facePixelCount > 0 ? Math.round((faceGraySum / facePixelCount) * 10) / 10 : 128;
+    if (faceMeanBrightness < 45.0) {
+      issues.push({
+        code: "FACE_TOO_DARK",
+        fil: "Masyadong madilim ang iyong mukha o silhouette ang kuha dahil sa backlight. Paki-harap ang mukha sa ilaw.",
+        en: "Your face is too dark or silhouetted by backlighting. Please face toward a light source.",
+      });
+    }
+
+    // 5. Obstruction & Occlusion Checks
     obstructions = detectObstructions(liveImg, faceBox, landmarks);
     if (obstructions.has_obstruction) {
       for (const obs of obstructions.issues) {
@@ -763,7 +787,7 @@ async function verifyFaceTelemetry(imageInput, referenceInput = null, clientMeta
       }
     }
 
-    // 5. Social Reference Photo Matching (Option A: Informational audit notice, non-blocking)
+    // 6. Social Reference Photo Matching (Option A: Informational audit notice, non-blocking)
     if (refImg) {
       const refRes = compareWithReference(liveImg, refImg, faceBox);
       ref_match = refRes;
@@ -796,7 +820,7 @@ async function verifyFaceTelemetry(imageInput, referenceInput = null, clientMeta
     head_pose,
     brightness: {
       score: lighting.meanBrightness,
-      is_too_dark: lighting.is_too_dark,
+      is_too_dark: lighting.is_too_dark || (faceBox && issues.some(i => i.code === "FACE_TOO_DARK")),
       is_too_bright: lighting.is_too_bright,
     },
     blur: {

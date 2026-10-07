@@ -287,129 +287,93 @@ class EmailService {
     const companyTikTok = "https://www.tiktok.com/@mcpa.construction";
 
     // Asset paths for rich multi-image showcase
-    const assetsDir = path.resolve(__dirname, "../assets");
-    const projectsDir = path.resolve(assetsDir, "projects");
-    const iconsDir = path.resolve(assetsDir, "icons");
+    const cdnBase = `${websiteUrl}/assets/email`;
 
-    const assetFiles = {
-      logoDark: path.join(assetsDir, "email_logo_dark.png"),
-      logoWhite: path.join(assetsDir, "email_logo_white.png"),
-      hero: path.join(projectsDir, "email_hero_villa.jpg"),
-      cardProjects: path.join(projectsDir, "email_card_projects.jpg"),
-      cardServices: path.join(projectsDir, "email_card_services.jpg"),
-      cardProcess: path.join(projectsDir, "email_card_process.jpg"),
-      iconUser: path.join(iconsDir, "user.png"),
-      iconProjects: path.join(iconsDir, "projects.png"),
-      iconServices: path.join(iconsDir, "services.png"),
-      iconProcess: path.join(iconsDir, "process.png"),
-      iconPhone: path.join(iconsDir, "phone.png"),
-      iconMail: path.join(iconsDir, "mail.png"),
-      iconLocation: path.join(iconsDir, "location.png"),
-      iconFb: path.join(iconsDir, "facebook.png"),
-      iconIg: path.join(iconsDir, "instagram.png"),
-      iconTiktok: path.join(iconsDir, "tiktok.png"),
-    };
-
-    // Helper to read Base64 data URIs for HTTP APIs (Resend)
-    const toBase64Uri = (filePath, mime = "image/png") => {
-      try {
-        if (fs.existsSync(filePath)) {
-          return `data:${mime};base64,${fs.readFileSync(filePath).toString("base64")}`;
-        }
-      } catch (e) {}
-      return "";
-    };
-
-    // HTML Generator using separated modular template
-    const generateHtml = (isResend = false) => {
-      return getWelcomeEmailTemplate({
-        clientName,
-        toEmail,
-        websiteUrl,
-        currentYear,
-        companyPhone,
-        companyPhoneDisplay,
-        companyEmail,
-        companyAddress,
-        companyMapsUrl,
-        companyFacebook,
-        companyInstagram,
-        companyTikTok,
-        // Image Sources: Base64 for Resend HTTP API, CID for SMTP
-        logoDarkSrc: isResend ? toBase64Uri(assetFiles.logoDark, "image/png") : "cid:mcpalogodark",
-        logoWhiteSrc: isResend ? toBase64Uri(assetFiles.logoWhite, "image/png") : "cid:mcpalogowhite",
-        logoSrc: isResend ? toBase64Uri(assetFiles.logoDark, "image/png") : "cid:mcpalogodark",
-        heroImgSrc: isResend ? toBase64Uri(assetFiles.hero, "image/jpeg") : "cid:mcpahero",
-        projectsImgSrc: isResend ? toBase64Uri(assetFiles.cardProjects, "image/jpeg") : "cid:mcpacardprojects",
-        servicesImgSrc: isResend ? toBase64Uri(assetFiles.cardServices, "image/jpeg") : "cid:mcpacardservices",
-        processImgSrc: isResend ? toBase64Uri(assetFiles.cardProcess, "image/jpeg") : "cid:mcpacardprocess",
-        userIconSrc: isResend ? toBase64Uri(assetFiles.iconUser, "image/png") : "cid:mcpaiconuser",
-        projectsIconSrc: isResend ? toBase64Uri(assetFiles.iconProjects, "image/png") : "cid:mcpaiconprojects",
-        servicesIconSrc: isResend ? toBase64Uri(assetFiles.iconServices, "image/png") : "cid:mcpaiconservices",
-        processIconSrc: isResend ? toBase64Uri(assetFiles.iconProcess, "image/png") : "cid:mcpaiconprocess",
-        phoneIconSrc: isResend ? toBase64Uri(assetFiles.iconPhone, "image/png") : "cid:mcpaiconphone",
-        mailIconSrc: isResend ? toBase64Uri(assetFiles.iconMail, "image/png") : "cid:mcpaiconmail",
-        locationIconSrc: isResend ? toBase64Uri(assetFiles.iconLocation, "image/png") : "cid:mcpaiconlocation",
-        fbIconSrc: isResend ? toBase64Uri(assetFiles.iconFb, "image/png") : "cid:mcpaiconfb",
-        igIconSrc: isResend ? toBase64Uri(assetFiles.iconIg, "image/png") : "cid:mcpaiconig",
-        tiktokIconSrc: isResend ? toBase64Uri(assetFiles.iconTiktok, "image/png") : "cid:mcpaicontiktok",
-      });
-    };
-
-    // Prepare inline attachments for Nodemailer (contentDisposition: 'inline' prevents download pills in Gmail)
-    const attachments = [
-      { filename: "mcpa-logo-dark.png", path: assetFiles.logoDark, cid: "mcpalogodark", contentDisposition: "inline" },
-      { filename: "mcpa-logo-white.png", path: assetFiles.logoWhite, cid: "mcpalogowhite", contentDisposition: "inline" },
-      { filename: "mcpa-hero.jpg", path: assetFiles.hero, cid: "mcpahero", contentDisposition: "inline" },
-      { filename: "card-projects.jpg", path: assetFiles.cardProjects, cid: "mcpacardprojects", contentDisposition: "inline" },
-      { filename: "card-services.jpg", path: assetFiles.cardServices, cid: "mcpacardservices", contentDisposition: "inline" },
-      { filename: "card-process.jpg", path: assetFiles.cardProcess, cid: "mcpacardprocess", contentDisposition: "inline" },
-      { filename: "icon-user.png", path: assetFiles.iconUser, cid: "mcpaiconuser", contentDisposition: "inline" },
-      { filename: "icon-projects.png", path: assetFiles.iconProjects, cid: "mcpaiconprojects", contentDisposition: "inline" },
-      { filename: "icon-services.png", path: assetFiles.iconServices, cid: "mcpaiconservices", contentDisposition: "inline" },
-      { filename: "icon-process.png", path: assetFiles.iconProcess, cid: "mcpaiconprocess", contentDisposition: "inline" },
-      { filename: "icon-phone.png", path: assetFiles.iconPhone, cid: "mcpaiconphone", contentDisposition: "inline" },
-      { filename: "icon-mail.png", path: assetFiles.iconMail, cid: "mcpaiconmail", contentDisposition: "inline" },
-      { filename: "icon-location.png", path: assetFiles.iconLocation, cid: "mcpaiconlocation", contentDisposition: "inline" },
-      { filename: "icon-fb.png", path: assetFiles.iconFb, cid: "mcpaiconfb", contentDisposition: "inline" },
-      { filename: "icon-ig.png", path: assetFiles.iconIg, cid: "mcpaiconig", contentDisposition: "inline" },
-      { filename: "icon-tiktok.png", path: assetFiles.iconTiktok, cid: "mcpaicontiktok", contentDisposition: "inline" },
-    ].filter(a => fs.existsSync(a.path));
+    // Generate lightweight HTML using clean CDN assets (Zero Base64 spam bloat, instant Gmail rendering)
+    const emailHtml = getWelcomeEmailTemplate({
+      clientName,
+      toEmail,
+      websiteUrl,
+      currentYear,
+      companyPhone,
+      companyPhoneDisplay,
+      companyEmail,
+      companyAddress,
+      companyMapsUrl,
+      companyFacebook,
+      companyInstagram,
+      companyTikTok,
+      // High-resolution public CDN assets (100% visible on Gmail, Apple Mail, Outlook, Yahoo)
+      logoDarkSrc: `${cdnBase}/email_logo_dark.png`,
+      logoWhiteSrc: `${cdnBase}/email_logo_white.png`,
+      logoSrc: `${cdnBase}/email_logo_white.png`,
+      heroImgSrc: `${cdnBase}/projects/email_hero_villa.jpg`,
+      projectsImgSrc: `${cdnBase}/projects/email_card_projects.jpg`,
+      servicesImgSrc: `${cdnBase}/projects/email_card_services.jpg`,
+      processImgSrc: `${cdnBase}/projects/email_card_process.jpg`,
+      userIconSrc: `${cdnBase}/icons/user.png`,
+      projectsIconSrc: `${cdnBase}/icons/projects.png`,
+      servicesIconSrc: `${cdnBase}/icons/services.png`,
+      processIconSrc: `${cdnBase}/icons/process.png`,
+      phoneIconSrc: `${cdnBase}/icons/phone.png`,
+      mailIconSrc: `${cdnBase}/icons/mail.png`,
+      locationIconSrc: `${cdnBase}/icons/location.png`,
+      fbIconSrc: `${cdnBase}/icons/facebook.png`,
+      igIconSrc: `${cdnBase}/icons/instagram.png`,
+      tiktokIconSrc: `${cdnBase}/icons/tiktok.png`,
+    });
 
     let delivered = false;
 
-    // 1. Try Resend API (Base64 data URIs)
-    if (this.resendApiKey) {
-      const resendHtml = generateHtml(true);
-      delivered = await this.sendViaResend(toEmail, subject, resendHtml);
-    }
-
-    // 2. Try Gmail / SMTP (CID attachments)
-    if (!delivered && this.transporter) {
+    // 1. Try Primary Provider (Gmail SMTP when primaryProvider is "gmail")
+    if (this.transporter && this.primaryProvider === "gmail") {
       try {
-        const smtpHtml = generateHtml(false);
         await this.transporter.sendMail({
           from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
           to: toEmail,
           subject,
-          html: smtpHtml,
-          attachments,
+          html: emailHtml,
         });
         delivered = true;
+        console.log(`\x1b[32m[EmailService] Primary Gmail SMTP Welcome Email delivered to ${toEmail}\x1b[0m`);
       } catch (smtpErr) {
-        console.warn("[EmailService] SMTP welcome email delivery failed:", smtpErr.message);
+        console.warn(`\x1b[33m[EmailService] Primary Gmail SMTP delivery failed (${smtpErr.message}). Activating Resend backup failover...\x1b[0m`);
+      }
+    }
+
+    // 2. Try Resend API (Backup Failover or Primary when EMAIL_PRIMARY_PROVIDER is "resend")
+    if (!delivered && this.resendApiKey) {
+      delivered = await this.sendViaResend(toEmail, subject, emailHtml);
+      if (delivered) {
+        console.log(`\x1b[32m[EmailService] Resend API Welcome Email delivered to ${toEmail}\x1b[0m`);
+      }
+    }
+
+    // 3. Fallback to Transporter if primary was not gmail but Resend failed
+    if (!delivered && this.transporter) {
+      try {
+        await this.transporter.sendMail({
+          from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
+          to: toEmail,
+          subject,
+          html: emailHtml,
+        });
+        delivered = true;
+        console.log(`\x1b[32m[EmailService] Fallback SMTP Welcome Email delivered to ${toEmail}\x1b[0m`);
+      } catch (smtpErr) {
+        console.warn("[EmailService] Final SMTP welcome fallback failed:", smtpErr.message);
       }
     }
 
     console.log(`\n======================================================`);
-    console.log(`  [EmailService] MULTI-IMAGE ARCHITECTURAL SHOWCASE WELCOME EMAIL DISPATCHED`);
+    console.log(`  [EmailService] ARCHITECTURAL SHOWCASE WELCOME EMAIL DISPATCHED`);
     console.log(`  To:            ${toEmail}`);
     console.log(`  Name:          ${clientName}`);
-    console.log(`  Attachments:   ${attachments.length} inline visual assets`);
+    console.log(`  Images:        16 CDN HTTPS assets (Zero Base64 spam overhead)`);
     console.log(`  Delivery Mode: ${delivered ? "Active Cloud Delivery" : "Logged in Local Dev Console"}`);
     console.log(`======================================================\n`);
 
-    return true;
+    return delivered;
   }
 }
 
