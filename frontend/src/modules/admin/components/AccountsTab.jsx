@@ -3033,7 +3033,6 @@ export default function AccountsTab({ clientBriefs = [] }) {
                     <th className="py-3 px-4">Project Target</th>
                     <th className="py-3 px-4">Briefs</th>
                     <th className="py-3 px-4">Registered</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200 dark:divide-white/5 text-neutral-700 dark:text-neutral-300">
@@ -3192,18 +3191,6 @@ export default function AccountsTab({ clientBriefs = [] }) {
                         </td>
                         <td className="py-3 px-4 text-neutral-500 text-[11px]">
                           {formatDate(acc.created_at)}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedAccount(acc);
-                            }}
-                            className="px-2.5 py-1 rounded-[3px] bg-neutral-100 dark:bg-white/10 hover:bg-amber-500 hover:text-neutral-950 font-bold text-[10px] uppercase transition-colors cursor-pointer"
-                          >
-                            View Dossier
-                          </button>
                         </td>
                       </tr>
                     );
