@@ -63,6 +63,5 @@ CREATE TABLE IF NOT EXISTS client_briefs (
 INSERT INTO users (email, password_hash, full_name, role)
 VALUES 
     ('admin@mcpa.com', '$2b$10$MBXP8N0352dGhqQpNywgeuCXEV80lWR0t6AFP2ode4oU91hupRpWW', 'MCPA Lead Administrator', 'admin'),
-    ('dbprojectmartquirante@gmail.com', '$2b$10$MBXP8N0352dGhqQpNywgeuCXEV80lWR0t6AFP2ode4oU91hupRpWW', 'Mart Quirante (MCPA Admin)', 'admin'),
-    ('rayquirante@gmail.com', '$2b$10$MBXP8N0352dGhqQpNywgeuCXEV80lWR0t6AFP2ode4oU91hupRpWW', 'Ray Quirante (MCPA Admin)', 'admin')
+    ('dbprojectmartquirante@gmail.com', '$2b$10$MBXP8N0352dGhqQpNywgeuCXEV80lWR0t6AFP2ode4oU91hupRpWW', 'Engr. Raymart Quirante (MCPA Admin)', 'admin')
 ON CONFLICT (email) DO NOTHING;

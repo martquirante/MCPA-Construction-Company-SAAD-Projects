@@ -273,7 +273,8 @@ class EmailService {
   async sendWelcomeClientEmail(toEmail, user = {}, options = {}) {
     const clientName = user.full_name || user.firstName || "Valued Client";
     const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
-    const subject = options.subject || `Welcome to MCPA Construction — Your Vision. Our Foundation.`;
+    const clientRef = (user.user_id || user.id || Date.now().toString(36).slice(-5)).toString().toUpperCase();
+    const subject = options.subject || `Welcome to MCPA Construction & Supply — Your Vision. Our Foundation. [#MCPA-${clientRef}]`;
     const currentYear = new Date().getFullYear();
 
     // Authentic company contact details directly from website (Footer.jsx)
@@ -288,6 +289,37 @@ class EmailService {
 
     // Asset paths for rich multi-image showcase
     const cdnBase = `${websiteUrl}/assets/email`;
+
+    // Plain text alternative (drastically reduces spam score across Gmail, Yahoo & Outlook)
+    const plainText = `MCPA CONSTRUCTION & SUPPLY
+Design and Build Contractor • Plaridel, Bulacan
+
+Welcome to MCPA Construction and Supply!
+Your Vision. Our Foundation.
+
+Hello ${clientName},
+
+We're excited to partner with you. Your official MCPA client dossier is now active and ready for consultation booking, architectural reviews, and live construction oversight.
+
+ACCOUNT CONFIRMATION
+- Client Name: ${clientName}
+- Registered Email: ${toEmail}
+- Account Status: Active & Verified
+- Client Dossier Ref: #MCPA-${clientRef}
+
+OFFICIAL MCPA SERVICES & PORTFOLIO:
+- Book Consultation: ${websiteUrl}/book
+- Selected Projects: ${websiteUrl}/projects
+- Design & Build Services: ${websiteUrl}/services
+- Our 4-Step Process: ${websiteUrl}/process
+
+CONTACT & SITE OFFICE:
+Address: ${companyAddress}
+Phone / Viber: ${companyPhoneDisplay}
+Official Email: ${companyEmail}
+Office Hours: Mon - Sat • 8:00 AM - 5:00 PM PST
+
+Building Better Tomorrows • © ${currentYear} MCPA Construction and Supply. All rights reserved.`;
 
     // Generate lightweight HTML using clean CDN assets (Zero Base64 spam bloat, instant Gmail rendering)
     const emailHtml = getWelcomeEmailTemplate({
@@ -304,9 +336,9 @@ class EmailService {
       companyInstagram,
       companyTikTok,
       // High-resolution public CDN assets (100% visible on Gmail, Apple Mail, Outlook, Yahoo)
-      logoDarkSrc: `${cdnBase}/email_logo_dark.png`,
-      logoWhiteSrc: `${cdnBase}/email_logo_white.png`,
-      logoSrc: `${cdnBase}/email_logo_white.png`,
+      logoDarkSrc: "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png",
+      logoWhiteSrc: "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_white_v1.png",
+      logoSrc: "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png",
       heroImgSrc: `${cdnBase}/projects/email_hero_villa.jpg`,
       projectsImgSrc: `${cdnBase}/projects/email_card_projects.jpg`,
       servicesImgSrc: `${cdnBase}/projects/email_card_services.jpg`,
@@ -330,9 +362,15 @@ class EmailService {
       try {
         await this.transporter.sendMail({
           from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
+          replyTo: companyEmail,
           to: toEmail,
           subject,
+          text: plainText,
           html: emailHtml,
+          headers: {
+            "X-Mailer": "MCPA Dispatch Engine",
+            "X-Entity-Ref-ID": `mcpa-${Date.now()}`,
+          },
         });
         delivered = true;
         console.log(`\x1b[32m[EmailService] Primary Gmail SMTP Welcome Email delivered to ${toEmail}\x1b[0m`);
@@ -343,7 +381,7 @@ class EmailService {
 
     // 2. Try Resend API (Backup Failover or Primary when EMAIL_PRIMARY_PROVIDER is "resend")
     if (!delivered && this.resendApiKey) {
-      delivered = await this.sendViaResend(toEmail, subject, emailHtml);
+      delivered = await this.sendViaResend(toEmail, subject, emailHtml, { text: plainText });
       if (delivered) {
         console.log(`\x1b[32m[EmailService] Resend API Welcome Email delivered to ${toEmail}\x1b[0m`);
       }
@@ -354,9 +392,15 @@ class EmailService {
       try {
         await this.transporter.sendMail({
           from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
+          replyTo: companyEmail,
           to: toEmail,
           subject,
+          text: plainText,
           html: emailHtml,
+          headers: {
+            "X-Mailer": "MCPA Dispatch Engine",
+            "X-Entity-Ref-ID": `mcpa-${Date.now()}`,
+          },
         });
         delivered = true;
         console.log(`\x1b[32m[EmailService] Fallback SMTP Welcome Email delivered to ${toEmail}\x1b[0m`);

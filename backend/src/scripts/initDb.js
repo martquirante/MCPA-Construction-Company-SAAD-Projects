@@ -301,8 +301,7 @@ async function initializeDatabase() {
 
     const defaultAdmins = [
       { email: "admin@mcpa.com", pass: "mcpa2026", name: "MCPA Lead Administrator" },
-      { email: "dbprojectmartquirante@gmail.com", pass: "mcpa2026", name: "Mart Quirante (MCPA Admin)" },
-      { email: "rayquirante@gmail.com", pass: "mcpa2026", name: "Ray Quirante (MCPA Admin)" },
+      { email: "dbprojectmartquirante@gmail.com", pass: "mcpa2026", name: "Engr. Raymart Quirante (MCPA Admin)" },
     ];
 
     for (const adm of defaultAdmins) {

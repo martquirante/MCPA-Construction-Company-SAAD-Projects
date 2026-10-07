@@ -238,7 +238,6 @@ END $$;
 INSERT INTO public.users (email, password_hash, full_name, role)
 VALUES 
   ('admin@mcpa.com', '$2a$10$hKj5f0O70V3V8t1u1Jk5xe0iT7t2Zf1G5Z7c6e0G5a1T1e0G5a1T1', 'MCPA Lead Administrator', 'admin'),
-  ('dbprojectmartquirante@gmail.com', '$2a$10$hKj5f0O70V3V8t1u1Jk5xe0iT7t2Zf1G5Z7c6e0G5a1T1e0G5a1T1', 'Mart Quirante (MCPA Admin)', 'admin'),
-  ('rayquirante@gmail.com', '$2a$10$hKj5f0O70V3V8t1u1Jk5xe0iT7t2Zf1G5Z7c6e0G5a1T1e0G5a1T1', 'Ray Quirante (MCPA Admin)', 'admin')
+  ('dbprojectmartquirante@gmail.com', '$2a$10$hKj5f0O70V3V8t1u1Jk5xe0iT7t2Zf1G5Z7c6e0G5a1T1e0G5a1T1', 'Engr. Raymart Quirante (MCPA Admin)', 'admin')
 ON CONFLICT (email) DO NOTHING;
 

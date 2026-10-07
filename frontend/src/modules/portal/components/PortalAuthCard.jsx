@@ -774,13 +774,45 @@ export default function PortalAuthCard({ onLoginSuccess }) {
           return;
         }
         const fb = await ensureFacebookLoaded();
+        let fbTimeoutId;
+
+        // 45-second fallback timeout in case popup was redirected or closed without callback
+        fbTimeoutId = setTimeout(() => {
+          setIsSubmitting((prev) => {
+            if (prev) {
+              setSubmissionProgressText("");
+              setErrorMessage(
+                activeLang === "fil"
+                  ? "Nag-timeout ang Facebook Login o hindi nakumpleto ang pahintulot. Pakisubukang muli o gamitin ang Google Sign-In."
+                  : "Facebook Login timed out or authorization was not completed. Please try again or use Google."
+              );
+              return false;
+            }
+            return prev;
+          });
+        }, 45000);
+
         fb.login(
           (response) => {
+            if (fbTimeoutId) clearTimeout(fbTimeoutId);
             if (response.authResponse?.accessToken) {
               sendSocialAuthToServer("facebook", response.authResponse.accessToken);
             } else {
               setIsSubmitting(false);
               setSubmissionProgressText("");
+              if (response.status === "not_authorized") {
+                setErrorMessage(
+                  activeLang === "fil"
+                    ? "Hindi pinahintulutan ang application sa Facebook account na ito."
+                    : "This application was not authorized on your Facebook account."
+                );
+              } else {
+                setErrorMessage(
+                  activeLang === "fil"
+                    ? "Hindi natapos ang Facebook login. Maaaring kinansela o kailangang i-activate ang App sa Meta Developer Console."
+                    : "Facebook login was not completed. It may have been cancelled or the Meta App needs configuration."
+                );
+              }
             }
           },
           { scope: "email,public_profile" }

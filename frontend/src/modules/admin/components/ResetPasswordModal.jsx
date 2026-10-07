@@ -333,7 +333,7 @@ export default function ResetPasswordModal({
                       autoFocus
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. rayquirante@gmail.com"
+                      placeholder="e.g. dbprojectmartquirante@gmail.com"
                       className="w-full pl-10 pr-4 py-2.5 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-xs sm:text-sm transition-colors"
                     />
                     <MailIcon className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3" />

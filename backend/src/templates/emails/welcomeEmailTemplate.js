@@ -23,9 +23,9 @@ function getWelcomeEmailTemplate({
   companyInstagram = "https://www.instagram.com/mcpa.constructionandsupply/",
   companyTikTok = "https://www.tiktok.com/@mcpa.construction",
   // Image Sources: High-resolution public CDN assets (100% visible on Gmail, Outlook, Apple Mail)
-  logoDarkSrc = "https://mcpa-construction.vercel.app/assets/email/email_logo_dark.png",
-  logoWhiteSrc = "https://mcpa-construction.vercel.app/assets/email/email_logo_white.png",
-  logoSrc = "https://mcpa-construction.vercel.app/assets/email/email_logo_white.png",
+  logoDarkSrc = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png",
+  logoWhiteSrc = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_white_v1.png",
+  logoSrc = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png",
   heroImgSrc = "https://mcpa-construction.vercel.app/assets/email/projects/email_hero_villa.jpg",
   projectsImgSrc = "https://mcpa-construction.vercel.app/assets/email/projects/email_card_projects.jpg",
   servicesImgSrc = "https://mcpa-construction.vercel.app/assets/email/projects/email_card_services.jpg",
@@ -183,6 +183,11 @@ function getWelcomeEmailTemplate({
   </style>
 </head>
 <body class="body-bg" style="margin: 0; padding: 0; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
+  <!-- Invisible Preheader (Inbox Preview & Anti-Trimming Token) -->
+  <div style="display: none; max-height: 0px; overflow: hidden; font-size: 1px; line-height: 1px; color: #ffffff; opacity: 0; mso-hide: all;">
+    Your official MCPA client dossier is ready for consultation booking, blueprints, and project tracking. &#847; &zwnj; &nbsp; &#8199; &shy; &#847; &zwnj; &nbsp; &#8199; &shy;
+  </div>
+
   <!-- Outermost Table: Centering canvas across PC, Tablet, and Mobile -->
   <table width="100%" border="0" cellspacing="0" cellpadding="0" class="body-bg" style="background-color: #f1f5f9; table-layout: fixed; width: 100% !important; min-width: 100%; margin: 0; padding: 0;">
     <tr>
@@ -193,16 +198,18 @@ function getWelcomeEmailTemplate({
           <tr>
             <td style="padding: 38px 36px;" class="canvas-padding">
 
-              <!-- 1. TOP BRAND BANNER: HIGH CONTRAST ARCHITECTURAL HEADER (PERMANENT DARK BACKGROUND ENSURES SHARP LOGO IN BOTH LIGHT & DARK THEMES) -->
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 22px; background-color: #0c0f17; background: #0c0f17 !important; border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.22);">
+              <!-- 1. TOP BRAND HEADER: LOGO ONLY (CLEAN TRANSPARENT, NO BACKGROUND, NO SUBTITLE TEXT) -->
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
                 <tr>
-                  <td align="center" style="padding: 24px 20px 20px 20px;">
+                  <td align="center" style="padding: 4px 0 8px 0;">
                     <a href="${websiteUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                      <img src="${logoWhiteSrc}" alt="MCPA Construction &amp; Supply" width="195" style="width: 195px; max-width: 195px; height: auto; display: block; margin: 0 auto; border: 0;" />
+                      <!-- Light Mode Logo: Black logo displayed on light canvas -->
+                      <img src="${logoDarkSrc || logoSrc}" alt="MCPA Construction &amp; Supply" width="195" class="logo-img logo-light" style="width: 195px; max-width: 195px; height: auto; display: block; margin: 0 auto; border: 0;" />
+                      <!-- Dark Mode Logo: White logo displayed on dark canvas -->
+                      <!--[if !mso]><!-->
+                      <img src="${logoWhiteSrc}" alt="MCPA Construction &amp; Supply" width="195" class="logo-img logo-dark" style="width: 195px; max-width: 195px; height: auto; display: none; margin: 0 auto; border: 0; mso-hide: all;" />
+                      <!--<![endif]-->
                     </a>
-                    <div style="font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #f59e0b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin-top: 10px;">
-                      Architectural Design &amp; Build • General Construction
-                    </div>
                   </td>
                 </tr>
               </table>
