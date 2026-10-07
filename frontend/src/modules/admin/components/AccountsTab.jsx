@@ -825,20 +825,14 @@ function ClientWordDocument({ account, clientBriefs, photoDataUrl, logoDataUrl }
         </table>
       </div>
 
-      {/* ── Section II: Occupational & Financial Background ────────────── */}
+      {/* ── Section II: Occupational Background ────────────────────────── */}
       <div className="word-doc-section">
-        <h4 className="word-doc-sec-heading">II. OCCUPATIONAL &amp; FINANCIAL BACKGROUND</h4>
+        <h4 className="word-doc-sec-heading">II. OCCUPATIONAL BACKGROUND</h4>
         <table className="word-doc-table">
           <tbody>
             <tr>
               <th>Occupation / Profession</th>
               <td>{account.occupation || "Not declared"}</td>
-              <th>Employer / Business Firm</th>
-              <td>{account.employer_name || "Not declared"}</td>
-            </tr>
-            <tr>
-              <th>Monthly Income Bracket</th>
-              <td>{account.monthly_income || "Not declared"}</td>
               <th>Client Category</th>
               <td>{isOfw ? "Overseas Filipino Worker (OFW)" : "Local Resident (Philippines)"}</td>
             </tr>
@@ -1377,17 +1371,11 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
     </tr>
   </table>
 
-  <div class="sec-heading">II. Occupational &amp; Financial Background</div>
+  <div class="sec-heading">II. Occupational Background</div>
   <table class="data-table">
     <tr>
       <th>Occupation / Profession</th>
       <td>${account.occupation || "Not declared"}</td>
-      <th>Employer / Business Firm</th>
-      <td>${account.employer_name || "Not declared"}</td>
-    </tr>
-    <tr>
-      <th>Monthly Income Bracket</th>
-      <td>${account.monthly_income || "Not declared"}</td>
       <th>Client Category</th>
       <td>${isOfw ? "Overseas Filipino Worker (OFW)" : "Local Resident (Philippines)"}</td>
     </tr>
@@ -1542,12 +1530,10 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
     ].filter(Boolean);
     sections.push(contact.join("\n"));
 
-    // IV. Occupational & Financial Background
+    // IV. Occupational Background
     const employment = [
-      `OCCUPATIONAL & FINANCIAL BACKGROUND`,
+      `OCCUPATIONAL BACKGROUND`,
       account.occupation ? `• Occupation: ${account.occupation}` : null,
-      account.employer_name ? `• Employer / Firm: ${account.employer_name}` : null,
-      account.monthly_income ? `• Income Bracket: ${account.monthly_income}` : null,
     ].filter(Boolean);
     if (employment.length > 1) sections.push(employment.join("\n"));
 
@@ -1606,12 +1592,10 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
     ${isOfw && account.ph_rep_name ? `<p style="margin: 2px 0;"><strong>PH Representative:</strong> <strong>${account.ph_rep_name}</strong> (${account.ph_rep_relationship || "Representative"}) • Phone: ${account.ph_rep_phone || "—"}</p>` : ""}
   </div>
 
-  ${(account.occupation || account.employer_name || account.monthly_income) ? `
+  ${account.occupation ? `
   <div style="margin-bottom: 12px;">
-    <h4 style="margin: 0 0 4px; font-size: 12px; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Occupational &amp; Financial Background</h4>
-    ${account.occupation ? `<p style="margin: 2px 0;"><strong>Occupation / Profession:</strong> ${account.occupation}</p>` : ""}
-    ${account.employer_name ? `<p style="margin: 2px 0;"><strong>Employer / Business Firm:</strong> ${account.employer_name}</p>` : ""}
-    ${account.monthly_income ? `<p style="margin: 2px 0;"><strong>Monthly Income Bracket:</strong> ${account.monthly_income}</p>` : ""}
+    <h4 style="margin: 0 0 4px; font-size: 12px; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Occupational Background</h4>
+    <p style="margin: 2px 0;"><strong>Occupation / Profession:</strong> ${account.occupation}</p>
   </div>` : ""}
 
   ${(account.target_project_type || account.lot_ownership_status || account.subdivision_lot_details || account.target_build_location) ? `
@@ -2179,27 +2163,18 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                 </div>
               </div>
 
-              {/* ── Section 2: Employment, Profession & Financial Profile ── */}
+              {/* ── Section 2: Employment & Profession Profile ────────── */}
               <div className="dossier-panel">
                 <div className="dossier-panel-header">
                   <BuildingIcon className="w-4 h-4 text-amber-500" />
-                  <h3>Employment &amp; Financial Demographics</h3>
+                  <h3>Employment &amp; Profession Profile</h3>
                   <span className="dossier-step-tag">Step 2 Data</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <DataField
                     label="Occupation / Profession"
                     value={account.occupation || "Not declared"}
                     highlight
-                  />
-                  <DataField
-                    label="Employer / Business Firm"
-                    value={account.employer_name || "Not specified"}
-                  />
-                  <DataField
-                    label="Stated Monthly Income"
-                    value={account.monthly_income || "Not declared"}
-                    sub="Declared financial bracket"
                   />
                 </div>
               </div>
@@ -2963,9 +2938,6 @@ export default function AccountsTab({ clientBriefs = [] }) {
                         <td className="py-3 px-4">
                           <span className="block text-neutral-900 dark:text-white font-medium truncate max-w-[150px]">
                             {acc.occupation || "—"}
-                          </span>
-                          <span className="block text-[10px] text-neutral-400 truncate max-w-[150px]">
-                            {acc.employer_name || "—"}
                           </span>
                         </td>
                         <td className="py-3 px-4">

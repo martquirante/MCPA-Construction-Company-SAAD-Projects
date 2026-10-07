@@ -983,24 +983,16 @@ export default function ClientPortalPage() {
                     </div>
                   </div>
 
-                  {/* 2. Employment & Financial Demographics */}
+                  {/* 2. Employment & Profession */}
                   <div>
                     <h4 className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold mb-2.5 flex items-center gap-1.5">
                       <BuildingIcon className="w-3.5 h-3.5" />
-                      <span>2. Employment &amp; Financial Demographics</span>
+                      <span>2. Employment &amp; Profession</span>
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/10">
+                    <div className="p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/10 max-w-sm">
                       <div>
                         <span className="text-neutral-400 block text-[10px] font-mono uppercase">Occupation / Profession</span>
                         <span className="font-semibold text-neutral-900 dark:text-white">{currentUser.occupation || "Not declared"}</span>
-                      </div>
-                      <div>
-                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Employer / Business Firm</span>
-                        <span className="text-neutral-800 dark:text-neutral-200 font-medium">{currentUser.employerName || currentUser.employer_name || "—"}</span>
-                      </div>
-                      <div>
-                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Monthly Income Bracket</span>
-                        <span className="font-mono text-neutral-800 dark:text-neutral-200 font-medium">{currentUser.monthlyIncome || currentUser.monthly_income || "—"}</span>
                       </div>
                     </div>
                   </div>

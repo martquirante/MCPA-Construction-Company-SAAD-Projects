@@ -152,6 +152,24 @@ export default function PhAddressCascadeSection({
     onBarangayChange({ name: item.name, code: item.code });
   };
 
+  const handleProvinceClear = () => {
+    if (onClearErrors) onClearErrors();
+    onProvinceChange({ name: "", code: "" });
+    onCityChange({ name: "", code: "" });
+    onBarangayChange({ name: "", code: "" });
+  };
+
+  const handleCityClear = () => {
+    if (onClearErrors) onClearErrors();
+    onCityChange({ name: "", code: "" });
+    onBarangayChange({ name: "", code: "" });
+  };
+
+  const handleBarangayClear = () => {
+    if (onClearErrors) onClearErrors();
+    onBarangayChange({ name: "", code: "" });
+  };
+
   return (
     <div className="space-y-2.5 pt-1 border-t border-neutral-200 dark:border-neutral-800">
       {/* Header */}
@@ -184,6 +202,8 @@ export default function PhAddressCascadeSection({
           hasError={!isOptional && attempted && !province}
           required={!isOptional}
           onSelect={handleProvinceSelect}
+          onClear={handleProvinceClear}
+          activeLang={activeLang}
           icon={<Building2Icon className="w-3 h-3 text-amber-500/80" />}
         />
         {!isOptional && attempted && !province && (
@@ -222,6 +242,8 @@ export default function PhAddressCascadeSection({
             hasError={!isOptional && attempted && !city}
             required={!isOptional}
             onSelect={handleCitySelect}
+            onClear={handleCityClear}
+            activeLang={activeLang}
           />
           {!isOptional && attempted && !city && (
             <span className="text-[11px] text-red-500 font-medium mt-1 block">
@@ -257,6 +279,8 @@ export default function PhAddressCascadeSection({
             hasError={!isOptional && attempted && !barangay}
             required={!isOptional}
             onSelect={handleBarangaySelect}
+            onClear={handleBarangayClear}
+            activeLang={activeLang}
           />
           {!isOptional && attempted && !barangay && (
             <span className="text-[11px] text-red-500 font-medium mt-1 block">

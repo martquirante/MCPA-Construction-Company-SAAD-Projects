@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronDownIcon, SearchIcon, CheckIcon, RefreshCwIcon } from "lucide-react";
+import { ChevronDownIcon, SearchIcon, CheckIcon, RefreshCwIcon, XIcon } from "lucide-react";
 
 /**
  * Modern Searchable Combobox for Philippine Geographic Levels
@@ -18,6 +18,7 @@ export default function PhLocationCombobox({
   hasError = false,
   onSelect, // (item) => void
   onClear,
+  activeLang = "en",
   required = false,
   emptyMessage = "No locations found",
   searchPlaceholder = "Type to search...",
@@ -112,7 +113,29 @@ export default function PhLocationCombobox({
           )}
         </span>
 
-        <span className="shrink-0 flex items-center text-neutral-400">
+        <span className="shrink-0 flex items-center gap-1 text-neutral-400">
+          {value && onClear && !disabled && !isLoading && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClear();
+                setSearchQuery("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  onClear();
+                  setSearchQuery("");
+                }
+              }}
+              title={activeLang === "fil" ? "Alisin ang napili" : "Clear selection"}
+              className="p-1 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-400 hover:text-red-500 transition-colors cursor-pointer"
+            >
+              <XIcon className="w-3.5 h-3.5" />
+            </span>
+          )}
           {isLoading ? (
             <RefreshCwIcon className="w-3.5 h-3.5 animate-spin text-amber-500" />
           ) : (
@@ -151,6 +174,20 @@ export default function PhLocationCombobox({
 
           {/* List of Options */}
           <div className="max-h-56 overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700">
+            {value && onClear && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClear();
+                  setIsOpen(false);
+                  setSearchQuery("");
+                }}
+                className="w-full px-3 py-1.5 mb-1 rounded-lg text-left text-xs text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-1.5 transition-colors cursor-pointer font-medium border border-dashed border-red-300 dark:border-red-900/60"
+              >
+                <XIcon className="w-3.5 h-3.5 shrink-0" />
+                <span>{activeLang === "fil" ? "Alisin ang napili (Iwanang bakante)" : "Clear selection (Leave blank)"}</span>
+              </button>
+            )}
             {filteredItems.length === 0 ? (
               <div className="px-3 py-6 text-center text-xs text-neutral-400 dark:text-neutral-500">
                 {emptyMessage}

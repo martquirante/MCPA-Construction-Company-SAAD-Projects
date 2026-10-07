@@ -333,11 +333,9 @@ export default function PortalAuthCard({ onLoginSuccess }) {
 
   // Step 2: Personal, Employment & Contact Demographics
   const [occupation, setOccupation] = useState("");
-  const [employerName, setEmployerName] = useState("");
   const [civilStatus, setCivilStatus] = useState("Single");
   const [spouseName, setSpouseName] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [monthlyIncome, setMonthlyIncome] = useState("₱75,000 – ₱150,000 / month");
   const [preferredContactTime, setPreferredContactTime] = useState("Anytime (PH Daytime)");
   const [countryCode, setCountryCode] = useState("+63");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -434,10 +432,10 @@ export default function PortalAuthCard({ onLoginSuccess }) {
   const canvasRef = useRef(null);
 
   // Step 4: Lot & Project Profile & Privacy - Hierarchical (Province -> City -> Barangay)
-  const [projectType, setProjectType] = useState("2-Storey Modern Villa");
-  const [lotOwnershipStatus, setLotOwnershipStatus] = useState("Titled under my name");
-  const [buildProvince, setBuildProvince] = useState("Bulacan");
-  const [buildProvinceCode, setBuildProvinceCode] = useState("0301400000");
+  const [projectType, setProjectType] = useState("");
+  const [lotOwnershipStatus, setLotOwnershipStatus] = useState("");
+  const [buildProvince, setBuildProvince] = useState("");
+  const [buildProvinceCode, setBuildProvinceCode] = useState("");
   const [buildCity, setBuildCity] = useState("");
   const [buildCityCode, setBuildCityCode] = useState("");
   const [buildBarangay, setBuildBarangay] = useState("");
@@ -457,6 +455,8 @@ export default function PortalAuthCard({ onLoginSuccess }) {
     ].filter(Boolean);
     if (parts.length > 0) {
       setTargetLocation(parts.join(", "));
+    } else {
+      setTargetLocation("");
     }
   }, [buildBarangay, buildCity, buildProvince]);
 
@@ -1062,11 +1062,11 @@ export default function PortalAuthCard({ onLoginSuccess }) {
           lastName: lastName.trim(),
           suffix: suffix.trim(),
           occupation: occupation.trim(),
-          employerName: employerName.trim(),
+          employerName: "",
           civilStatus,
           spouseName: spouseName.trim(),
           birthDate: birthDate.trim(),
-          monthlyIncome,
+          monthlyIncome: "",
           preferredContactTime,
           emergencyContact: "",
           lotOwnershipStatus,
