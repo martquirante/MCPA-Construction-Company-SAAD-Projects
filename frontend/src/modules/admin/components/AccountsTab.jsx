@@ -31,10 +31,8 @@ import {
   LockIcon,
   CopyIcon,
   Maximize2Icon,
-  PrinterIcon,
   GoogleIcon,
   FacebookIcon,
-  GmailIcon,
 } from "@/modules/shared/Icons";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 
@@ -1163,9 +1161,6 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
 
   // Download official Microsoft Word (.doc) client dossier
   const handleDownloadWord = () => {
@@ -1779,16 +1774,6 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                 <span>{isGeneratingPdf ? "Generating PDF..." : "Download PDF"}</span>
               </button>
 
-              {/* Print official black & white Word-style client document */}
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="dossier-action-btn print-highlight print-only-hide"
-                title="Print official black & white Word-style client document"
-              >
-                <PrinterIcon className="w-3.5 h-3.5 text-amber-500" />
-                <span>Print Document</span>
-              </button>
 
 
               <button
@@ -2056,7 +2041,7 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                   {/* Primary Email */}
                   <div className="sidebar-meta-row">
                     <span className="sidebar-meta-label">Email Address:</span>
-                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5">
                       <a
                         href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(account.email || "")}`}
                         target="_blank"
@@ -2066,16 +2051,6 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                       >
                         <span>{account.email}</span>
                         <ExternalLinkIcon className="w-3 h-3 shrink-0 opacity-70 group-hover/gmail:opacity-100" />
-                      </a>
-                      <a
-                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(account.email || "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 transition-all flex items-center gap-1 cursor-pointer"
-                        title="Compose email directly in Gmail"
-                      >
-                        <GmailIcon className="w-3 h-3 shrink-0" />
-                        <span>Gmail</span>
                       </a>
                     </div>
                   </div>
@@ -2641,6 +2616,7 @@ function KpiCard({ label, value, sub, active, onClick, borderClass, valueClass }
 export default function AccountsTab({ clientBriefs = [] }) {
   const [accounts, setAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [viewMode, setViewMode] = useState("grid"); // "grid" | "table"
@@ -2648,14 +2624,22 @@ export default function AccountsTab({ clientBriefs = [] }) {
 
   const fetchAccounts = async () => {
     setIsLoading(true);
+    setFetchError(null);
     try {
       const res = await authFetch("/api/admin/accounts");
       const data = await res.json();
+      if (res.status === 401) {
+        setFetchError("Admin session expired or token missing. Please sign in again.");
+        return;
+      }
       if (res.ok && data.success && Array.isArray(data.accounts)) {
         setAccounts(data.accounts);
+      } else {
+        setFetchError(data.message || "Could not retrieve accounts from database.");
       }
     } catch (e) {
       console.warn("Could not load accounts from server:", e);
+      setFetchError("Unable to connect to the backend server. Please verify backend is running on port 5000.");
     } finally {
       setIsLoading(false);
     }
@@ -2744,6 +2728,33 @@ export default function AccountsTab({ clientBriefs = [] }) {
             </button>
           </div>
         </div>
+
+        {/* ── Authentication / Connection Notice ────────────────────────── */}
+        {fetchError && (
+          <div className="p-3.5 rounded-[6px] bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-500 text-neutral-950 px-2 py-0.5 rounded font-mono">
+                Session Notice
+              </span>
+              <span>{fetchError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem("mcpa_admin_authenticated");
+                sessionStorage.removeItem("mcpa_admin_authenticated");
+                localStorage.removeItem("mcpa_admin_token");
+                sessionStorage.removeItem("mcpa_admin_token");
+                localStorage.removeItem("mcpa_admin_user");
+                sessionStorage.removeItem("mcpa_admin_user");
+                window.location.reload();
+              }}
+              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold transition-all text-center cursor-pointer text-xs shrink-0"
+            >
+              Log In Again
+            </button>
+          </div>
+        )}
 
         {/* ── KPI Cards (clickable filters) ─────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

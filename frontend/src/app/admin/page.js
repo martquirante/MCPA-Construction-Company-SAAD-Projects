@@ -264,7 +264,17 @@ export default function AdminPage() {
             sessionStorage.getItem("mcpa_admin_user");
 
           if (savedAuth === "true") {
-            if (savedUser) {
+            const savedToken =
+              localStorage.getItem("mcpa_admin_token") ||
+              sessionStorage.getItem("mcpa_admin_token");
+
+            // If session was saved previously without a JWT token, require fresh sign in
+            if (!savedToken) {
+              localStorage.removeItem("mcpa_admin_authenticated");
+              sessionStorage.removeItem("mcpa_admin_authenticated");
+              setIsAuthenticated(false);
+              setCurrentUser(null);
+            } else if (savedUser) {
               try {
                 const parsed = JSON.parse(savedUser);
                 if ((parsed?.role || "").toLowerCase() === "client") {
@@ -283,7 +293,19 @@ export default function AdminPage() {
                   // Background refresh full profile from server
                   if (parsed.email) {
                     authFetch(`/api/admin/profile`)
-                      .then((r) => r.json())
+                      .then((r) => {
+                        if (r.status === 401) {
+                          // Token expired on server; clear stale session
+                          localStorage.removeItem("mcpa_admin_authenticated");
+                          sessionStorage.removeItem("mcpa_admin_authenticated");
+                          localStorage.removeItem("mcpa_admin_token");
+                          sessionStorage.removeItem("mcpa_admin_token");
+                          setIsAuthenticated(false);
+                          setCurrentUser(null);
+                          return null;
+                        }
+                        return r.json();
+                      })
                       .then((d) => {
                         if (d?.success && d?.user) {
                           const refreshed = {
