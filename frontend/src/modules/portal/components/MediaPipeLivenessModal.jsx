@@ -398,9 +398,28 @@ export default function MediaPipeLivenessModal({
   const blinkStateRef = useRef({ hasOpened: false, hasClosed: false });
   const frameCounterRef = useRef(0);
   const latestMeshRef = useRef(null);
+  const warningDebounceRef = useRef({ text: "", count: 0 });
 
-  // Responsive hold requirement: 6 consecutive frames (~180-200ms) with 0 active warnings
-  const REQUIRED_HOLD_FRAMES = 6;
+  // Responsive hold requirement: 3 consecutive frames (~90-100ms) with 0 active warnings
+  const REQUIRED_HOLD_FRAMES = 3;
+
+  // Debounced warning handler to eliminate erratic 30fps flickering
+  const setDebouncedWarning = useCallback((msg) => {
+    if (!msg) {
+      warningDebounceRef.current = { text: "", count: 0 };
+      setWarningMessage("");
+      return;
+    }
+    if (warningDebounceRef.current.text === msg) {
+      warningDebounceRef.current.count += 1;
+    } else {
+      warningDebounceRef.current = { text: msg, count: 1 };
+    }
+    // Only display warning if condition persists for >= 4 consecutive frames (~130ms)
+    if (warningDebounceRef.current.count >= 4) {
+      setWarningMessage(msg);
+    }
+  }, []);
 
   // Stop camera & cleanup
   const cleanupStream = useCallback(() => {
@@ -474,14 +493,14 @@ export default function MediaPipeLivenessModal({
       const avgLum = totalLum / count;
       const avgCenterLum = centerCount > 0 ? centerLum / centerCount : avgLum;
 
-      // Check for dark room OR face silhouette caused by backlighting
-      if (avgLum < 50 || avgCenterLum < 45) {
+      // Check for dark room OR face silhouette caused by backlighting (forgiving for evening ambient rooms)
+      if (avgLum < 24 || avgCenterLum < 20) {
         return {
           type: "dark",
-          text: "Face is too dark or backlit. Please face a light source and ensure your face is well-lit.",
+          text: "Face is too dark. Please face a light source or turn on a room light.",
         };
       }
-      if (avgLum > 220 || avgCenterLum > 225) {
+      if (avgLum > 235 || avgCenterLum > 240) {
         return {
           type: "bright",
           text: "Too bright or direct glare. Avoid harsh backlights.",
@@ -498,10 +517,10 @@ export default function MediaPipeLivenessModal({
       navigator.vibrate(50);
     }
     setCurrentStepIndex(nextStep);
-    setWarningMessage("");
+    setDebouncedWarning("");
     poseHoldCounterRef.current = 0;
     blinkStateRef.current = { hasOpened: false, hasClosed: false };
-  }, []);
+  }, [setDebouncedWarning]);
 
   // Call face recognition verification endpoint
   const verifyWithPythonBackend = useCallback(async (base64Image, meshData = null) => {
@@ -536,10 +555,10 @@ export default function MediaPipeLivenessModal({
     poseHoldCounterRef.current = 0;
     firstTurnDirRef.current = null;
     baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null };
-    setWarningMessage("");
+    setDebouncedWarning("");
     blinkStateRef.current = { hasOpened: false, hasClosed: false };
     setFeedbackMessage("Center face clearly with no hat, glasses, or mask");
-  }, []);
+  }, [setDebouncedWarning]);
 
   // Complete entire verification with STRICT Python zero-obstruction check & PFP matching
   const completeVerification = useCallback(async () => {
@@ -593,6 +612,7 @@ export default function MediaPipeLivenessModal({
   }, [captureFrame, onVerified, verifyWithPythonBackend, activeLang]);
 
   // Process MediaPipe landmarks frame-by-frame with ULTRA-STRICT validation
+  // Process MediaPipe landmarks frame-by-frame with smooth, human-friendly validation
   const onResults = useCallback((results) => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -602,15 +622,15 @@ export default function MediaPipeLivenessModal({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // -------------------------------------------------------------
-    // SCENARIO 1: LIGHTING & ENVIRONMENT (Run every 3 frames)
+    // SCENARIO 1: LIGHTING & ENVIRONMENT (Run every 6 frames)
     // -------------------------------------------------------------
     frameCounterRef.current += 1;
-    if (frameCounterRef.current % 3 === 0) {
+    if (frameCounterRef.current % 6 === 0) {
       const warn = checkEnvironment(video);
       if (warn) {
-        setWarningMessage(warn.text);
+        setDebouncedWarning(warn.text);
         poseHoldCounterRef.current = 0;
-        return; // STRICTLY HALT & BLOCK PROGRESSION IN BAD LIGHTING!
+        return;
       }
     }
 
@@ -620,7 +640,7 @@ export default function MediaPipeLivenessModal({
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       setFaceDetected(false);
       poseHoldCounterRef.current = 0;
-      setWarningMessage(
+      setDebouncedWarning(
         activeLang === "fil"
           ? "Walang mukhang nakikita. Tumingin nang diretso sa camera."
           : "No face detected. Look directly at camera."
@@ -634,7 +654,7 @@ export default function MediaPipeLivenessModal({
     if (results.multiFaceLandmarks.length > 1) {
       setFaceDetected(false);
       poseHoldCounterRef.current = 0;
-      setWarningMessage(
+      setDebouncedWarning(
         activeLang === "fil"
           ? "Maraming tao ang nakikita sa camera. Isang tao lamang ang kailangan."
           : "Multiple faces detected. Only one person allowed."
@@ -665,7 +685,7 @@ export default function MediaPipeLivenessModal({
 
     if (!nose || !chin || !forehead || !leftCheek || !rightCheek) {
       poseHoldCounterRef.current = 0;
-      setWarningMessage(
+      setDebouncedWarning(
         activeLang === "fil"
           ? "Hindi buo ang mukha. Iharap ang buong mukha sa camera."
           : "Facial landmarks incomplete. Face the camera directly."
@@ -702,10 +722,11 @@ export default function MediaPipeLivenessModal({
 
     // -------------------------------------------------------------
     // SCENARIO 4: FACE DISTANCE (TOO FAR OR TOO CLOSE)
+    // Forgiving thresholds: accommodates normal seated laptop distance (50-75cm)
     // -------------------------------------------------------------
-    if (faceHeight < 0.18 || cheekWidth < 0.14) {
+    if (faceHeight < 0.09 || cheekWidth < 0.07) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setWarningMessage(
+      setDebouncedWarning(
         activeLang === "fil"
           ? "Masyadong malayo ang mukha. Lumapit nang bahagya sa camera."
           : "Face too far. Move closer to the camera."
@@ -713,24 +734,25 @@ export default function MediaPipeLivenessModal({
       return;
     }
 
-    if (faceHeight > 0.85 || cheekWidth > 0.72) {
+    if (faceHeight > 0.94 || cheekWidth > 0.88) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setWarningMessage("Face too close. Move back slightly.");
+      setDebouncedWarning("Face too close. Move back slightly.");
       return;
     }
 
     // -------------------------------------------------------------
     // SCENARIO 5: CENTERING & BOUNDS
+    // Generous bounding margins to support natural seating & angled laptop cams
     // -------------------------------------------------------------
     const isCentered =
-      nose.x >= 0.22 &&
-      nose.x <= 0.78 &&
-      nose.y >= 0.18 &&
-      nose.y <= 0.82;
+      nose.x >= 0.10 &&
+      nose.x <= 0.90 &&
+      nose.y >= 0.08 &&
+      nose.y <= 0.92;
 
     if (!isCentered) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setWarningMessage("Keep face centered inside the circle.");
+      setDebouncedWarning("Keep face centered inside the circle.");
       return;
     }
 
@@ -739,9 +761,9 @@ export default function MediaPipeLivenessModal({
     // -------------------------------------------------------------
     if (prevNoseRef.current) {
       const moveDelta = Math.hypot(nose.x - prevNoseRef.current.x, nose.y - prevNoseRef.current.y);
-      if (moveDelta > 0.14) {
+      if (moveDelta > 0.24) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage("Moving too fast. Move slowly and steadily.");
+        setDebouncedWarning("Moving too fast. Move slowly and steadily.");
         prevNoseRef.current = { x: nose.x, y: nose.y };
         return;
       }
@@ -769,9 +791,9 @@ export default function MediaPipeLivenessModal({
     const avgEAR = (leftEAR + rightEAR) / 2;
 
     // SCENARIO 7: EYES CLOSED DURING DIRECTIONAL STEPS (0 to 4)
-    if (currentStepIndex < 5 && avgEAR < 0.11) {
+    if (currentStepIndex < 5 && avgEAR < 0.08) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setWarningMessage("Keep eyes open and look at the screen.");
+      setDebouncedWarning("Keep eyes open and look at the screen.");
       return;
     }
 
@@ -786,16 +808,17 @@ export default function MediaPipeLivenessModal({
 
     // STEP 0: CENTER FACE & CALIBRATE BASELINE
     if (currentStepIndex === 0) {
-      const isLevel = eyeRoll < 0.10;
-      const isFacingForward = Math.abs(yawRatio) < 0.20 && pitchRatio >= 0.30 && pitchRatio <= 0.80;
+      const isLevel = eyeRoll < 0.18;
+      // Accommodate tilted laptop webcams where user naturally looks slightly downward at screen
+      const isFacingForward = Math.abs(yawRatio) < 0.32 && pitchRatio >= 0.15 && pitchRatio <= 0.92;
 
       if (isLevel && isFacingForward) {
         poseHoldCounterRef.current += 1;
-        setWarningMessage(""); // Clear warning
+        setDebouncedWarning(""); // Clear warning
         setFeedbackMessage("Great! Hold steady...");
 
-        // Hold steady for 6 frames (~180-200ms) to lock in natural baseline
-        if (poseHoldCounterRef.current >= 6) {
+        // Hold steady for 3 frames (~90-100ms) to lock in natural baseline
+        if (poseHoldCounterRef.current >= 3) {
           baselineRef.current = {
             yaw: yawRatio,
             pitch: pitchRatio,
@@ -808,9 +831,9 @@ export default function MediaPipeLivenessModal({
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         if (!isLevel) {
-          setWarningMessage("Keep head level without tilting to shoulder.");
+          setDebouncedWarning("Keep head level without tilting to shoulder.");
         } else {
-          setWarningMessage("Look straight into center of the camera.");
+          setDebouncedWarning("Look straight into center of the camera.");
         }
       }
       return;
@@ -818,14 +841,13 @@ export default function MediaPipeLivenessModal({
 
     // STEP 1: TURN HEAD (FIRST DIRECTION: RIGHT)
     if (currentStepIndex === 1) {
-      // Any noticeable sideways rotation (>= 0.05) succeeds and registers orientation
-      const isTurned = Math.abs(yawDelta) >= 0.05;
+      const isTurned = Math.abs(yawDelta) >= 0.04;
 
       if (isTurned) {
         if (!firstTurnDirRef.current) {
           firstTurnDirRef.current = yawDelta > 0 ? 1 : -1;
         }
-        setWarningMessage("");
+        setDebouncedWarning("");
         setFeedbackMessage("Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
@@ -833,7 +855,7 @@ export default function MediaPipeLivenessModal({
         }
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage("");
+        setDebouncedWarning("");
         setFeedbackMessage("Slowly turn head to the right...");
       }
       return;
@@ -842,12 +864,11 @@ export default function MediaPipeLivenessModal({
     // STEP 2: TURN HEAD (OPPOSITE DIRECTION: LEFT)
     if (currentStepIndex === 2) {
       const firstDir = firstTurnDirRef.current || 1;
-      // Head must turn in opposite direction relative to first turn
-      const isOppositeTurn = (yawDelta * firstDir) <= -0.05;
-      const isWrongDir = (yawDelta * firstDir) > 0.06;
+      const isOppositeTurn = (yawDelta * firstDir) <= -0.04;
+      const isWrongDir = (yawDelta * firstDir) > 0.08;
 
       if (isOppositeTurn) {
-        setWarningMessage("");
+        setDebouncedWarning("");
         setFeedbackMessage("Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
@@ -855,10 +876,10 @@ export default function MediaPipeLivenessModal({
         }
       } else if (isWrongDir) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage("Wrong direction! Turn your head to the opposite side (Left).");
+        setDebouncedWarning("Wrong direction! Turn your head to the opposite side (Left).");
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage("");
+        setDebouncedWarning("");
         setFeedbackMessage("Slowly turn head to the left...");
       }
       return;
@@ -866,12 +887,11 @@ export default function MediaPipeLivenessModal({
 
     // STEP 3: TILT HEAD UPWARD
     if (currentStepIndex === 3) {
-      // Upward tilt: pitchDelta < -0.035 or nose moved up relative to baseline
-      const isTiltedUp = pitchDelta < -0.035 || (nose.y - baseNoseY) < -0.028;
-      const isWrongDown = pitchDelta > 0.065 || (nose.y - baseNoseY) > 0.05;
+      const isTiltedUp = pitchDelta < -0.025 || (nose.y - baseNoseY) < -0.020;
+      const isWrongDown = pitchDelta > 0.070 || (nose.y - baseNoseY) > 0.055;
 
       if (isTiltedUp) {
-        setWarningMessage("");
+        setDebouncedWarning("");
         setFeedbackMessage("Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
@@ -879,10 +899,10 @@ export default function MediaPipeLivenessModal({
         }
       } else if (isWrongDown) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage("Wrong direction! Tilt your head Upward.");
+        setDebouncedWarning("Wrong direction! Tilt your head Upward.");
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage("");
+        setDebouncedWarning("");
         setFeedbackMessage("Tilt your head slightly upward...");
       }
       return;
@@ -890,12 +910,11 @@ export default function MediaPipeLivenessModal({
 
     // STEP 4: TILT HEAD DOWNWARD
     if (currentStepIndex === 4) {
-      // Downward tilt: pitchDelta > 0.035 or nose moved down relative to baseline
-      const isTiltedDown = pitchDelta > 0.035 || (nose.y - baseNoseY) > 0.028;
-      const isWrongUp = pitchDelta < -0.065 || (nose.y - baseNoseY) < -0.05;
+      const isTiltedDown = pitchDelta > 0.025 || (nose.y - baseNoseY) > 0.020;
+      const isWrongUp = pitchDelta < -0.070 || (nose.y - baseNoseY) < -0.055;
 
       if (isTiltedDown) {
-        setWarningMessage("");
+        setDebouncedWarning("");
         setFeedbackMessage("Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
@@ -903,10 +922,10 @@ export default function MediaPipeLivenessModal({
         }
       } else if (isWrongUp) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage("Wrong direction! Tilt your head Downward.");
+        setDebouncedWarning("Wrong direction! Tilt your head Downward.");
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage("");
+        setDebouncedWarning("");
         setFeedbackMessage("Tilt your head slightly downward...");
       }
       return;
@@ -914,7 +933,7 @@ export default function MediaPipeLivenessModal({
 
     // STEP 5: BLINK EYES NATURALLY
     if (currentStepIndex === 5) {
-      setWarningMessage("");
+      setDebouncedWarning("");
       setFeedbackMessage("Blink your eyes naturally...");
       if (avgEAR > 0.16) {
         blinkStateRef.current.hasOpened = true;
@@ -927,7 +946,7 @@ export default function MediaPipeLivenessModal({
       }
       return;
     }
-  }, [currentStepIndex, advanceStep, checkEnvironment, completeVerification]);
+  }, [currentStepIndex, advanceStep, checkEnvironment, completeVerification, setDebouncedWarning]);
 
   // Initialize Camera & MediaPipe
   useEffect(() => {
@@ -936,7 +955,7 @@ export default function MediaPipeLivenessModal({
       setCurrentStepIndex(0);
       setIsCompleted(false);
       setCapturedDataUrl("");
-      setWarningMessage("");
+      setDebouncedWarning("");
       firstTurnDirRef.current = null;
       baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null };
       return;
