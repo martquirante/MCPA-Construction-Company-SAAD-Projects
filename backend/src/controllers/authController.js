@@ -643,10 +643,9 @@ class AuthController {
         kycTelemetry.brightness?.is_too_dark ||
         kycTelemetry.obstructions?.has_obstruction
       ) {
-        const errorFil = kycTelemetry?.issues?.[0]?.fil || kycTelemetry?.message || "Hindi pumasa ang biometric KYC verification. Siguraduhing maliwanag ang mukha at walang sagabal.";
-        const errorEn = kycTelemetry?.issues?.[0]?.en || "Biometric KYC selfie verification failed. Please ensure your face is well-lit and unobstructed.";
+        const errorEn = kycTelemetry?.issues?.[0]?.en || kycTelemetry?.message || "Biometric KYC selfie verification failed. Please ensure your face is well-lit and unobstructed.";
         return res.status(400).json({
-          message: `${errorFil} (${errorEn})`,
+          message: errorEn,
           kyc_error: true,
           details: kycTelemetry?.issues || [],
         });

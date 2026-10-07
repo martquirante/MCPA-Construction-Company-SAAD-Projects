@@ -101,9 +101,7 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
     raw.includes("undefined") ||
     raw.includes("insecure")
   ) {
-    return activeLang === "fil"
-      ? "Kailangan po ng ligtas na koneksyon (HTTPS) para magamit ang live camera para sa biometric KYC."
-      : "A secure connection (HTTPS) is required for the live biometric camera.";
+    return "A secure connection (HTTPS) is required for the live biometric camera.";
   }
 
   // 2. Camera Permission Blocked / Denied
@@ -114,9 +112,7 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
     raw.includes("denied") ||
     raw.includes("blocked")
   ) {
-    return activeLang === "fil"
-      ? "Naka-block ang camera access. Paki-allow po ang camera permission sa settings ng iyong browser o cellphone."
-      : "Camera access is blocked. Please allow camera permissions in your browser or phone settings.";
+    return "Camera access is blocked. Please allow camera permissions in your browser or device settings.";
   }
 
   // 3. Camera in use by another application
@@ -127,9 +123,7 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
     raw.includes("busy") ||
     raw.includes("not readable")
   ) {
-    return activeLang === "fil"
-      ? "Kasalukuyang ginagamit ng ibang app ang iyong camera. Pakisara po muna ang ibang camera apps at subukan muli."
-      : "Your camera is currently in use by another application. Please close other camera apps and retry.";
+    return "Your camera is currently in use by another application. Please close other camera apps and retry.";
   }
 
   // 4. No camera device found
@@ -139,9 +133,7 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
     raw.includes("not found") ||
     raw.includes("no camera")
   ) {
-    return activeLang === "fil"
-      ? "Walang nakitang camera sa iyong device. Ikonekta ang isang webcam upang makumpleto ang live KYC."
-      : "No camera detected on this device. Please connect a webcam or open this on a camera-enabled device.";
+    return "No camera detected on this device. Please connect a webcam or open this on a camera-enabled device.";
   }
 
   // 5. Internet / Script loading issue
@@ -151,14 +143,10 @@ export function getHumanFriendlyCameraMessage(err, activeLang = "en") {
     raw.includes("network") ||
     raw.includes("failed to load")
   ) {
-    return activeLang === "fil"
-      ? "Mabagal ang internet kaya hindi maihanda ang face recognition. Pakisubukang muli."
-      : "Network error loading biometric neural engine. Please check your connection and retry.";
+    return "Network error loading biometric neural engine. Please check your connection and retry.";
   }
 
-  return activeLang === "fil"
-    ? "Hindi mabuksan ang live camera sa ngayon. Paki-pindot ang 'Subukang Muli ang Camera' matapos ayusin ang permissions."
-    : "Unable to open live camera right now. Please check camera permissions and retry.";
+  return "Unable to open live camera right now. Please check camera permissions and retry.";
 }
 
 /**
@@ -195,54 +183,54 @@ function loadMediaPipeScript() {
 const CHALLENGES = [
   {
     id: "center",
-    fil: "Igitna ang mukha sa bilog",
+    fil: "Position face inside circle",
     en: "Position face inside circle",
-    subFil: "Manatiling nakatingin nang diretso sa gitna",
+    subFil: "Look straight into the center of the camera",
     subEn: "Look straight into the center of the camera",
     icon: Camera,
     arrowDirection: "none",
   },
   {
     id: "right",
-    fil: "Ilingon ang ulo Pakanan",
+    fil: "Turn your head to the Right",
     en: "Turn your head to the Right",
-    subFil: "Mabagal na ilingon ang ulo pakanan",
+    subFil: "Slowly rotate your head toward the right",
     subEn: "Slowly rotate your head toward the right",
     icon: ArrowRight,
     arrowDirection: "right",
   },
   {
     id: "left",
-    fil: "Ilingon ang ulo Pakaliwa",
+    fil: "Turn your head to the Left",
     en: "Turn your head to the Left",
-    subFil: "Mabagal na ilingon ang ulo pakaliwa",
+    subFil: "Slowly rotate your head toward the left",
     subEn: "Slowly rotate your head toward the left",
     icon: ArrowLeft,
     arrowDirection: "left",
   },
   {
     id: "up",
-    fil: "Itingala ang ulo Paitaas",
+    fil: "Tilt your head Upward",
     en: "Tilt your head Upward",
-    subFil: "Bahagyang itingala ang ulo paitaas",
+    subFil: "Tilt your head slightly upward",
     subEn: "Tilt your head slightly upward",
     icon: ArrowUp,
     arrowDirection: "up",
   },
   {
     id: "down",
-    fil: "Iyuko ang ulo Paibaba",
+    fil: "Tilt your head Downward",
     en: "Tilt your head Downward",
-    subFil: "Bahagyang iyuko ang ulo paibaba",
+    subFil: "Tilt your head slightly downward",
     subEn: "Tilt your head slightly downward",
     icon: ArrowDown,
     arrowDirection: "down",
   },
   {
     id: "blink",
-    fil: "Kumurap ng mga mata",
+    fil: "Blink your eyes naturally",
     en: "Blink your eyes naturally",
-    subFil: "Pumikit at buksan ang iyong mga mata",
+    subFil: "Close and open your eyes once",
     subEn: "Close and open your eyes once",
     icon: Eye,
     arrowDirection: "blink",
@@ -490,22 +478,18 @@ export default function MediaPipeLivenessModal({
       if (avgLum < 50 || avgCenterLum < 45) {
         return {
           type: "dark",
-          text: activeLang === "fil"
-            ? "Masyadong madilim ang iyong mukha. Lumipat sa maliwanag na lugar at iharap ang mukha sa ilaw."
-            : "Face is too dark or backlit. Please face a light source and ensure your face is well-lit.",
+          text: "Face is too dark or backlit. Please face a light source and ensure your face is well-lit.",
         };
       }
       if (avgLum > 220 || avgCenterLum > 225) {
         return {
           type: "bright",
-          text: activeLang === "fil"
-            ? "Masyadong maliwanag o may matinding silaw. Iwasan ang backlight."
-            : "Too bright / direct glare. Avoid harsh backlights.",
+          text: "Too bright or direct glare. Avoid harsh backlights.",
         };
       }
     } catch (e) {}
     return null;
-  }, [activeLang]);
+  }, []);
 
   // Advance challenge step (resets pose hold counter and warnings)
   const advanceStep = useCallback((nextStep) => {
@@ -554,22 +538,14 @@ export default function MediaPipeLivenessModal({
     baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null };
     setWarningMessage("");
     blinkStateRef.current = { hasOpened: false, hasClosed: false };
-    setFeedbackMessage(
-      activeLang === "fil"
-        ? "Igitna ang mukha nang walang sagabal (walang sumbrero/salamin/mask)"
-        : "Center face clearly with no hat, glasses, or mask"
-    );
-  }, [activeLang]);
+    setFeedbackMessage("Center face clearly with no hat, glasses, or mask");
+  }, []);
 
   // Complete entire verification with STRICT Python zero-obstruction check & PFP matching
   const completeVerification = useCallback(async () => {
     setObstructionAlert(null);
     setIsVerifyingWithPython(true);
-    setFeedbackMessage(
-      activeLang === "fil"
-        ? "Sinusuri ang biometric KYC at social profile..."
-        : "Analyzing face biometric & social profile..."
-    );
+    setFeedbackMessage("Analyzing face biometric & security diagnostics...");
 
     const snapshot = captureFrame();
     setCapturedDataUrl(snapshot);
@@ -592,11 +568,11 @@ export default function MediaPipeLivenessModal({
       const alertData = {
         code: obs?.code || "OBSTRUCTION_DETECTED",
         type: obs?.type || "obstruction",
-        fil: obs?.fil || "May nakitang sagabal sa mukha o hindi tumutugma sa social photo. Pakitanggal ang sumbrero, salamin, o mask.",
+        fil: obs?.en || obs?.fil || "Face obstruction or profile mismatch detected. Please remove any hat, glasses, or mask before proceeding.",
         en: obs?.en || "Face obstruction or profile mismatch detected. Please remove any hat, glasses, or mask before proceeding.",
       };
       setObstructionAlert(alertData);
-      setFeedbackMessage(activeLang === "fil" ? alertData.fil : alertData.en);
+      setFeedbackMessage(alertData.en);
       setIsVerifyingWithPython(false);
       return; // STRICTLY BLOCKS COMPLETION!
     }
@@ -739,11 +715,7 @@ export default function MediaPipeLivenessModal({
 
     if (faceHeight > 0.85 || cheekWidth > 0.72) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setWarningMessage(
-        activeLang === "fil"
-          ? "Masyadong malapit ang mukha. Umatras nang bahagya."
-          : "Face too close. Move back slightly."
-      );
+      setWarningMessage("Face too close. Move back slightly.");
       return;
     }
 
@@ -758,11 +730,7 @@ export default function MediaPipeLivenessModal({
 
     if (!isCentered) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setWarningMessage(
-        activeLang === "fil"
-          ? "Igitna ang mukha sa loob ng bilog."
-          : "Keep face centered inside the circle."
-      );
+      setWarningMessage("Keep face centered inside the circle.");
       return;
     }
 
@@ -773,11 +741,7 @@ export default function MediaPipeLivenessModal({
       const moveDelta = Math.hypot(nose.x - prevNoseRef.current.x, nose.y - prevNoseRef.current.y);
       if (moveDelta > 0.14) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage(
-          activeLang === "fil"
-            ? "Mabilis ang galaw. Dahan-dahan lamang."
-            : "Moving too fast. Move slowly and steadily."
-        );
+        setWarningMessage("Moving too fast. Move slowly and steadily.");
         prevNoseRef.current = { x: nose.x, y: nose.y };
         return;
       }
@@ -807,11 +771,7 @@ export default function MediaPipeLivenessModal({
     // SCENARIO 7: EYES CLOSED DURING DIRECTIONAL STEPS (0 to 4)
     if (currentStepIndex < 5 && avgEAR < 0.11) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setWarningMessage(
-        activeLang === "fil"
-          ? "Panatilihing bukas ang mga mata."
-          : "Keep eyes open and look at the screen."
-      );
+      setWarningMessage("Keep eyes open and look at the screen.");
       return;
     }
 
@@ -832,7 +792,7 @@ export default function MediaPipeLivenessModal({
       if (isLevel && isFacingForward) {
         poseHoldCounterRef.current += 1;
         setWarningMessage(""); // Clear warning
-        setFeedbackMessage(activeLang === "fil" ? "Perpekto! Manatiling steady..." : "Great! Hold steady...");
+        setFeedbackMessage("Great! Hold steady...");
 
         // Hold steady for 6 frames (~180-200ms) to lock in natural baseline
         if (poseHoldCounterRef.current >= 6) {
@@ -848,17 +808,9 @@ export default function MediaPipeLivenessModal({
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         if (!isLevel) {
-          setWarningMessage(
-            activeLang === "fil"
-              ? "Huwag itagilid ang ulo sa balikat. I-pantay ang mukha."
-              : "Keep head level without tilting to shoulder."
-          );
+          setWarningMessage("Keep head level without tilting to shoulder.");
         } else {
-          setWarningMessage(
-            activeLang === "fil"
-              ? "Tumingin nang diretso sa gitna ng camera."
-              : "Look straight into center of the camera."
-          );
+          setWarningMessage("Look straight into center of the camera.");
         }
       }
       return;
@@ -874,7 +826,7 @@ export default function MediaPipeLivenessModal({
           firstTurnDirRef.current = yawDelta > 0 ? 1 : -1;
         }
         setWarningMessage("");
-        setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
+        setFeedbackMessage("Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(2); // Proceed to Left (opposite direction)
@@ -882,7 +834,7 @@ export default function MediaPipeLivenessModal({
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         setWarningMessage("");
-        setFeedbackMessage(activeLang === "fil" ? "Mabagal na ilingon ang ulo pakanan..." : "Slowly turn head to the right...");
+        setFeedbackMessage("Slowly turn head to the right...");
       }
       return;
     }
@@ -896,22 +848,18 @@ export default function MediaPipeLivenessModal({
 
       if (isOppositeTurn) {
         setWarningMessage("");
-        setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
+        setFeedbackMessage("Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(3); // Proceed to Up
         }
       } else if (isWrongDir) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage(
-          activeLang === "fil"
-            ? "Maling direksyon! Ilingon ang ulo sa kabilang direksyon (Pakaliwa)."
-            : "Wrong direction! Turn your head to the opposite side (Left)."
-        );
+        setWarningMessage("Wrong direction! Turn your head to the opposite side (Left).");
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         setWarningMessage("");
-        setFeedbackMessage(activeLang === "fil" ? "Mabagal na ilingon ang ulo pakaliwa..." : "Slowly turn head to the left...");
+        setFeedbackMessage("Slowly turn head to the left...");
       }
       return;
     }
@@ -924,22 +872,18 @@ export default function MediaPipeLivenessModal({
 
       if (isTiltedUp) {
         setWarningMessage("");
-        setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
+        setFeedbackMessage("Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(4); // Proceed to Down
         }
       } else if (isWrongDown) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage(
-          activeLang === "fil"
-            ? "Maling direksyon! Itingala ang ulo Paitaas."
-            : "Wrong direction! Tilt your head Upward."
-        );
+        setWarningMessage("Wrong direction! Tilt your head Upward.");
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         setWarningMessage("");
-        setFeedbackMessage(activeLang === "fil" ? "Bahagyang itingala ang ulo paitaas..." : "Tilt your head slightly upward...");
+        setFeedbackMessage("Tilt your head slightly upward...");
       }
       return;
     }
@@ -952,22 +896,18 @@ export default function MediaPipeLivenessModal({
 
       if (isTiltedDown) {
         setWarningMessage("");
-        setFeedbackMessage(activeLang === "fil" ? "Maganda! Hawakan nang sandali..." : "Good! Hold for a moment...");
+        setFeedbackMessage("Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(5); // Proceed to Blink
         }
       } else if (isWrongUp) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setWarningMessage(
-          activeLang === "fil"
-            ? "Maling direksyon! Iyuko ang ulo Paibaba."
-            : "Wrong direction! Tilt your head Downward."
-        );
+        setWarningMessage("Wrong direction! Tilt your head Downward.");
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         setWarningMessage("");
-        setFeedbackMessage(activeLang === "fil" ? "Bahagyang iyuko ang ulo paibaba..." : "Tilt your head slightly downward...");
+        setFeedbackMessage("Tilt your head slightly downward...");
       }
       return;
     }
@@ -975,7 +915,7 @@ export default function MediaPipeLivenessModal({
     // STEP 5: BLINK EYES NATURALLY
     if (currentStepIndex === 5) {
       setWarningMessage("");
-      setFeedbackMessage(activeLang === "fil" ? "Kumurap ng iyong mga mata..." : "Blink your eyes naturally...");
+      setFeedbackMessage("Blink your eyes naturally...");
       if (avgEAR > 0.16) {
         blinkStateRef.current.hasOpened = true;
       }
@@ -987,7 +927,7 @@ export default function MediaPipeLivenessModal({
       }
       return;
     }
-  }, [currentStepIndex, activeLang, advanceStep, checkEnvironment, completeVerification]);
+  }, [currentStepIndex, advanceStep, checkEnvironment, completeVerification]);
 
   // Initialize Camera & MediaPipe
   useEffect(() => {
@@ -1134,15 +1074,11 @@ export default function MediaPipeLivenessModal({
             </div>
             <div>
               <h4 className="text-xs sm:text-sm font-bold tracking-tight text-neutral-900 dark:text-white">
-                {activeLang === "fil" ? "Biometric Face Verification" : "Biometric Face Verification"}
+                Biometric Face Verification
               </h4>
               <p className="text-[10px] text-neutral-500 dark:text-neutral-400">
                 {purpose === "login"
-                  ? activeLang === "fil"
-                    ? "Biometric 1-Click Login"
-                    : "Biometric Face Login"
-                  : activeLang === "fil"
-                  ? "Architectural Client Identity Verification"
+                  ? "Biometric Face Login"
                   : "Architectural Client Identity Verification"}
               </p>
             </div>
@@ -1217,10 +1153,10 @@ export default function MediaPipeLivenessModal({
                   <Ban className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-rose-400">
-                  {activeLang === "fil" ? "Bawal ang may Sagabal" : "Obstruction Detected"}
+                  Obstruction Detected
                 </span>
                 <p className="text-[11px] text-neutral-200 font-medium leading-tight my-1.5 px-3">
-                  {activeLang === "fil" ? obstructionAlert.fil : obstructionAlert.en}
+                  {obstructionAlert.en || obstructionAlert.fil}
                 </p>
                 <button
                   type="button"
@@ -1228,7 +1164,7 @@ export default function MediaPipeLivenessModal({
                   className="mt-1 px-3 py-1 rounded-full bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[11px] font-bold shadow-md flex items-center gap-1 cursor-pointer transition-all active:scale-95"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  <span>{activeLang === "fil" ? "Subukan Muli (Nakatanggal)" : "Retry (Removed)"}</span>
+                  <span>Retry (Obstruction Removed)</span>
                 </button>
               </div>
             )}
@@ -1238,7 +1174,7 @@ export default function MediaPipeLivenessModal({
               <div className="absolute inset-0 bg-neutral-950/85 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center z-20">
                 <RefreshCw className="w-8 h-8 text-amber-400 animate-spin mb-2" />
                 <p className="text-xs font-semibold text-neutral-200">
-                  {activeLang === "fil" ? "Inihahanda ang AI Vision..." : "Initializing Vision Engine..."}
+                  Initializing Vision Engine...
                 </p>
                 <p className="text-[10px] text-neutral-400 mt-1 font-mono">Neural Face Landmark Tracking</p>
               </div>
@@ -1258,7 +1194,7 @@ export default function MediaPipeLivenessModal({
                   className="mt-2.5 px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[11px] shadow-md flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>{activeLang === "fil" ? "Subukang Muli ang Camera" : "Retry Camera Access"}</span>
+                  <span>Retry Camera Access</span>
                 </button>
               </div>
             )}
@@ -1270,10 +1206,10 @@ export default function MediaPipeLivenessModal({
                   <CheckCircle2 className="w-8 h-8 stroke-[2.5]" />
                 </div>
                 <h5 className="text-xs sm:text-sm font-bold text-emerald-200">
-                  {activeLang === "fil" ? "Matagumpay na Na-verify!" : "Liveness Verified!"}
+                  Liveness Verified!
                 </h5>
                 <p className="text-[10px] text-emerald-300/80 mt-0.5 font-mono">
-                  {activeLang === "fil" ? "Nakuha ang litrato" : "Biometric frame captured"}
+                  Biometric frame captured
                 </p>
               </div>
             )}
@@ -1289,9 +1225,7 @@ export default function MediaPipeLivenessModal({
             </div>
           ) : (
             <div className="text-[11px] text-neutral-400 dark:text-neutral-500 font-medium">
-              {activeLang === "fil"
-                ? "Sundin ang direksyon ng 3D arrow nang banayad"
-                : "Follow the 3D directional arrow smoothly"}
+              Follow the 3D directional arrow smoothly
             </div>
           )}
         </div>
@@ -1302,19 +1236,17 @@ export default function MediaPipeLivenessModal({
           <div className="flex items-center justify-center gap-1.5 text-amber-600 dark:text-amber-400 text-xs font-semibold mb-1">
             <ChallengeIcon className="w-3.5 h-3.5 text-amber-500" />
             <span>
-              {activeLang === "fil"
-                ? `Hakbang ${Math.min(currentStepIndex + 1, CHALLENGES.length)} sa ${CHALLENGES.length}`
-                : `Step ${Math.min(currentStepIndex + 1, CHALLENGES.length)} of ${CHALLENGES.length}`}
+              {`Step ${Math.min(currentStepIndex + 1, CHALLENGES.length)} of ${CHALLENGES.length}`}
             </span>
             <span className="text-neutral-400 dark:text-neutral-600">•</span>
             <span className="font-mono font-bold">{progressPercent}%</span>
           </div>
 
           <h3 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white tracking-tight">
-            {activeLang === "fil" ? currentChallenge.fil : currentChallenge.en}
+            {currentChallenge.en || currentChallenge.fil}
           </h3>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            {feedbackMessage || (activeLang === "fil" ? currentChallenge.subFil : currentChallenge.subEn)}
+            {feedbackMessage || currentChallenge.subEn || currentChallenge.subFil}
           </p>
 
         </div>

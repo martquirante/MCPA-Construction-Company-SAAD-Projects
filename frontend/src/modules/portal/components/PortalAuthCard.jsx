@@ -2410,12 +2410,10 @@ export default function PortalAuthCard({ onLoginSuccess }) {
             <div className="space-y-3 animate-in fade-in duration-200">
               <div className="text-center px-1">
                 <h3 className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white">
-                  {activeLang === "fil" ? "Pagpapatunay ng Pagkakakilanlan (Biometric KYC)" : "Biometric Identity Verification"}
+                  Biometric Identity Verification
                 </h3>
                 <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  {activeLang === "fil"
-                    ? "Seguridad para sa mga architectural consultations, permits, at project monitoring."
-                    : "Verified biometric security for architectural consultations, permits, and project tracking."}
+                  Verified biometric security for architectural consultations, permits, and project tracking.
                 </p>
               </div>
 
@@ -2437,9 +2435,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                             <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">Linked Photo</span>
                           </div>
                           <p className="text-[11px] text-neutral-700 dark:text-neutral-300 font-medium leading-tight mt-0.5">
-                            {activeLang === "fil"
-                              ? "Kailangan pa rin ng live biometric verification upang itugma sa profile photo."
-                              : "Live biometric verification is required and will be matched with your profile photo."}
+                            Live biometric verification is required and will be matched with your profile photo.
                           </p>
                         </div>
                       </div>
@@ -2450,13 +2446,13 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       {/* Light Mode Variant */}
                       <img
                         src="/assets/kyc-face-guide.jpg"
-                        alt={activeLang === "fil" ? "Gabay sa Pagsusuri ng Mukha: DO vs DON'T" : "Face Verification Guide: DO vs DON'T"}
+                        alt="Face Verification Guide: DO vs DON'T"
                         className="w-full h-24 sm:h-28 object-contain mx-auto block dark:hidden"
                       />
                       {/* Dark Mode Variant (sumasabay sa dark theme) */}
                       <img
                         src="/assets/kyc-face-guide-dark.jpg"
-                        alt={activeLang === "fil" ? "Gabay sa Pagsusuri ng Mukha: DO vs DON'T" : "Face Verification Guide: DO vs DON'T"}
+                        alt="Face Verification Guide: DO vs DON'T"
                         className="w-full h-24 sm:h-28 object-contain mx-auto hidden dark:block"
                       />
                     </div>
@@ -2467,19 +2463,19 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                       <div className="grid grid-cols-2 gap-2 text-[11px] leading-tight">
                         <div className="flex items-center gap-1.5 text-neutral-700 dark:text-neutral-300">
                           <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px]">✓</span>
-                          <span className="truncate font-medium">{activeLang === "fil" ? "Maliwanag na Ilaw" : "Good Lighting"}</span>
+                          <span className="truncate font-medium">Good Lighting</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-neutral-700 dark:text-neutral-300">
                           <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px]">✓</span>
-                          <span className="truncate font-medium">{activeLang === "fil" ? "Walang Harang sa Mukha" : "No Hats or Masks"}</span>
+                          <span className="truncate font-medium">No Hats or Masks</span>
                         </div>
                       </div>
 
                       {/* 6-step movement overview */}
                       <div className="pt-1.5 border-t border-neutral-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
-                        <span className="shrink-0 font-semibold uppercase">{activeLang === "fil" ? "6 Hakbang:" : "6 Steps:"}</span>
+                        <span className="shrink-0 font-semibold uppercase">6 Steps:</span>
                         <span className="truncate font-sans font-medium text-neutral-600 dark:text-neutral-300">
-                          {activeLang === "fil" ? "Gitna → Kanan → Kaliwa → Tingala → Yuko → Kurap" : "Center → Right → Left → Tilt Up → Down → Blink"}
+                          Center → Right → Left → Tilt Up → Down → Blink
                         </span>
                       </div>
                     </div>
@@ -2495,11 +2491,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         className="w-full h-10.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-neutral-950 font-bold text-xs sm:text-sm shadow-md shadow-amber-500/15 flex items-center justify-center gap-2 cursor-pointer transition-all"
                       >
                         <CameraIcon className="w-4 h-4" />
-                        <span>
-                          {activeLang === "fil"
-                            ? "Simulan ang Biometric Verification"
-                            : "Start Biometric Face Verification"}
-                        </span>
+                        <span>Start Biometric Face Verification</span>
                       </button>
                     </div>
                   </div>
@@ -2524,14 +2516,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         <AlertTriangleIcon className="w-3.5 h-3.5" />
                         <span>
                           {faceErrorType === "obstruction"
-                            ? (activeLang === "fil" ? "May Sagabal sa Mukha (Di Pa Na-verify)" : "Face Obstructed (Not Verified)")
-                            : (activeLang === "fil" ? "Kailangang Ayusin ang Litrato" : "Photo Needs Adjustment")}
+                            ? "Face Obstructed (Not Verified)"
+                            : "Photo Needs Adjustment"}
                         </span>
                       </div>
                     ) : (
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold mb-1.5">
                         <CheckIcon className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>{t.identityPhotoVerified}</span>
+                        <span>Identity Photo Verified</span>
                       </div>
                     )}
 
@@ -2542,18 +2534,14 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         <div>
                           <p className="font-bold">
                             {faceErrorType === "obstruction"
-                              ? (activeLang === "fil" ? "May Sagabal sa Mukha:" : "Facial Obstruction:")
-                              : (activeLang === "fil" ? "Paalala sa Kalidad ng Litrato:" : "Photo Quality Notice:")}
+                              ? "Facial Obstruction:"
+                              : "Photo Quality Notice:"}
                           </p>
                           <p className="text-[11.5px] mt-0.5">{faceObstructionError}</p>
                           <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-1 font-mono">
                             {faceErrorType === "obstruction"
-                              ? (activeLang === "fil"
-                                  ? "Hindi maaaring magpatuloy sa registration hangga't may sumbrero, salamin sa mata, o mask."
-                                  : "Registration is blocked until hats, sunglasses, or masks are removed.")
-                              : (activeLang === "fil"
-                                  ? "Siguraduhing maliwanag ang paligid, steady ang camera, at nakaharap nang maayos sa camera."
-                                  : "Please ensure lighting is clear, camera is steady, and you are facing forward.")}
+                              ? "Registration is blocked until hats, sunglasses, or masks are removed."
+                              : "Please ensure lighting is clear, camera is steady, and you are facing forward."}
                           </p>
                         </div>
                       </div>
@@ -2563,7 +2551,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                     {isFaceChecking ? (
                       <p className="text-[11px] text-amber-600 dark:text-amber-400 font-mono flex items-center gap-1 mb-2">
                         <RefreshCwIcon className="w-3 h-3 animate-spin" />
-                        <span>{activeLang === "fil" ? "Sinusuri sa Neural Face Model..." : "Verifying with Neural Vision..."}</span>
+                        <span>Verifying with Neural Vision...</span>
                       </p>
                     ) : faceCheckFeedback && !faceObstructionError ? (
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono mb-2">
@@ -2586,7 +2574,7 @@ export default function PortalAuthCard({ onLoginSuccess }) {
                         className="h-8.5 px-3.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-medium text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer flex items-center gap-1.5"
                       >
                         <RefreshCwIcon className="w-3 h-3" />
-                        <span>{t.retakePhotoButton}</span>
+                        <span>Retake Photo</span>
                       </button>
                     </div>
                   </div>
@@ -3345,18 +3333,12 @@ export default function PortalAuthCard({ onLoginSuccess }) {
           const matchNotice =
             pyResult?.reference_match && socialConnected?.avatarUrl
               ? pyResult.reference_match.matched
-                ? activeLang === "fil"
-                  ? " • Tugma sa iyong social profile photo!"
-                  : " • Matched with your linked profile photo!"
-                : activeLang === "fil"
-                  ? " • Naitala ang iyong live selfie bilang opisyal na KYC."
-                  : " • Live selfie verified and recorded for KYC."
+                ? " • Matched with your linked profile photo!"
+                : " • Live selfie verified and recorded for KYC."
               : "";
 
           setFaceCheckFeedback(
-            (activeLang === "fil"
-              ? "Na-verify ng Neural Vision: Maayos ang talas, liwanag, at walang sagabal sa mukha."
-              : "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified.") +
+            "Neural Vision: Clear face focus, optimal lighting, and zero obstructions verified." +
               matchNotice
           );
         }}
