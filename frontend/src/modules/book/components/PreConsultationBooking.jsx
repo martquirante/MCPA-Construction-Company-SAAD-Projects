@@ -17,17 +17,21 @@ import {
   VideoIcon,
   GlobeIcon,
 } from "../../shared/Icons";
+import { useLanguage } from "../../shared/LanguageContext";
 
-export default function PreConsultationBooking({ selectedStyle }) {
+export default function PreConsultationBooking({ selectedStyle, currentUser }) {
+  const { t, language } = useLanguage();
+  const isFil = language === "fil";
+
   const [step, setStep] = useState(1);
   const [projectType, setProjectType] = useState("Residential Design & Build");
   const [lotStatus, setLotStatus] = useState("Titled & Ready (TCT)");
   const [lotArea, setLotArea] = useState("");
   const [targetDate, setTargetDate] = useState("");
-  const [location, setLocation] = useState("");
+  const [location, setLocation] = useState(() => currentUser?.locationAddress || currentUser?.city || "");
   const [locationError, setLocationError] = useState("");
   const [mapCoordinates, setMapCoordinates] = useState("14.8871, 120.8572 (Plaridel)");
-  const [locationType, setLocationType] = useState("Local"); // "Local" | "OFW"
+  const [locationType, setLocationType] = useState(() => (currentUser?.clientType === "OFW" ? "OFW" : "Local")); // "Local" | "OFW"
   const [meetingMode, setMeetingMode] = useState("Online Meeting (Google Meet)"); // "Online Meeting (Google Meet)" | "In-Person Office Visit"
   const [meetingDate, setMeetingDate] = useState("");
   const [meetingTime, setMeetingTime] = useState("09:00 AM - 10:30 AM PHT");
@@ -55,9 +59,9 @@ export default function PreConsultationBooking({ selectedStyle }) {
     }
     return "";
   });
-  const [clientName, setClientName] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
+  const [clientName, setClientName] = useState(() => currentUser?.fullName || "");
+  const [clientEmail, setClientEmail] = useState(() => currentUser?.email || "");
+  const [clientPhone, setClientPhone] = useState(() => currentUser?.phoneNumber || currentUser?.phone || "");
   const [financingOption, setFinancingOption] = useState("Build Now, Pay Later Program");
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -65,6 +69,23 @@ export default function PreConsultationBooking({ selectedStyle }) {
 
   const fileInputRef = useRef(null);
   const prevSelectedStyleRef = useRef(selectedStyle);
+
+  // Sync if currentUser updates asynchronously
+  useEffect(() => {
+    if (currentUser) {
+      if (!clientName && currentUser.fullName) setClientName(currentUser.fullName);
+      if (!clientEmail && currentUser.email) setClientEmail(currentUser.email);
+      if (!clientPhone && (currentUser.phoneNumber || currentUser.phone)) {
+        setClientPhone(currentUser.phoneNumber || currentUser.phone);
+      }
+      if (!location && (currentUser.locationAddress || currentUser.city)) {
+        setLocation(currentUser.locationAddress || currentUser.city);
+      }
+      if (currentUser.clientType === "OFW") {
+        setLocationType("OFW");
+      }
+    }
+  }, [currentUser]);
 
   // Sync if selectedStyle prop changes externally after initial mount
   useEffect(() => {
@@ -146,6 +167,7 @@ export default function PreConsultationBooking({ selectedStyle }) {
       financingOption,
       uploadedFiles,
       status: "Pending Review",
+      userId: currentUser?.userId || currentUser?.id || null,
     };
 
     try {
@@ -172,9 +194,10 @@ export default function PreConsultationBooking({ selectedStyle }) {
   const handleReset = () => {
     setIsSubmitted(false);
     setStep(1);
-    setClientName("");
-    setClientEmail("");
-    setClientPhone("");
+    setClientName(currentUser?.fullName || "");
+    setClientEmail(currentUser?.email || "");
+    setClientPhone(currentUser?.phoneNumber || currentUser?.phone || "");
+    setLocation(currentUser?.locationAddress || currentUser?.city || "");
     setLotArea("");
     setMeetingDate("");
     setUploadedFiles([]);
@@ -185,22 +208,39 @@ export default function PreConsultationBooking({ selectedStyle }) {
       <div className="relative rounded-[8px] overflow-hidden bg-white dark:bg-[#0f1117] text-neutral-900 dark:text-white border border-neutral-200 dark:border-white/[0.08] shadow-sm p-6 sm:p-10 lg:p-14 transition-colors">
         {/* Section Header */}
         <div className="relative z-10 max-w-3xl mb-12">
+          {currentUser && (
+            <div className="mb-4 inline-flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-[6px] bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-mono">
+              <ShieldCheckIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <span className="font-bold">
+                {isFil ? "NAKA-LOG IN:" : "AUTHENTICATED CLIENT:"}
+              </span>
+              <span className="font-semibold">{currentUser.fullName || "Valued Client"} ({currentUser.email})</span>
+              <span className="text-neutral-400 dark:text-neutral-500">•</span>
+              <span className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                {isFil ? "Awtomatikong ikakabit sa iyong Client Portal" : "Auto-attached to your Client Portal"}
+              </span>
+            </div>
+          )}
+
           <div className="inline-flex items-center text-[10px] sm:text-xs font-mono font-bold tracking-[0.2em] uppercase text-amber-600 dark:text-amber-400 mb-4 select-none">
-            <span>Pre-Consultation Booking · Full-Service Design & Build</span>
+            <span>{t("Pre-Consultation Booking · Full-Service Design & Build")}</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight leading-tight text-neutral-900 dark:text-white">
-            Dynamic Client Profiling
+            {t("Dynamic Client Profiling")}
           </h2>
 
           <p className="mt-4 text-neutral-600 dark:text-neutral-300 text-base md:text-lg leading-relaxed font-light">
-            Skip intimidating and uninformative contact forms. Provide your project parameters below, and our engineering team compiles an actionable Client Profile Brief prior to our first meeting. Serving Bulacan, Metro Manila, Pampanga, and Central Luzon.
+            {t("Skip intimidating and uninformative contact forms. Provide your project parameters below, and our engineering team compiles an actionable Client Profile Brief prior to our first meeting. Serving Bulacan, Metro Manila, Pampanga, and Central Luzon.")}
           </p>
 
           {preferredStyle && (
             <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-[4px] bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs font-mono">
               <CheckIcon className="w-3.5 h-3.5 text-amber-500" />
-              <span>Inquiring for Architectural Style: <strong>{preferredStyle}</strong></span>
+              <span>
+                {isFil ? "Nagtatanong para sa Estilong Pang-arkitektura:" : "Inquiring for Architectural Style:"}{" "}
+                <strong>{preferredStyle}</strong>
+              </span>
             </div>
           )}
         </div>
@@ -812,19 +852,19 @@ export default function PreConsultationBooking({ selectedStyle }) {
                   onClick={handleReset}
                   className="px-6 py-3 rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-mono uppercase tracking-wider transition-colors cursor-pointer"
                 >
-                  Submit Another Inquiry
+                  {isFil ? "Magpasa ng Isa Pang Inquiry" : "Submit Another Inquiry"}
                 </button>
                 <Link
                   href="/projects"
-                  className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs font-mono uppercase tracking-wider transition-colors inline-block text-center cursor-pointer shadow-md shadow-amber-500/20"
+                  className="px-6 py-3 rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white font-mono text-xs uppercase tracking-wider hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors inline-block text-center cursor-pointer"
                 >
-                  Return to Portfolio
+                  {isFil ? "Tingnan ang Portfolio" : "Return to Portfolio"}
                 </Link>
                 <Link
-                  href="/portal"
-                  className="px-6 py-3 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:border-amber-500 text-neutral-900 dark:text-white font-mono text-xs uppercase tracking-wider hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-amber-600 dark:hover:text-amber-400 transition-colors inline-block text-center cursor-pointer"
+                  href="/portal?tab=inquiries"
+                  className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs font-mono uppercase tracking-wider transition-colors inline-block text-center cursor-pointer shadow-md shadow-amber-500/20"
                 >
-                  View Client Portal Demo &rarr;
+                  {isFil ? "Tingnan ang Inquiry sa Client Portal →" : "View Inquiry in Client Portal →"}
                 </Link>
               </div>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ScrollMorph from "./ScrollMorph";
@@ -19,11 +19,7 @@ import {
 
 export default function Footer() {
   const { language } = useLanguage();
-  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
-
-  useEffect(() => {
-    setCurrentYear(new Date().getFullYear());
-  }, []);
+  const currentYear = new Date().getFullYear();
 
   const [emailInput, setEmailInput] = useState("");
   const [subscribed, setSubscribed] = useState(false);
@@ -95,7 +91,10 @@ export default function Footer() {
                 </div>
               </Link>
 
-              <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-sm mb-6 font-light">
+              <p
+                suppressHydrationWarning
+                className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-sm mb-6 font-light"
+              >
                 Looking to turn your ideas into reality? MCPA Construction and Supply is a full-service design and build contractor based in Plaridel, Bulacan. We specialize in custom residential homes, modern commercial facilities, warehouse structures, signed and sealed engineering plans, and in-house construction supplies across Bulacan, Metro Manila, and Central Luzon.
               </p>
             </div>

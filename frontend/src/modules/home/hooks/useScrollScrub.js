@@ -47,6 +47,7 @@ export function useScrollScrub(containerRef) {
   const isProgrammaticScrollRef = useRef(false);
   const isLowEndRef = useRef(false);
   const lastDisplayedPctRef = useRef(0);
+  const lastGestureTimeRef = useRef(0);
 
   // Keep activePartIndexRef in sync with state
   useEffect(() => {
@@ -332,13 +333,14 @@ export function useScrollScrub(containerRef) {
         ? activeVideo.duration
         : 3.32;
       const targetTime = Math.max(0.01, duration - 0.02);
-      // Play at crisp cinematic 1.25x speed (~2.5s per part, ~7.5s full build sequence)
-      const playbackSpeed = 1.25;
+      // Play at crisp, snappy 3.25x speed (~0.75-0.8s per part, ~2.3-2.5s total 3-part sequence)
+      // Goal: 1-3 seconds total build sequence as requested by user & Edgar
+      const playbackSpeed = 3.25;
       activeVideo.playbackRate = playbackSpeed;
 
       const handleBufferStall = () => {
         if (!stallTimerRef.current) {
-          stallTimerRef.current = setTimeout(finishAnimation, 3500);
+          stallTimerRef.current = setTimeout(finishAnimation, 2000);
         }
       };
       const handlePlaying = () => {
@@ -366,7 +368,6 @@ export function useScrollScrub(containerRef) {
           activeVideo.removeEventListener("stalled", handleBufferStall);
           activeVideo.removeEventListener("playing", handlePlaying);
           activeVideo.removeEventListener("error", handleBufferStall);
-          activeVideo.pause();
           try {
             activeVideo.currentTime = targetTime;
           } catch (e) {}
@@ -376,6 +377,7 @@ export function useScrollScrub(containerRef) {
         setProgress(endProg);
 
         if (clampedStep === 3) {
+          if (activeVideo) activeVideo.pause();
           setIsCompleted(true);
           setHasCompletedBuild(true);
           hasCompletedRef.current = true;
@@ -392,22 +394,30 @@ export function useScrollScrub(containerRef) {
             if (v2) { v2.pause(); v2.removeAttribute("src"); v2.load(); }
           }, 1500);
 
-          // Lock scroll for 600ms after build completion to absorb residual momentum
+          // Lock scroll for 500ms after build completion to absorb residual momentum
           cooldownRef.current = true;
           setTimeout(() => {
             cooldownRef.current = false;
-          }, 600);
+          }, 500);
 
           isAnimatingRef.current = false;
+        } else if (targetStepRef.current > clampedStep) {
+          // CONTINUOUS PROGRESSION ("tuloy-tuloy, di humihinto-hinto"):
+          // User has already scrolled towards the next step!
+          // Seamlessly flow directly into the next part without stopping or pausing.
+          const nextStepNum = clampedStep + 1;
+          setActivePartIndex(clampedStep);
+          isAnimatingRef.current = false;
+          advanceStep(nextStepNum);
         } else {
-          // Finished this chunk! Rest cleanly at this milestone and wait for the user's next scroll.
-          // Pre-switch activePartIndex to next part so its initial frame is seamlessly ready with 0ms buffering.
+          // Single scroll: pause and rest cleanly at this milestone
+          if (activeVideo) activeVideo.pause();
           setActivePartIndex(clampedStep);
           isAnimatingRef.current = false;
           cooldownRef.current = true;
           setTimeout(() => {
             cooldownRef.current = false;
-          }, 350);
+          }, 200);
         }
       };
 
@@ -418,23 +428,25 @@ export function useScrollScrub(containerRef) {
 
       const playPromise = activeVideo.play();
       const travelDistance = Math.max(0.1, targetTime - (activeVideo.currentTime || 0));
-      const watchdogMs = Math.ceil((travelDistance / playbackSpeed) * 1000) + 1500;
+      const watchdogMs = Math.ceil((travelDistance / playbackSpeed) * 1000) + 1200;
       watchdogRef.current = setTimeout(finishAnimation, watchdogMs);
 
-      // Preload next part video and reset time to 0.01s so it begins instantly
+      // Preload next part video and reset time to 0.01s so it begins instantly with 0ms buffering
       if (clampedStep === 1 && video2Ref.current) {
         try {
           video2Ref.current.currentTime = 0.01;
+          video2Ref.current.playbackRate = playbackSpeed;
           video2Ref.current.load();
         } catch (_) {}
       } else if (clampedStep === 2 && video3Ref.current) {
         try {
           video3Ref.current.currentTime = 0.01;
+          video3Ref.current.playbackRate = playbackSpeed;
           video3Ref.current.load();
         } catch (_) {}
       }
 
-      const monitorStateUpdateInterval = isLowEndRef.current ? 100 : 60;
+      const monitorStateUpdateInterval = isLowEndRef.current ? 100 : 50;
       let lastStateUpdateTime = 0;
 
       const monitorForward = () => {
@@ -454,7 +466,7 @@ export function useScrollScrub(containerRef) {
           }
         }
 
-        if (nowTime >= targetTime - 0.02 || activeVideo.ended) {
+        if (nowTime >= targetTime - 0.03 || activeVideo.ended) {
           finishAnimation();
         } else {
           if (activeVideo.paused && !activeVideo.ended && nowTime < targetTime - 0.05) {
@@ -606,35 +618,15 @@ export function useScrollScrub(containerRef) {
     }, 500);
   }, []);
 
-  // Advance build by 1 chunk, or 4th scroll navigates to homepage #overview
+  // Advance build smoothly, or 4th scroll navigates to homepage #overview
   const nextStep = useCallback(() => {
-    // If video is currently animating or cooldown is active, ignore incoming scroll
-    if (isAnimatingRef.current || cooldownRef.current) {
-      return;
-    }
-
-    const curr = currentStepRef.current;
-
-    // Advance 1 chunk per scroll:
-    // Step 0 -> Step 1 (Chunk 1: 0% to 33%)
-    // Step 1 -> Step 2 (Chunk 2: 33% to 66%)
-    // Step 2 -> Step 3 (Chunk 3: 66% to 100%)
-    if (curr < 3) {
+    // If build is already completed: 4th scroll transitions to homepage #overview
+    if (hasCompletedRef.current || currentStepRef.current >= 3) {
+      if (cooldownRef.current) return;
       cooldownRef.current = true;
       setTimeout(() => {
         cooldownRef.current = false;
-      }, 400);
-      goToStep(curr + 1);
-    } else {
-      // Step 3 (Completed Residence): 4th scroll transitions to homepage #overview!
-      if (!hasCompletedRef.current) {
-        return;
-      }
-
-      cooldownRef.current = true;
-      setTimeout(() => {
-        cooldownRef.current = false;
-      }, 800);
+      }, 600);
 
       const overviewEl = document.getElementById("overview");
       if (overviewEl) {
@@ -643,6 +635,18 @@ export function useScrollScrub(containerRef) {
         const vh = window.innerHeight;
         window.scrollTo({ top: 4 * vh, behavior: "smooth" });
       }
+      return;
+    }
+
+    // Advance 1 milestone per scroll (Steps 0 -> 1 -> 2 -> 3):
+    // Even if an animation is currently running, increment targetStepRef so
+    // playback chains continuously ("tuloy-tuloy") into the next part without freezing.
+    const currentTarget = targetStepRef.current;
+    const newTarget = Math.min(3, Math.max(currentTarget + 1, currentStepRef.current + 1));
+    targetStepRef.current = newTarget;
+
+    if (!isAnimatingRef.current) {
+      goToStep(newTarget);
     }
   }, [goToStep]);
 
@@ -671,8 +675,10 @@ export function useScrollScrub(containerRef) {
         if (hasCompletedRef.current && currentStepRef.current >= 3) {
           if (e.deltaY > 0) {
             // Scrolling DOWN towards homepage #overview (4th scroll)
-            if (!cooldownRef.current && !isAnimatingRef.current) {
-              if (Math.abs(e.deltaY) > 15) {
+            if (!cooldownRef.current) {
+              const now = performance.now();
+              if (now - lastGestureTimeRef.current > 200 && Math.abs(e.deltaY) > 12) {
+                lastGestureTimeRef.current = now;
                 nextStep();
               }
             }
@@ -688,11 +694,12 @@ export function useScrollScrub(containerRef) {
         // CASE 2: During initial build sequence (Steps 0..2 or Step 3 still playing)
         // Upward scroll is completely locked so progress is strictly forward-only
         if (e.deltaY > 0) {
-          // Scrolling DOWN: Advance 1 chunk if not currently animating and not in cooldown
-          if (!isAnimatingRef.current && !cooldownRef.current) {
-            if (Math.abs(e.deltaY) > 15) {
-              nextStep();
-            }
+          // Scrolling DOWN: Advance next step with lightweight throttle (~180ms)
+          // Allows natural, continuous scroll wheel bursts without dropping inputs
+          const now = performance.now();
+          if (now - lastGestureTimeRef.current > 180 && Math.abs(e.deltaY) > 12) {
+            lastGestureTimeRef.current = now;
+            nextStep();
           }
         } else {
           // Locked: Upward scroll prevented, progress must finish forward
@@ -744,11 +751,13 @@ export function useScrollScrub(containerRef) {
         const endY = e.changedTouches[0].clientY;
         const deltaY = touchStartYRef.current - endY;
 
-        // Minimum swipe threshold of 28px
-        if (Math.abs(deltaY) > 28) {
+        // Minimum swipe threshold of 24px
+        if (Math.abs(deltaY) > 24) {
           if (deltaY > 0) {
             // Swiped UP = advance to next chunk
-            if (!isAnimatingRef.current && !cooldownRef.current) {
+            const now = performance.now();
+            if (now - lastGestureTimeRef.current > 180) {
+              lastGestureTimeRef.current = now;
               nextStep();
             }
           } else {
@@ -768,7 +777,9 @@ export function useScrollScrub(containerRef) {
         if (!hasCompletedRef.current) {
           if (["ArrowDown", "PageDown", " "].includes(e.key)) {
             e.preventDefault();
-            if (!isAnimatingRef.current && !cooldownRef.current) {
+            const now = performance.now();
+            if (now - lastGestureTimeRef.current > 180) {
+              lastGestureTimeRef.current = now;
               nextStep();
             }
           } else if (["ArrowUp", "PageUp"].includes(e.key)) {

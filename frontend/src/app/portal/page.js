@@ -1,8 +1,8 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import ClientNavbar from "@/modules/shared/ClientNavbar";
 import UtilityBar from "@/modules/shared/UtilityBar";
 import { useLanguage } from "@/modules/shared/LanguageContext";
@@ -27,12 +27,19 @@ import {
   PhoneIcon,
 } from "@/modules/shared/Icons";
 import { authFetch } from "@/modules/shared/authFetch";
+import { getBookingIntent, clearBookingIntent } from "@/modules/shared/bookingAuthHelper";
 
-export default function ClientPortalPage() {
+function ClientPortalContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { language } = useLanguage();
   const [currentUser, setCurrentUser] = useState(null);
   const [authToken, setAuthToken] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+
+  const initialAuthMode = searchParams?.get("mode") === "signup" ? "signup" : "login";
+  const redirectParam = searchParams?.get("redirect");
+  const tabParam = searchParams?.get("tab");
 
   // Active view tab
   const [portalTab, setPortalTab] = useState("inquiries"); // "inquiries" | "construction" | "profile"
@@ -127,13 +134,23 @@ export default function ClientPortalPage() {
           const parsed = JSON.parse(savedUser);
           setCurrentUser(parsed);
           setAuthToken(savedToken);
+
+          if (redirectParam) {
+            clearBookingIntent();
+            router.push(redirectParam);
+            return;
+          }
+
+          if (tabParam && ["inquiries", "construction", "profile"].includes(tabParam)) {
+            setPortalTab(tabParam);
+          }
         } catch (e) {
           console.warn("User parse error:", e);
         }
       }
       setIsLoadingAuth(false);
     }
-  }, []);
+  }, [redirectParam, tabParam, router]);
 
   // 2. Fetch inquiries when user is logged in
   const fetchClientData = async (userEmail) => {
@@ -188,6 +205,20 @@ export default function ClientPortalPage() {
     if (typeof window !== "undefined") {
       localStorage.setItem("mcpa_client_user", JSON.stringify(user));
       if (token) localStorage.setItem("mcpa_client_token", token);
+
+      const storedIntent = getBookingIntent();
+      const targetUrl = redirectParam || storedIntent?.targetUrl;
+
+      if (targetUrl) {
+        clearBookingIntent();
+        showToast(
+          language === "fil"
+            ? `Maligayang pagdating, ${user.fullName || "Kliyente"}! Ibinabalik ka sa booking form...`
+            : `Welcome, ${user.fullName || "Valued Client"}! Returning you to your booking form...`
+        );
+        router.push(targetUrl);
+        return;
+      }
     }
     showToast(`Welcome to your Client Portal, ${user.fullName || "Valued Client"}!`);
   };
@@ -273,7 +304,7 @@ export default function ClientPortalPage() {
               id="portal-auth"
               className="w-full min-[920px]:w-1/2 flex flex-col justify-center items-center order-1 min-[920px]:order-2 min-h-[calc(100vh-4.5rem)] min-h-[calc(100dvh-4.5rem)] min-[920px]:min-h-0 py-1 min-[920px]:py-0 min-[920px]:mb-1"
             >
-              <PortalAuthCard onLoginSuccess={handleLoginSuccess} />
+              <PortalAuthCard onLoginSuccess={handleLoginSuccess} initialMode={initialAuthMode} />
             </div>
           </main>
 
@@ -1095,5 +1126,22 @@ export default function ClientPortalPage() {
         onSuccess={handleNewInquirySuccess}
       />
     </div>
+  );
+}
+
+export default function ClientPortalPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-white flex items-center justify-center font-mono text-xs">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <span>INITIALIZING MCPA CLIENT PORTAL...</span>
+          </div>
+        </div>
+      }
+    >
+      <ClientPortalContent />
+    </Suspense>
   );
 }

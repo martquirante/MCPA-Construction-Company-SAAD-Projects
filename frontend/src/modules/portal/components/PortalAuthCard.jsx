@@ -270,13 +270,19 @@ function PhLocationAutocompleteInput({
   );
 }
 
-export default function PortalAuthCard({ onLoginSuccess }) {
+export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }) {
   const { language } = useLanguage();
   const activeLang = language === "fil" ? "fil" : "en";
   const t = PORTAL_TRANSLATIONS[activeLang];
 
   // Mode: "login" | "signup"
-  const [authMode, setAuthMode] = useState("login");
+  const [authMode, setAuthMode] = useState(initialMode || "login");
+
+  useEffect(() => {
+    if (initialMode && (initialMode === "login" || initialMode === "signup")) {
+      setAuthMode(initialMode);
+    }
+  }, [initialMode]);
 
   // Signup Multi-Step Wizard: 1 | 2 | 3 | 4
   const [signupStep, setSignupStep] = useState(1);

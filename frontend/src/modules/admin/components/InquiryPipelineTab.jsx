@@ -357,8 +357,15 @@ export default function InquiryPipelineTab({
                           </div>
                         </td>
                         <td className="py-3.5 px-4">
-                          <p className="font-medium text-neutral-900 dark:text-white">{brief.projectType || "Residential"}</p>
-                          <p className="text-[10px] text-neutral-500 font-mono">{brief.location || "—"}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-medium text-neutral-900 dark:text-white">{brief.projectType || "Residential"}</span>
+                            {brief.storeys && (
+                              <span className="px-1.5 py-0.5 rounded-[3px] bg-amber-500/10 border border-amber-500/20 text-[9px] font-mono text-amber-700 dark:text-amber-400">
+                                {brief.storeys}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-neutral-500 font-mono truncate max-w-[220px]">{brief.location || "—"}</p>
                         </td>
                         <td className="py-3.5 px-4">
                           <MeetingTypeBadge mode={brief.meetingMode} />
@@ -472,31 +479,177 @@ export default function InquiryPipelineTab({
                 </div>
               </div>
 
-              {/* Project Details */}
-              <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-2">
-                <h4 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                  Project Scope
-                </h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: "Lot Area", value: selectedBrief.lotArea || "—" },
-                    { label: "Meeting Mode", value: selectedBrief.meetingMode || "Online" },
-                    { label: "Budget Range", value: selectedBrief.budgetRange || "—" },
-                    { label: "Financing", value: selectedBrief.financing || "—" },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                      <p className="text-[9px] font-mono uppercase text-neutral-500">{label}</p>
-                      <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">{value}</p>
+              {/* Architectural Specifications */}
+              {(() => {
+                const parseSafe = (val) => {
+                  if (!val) return null;
+                  if (typeof val === "object") return val;
+                  try { return JSON.parse(val); } catch { return null; }
+                };
+
+                const spatial = parseSafe(selectedBrief.spatialWishlist || selectedBrief.spatial_wishlist);
+                const coords = selectedBrief.mapCoordinates || selectedBrief.map_coordinates || "";
+                const storeysVal = selectedBrief.storeys || "";
+                const styleVal = selectedBrief.preferredStyle || selectedBrief.preferred_style || "";
+                const lotStatusVal = selectedBrief.lotStatus || selectedBrief.lot_status || "";
+                const lotAreaVal = selectedBrief.lotArea || selectedBrief.lot_area || "";
+                const timelineVal = selectedBrief.targetDate || selectedBrief.target_date || "";
+                const financingVal = selectedBrief.financingOption || selectedBrief.financing_option || selectedBrief.financing || "";
+
+                return (
+                  <>
+                    {/* Architectural Classification & Scope */}
+                    <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-3">
+                      <h4 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Architectural Classification & Scope
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                          <p className="text-[9px] font-mono uppercase text-neutral-500">Project Type</p>
+                          <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">
+                            {selectedBrief.projectType || "Residential"}
+                          </p>
+                        </div>
+                        <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                          <p className="text-[9px] font-mono uppercase text-neutral-500">Style Peg</p>
+                          <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">
+                            {styleVal || "Modern Contemporary"}
+                          </p>
+                        </div>
+                        <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                          <p className="text-[9px] font-mono uppercase text-neutral-500">Building Height</p>
+                          <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">
+                            {storeysVal || "2-Storey"}
+                          </p>
+                        </div>
+                        <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                          <p className="text-[9px] font-mono uppercase text-neutral-500">Target Timeline</p>
+                          <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">
+                            {timelineVal || "Within 3 Months"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-                {selectedBrief.message && (
-                  <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                    <p className="text-[9px] font-mono uppercase text-neutral-500 mb-1">Client Message</p>
-                    <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">{selectedBrief.message}</p>
-                  </div>
-                )}
-              </div>
+
+                    {/* Proposed Construction Site & Satellite Pin */}
+                    <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-3">
+                      <h4 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Proposed Construction Site
+                      </h4>
+                      <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5 space-y-1">
+                        <p className="text-[9px] font-mono uppercase text-neutral-500">Lot Location Address</p>
+                        <p className="text-xs font-medium text-neutral-900 dark:text-white leading-relaxed">
+                          {selectedBrief.location || "Plaridel, Bulacan"}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                          <p className="text-[9px] font-mono uppercase text-neutral-500">Lot Status</p>
+                          <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">
+                            {lotStatusVal || "Already Owned / Titled"}
+                          </p>
+                        </div>
+                        <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                          <p className="text-[9px] font-mono uppercase text-neutral-500">Lot Area</p>
+                          <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">
+                            {lotAreaVal || "—"}
+                          </p>
+                        </div>
+                      </div>
+                      {coords && (
+                        <div className="p-2.5 rounded-[4px] bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-mono uppercase text-amber-700 dark:text-amber-400 font-bold">Satellite Coordinates</p>
+                            <p className="text-xs font-mono text-neutral-700 dark:text-neutral-300 truncate mt-0.5">{coords}</p>
+                          </div>
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coords)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-[10px] font-bold uppercase inline-flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                          >
+                            <span>Google Satellite</span>
+                            <ExternalLinkIcon className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Spatial Wishlist & Requirements */}
+                    {spatial && (
+                      <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-3">
+                        <h4 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                          Spatial Wishlist & Programming
+                        </h4>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5 text-center">
+                            <p className="text-[9px] font-mono uppercase text-neutral-500">Bedrooms</p>
+                            <p className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                              {spatial.bedrooms || "3"} BR
+                            </p>
+                          </div>
+                          <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5 text-center">
+                            <p className="text-[9px] font-mono uppercase text-neutral-500">Bathrooms</p>
+                            <p className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                              {spatial.bathrooms || "2"} Bath
+                            </p>
+                          </div>
+                          <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5 text-center">
+                            <p className="text-[9px] font-mono uppercase text-neutral-500">Car Garage</p>
+                            <p className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                              {spatial.carGarage || "2 Cars"}
+                            </p>
+                          </div>
+                        </div>
+                        {Array.isArray(spatial.featureTags) && spatial.featureTags.length > 0 && (
+                          <div className="space-y-1.5 pt-1">
+                            <p className="text-[9px] font-mono uppercase text-neutral-500">Selected Architectural Features</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {spatial.featureTags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="px-2 py-0.5 rounded-[4px] bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-mono capitalize"
+                                >
+                                  {tag.replace(/-/g, " ")}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Financials & Consultation Type */}
+                    <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-2">
+                      <h4 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Financial & Client Notes
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                          <p className="text-[9px] font-mono uppercase text-neutral-500">Budget Range</p>
+                          <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">
+                            {selectedBrief.budgetRange || "Flexible"}
+                          </p>
+                        </div>
+                        <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                          <p className="text-[9px] font-mono uppercase text-neutral-500">Financing Mode</p>
+                          <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">
+                            {financingVal || "Progress Billing"}
+                          </p>
+                        </div>
+                      </div>
+                      {selectedBrief.message && (
+                        <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                          <p className="text-[9px] font-mono uppercase text-neutral-500 mb-1">Client Special Remarks</p>
+                          <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                            {selectedBrief.message}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Meeting Setup Form */}
               <div className="space-y-3">

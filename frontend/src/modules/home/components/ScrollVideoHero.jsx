@@ -257,7 +257,7 @@ function VideoScrollEngine({ onCompletionChange, onFallbackToFrames }) {
             onLoadedData={handleVideoLoadedMetadata}
             onCanPlay={handleVideoLoadedMetadata}
             onError={onFallbackToFrames}
-            className={`video-ultra-hd absolute inset-0 w-full h-full object-cover z-10 [contain:paint] transform-gpu transition-opacity duration-300 ${
+            className={`video-ultra-hd absolute inset-0 w-full h-full object-cover z-10 [contain:paint] transform-gpu transition-opacity duration-200 ${
               activePartIndex > 0 ? "opacity-0 pointer-events-none" : "opacity-100"
             }`}
           />
@@ -275,7 +275,7 @@ function VideoScrollEngine({ onCompletionChange, onFallbackToFrames }) {
             disablePictureInPicture
             disableRemotePlayback
             onError={onFallbackToFrames}
-            className={`video-ultra-hd absolute inset-0 w-full h-full object-cover z-20 [contain:paint] transform-gpu transition-opacity duration-300 ${
+            className={`video-ultra-hd absolute inset-0 w-full h-full object-cover z-20 [contain:paint] transform-gpu transition-opacity duration-200 ${
               activePartIndex >= 1 ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           />
@@ -293,7 +293,7 @@ function VideoScrollEngine({ onCompletionChange, onFallbackToFrames }) {
             disablePictureInPicture
             disableRemotePlayback
             onError={onFallbackToFrames}
-            className={`video-ultra-hd absolute inset-0 w-full h-full object-cover z-30 [contain:paint] transform-gpu transition-opacity duration-300 ${
+            className={`video-ultra-hd absolute inset-0 w-full h-full object-cover z-30 [contain:paint] transform-gpu transition-opacity duration-200 ${
               activePartIndex >= 2 ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           />
@@ -337,16 +337,17 @@ export default function ScrollVideoHero({ onCompletionChange }) {
       const isConstrainedDevice = isSaveData || isSlowConn || (cores <= 4 && memory <= 4);
 
       const savedPref = localStorage.getItem("mcpa_engine_pref");
+      let targetMode = "video";
       if (savedPref === "frames") {
-        setEngineMode("frames");
+        targetMode = "frames";
       } else if (savedPref === "video") {
-        setEngineMode("video");
+        targetMode = "video";
       } else if (isConstrainedDevice) {
         // High-performance canvas WebP frames on constrained devices
-        setEngineMode("frames");
-      } else {
-        // High-definition 60fps video on capable desktop and mobile phones
-        setEngineMode("video");
+        targetMode = "frames";
+      }
+      if (targetMode !== "video") {
+        requestAnimationFrame(() => setEngineMode(targetMode));
       }
     }
   }, []);

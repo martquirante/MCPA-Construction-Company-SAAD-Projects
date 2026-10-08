@@ -680,3 +680,189 @@ html.dark .architectural-cta-card,
   animation: weldSparkle 2s ease-in-out infinite;
 }
 
+/* =========================================================================
+   ARCHITECTURAL CLIPBOARD & 3D PAPER-FLIP ANIMATIONS
+   ========================================================================= */
+.clipboard-perspective {
+  perspective: 1400px;
+  transform-style: preserve-3d;
+}
+
+.mcpa-blueprint-grid {
+  background-image: 
+    linear-gradient(to right, rgba(245, 158, 11, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(245, 158, 11, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.dark .mcpa-blueprint-grid {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* =========================================================================
+   ARCHITECTURAL YELLOW CLIPBOARD HARDBOARD (TACTILE FIBERBOARD TEXTURE)
+   ========================================================================= */
+.mcpa-clipboard-board {
+  /* Warm Architectural Manila / Hardboard Yellow in Light Theme */
+  background-color: #d97706;
+  background-image:
+    /* Top ambient rim light */
+    linear-gradient(180deg, rgba(254, 240, 138, 0.42) 0%, rgba(245, 158, 11, 0.1) 12%, rgba(217, 119, 6, 0) 25%),
+    /* Radial board vignette depth */
+    radial-gradient(ellipse at 50% 40%, rgba(251, 191, 36, 0.35) 0%, rgba(180, 83, 9, 0.6) 80%, rgba(146, 64, 14, 0.95) 100%),
+    /* Micro vertical fiber grain striations */
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.04) 0px,
+      rgba(0, 0, 0, 0.04) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    /* Micro horizontal fiber grain striations */
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.05) 0px,
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    /* Procedural organic masonite / fiberboard texture noise */
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='hardboardNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.15 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23hardboardNoise)'/%3E%3C/svg%3E");
+  border: 3.5px solid #b45309;
+  box-shadow: 
+    inset 0 2px 4px rgba(254, 240, 138, 0.55),
+    inset 0 -4px 8px rgba(120, 53, 15, 0.65),
+    0 22px 50px -10px rgba(0, 0, 0, 0.45),
+    0 35px 80px -15px rgba(180, 83, 9, 0.3);
+}
+
+.dark .mcpa-clipboard-board {
+  /* Rich Deep Burnished Ochre / Golden Amber Hardboard in Dark Theme */
+  background-color: #b45309;
+  background-image:
+    linear-gradient(180deg, rgba(253, 224, 71, 0.28) 0%, rgba(217, 119, 6, 0.1) 12%, rgba(180, 83, 9, 0) 25%),
+    radial-gradient(ellipse at 50% 40%, rgba(245, 158, 11, 0.28) 0%, rgba(146, 64, 14, 0.75) 75%, rgba(120, 53, 15, 0.98) 100%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.07) 0px,
+      rgba(0, 0, 0, 0.07) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.04) 0px,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='hardboardNoiseDark'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23hardboardNoiseDark)'/%3E%3C/svg%3E");
+  border: 3.5px solid #78350f;
+  box-shadow: 
+    inset 0 1.5px 3px rgba(254, 240, 138, 0.35),
+    inset 0 -4px 10px rgba(0, 0, 0, 0.75),
+    0 25px 65px -12px rgba(0, 0, 0, 0.8),
+    0 0 50px -10px rgba(217, 119, 6, 0.25);
+}
+
+/* =========================================================================
+   TACTILE ARCHITECTURAL DRAFTING PAPER SHEET (WHITE IN LIGHT, GRAY IN DARK)
+   ========================================================================= */
+.mcpa-paper-sheet {
+  /* Crisp Architectural Drafting Paper White in Light Theme */
+  background-color: #ffffff;
+  background-image:
+    /* Precision architectural blueprint grid */
+    linear-gradient(to right, rgba(217, 119, 6, 0.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(217, 119, 6, 0.055) 1px, transparent 1px),
+    /* Tactile natural paper fiber stippling texture */
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paperNoiseLight'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.048 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paperNoiseLight)'/%3E%3C/svg%3E");
+  background-size: 24px 24px, 24px 24px, auto;
+  border: 1px solid rgba(214, 211, 209, 0.9);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 10px 25px -4px rgba(0, 0, 0, 0.12),
+    0 24px 38px -10px rgba(0, 0, 0, 0.08);
+}
+
+.dark .mcpa-paper-sheet {
+  /* Slate / Charcoal Architectural Drafting Gray in Dark Theme */
+  background-color: #212631;
+  background-image:
+    /* Precision architectural blueprint grid */
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    /* Tactile dark drafting paper fiber stippling texture */
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paperNoiseDark'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paperNoiseDark)'/%3E%3C/svg%3E");
+  background-size: 24px 24px, 24px 24px, auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 12px 30px -5px rgba(0, 0, 0, 0.6),
+    0 28px 45px -12px rgba(0, 0, 0, 0.45);
+}
+
+@keyframes sheetFlipOutNext {
+  0% {
+    transform: translateY(0) rotateX(0deg) scale(1);
+    opacity: 1;
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.2));
+  }
+  100% {
+    transform: translateY(-45px) rotateX(10deg) scale(0.96);
+    opacity: 0;
+    filter: drop-shadow(0 25px 30px rgba(0, 0, 0, 0.35));
+  }
+}
+
+@keyframes sheetFlipInNext {
+  0% {
+    transform: translateY(45px) rotateX(-8deg) scale(0.97);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) rotateX(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes sheetFlipOutPrev {
+  0% {
+    transform: translateY(0) rotateX(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(45px) rotateX(-8deg) scale(0.96);
+    opacity: 0;
+  }
+}
+
+@keyframes sheetFlipInPrev {
+  0% {
+    transform: translateY(-45px) rotateX(10deg) scale(0.97);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) rotateX(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+.sheet-anim-out-next {
+  animation: sheetFlipOutNext 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.sheet-anim-in-next {
+  animation: sheetFlipInNext 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.sheet-anim-out-prev {
+  animation: sheetFlipOutPrev 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.sheet-anim-in-prev {
+  animation: sheetFlipInPrev 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}

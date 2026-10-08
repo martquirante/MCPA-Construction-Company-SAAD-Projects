@@ -39,6 +39,10 @@ class BriefsController {
         wantsMeeting,
         venueType,
         venueDetails,
+        storeys,
+        siteAddressDetails,
+        spatialWishlist,
+        message,
       } = req.body;
 
       if (!clientName || !clientEmail) {
@@ -77,43 +81,92 @@ class BriefsController {
 
       const id = submissionId || `MCPA-CPB-${Math.floor(100000 + Math.random() * 900000)}`;
 
-      const result = await db.query(
-        `INSERT INTO client_briefs (
-          submission_id, client_name, client_email, client_phone,
-          project_type, preferred_style, budget_range, lot_status,
-          lot_area, target_date, location, financing_option,
-          uploaded_files, status, location_type, meeting_mode,
-          meeting_date, meeting_time, map_coordinates,
-          user_id, wants_meeting, venue_type, venue_details, availability_status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending Review', $14, $15, $16, $17, $18, $19, $20, $21, $22, 'Pending Availability Confirmation')
-        RETURNING *`,
-        [
-          id,
-          clientName.trim(),
-          normalizedEmail,
-          clientPhone || "",
-          projectType || "Residential Design & Build",
-          preferredStyle || "",
-          budgetRange || "Flexible",
-          lotStatus || "Already Owned / Titled",
-          lotArea || "",
-          targetDate || "Within 3 Months",
-          location || "Bulacan",
-          financingOption || "Milestone Progress Billing",
-          uploadedFiles || [],
-          locationType || "Local",
-          meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting (Google Meet)"),
-          meetingDate || "",
-          meetingTime || "",
-          mapCoordinates || "",
-          userId ? parseInt(userId, 10) : null,
-          Boolean(wantsMeeting),
-          venueType || null,
-          venueDetails || null,
-        ]
-      );
+      let result;
+      try {
+        result = await db.query(
+          `INSERT INTO client_briefs (
+            submission_id, client_name, client_email, client_phone,
+            project_type, preferred_style, budget_range, lot_status,
+            lot_area, target_date, location, financing_option,
+            uploaded_files, status, location_type, meeting_mode,
+            meeting_date, meeting_time, map_coordinates,
+            user_id, wants_meeting, venue_type, venue_details, availability_status,
+            storeys, site_address_details, spatial_wishlist, message
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending Review', $14, $15, $16, $17, $18, $19, $20, $21, $22, 'Pending Availability Confirmation', $23, $24, $25, $26)
+          RETURNING *`,
+          [
+            id,
+            clientName.trim(),
+            normalizedEmail,
+            clientPhone || "",
+            projectType || "Residential Design & Build",
+            preferredStyle || "",
+            budgetRange || "Flexible",
+            lotStatus || "Already Owned / Titled",
+            lotArea || "",
+            targetDate || "Within 3 Months",
+            location || "Bulacan",
+            financingOption || "Milestone Progress Billing",
+            uploadedFiles || [],
+            locationType || "Local",
+            meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting (Google Meet)"),
+            meetingDate || "",
+            meetingTime || "",
+            mapCoordinates || "",
+            userId ? parseInt(userId, 10) : null,
+            Boolean(wantsMeeting),
+            venueType || null,
+            venueDetails || null,
+            storeys || null,
+            siteAddressDetails ? JSON.stringify(siteAddressDetails) : null,
+            spatialWishlist ? JSON.stringify(spatialWishlist) : null,
+            message || null,
+          ]
+        );
+      } catch (insertErr) {
+        // Fallback for instances where extended columns are not yet active
+        result = await db.query(
+          `INSERT INTO client_briefs (
+            submission_id, client_name, client_email, client_phone,
+            project_type, preferred_style, budget_range, lot_status,
+            lot_area, target_date, location, financing_option,
+            uploaded_files, status, location_type, meeting_mode,
+            meeting_date, meeting_time, map_coordinates,
+            user_id, wants_meeting, venue_type, venue_details, availability_status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending Review', $14, $15, $16, $17, $18, $19, $20, $21, $22, 'Pending Availability Confirmation')
+          RETURNING *`,
+          [
+            id,
+            clientName.trim(),
+            normalizedEmail,
+            clientPhone || "",
+            projectType || "Residential Design & Build",
+            preferredStyle || "",
+            budgetRange || "Flexible",
+            lotStatus || "Already Owned / Titled",
+            lotArea || "",
+            targetDate || "Within 3 Months",
+            location || "Bulacan",
+            financingOption || "Milestone Progress Billing",
+            uploadedFiles || [],
+            locationType || "Local",
+            meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting (Google Meet)"),
+            meetingDate || "",
+            meetingTime || "",
+            mapCoordinates || "",
+            userId ? parseInt(userId, 10) : null,
+            Boolean(wantsMeeting),
+            venueType || null,
+            venueDetails || null,
+          ]
+        );
+      }
 
       const savedBrief = result.rows[0];
+      if (storeys && !savedBrief.storeys) savedBrief.storeys = storeys;
+      if (spatialWishlist && !savedBrief.spatial_wishlist) savedBrief.spatial_wishlist = spatialWishlist;
+      if (siteAddressDetails && !savedBrief.site_address_details) savedBrief.site_address_details = siteAddressDetails;
+      if (message && !savedBrief.message) savedBrief.message = message;
 
       // Dual email notification (awaited for Vercel Serverless lifecycle stability)
       try {

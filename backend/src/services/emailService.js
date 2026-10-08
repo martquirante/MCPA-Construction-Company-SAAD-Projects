@@ -292,10 +292,9 @@ class EmailService {
 
     // Plain text alternative (drastically reduces spam score across Gmail, Yahoo & Outlook)
     const plainText = `MCPA CONSTRUCTION & SUPPLY
-Design and Build Contractor • Plaridel, Bulacan
+
 
 Welcome to MCPA Construction and Supply!
-Your Vision. Our Foundation.
 
 Hello ${clientName},
 

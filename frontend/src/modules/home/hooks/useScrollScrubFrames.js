@@ -56,6 +56,7 @@ export function useScrollScrubFrames(containerRef) {
   const lastDisplayedPctRef = useRef(0);
   const targetStepRef = useRef(0);
   const animRafRef = useRef(null);
+  const lastGestureTimeRef = useRef(0);
 
   // Sync refs
   useEffect(() => { activePartIndexRef.current = activePartIndex; }, [activePartIndex]);
@@ -276,16 +277,24 @@ export function useScrollScrubFrames(containerRef) {
         lastDisplayedPctRef.current = 100;
         isAnimatingRef.current = false;
         cooldownRef.current = true;
-        setTimeout(() => { cooldownRef.current = false; }, 600);
+        setTimeout(() => { cooldownRef.current = false; }, 500);
+      } else if (targetStepRef.current > clampedStep) {
+        // CONTINUOUS PROGRESSION ("tuloy-tuloy, di humihinto-hinto"):
+        // User has already scrolled towards the next step!
+        // Seamlessly flow directly into the next part without stopping or pausing.
+        const nextStepNum = clampedStep + 1;
+        setActivePartIndex(clampedStep);
+        isAnimatingRef.current = false;
+        advanceFramesStep(nextStepNum);
       } else {
-        // Finished this chunk! Rest cleanly at this milestone and wait for next scroll
+        // Single scroll: rest cleanly at this milestone
         setActivePartIndex(clampedStep);
         setProgress(targetProgress);
         setDisplayedPct(targetPct);
         lastDisplayedPctRef.current = targetPct;
         isAnimatingRef.current = false;
         cooldownRef.current = true;
-        setTimeout(() => { cooldownRef.current = false; }, 350);
+        setTimeout(() => { cooldownRef.current = false; }, 200);
       }
     };
 
@@ -305,7 +314,8 @@ export function useScrollScrubFrames(containerRef) {
 
       setActivePartIndex(targetPart);
       activePartIndexRef.current = targetPart;
-      animateToFrame(targetPart, FRAMES_PER_PART - 1, 0, 2200, finishStep);
+      // Snappy ~750ms per part (~2.25s total sequence for 1-3s goal)
+      animateToFrame(targetPart, FRAMES_PER_PART - 1, 0, 750, finishStep);
     } else {
       // Backward — animate from last frame back to 0
       const prevPart = prevStep <= 1 ? 0 : prevStep === 2 ? 1 : 2;
@@ -363,26 +373,31 @@ export function useScrollScrubFrames(containerRef) {
     setTimeout(() => { cooldownRef.current = false; }, 500);
   }, [drawFrame]);
 
-  // Advance build by 1 chunk, or 4th scroll navigates to homepage #overview
+  // Advance build smoothly, or 4th scroll navigates to homepage #overview
   const nextStep = useCallback(() => {
-    if (isAnimatingRef.current || cooldownRef.current) return;
-    const curr = currentStepRef.current;
-
-    // Advance 1 chunk per scroll
-    if (curr < 3) {
+    // If build is already completed: 4th scroll transitions to homepage #overview
+    if (hasCompletedRef.current || currentStepRef.current >= 3) {
+      if (cooldownRef.current) return;
       cooldownRef.current = true;
-      setTimeout(() => { cooldownRef.current = false; }, 400);
-      goToStep(curr + 1);
-    } else {
-      if (!hasCompletedRef.current) return;
-      cooldownRef.current = true;
-      setTimeout(() => { cooldownRef.current = false; }, 800);
+      setTimeout(() => { cooldownRef.current = false; }, 600);
       const overviewEl = document.getElementById("overview");
       if (overviewEl) {
         overviewEl.scrollIntoView({ behavior: "smooth" });
       } else if (typeof window !== "undefined") {
         window.scrollTo({ top: 4 * window.innerHeight, behavior: "smooth" });
       }
+      return;
+    }
+
+    // Advance 1 milestone per scroll (Steps 0 -> 1 -> 2 -> 3):
+    // Even if animation is running, increment targetStepRef so
+    // playback chains continuously ("tuloy-tuloy") into the next part.
+    const currentTarget = targetStepRef.current;
+    const newTarget = Math.min(3, Math.max(currentTarget + 1, currentStepRef.current + 1));
+    targetStepRef.current = newTarget;
+
+    if (!isAnimatingRef.current) {
+      goToStep(newTarget);
     }
   }, [goToStep]);
 
@@ -399,13 +414,25 @@ export function useScrollScrubFrames(containerRef) {
       const isInHero = scrollY <= 3.15 * vh;
       if (isInHero) {
         e.preventDefault();
+        // CASE 1: Build completed
         if (hasCompletedRef.current && currentStepRef.current >= 3) {
-          if (e.deltaY > 0 && !cooldownRef.current && !isAnimatingRef.current && Math.abs(e.deltaY) > 15) nextStep();
-          else if (e.deltaY < 0 && scrollY < 3 * vh) window.scrollTo({ top: 3 * vh, behavior: "instant" });
+          if (e.deltaY > 0 && !cooldownRef.current) {
+            const now = performance.now();
+            if (now - lastGestureTimeRef.current > 200 && Math.abs(e.deltaY) > 12) {
+              lastGestureTimeRef.current = now;
+              nextStep();
+            }
+          } else if (e.deltaY < 0 && scrollY < 3 * vh) {
+            window.scrollTo({ top: 3 * vh, behavior: "instant" });
+          }
           return;
         }
+
+        // CASE 2: Build in progress - continuous non-blocking progression
         if (e.deltaY > 0) {
-          if (!isAnimatingRef.current && !cooldownRef.current && Math.abs(e.deltaY) > 15) {
+          const now = performance.now();
+          if (now - lastGestureTimeRef.current > 180 && Math.abs(e.deltaY) > 12) {
+            lastGestureTimeRef.current = now;
             nextStep();
           }
         }
@@ -434,9 +461,13 @@ export function useScrollScrubFrames(containerRef) {
       const isInHero = window.scrollY <= 3.15 * window.innerHeight;
       if (e.changedTouches.length === 1 && isInHero) {
         const deltaY = touchStartYRef.current - e.changedTouches[0].clientY;
-        if (deltaY > 28) {
-          if (!isAnimatingRef.current && !cooldownRef.current) {
-            nextStep();
+        if (Math.abs(deltaY) > 24) {
+          if (deltaY > 0) {
+            const now = performance.now();
+            if (now - lastGestureTimeRef.current > 180) {
+              lastGestureTimeRef.current = now;
+              nextStep();
+            }
           }
         }
       }
@@ -445,11 +476,24 @@ export function useScrollScrubFrames(containerRef) {
     const handleKeyDown = (e) => {
       const isInHero = window.scrollY <= 3.15 * window.innerHeight;
       if (isInHero) {
-        if (["ArrowDown", "PageDown", " "].includes(e.key)) {
-          e.preventDefault();
-          if (!isAnimatingRef.current && !cooldownRef.current) nextStep();
-        } else if (["ArrowUp", "PageUp"].includes(e.key)) {
-          e.preventDefault();
+        if (!hasCompletedRef.current) {
+          if (["ArrowDown", "PageDown", " "].includes(e.key)) {
+            e.preventDefault();
+            const now = performance.now();
+            if (now - lastGestureTimeRef.current > 180) {
+              lastGestureTimeRef.current = now;
+              nextStep();
+            }
+          } else if (["ArrowUp", "PageUp"].includes(e.key)) {
+            e.preventDefault();
+          }
+        } else {
+          if (["ArrowDown", "PageDown", " "].includes(e.key)) {
+            e.preventDefault();
+            nextStep();
+          } else if (["ArrowUp", "PageUp"].includes(e.key)) {
+            e.preventDefault();
+          }
         }
       }
     };

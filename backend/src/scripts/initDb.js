@@ -179,11 +179,15 @@ async function initializeDatabase() {
       "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS venue_type VARCHAR(100);",
       "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS venue_details TEXT;",
       "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS availability_status VARCHAR(100) DEFAULT 'Pending Availability Confirmation';",
+      "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS storeys VARCHAR(50);",
+      "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS site_address_details JSONB;",
+      "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS spatial_wishlist JSONB;",
+      "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS message TEXT;",
     ];
     for (const q of briefCols) {
       try { await db.query(q); } catch (e) {}
     }
-    console.log("[OK] Table 'client_briefs' verified/updated with SAAD Flowchart stages and meeting venues.");
+    console.log("[OK] Table 'client_briefs' verified/updated with SAAD Flowchart stages, meeting venues, and architectural specifications.");
 
     // 5. Create SITE_PROJECTS table (Active Execution)
     await db.query(`
