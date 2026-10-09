@@ -175,6 +175,8 @@ app.delete("/api/projects/:id", (req, res) => projectsController.delete(req, res
 // CLIENT BRIEFS / CONSULTATIONS ROUTES (SAAD FLOWCHART PHASES 1-4)
 // -----------------------------------------------------------------------------
 app.get("/api/briefs", (req, res) => briefsController.getAll(req, res));
+app.get("/api/briefs/:id/pdf", (req, res) => briefsController.downloadPdf(req, res));
+app.post("/api/briefs/pdf", (req, res) => briefsController.downloadPdf(req, res));
 app.post("/api/briefs", (req, res) => briefsController.submit(req, res));
 app.patch("/api/briefs/:id", (req, res) => briefsController.updateStatus(req, res));
 app.post("/api/briefs/:id/provision", (req, res) => briefsController.provisionAccess(req, res));

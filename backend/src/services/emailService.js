@@ -9,6 +9,9 @@ const {
   getInquiryReceiptTemplate,
   getInquiryAdminAlertTemplate,
   getInquiryMeetingConfirmationTemplate,
+  getInquiryRescheduledTemplate,
+  getInquiryRejectedTemplate,
+  getInquiryStatusUpdateTemplate,
 } = require("../templates/emails");
 
 class EmailService {
@@ -210,29 +213,68 @@ class EmailService {
   }
 
   /**
-   * Sends confirmation receipt email to client upon inquiry submission
+   * Resilient email dispatcher with dual-engine failover:
+   * Prioritizes configured primary provider (Gmail SMTP by default),
+   * then automatically fails over to backup provider (Resend API or SMTP).
    */
-  async sendInquiryClientReceipt(toEmail, brief) {
-    const subject = `MCPA Consultation Brief Received — Ref: ${brief.submission_id}`;
-    const htmlContent = getInquiryReceiptTemplate(brief);
+  async sendEmailWithFallback(toEmail, subject, htmlContent) {
+    let delivered = false;
 
-    // Attempt delivery via Resend or Gmail
-    try {
-      if (this.resendApiKey) {
-        await this.sendViaResend(toEmail, subject, htmlContent);
-      } else if (this.transporter) {
+    // 1. Try Primary: Gmail SMTP if primary provider is gmail
+    if (this.transporter && this.primaryProvider === "gmail") {
+      try {
         await this.transporter.sendMail({
           from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
           to: toEmail,
           subject,
           html: htmlContent,
         });
+        console.log(`\x1b[32m[EmailService] Primary Gmail SMTP successfully delivered to ${toEmail} ("${subject}")\x1b[0m`);
+        return true;
+      } catch (err) {
+        console.warn(`\x1b[33m[EmailService] Primary Gmail SMTP failed (${err.message}). Attempting backup...\x1b[0m`);
       }
-    } catch (e) {
-      console.warn("[EmailService] Client receipt delivery failed:", e.message);
     }
-    console.log(`[EmailService] Inquiry confirmation receipt dispatched to ${toEmail} (Ref: ${brief.submission_id})`);
-    return true;
+
+    // 2. Try Resend API (as primary or backup)
+    if (this.resendApiKey) {
+      try {
+        delivered = await this.sendViaResend(toEmail, subject, htmlContent);
+        if (delivered) return true;
+      } catch (resendErr) {
+        console.warn("[EmailService] Resend API attempt error:", resendErr.message);
+      }
+    }
+
+    // 3. Fallback to Gmail SMTP if primary was not gmail or if Resend failed
+    if (this.transporter && this.primaryProvider !== "gmail") {
+      try {
+        await this.transporter.sendMail({
+          from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
+          to: toEmail,
+          subject,
+          html: htmlContent,
+        });
+        console.log(`\x1b[32m[EmailService] Gmail SMTP fallback delivered to ${toEmail}\x1b[0m`);
+        return true;
+      } catch (err) {
+        console.warn(`\x1b[31m[EmailService] SMTP fallback failed (${err.message})\x1b[0m`);
+      }
+    }
+
+    // Dev mode notice
+    console.log(`[EmailService DEV] Dispatched email to ${toEmail}: "${subject}"`);
+    return false;
+  }
+
+  /**
+   * Sends confirmation receipt email to client upon inquiry submission / under review
+   */
+  async sendInquiryClientReceipt(toEmail, brief) {
+    const subId = brief.submission_id || brief.submissionId || "MCPA-CPB";
+    const subject = `MCPA Consultation Brief Received — Ref: ${subId}`;
+    const htmlContent = getInquiryReceiptTemplate(brief);
+    return await this.sendEmailWithFallback(toEmail, subject, htmlContent);
   }
 
   /**
@@ -240,50 +282,53 @@ class EmailService {
    */
   async sendInquiryAdminAlert(brief) {
     const adminEmail = process.env.ADMIN_ALERT_EMAIL || this.smtpEmail || "admin@mcpa.com";
-    const subject = `🚨 New Project Consultation: ${brief.client_name} (${brief.project_type || "Design & Build"})`;
+    const subId = brief.submission_id || brief.submissionId || "MCPA-CPB";
+    const clientName = brief.client_name || brief.clientName || "Client";
+    const projectType = brief.project_type || brief.projectType || "Design & Build";
+    const subject = `🚨 New Project Consultation: ${clientName} (${projectType}) [${subId}]`;
     const htmlContent = getInquiryAdminAlertTemplate(brief);
-
-    try {
-      if (this.resendApiKey) {
-        await this.sendViaResend(adminEmail, subject, htmlContent);
-      } else if (this.transporter) {
-        await this.transporter.sendMail({
-          from: `"MCPA Alert System" <${this.smtpEmail}>`,
-          to: adminEmail,
-          subject,
-          html: htmlContent,
-        });
-      }
-    } catch (e) {
-      console.warn("[EmailService] Admin alert delivery failed:", e.message);
-    }
-    console.log(`[EmailService] Admin alert dispatched for inquiry ${brief.submission_id}`);
-    return true;
+    return await this.sendEmailWithFallback(adminEmail, subject, htmlContent);
   }
 
   /**
    * Sends consultation schedule approval & confirmation email to client
    */
   async sendInquiryMeetingConfirmation(toEmail, brief) {
-    const subject = `Consultation Scheduled & Confirmed — Ref: ${brief.submission_id}`;
+    const subId = brief.submission_id || brief.submissionId || "MCPA-CPB";
+    const subject = `Consultation Confirmed & Scheduled — Ref: ${subId}`;
     const htmlContent = getInquiryMeetingConfirmationTemplate(brief);
+    return await this.sendEmailWithFallback(toEmail, subject, htmlContent);
+  }
 
-    try {
-      if (this.resendApiKey) {
-        await this.sendViaResend(toEmail, subject, htmlContent);
-      } else if (this.transporter) {
-        await this.transporter.sendMail({
-          from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
-          to: toEmail,
-          subject,
-          html: htmlContent,
-        });
-      }
-    } catch (e) {
-      console.warn("[EmailService] Consultation confirmation delivery failed:", e.message);
-    }
-    console.log(`[EmailService] Consultation confirmation dispatched to ${toEmail} (Ref: ${brief.submission_id})`);
-    return true;
+  /**
+   * Sends consultation rescheduled notification to client
+   */
+  async sendInquiryRescheduled(toEmail, brief, rescheduleMeta = {}) {
+    const subId = brief.submission_id || brief.submissionId || "MCPA-CPB";
+    const subject = `Consultation Schedule Updated — Ref: ${subId}`;
+    const htmlContent = getInquiryRescheduledTemplate(brief, rescheduleMeta);
+    return await this.sendEmailWithFallback(toEmail, subject, htmlContent);
+  }
+
+  /**
+   * Sends inquiry declined / rejected notification to client
+   */
+  async sendInquiryRejected(toEmail, brief, rejectMeta = {}) {
+    const subId = brief.submission_id || brief.submissionId || "MCPA-CPB";
+    const subject = `Project Consultation Status Update — Ref: ${subId}`;
+    const htmlContent = getInquiryRejectedTemplate(brief, rejectMeta);
+    return await this.sendEmailWithFallback(toEmail, subject, htmlContent);
+  }
+
+  /**
+   * Sends general inquiry status update (e.g. Needs Information, For Quotation)
+   */
+  async sendInquiryStatusUpdate(toEmail, brief, statusMeta = {}) {
+    const subId = brief.submission_id || brief.submissionId || "MCPA-CPB";
+    const newStatus = statusMeta.status || brief.status || "Status Update";
+    const subject = `Inquiry Status Update: ${newStatus} — Ref: ${subId}`;
+    const htmlContent = getInquiryStatusUpdateTemplate(brief, statusMeta);
+    return await this.sendEmailWithFallback(toEmail, subject, htmlContent);
   }
 
   /**

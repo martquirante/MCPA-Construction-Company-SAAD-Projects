@@ -24,7 +24,8 @@ import {
 import { useLanguage } from "@/modules/shared/LanguageContext";
 import PhAddressCascadeSection from "@/modules/portal/components/PhAddressCascadeSection";
 import LotMapPicker from "@/modules/portal/components/LotMapPicker";
-import { Building2, MapPin, Coffee, ExternalLink } from "lucide-react";
+import { Building2, MapPin, Coffee, ExternalLink, Sparkles, Video, Calendar } from "lucide-react";
+import LottieSuccessCheck from "@/modules/shared/LottieSuccessCheck";
 import VenueSearchModal, { EstablishmentLogo } from "./VenueSearchModal";
 import VenueCombobox from "./VenueCombobox";
 
@@ -546,6 +547,15 @@ export default function ArchitecturalClipboardInquiry({
       ? (formattedBuildAddress || "Proposed Project Site")
       : venueCafeDetails;
 
+    const userAvatar =
+      currentUser?.avatarUrl ||
+      currentUser?.avatar_url ||
+      currentUser?.photoURL ||
+      currentUser?.picture ||
+      (currentUser?.email?.toLowerCase() === "rayquirante@gmail.com" || currentUser?.email?.toLowerCase() === "martquirante04@gmail.com"
+        ? "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
+        : null);
+
     const briefPayload = {
       id,
       submissionId: id,
@@ -553,6 +563,10 @@ export default function ArchitecturalClipboardInquiry({
       clientEmail: currentUser?.email || "",
       clientPhone: currentUser?.phoneNumber || "",
       userId: currentUser?.userId || currentUser?.id || null,
+      avatarUrl: userAvatar,
+      avatar_url: userAvatar,
+      authProvider: isGoogleUser ? "google" : (currentUser?.authProvider || currentUser?.provider || "local"),
+      auth_provider: isGoogleUser ? "google" : (currentUser?.authProvider || currentUser?.provider || "local"),
       projectType: projectType === "Other" ? (projectTypeOther || "Other") : projectType,
       preferredStyle: preferredStyle === "Custom Architectural Concept" ? (preferredStyleCustom || "Custom Architectural Concept") : preferredStyle,
       storeys: storeys === "Other" ? (storeysOther || "Other") : storeys,
@@ -1862,14 +1876,14 @@ export default function ArchitecturalClipboardInquiry({
                 SUCCESS STATE: ARCHITECTURAL DOSSIER CONFIRMATION STAMP
                 ========================================================================= */
             <div className="relative rounded-2xl mcpa-paper-sheet p-6 sm:p-10 text-center animate-in zoom-in-95 duration-300">
-              {/* Success Badge */}
-              <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-500 mx-auto mb-4 shadow-lg shadow-emerald-500/20">
-                <CheckIcon className="w-8 h-8" />
+              {/* Lottie Animated Success Badge */}
+              <div className="mb-2 flex items-center justify-center">
+                <LottieSuccessCheck className="w-24 h-24 sm:w-28 sm:h-28" />
               </div>
 
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[4px] bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-mono font-bold tracking-widest uppercase mb-2">
-                <span>INQUIRY &amp; APPOINTMENT CONFIRMED</span>
-              </div>
+              <p className="text-amber-600 dark:text-amber-400 text-xs font-mono font-bold tracking-widest uppercase mb-2">
+                INQUIRY &amp; APPOINTMENT CONFIRMED
+              </p>
 
               <h2 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-neutral-900 dark:text-white">
                 {isFil ? "Nairerehistro ang Project Brief & Konsultasyon" : "Project Brief Registered & Logged"}
@@ -1891,43 +1905,60 @@ export default function ArchitecturalClipboardInquiry({
                 </span>
               </div>
 
-              {/* Summary Table */}
+              {/* Summary Table with icons and wrapping without truncation */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-2xl mx-auto my-6 text-left font-mono text-[11px]">
-                <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
-                  <span className="text-neutral-400 block text-[9px]">CATEGORY</span>
-                  <span className="font-bold text-neutral-900 dark:text-white truncate block">
+                <div className="p-3 sm:p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 flex flex-col justify-start">
+                  <div className="flex items-center gap-1.5 text-neutral-400 dark:text-neutral-500 mb-1">
+                    <Building2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="text-[9px] font-bold uppercase tracking-wider">CATEGORY</span>
+                  </div>
+                  <span className="font-bold text-neutral-900 dark:text-white text-xs break-words whitespace-normal leading-snug">
                     {projectType === "Other" ? (projectTypeOther || "Other") : projectType}
                   </span>
                 </div>
-                <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
-                  <span className="text-neutral-400 block text-[9px]">STYLE PEG</span>
-                  <span className="font-bold text-neutral-900 dark:text-white truncate block">
+
+                <div className="p-3 sm:p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 flex flex-col justify-start">
+                  <div className="flex items-center gap-1.5 text-neutral-400 dark:text-neutral-500 mb-1">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="text-[9px] font-bold uppercase tracking-wider">STYLE PEG</span>
+                  </div>
+                  <span className="font-bold text-neutral-900 dark:text-white text-xs break-words whitespace-normal leading-snug">
                     {preferredStyle === "Custom Architectural Concept" ? (preferredStyleCustom || "Custom Architectural Concept") : preferredStyle}
                   </span>
                 </div>
-                <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
-                  <span className="text-neutral-400 block text-[9px]">LOT LOCATION</span>
-                  <span className="font-bold text-neutral-900 dark:text-white truncate block">{buildCity}, {buildProvince}</span>
+
+                <div className="p-3 sm:p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 flex flex-col justify-start">
+                  <div className="flex items-center gap-1.5 text-neutral-400 dark:text-neutral-500 mb-1">
+                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="text-[9px] font-bold uppercase tracking-wider">LOT LOCATION</span>
+                  </div>
+                  <span className="font-bold text-neutral-900 dark:text-white text-xs break-words whitespace-normal leading-snug">
+                    {buildCity}{buildProvince ? `, ${buildProvince}` : ""}
+                  </span>
                 </div>
-                <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
-                  <span className="text-neutral-400 block text-[9px]">MEETING MODE</span>
-                  <span className="font-bold text-neutral-900 dark:text-white truncate block">{meetingMode.split(" ")[0]}</span>
+
+                <div className="p-3 sm:p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 flex flex-col justify-start">
+                  <div className="flex items-center gap-1.5 text-neutral-400 dark:text-neutral-500 mb-1">
+                    {meetingMode?.toLowerCase().includes("video") || meetingMode?.toLowerCase().includes("online") ? (
+                      <Video className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    ) : meetingMode?.toLowerCase().includes("cafe") ? (
+                      <Coffee className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    ) : (
+                      <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    )}
+                    <span className="text-[9px] font-bold uppercase tracking-wider">MEETING MODE</span>
+                  </div>
+                  <span className="font-bold text-neutral-900 dark:text-white text-xs break-words whitespace-normal leading-snug">
+                    {meetingMode || "Online"}
+                  </span>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="px-5 py-2.5 rounded-xl border border-neutral-300 dark:border-white/15 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5 font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  {isFil ? "Magpasa ng Isa Pang Inquiry" : "Submit Another Inquiry"}
-                </button>
-
+              <div className="flex items-center justify-center pt-4">
                 <Link
                   href="/portal?tab=inquiries"
-                  className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 transition-all inline-flex items-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider shadow-lg shadow-amber-500/25 transition-all inline-flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                 >
                   <span>{isFil ? "Tingnan ang Inquiry sa Client Portal →" : "View Inquiries in Client Portal →"}</span>
                 </Link>

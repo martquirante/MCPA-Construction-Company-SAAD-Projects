@@ -132,7 +132,22 @@ export default function AdminPage() {
       if (savedBriefs) {
         const parsed = JSON.parse(savedBriefs);
         if (Array.isArray(parsed)) {
-          setClientBriefs(parsed);
+          const enriched = parsed.map((b) => {
+            const email = (b.clientEmail || b.client_email || "").toLowerCase().trim();
+            const avatar =
+              b.avatarUrl ||
+              b.avatar_url ||
+              (email === "rayquirante@gmail.com" || email === "martquirante04@gmail.com"
+                ? "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
+                : null);
+            return {
+              ...b,
+              avatarUrl: avatar,
+              avatar_url: avatar,
+              authProvider: b.authProvider || b.auth_provider || (email.endsWith("@gmail.com") ? "google" : "local"),
+            };
+          });
+          setClientBriefs(enriched);
         }
       }
     } catch (e) {
@@ -194,13 +209,24 @@ export default function AdminPage() {
       }
 
       if (briefsRes.status === "fulfilled" && briefsRes.value?.success) {
-        const dbBriefs = (briefsRes.value.briefs || []).map((b) => ({
-          id: b.brief_id || b.id,
-          submissionId: b.submission_id || b.submissionId,
-          clientName: b.client_name || b.clientName,
-          clientEmail: b.client_email || b.clientEmail,
-          clientPhone: b.client_phone || b.clientPhone,
-          projectType: b.project_type || b.projectType,
+        const dbBriefs = (briefsRes.value.briefs || []).map((b) => {
+          const email = (b.client_email || b.clientEmail || "").toLowerCase().trim();
+          const avatar =
+            b.avatar_url ||
+            b.avatarUrl ||
+            (email === "rayquirante@gmail.com" || email === "martquirante04@gmail.com"
+              ? "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
+              : null);
+          return {
+            id: b.brief_id || b.id,
+            submissionId: b.submission_id || b.submissionId,
+            clientName: b.client_name || b.clientName,
+            clientEmail: b.client_email || b.clientEmail,
+            clientPhone: b.client_phone || b.clientPhone,
+            avatarUrl: avatar,
+            avatar_url: avatar,
+            authProvider: b.auth_provider || b.authProvider || (email.endsWith("@gmail.com") ? "google" : null),
+            projectType: b.project_type || b.projectType,
           preferredStyle: b.preferred_style || b.preferredStyle,
           budgetRange: b.budget_range || b.budgetRange,
           lotStatus: b.lot_status || b.lotStatus,
@@ -227,8 +253,9 @@ export default function AdminPage() {
           uploadedFiles: b.uploaded_files || b.uploadedFiles || [],
           status: b.status || "Pending Review",
           createdAt: b.created_at || b.createdAt,
-        }));
-        setClientBriefs(dbBriefs);
+        };
+      });
+      setClientBriefs(dbBriefs);
         if (typeof window !== "undefined") {
           const serializedBriefs = JSON.stringify(dbBriefs);
           if (localStorage.getItem("mcpa_client_briefs") !== serializedBriefs) {
@@ -1591,6 +1618,7 @@ export default function AdminPage() {
         {activeTab === "briefs" && (
           <InquiryPipelineTab
             clientBriefs={clientBriefs}
+            currentUser={currentUser}
             onUpdateStatus={handleUpdateBriefStatus}
             onProvisionAccess={handleProvisionAccess}
             onDeleteBrief={handleDeleteBrief}

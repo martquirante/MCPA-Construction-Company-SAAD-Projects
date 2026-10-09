@@ -7,7 +7,60 @@ class BriefsController {
   async getAll(req, res) {
     try {
       const result = await db.query("SELECT * FROM client_briefs ORDER BY brief_id DESC");
-      return res.json({ success: true, briefs: result.rows || [] });
+      let briefs = result.rows || [];
+
+      try {
+        const usersRes = await db.query("SELECT user_id, email, avatar_url, auth_provider, email_verified FROM users");
+        const users = usersRes.rows || [];
+        const userMap = new Map();
+        users.forEach((u) => {
+          if (u.email) userMap.set(u.email.toLowerCase().trim(), u);
+          if (u.user_id) userMap.set(String(u.user_id), u);
+        });
+
+        briefs = briefs.map((b) => {
+          const user =
+            (b.user_id && userMap.get(String(b.user_id))) ||
+            (b.client_email && userMap.get(b.client_email.toLowerCase().trim()));
+          const isGoogle =
+            user?.auth_provider === "google" ||
+            b.auth_provider === "google" ||
+            b.client_email?.toLowerCase().endsWith("@gmail.com");
+
+          const emailLower = (b.client_email || "").toLowerCase().trim();
+          let resolvedAvatar = b.avatar_url || user?.avatar_url || null;
+          if (!resolvedAvatar && (emailLower === "rayquirante@gmail.com" || emailLower === "martquirante04@gmail.com" || emailLower === "dbprojectmartquirante@gmail.com")) {
+            resolvedAvatar = "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
+          }
+
+          return {
+            ...b,
+            avatar_url: resolvedAvatar,
+            avatarUrl: resolvedAvatar,
+            auth_provider: b.auth_provider || user?.auth_provider || (isGoogle ? "google" : "local"),
+            authProvider: b.auth_provider || user?.auth_provider || (isGoogle ? "google" : "local"),
+            email_verified: user?.email_verified ?? b.email_verified ?? isGoogle,
+          };
+        });
+      } catch (userJoinErr) {
+        console.warn("[BriefsController.getAll] User join notice:", userJoinErr.message);
+        briefs = briefs.map((b) => {
+          const emailLower = (b.client_email || "").toLowerCase().trim();
+          let resolvedAvatar = b.avatar_url || null;
+          if (!resolvedAvatar && (emailLower === "rayquirante@gmail.com" || emailLower === "martquirante04@gmail.com")) {
+            resolvedAvatar = "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
+          }
+          return {
+            ...b,
+            avatar_url: resolvedAvatar,
+            avatarUrl: resolvedAvatar,
+            auth_provider: b.auth_provider || (emailLower.endsWith("@gmail.com") ? "google" : "local"),
+            authProvider: b.auth_provider || (emailLower.endsWith("@gmail.com") ? "google" : "local"),
+          };
+        });
+      }
+
+      return res.json({ success: true, briefs });
     } catch (err) {
       console.error("[BriefsController.getAll] Error:", err);
       return res.status(500).json({ message: "Failed to fetch client briefs: " + err.message });
@@ -250,18 +303,43 @@ class BriefsController {
 
       const updatedBrief = result.rows[0];
 
-      // Dispatch meeting confirmation email to client if scheduled/approved
-      if (
-        (status === "Under Review" || status === "Meeting Scheduled" || status === "Approved / Accepted") &&
-        updatedBrief?.client_email
-      ) {
+      // Dispatch appropriate email notification based on inquiry lifecycle event
+      if (updatedBrief?.client_email) {
         try {
-          await emailService.sendInquiryMeetingConfirmation(
-            updatedBrief.client_email,
-            updatedBrief
-          );
-        } catch (e) {
-          console.warn("[BriefsController] Meeting confirmation email warning:", e.message);
+          const clientEmail = updatedBrief.client_email;
+          const isRejectAction = Boolean(req.body.isRejected) || status.toLowerCase().includes("reject");
+          const isRescheduleAction = Boolean(req.body.isRescheduled) || Boolean(req.body.rescheduleReason) || status.toLowerCase().includes("reschedule");
+          const isApproveAction = Boolean(req.body.isApproved) || status === "Approved / Accepted" || status === "Meeting Scheduled";
+          const isUnderReviewAction = status === "Under Review";
+
+          if (isRejectAction) {
+            await emailService.sendInquiryRejected(clientEmail, updatedBrief, {
+              rejectionReason: req.body.rejectionReason,
+              rejectionNotes: req.body.rejectionNotes,
+            });
+          } else if (isRescheduleAction) {
+            await emailService.sendInquiryRescheduled(clientEmail, updatedBrief, {
+              meetingDate: req.body.meetingDate || updatedBrief.meeting_date,
+              meetingTime: req.body.meetingTime || updatedBrief.meeting_time,
+              meetingMode: req.body.meetingMode || updatedBrief.meeting_mode,
+              meetingLink: req.body.meetingLink || updatedBrief.meeting_link,
+              previousMeetingDate: req.body.previousMeetingDate,
+              previousMeetingTime: req.body.previousMeetingTime,
+              rescheduleReason: req.body.rescheduleReason,
+              rescheduleNotes: req.body.rescheduleNotes,
+            });
+          } else if (isApproveAction) {
+            await emailService.sendInquiryMeetingConfirmation(clientEmail, updatedBrief);
+          } else if (isUnderReviewAction) {
+            await emailService.sendInquiryClientReceipt(clientEmail, updatedBrief);
+          } else {
+            await emailService.sendInquiryStatusUpdate(clientEmail, updatedBrief, {
+              status,
+              notes: req.body.meetingNotes,
+            });
+          }
+        } catch (emailErr) {
+          console.warn("[BriefsController] Lifecycle email notification warning:", emailErr.message);
         }
       }
 
@@ -358,6 +436,61 @@ class BriefsController {
     } catch (err) {
       console.error("[BriefsController.delete] Error:", err);
       return res.status(500).json({ message: "Failed to delete brief: " + err.message });
+    }
+  }
+
+  async downloadPdf(req, res) {
+    try {
+      let brief = null;
+
+      // 1. If payload passed in body (e.g. POST /api/briefs/pdf)
+      if (req.body && (req.body.submissionId || req.body.submission_id || req.body.clientName)) {
+        brief = req.body;
+      }
+
+      // 2. Otherwise query database by ID or submission_id
+      if (!brief && req.params && req.params.id) {
+        const id = req.params.id;
+        const numId = isNaN(parseInt(id, 10)) ? -1 : parseInt(id, 10);
+        const result = await db.query(
+          "SELECT * FROM client_briefs WHERE brief_id = $1 OR submission_id = $2 LIMIT 1",
+          [numId, id]
+        );
+        if (result.rows && result.rows.length > 0) {
+          brief = result.rows[0];
+        }
+      }
+
+      if (!brief) {
+        return res.status(404).json({ message: "Inquiry brief not found." });
+      }
+
+      // Join user avatar & auth provider if client is registered
+      try {
+        const email = brief.client_email || brief.clientEmail;
+        if (email) {
+          const uRes = await db.query(
+            "SELECT avatar_url, auth_provider FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
+            [email.trim()]
+          );
+          if (uRes.rows && uRes.rows[0]) {
+            brief.avatar_url = brief.avatar_url || uRes.rows[0].avatar_url;
+            brief.auth_provider = brief.auth_provider || uRes.rows[0].auth_provider;
+          }
+        }
+      } catch (_) {}
+
+      const { generateInquiryPdf } = require("../services/inquiryPdfService");
+      const { buffer, filename } = await generateInquiryPdf(brief);
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+
+      return res.send(buffer);
+    } catch (err) {
+      console.error("[BriefsController.downloadPdf] Error:", err);
     }
   }
 }

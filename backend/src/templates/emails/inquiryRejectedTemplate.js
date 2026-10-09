@@ -1,30 +1,18 @@
 /**
- * MCPA Construction & Supply - Inquiry Received / Under Review Email Template
- * Precision-crafted architectural engineering aesthetic.
+ * MCPA Construction & Supply - Inquiry Declined / Rejected Email Template
+ * Professional, respectful, and transparent architectural project notice.
  * Fully responsive across Mobile, Tablet, and Desktop PC email clients.
  * Native Dark Mode and Light Mode support with system-adaptive color styling.
  */
-function getInquiryReceiptTemplate(brief = {}) {
+function getInquiryRejectedTemplate(brief = {}, rejectMeta = {}) {
   const clientName = brief.client_name || brief.clientName || "Valued Client";
   const submissionId = brief.submission_id || brief.submissionId || "MCPA-CPB-000000";
   const projectType = brief.project_type || brief.projectType || "Residential Design & Build";
-  const preferredStyle = brief.preferred_style || brief.preferredStyle || "Modern Contemporary";
-  const storeys = brief.storeys || "2-Storey (Standard)";
-  const location = brief.location || "Bulacan, Philippines";
-  const budgetRange = brief.budget_range || brief.budgetRange || "Flexible Architectural Plan";
-  const meetingDate = brief.meeting_date || brief.meetingDate || "Pending Scheduling";
-  const meetingTime = brief.meeting_time || brief.meetingTime || "To be confirmed";
-  const meetingMode = brief.meeting_mode || brief.meetingMode || "Online Video Call";
+  const location = brief.location || "Bulacan";
+  const reason = rejectMeta.rejectionReason || "Regional Service Boundary / Capacity Limit";
+  const notes = rejectMeta.rejectionNotes || "";
   const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
-  const portalUrl = `${websiteUrl}/portal`;
   const logoUrl = `${websiteUrl}/assets/email/email_logo_adaptive_v2.png`;
-
-  const isF2F = (meetingMode || "").toLowerCase().includes("in-person");
-  const venueType = brief.venue_type || brief.venueType;
-  const venueDetails = brief.venue_details || brief.venueDetails;
-  let venueDisplay = isF2F
-    ? (venueDetails || venueType || "Designated Face-to-Face Venue")
-    : "Virtual Google Meet Room";
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -34,7 +22,7 @@ function getInquiryReceiptTemplate(brief = {}) {
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="color-scheme" content="light dark" />
   <meta name="supported-color-schemes" content="light dark" />
-  <title>Inquiry Received — Ref: ${submissionId}</title>
+  <title>Project Consultation Notice — Ref: ${submissionId}</title>
   <style type="text/css">
     body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
     table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-collapse: collapse; }
@@ -46,7 +34,6 @@ function getInquiryReceiptTemplate(brief = {}) {
       .card-body-cell { padding: 22px 16px !important; }
       .header-logo { max-width: 125px !important; }
       .h1-title { font-size: 19px !important; line-height: 1.3 !important; }
-      .param-col { display: block !important; width: 100% !important; padding-right: 0 !important; padding-bottom: 8px !important; }
       .btn-cta { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; }
     }
 
@@ -59,9 +46,8 @@ function getInquiryReceiptTemplate(brief = {}) {
       .info-card { background-color: #0a0e17 !important; border-color: #1e293b !important; }
       .info-label { color: #64748b !important; }
       .info-value { color: #e2e8f0 !important; }
-      .highlight-value { color: #fbbf24 !important; }
       .divider-line { border-top-color: #1e293b !important; }
-      .badge-container { background: transparent !important; background-color: transparent !important; border: none !important; color: #fbbf24 !important; }
+      .badge-container { background: transparent !important; background-color: transparent !important; border: none !important; color: #f87171 !important; }
       .footer-text { color: #64748b !important; }
       .footer-link { color: #60a5fa !important; }
     }
@@ -72,7 +58,7 @@ function getInquiryReceiptTemplate(brief = {}) {
     [data-ogsc] .text-body { color: #cbd5e1 !important; }
     [data-ogsc] .info-card { background-color: #0a0e17 !important; border-color: #1e293b !important; }
     [data-ogsc] .info-value { color: #e2e8f0 !important; }
-    [data-ogsc] .badge-container { background: transparent !important; background-color: transparent !important; border: none !important; color: #fbbf24 !important; }
+    [data-ogsc] .badge-container { background: transparent !important; background-color: transparent !important; border: none !important; color: #f87171 !important; }
     [data-ogsc] .footer-link { color: #60a5fa !important; }
   </style>
 </head>
@@ -93,19 +79,19 @@ function getInquiryReceiptTemplate(brief = {}) {
                     <img src="${logoUrl}" alt="MCPA Construction & Supply" width="140" class="header-logo" style="display: block; max-width: 140px; height: auto;" />
                   </td>
                   <td align="right" valign="middle">
-                    <div class="badge-container" style="display: inline-block; font-family: 'Courier New', Courier, monospace; font-size: 11px; font-weight: 800; color: #d97706; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; padding: 2px 0; background: transparent; border: none;">
-                      Under Review
+                    <div class="badge-container" style="display: inline-block; font-family: 'Courier New', Courier, monospace; font-size: 11px; font-weight: 800; color: #dc2626; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; padding: 2px 0; background: transparent; border: none;">
+                      Declined
                     </div>
                   </td>
                 </tr>
               </table>
 
               <!-- Thin Accent Divider -->
-              <div style="height: 2px; width: 48px; background-color: #f59e0b; margin-bottom: 22px;"></div>
+              <div style="height: 2px; width: 48px; background-color: #ef4444; margin-bottom: 22px;"></div>
 
               <!-- Main Title -->
               <h1 class="text-title h1-title" style="margin: 0 0 10px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">
-                Inquiry Brief Received
+                Project Inquiry Status Update
               </h1>
 
               <!-- Greeting & Core Message -->
@@ -113,70 +99,43 @@ function getInquiryReceiptTemplate(brief = {}) {
                 Dear <strong>${clientName}</strong>,
               </p>
               <p class="text-body" style="margin: 0 0 20px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
-                Thank you for your interest in partnering with <strong>MCPA Construction &amp; Supply</strong>. We have officially logged your project parameters under Reference Number <span style="font-family: 'Courier New', Courier, monospace; font-weight: 700; color: #d97706;">${submissionId}</span>. Our architectural and engineering team is currently evaluating your design brief.
+                Thank you for considering <strong>MCPA Construction &amp; Supply</strong> for your construction project. After a comprehensive engineering review of Brief Reference <span style="font-family: 'Courier New', Courier, monospace; font-weight: 700; color: #b91c1c;">${submissionId}</span>, we regret to inform you that our board is unable to accept this engagement at this time.
               </p>
 
-              <!-- Parameters Breakdown Card -->
+              <!-- Reason Breakdown Card -->
               <div class="info-card" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;">
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">
-                  Project Specification Summary
+                  Review Determination Details
                 </div>
 
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                   <tr>
-                    <td class="param-col" width="50%" valign="top" style="padding-bottom: 10px; padding-right: 8px;">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Project Type</span>
-                      <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">${projectType}</strong>
-                    </td>
-                    <td class="param-col" width="50%" valign="top" style="padding-bottom: 10px;">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Building Height</span>
-                      <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">${storeys}</strong>
+                    <td valign="top" style="padding-bottom: 10px;">
+                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Project Scope</span>
+                      <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">${projectType} &bull; ${location}</strong>
                     </td>
                   </tr>
                   <tr>
-                    <td class="param-col" width="50%" valign="top" style="padding-bottom: 10px; padding-right: 8px;">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Architectural Style</span>
-                      <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">${preferredStyle}</strong>
-                    </td>
-                    <td class="param-col" width="50%" valign="top" style="padding-bottom: 10px;">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Budget Tier</span>
-                      <strong class="highlight-value" style="display: block; font-size: 13px; color: #d97706; margin-top: 2px;">${budgetRange}</strong>
+                    <td valign="top" style="padding-bottom: 8px;">
+                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Official Reason</span>
+                      <strong class="info-value" style="display: block; font-size: 13px; color: #b91c1c; margin-top: 2px;">${reason}</strong>
                     </td>
                   </tr>
+                  ${notes ? `
                   <tr>
-                    <td colspan="2" valign="top" style="padding-bottom: 10px;">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Site Location</span>
-                      <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">${location}</strong>
+                    <td valign="top" style="padding-top: 8px; border-top: 1px solid #e2e8f0;">
+                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Architectural Assessment Note</span>
+                      <p style="margin: 4px 0 0 0; font-size: 12px; font-style: italic; color: #475569;">"${notes}"</p>
                     </td>
                   </tr>
-                  <tr>
-                    <td class="param-col" width="50%" valign="top">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Consultation Mode</span>
-                      <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">${meetingMode}</strong>
-                    </td>
-                    <td class="param-col" width="50%" valign="top">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Requested Schedule</span>
-                      <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">${meetingDate} (${meetingTime})</strong>
-                    </td>
-                  </tr>
+                  ` : ""}
                 </table>
               </div>
 
-              <!-- Next Steps Notice -->
+              <!-- Respectful Closing -->
               <p class="text-body" style="margin: 0 0 24px 0; font-size: 13px; line-height: 1.6; color: #475569;">
-                Our project engineers will review your lot parameters and schedule availability. You will receive an official confirmation email once your consultation slot is finalized.
+                Our project commitments and current regional zoning prioritize high-density coverage in key Central Luzon sectors. Should your project timeline, location, or architectural requirements evolve in the future, we would be pleased to review a new submission.
               </p>
-
-              <!-- Interactive CTA Button -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 30px;">
-                <tr>
-                  <td align="left">
-                    <a href="${portalUrl}" class="btn-cta" target="_blank" style="display: inline-block; background-color: #f59e0b; color: #0a0e17; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 700; text-decoration: none; padding: 13px 26px; border-radius: 8px; letter-spacing: 0.02em; text-transform: uppercase; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);">
-                      Track Brief in Client Portal &rarr;
-                    </a>
-                  </td>
-                </tr>
-              </table>
 
               <!-- Divider -->
               <div class="divider-line" style="height: 1px; width: 100%; border-top: 1px solid #e2e8f0; margin-bottom: 20px;"></div>
@@ -205,4 +164,4 @@ function getInquiryReceiptTemplate(brief = {}) {
 </html>`;
 }
 
-module.exports = { getInquiryReceiptTemplate };
+module.exports = { getInquiryRejectedTemplate };
