@@ -23,8 +23,9 @@ import { getThemePreference, setThemePreference } from "./SystemThemeSync";
 import { useLanguage } from "./LanguageContext";
 import { setReturnToCompletedHome } from "@/modules/home/homeState";
 
-export default function ClientNavbar({ isCompleted = false } = {}) {
+export default function ClientNavbar({ isCompleted = false, minimal = false } = {}) {
   const pathname = usePathname();
+  const isMinimal = minimal || pathname === "/book";
   const isHome = pathname === "/";
   const { t, language, setLanguage } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -151,14 +152,14 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
   };
 
   // Headings appear when the build reaches completion, scrolled past hero, or on subpages.
-  // During video scrolling on home, only the logo is shown ("if sa scroll ng mga video dapat is logo lang nakalagay dyan")
-  const showHeadings = !isHome || isCompleted || scrolledPastHero;
+  // In minimal mode (such as /book), headings/nav links are completely hidden.
+  const showHeadings = !isMinimal && (!isHome || isCompleted || scrolledPastHero);
 
-  // "Book an Appointment" CTA button: prominently visible when completed or scrolled past hero so it is never hidden or obscured
-  const showHeaderBooking = (!isHome || isCompleted || scrolledPastHero) && pathname !== "/book";
+  // "Book an Appointment" CTA button: hidden in minimal mode or on /book
+  const showHeaderBooking = !isMinimal && (!isHome || isCompleted || scrolledPastHero) && pathname !== "/book";
 
-  // Client Portal link/icon is visible when completed, scrolled past hero, or on subpages
-  const showClientPortal = !isHome || isCompleted || scrolledPastHero;
+  // Client Portal link/icon is visible when completed, scrolled past hero, on subpages, or in minimal mode
+  const showClientPortal = true;
 
   return (
     <>
@@ -170,24 +171,28 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
         }`}
       >
         {/* Top Utility Announcement Bar (ShopRave Inspired) */}
-        <div className="relative z-50">
-          <UtilityBar
-            show={showUtilityBar}
-            scrolledPastHero={scrolledPastHero}
-          />
-        </div>
+        {!isMinimal && (
+          <div className="relative z-50">
+            <UtilityBar
+              show={showUtilityBar}
+              scrolledPastHero={scrolledPastHero}
+            />
+          </div>
+        )}
 
         {/* Main Header / Navigation Bar: Clear Glass UI without background blur (Sharp & 100% unblurred background) */}
         <header
           className={`relative z-10 w-full transition-all duration-700 ease-out ${
-            scrolledPastHero
+            isMinimal
+              ? "bg-transparent py-2 sm:py-2.5 text-neutral-900 dark:text-white"
+              : scrolledPastHero
               ? "bg-white/85 dark:bg-neutral-950/85 backdrop-blur-xl backdrop-saturate-150 border-b border-neutral-200/50 dark:border-white/10 py-3 shadow-md text-neutral-900 dark:text-white"
               : isHome && !isCompleted
               ? "bg-transparent py-4 text-white"
               : "bg-white/50 dark:bg-black/25 backdrop-blur-none border-b border-neutral-900/10 dark:border-white/10 py-3.5 text-neutral-900 dark:text-white shadow-xs"
           }`}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-[1fr_auto_1fr] items-center">
+          <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isMinimal ? "flex items-center justify-between" : "grid grid-cols-2 md:grid-cols-[1fr_auto_1fr] items-center"}`}>
           {/* 1. BRAND LOGO - Column 1 (Left-aligned) */}
           <div className="flex items-center justify-start">
             <Link
@@ -204,7 +209,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
                   priority
                   unoptimized
                   className={`object-contain object-left ${
-                    isHome && !isCompleted ? "block drop-shadow-md" : "hidden dark:block"
+                    !isMinimal && isHome && !isCompleted ? "block drop-shadow-md" : "hidden dark:block"
                   }`}
                   sizes="(max-width: 768px) 180px, 220px"
                 />
@@ -215,7 +220,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
                   priority
                   unoptimized
                   className={`object-contain object-left ${
-                    isHome && !isCompleted ? "hidden" : "block dark:hidden"
+                    !isMinimal && isHome && !isCompleted ? "hidden" : "block dark:hidden"
                   }`}
                   sizes="(max-width: 768px) 180px, 220px"
                 />
@@ -223,37 +228,39 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
             </Link>
           </div>
 
-          {/* 2. CENTER NAVIGATION LINKS - Column 2 (Perfect horizontal & vertical center) */}
-          <nav
-            aria-label="Primary Navigation"
-            className={`hidden md:flex items-center justify-center gap-4 lg:gap-8 transition-all duration-700 ease-out ${
-              showHeadings
-                ? "opacity-100 translate-y-0 pointer-events-auto"
-                : "opacity-0 -translate-y-2 pointer-events-none"
-            }`}
-          >
-            {navLinks.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                onClick={(e) => handleNavClick(e, link.href)}
-                className={`relative py-1.5 px-0.5 text-xs lg:text-sm font-semibold tracking-wide transition-colors duration-200 select-none flex flex-col items-center justify-center ${
-                  scrolledPastHero
-                    ? link.active
-                      ? "text-amber-600 dark:text-amber-400 font-bold"
-                      : "text-neutral-700 hover:text-amber-600 dark:text-neutral-300 dark:hover:text-amber-400"
-                    : link.active
-                    ? "text-amber-500 dark:text-amber-400 font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]"
-                    : "text-neutral-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 font-medium drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)] dark:drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]"
-                }`}
-              >
-                <span>{link.label}</span>
-                {link.active && (
-                  <span className="absolute bottom-0 inset-x-0 h-0.5 bg-amber-500 dark:bg-amber-400" />
-                )}
-              </Link>
-            ))}
-          </nav>
+          {/* 2. CENTER NAVIGATION LINKS - Column 2 (Hidden in minimal mode) */}
+          {!isMinimal && (
+            <nav
+              aria-label="Primary Navigation"
+              className={`hidden md:flex items-center justify-center gap-4 lg:gap-8 transition-all duration-700 ease-out ${
+                showHeadings
+                  ? "opacity-100 translate-y-0 pointer-events-auto"
+                  : "opacity-0 -translate-y-2 pointer-events-none"
+              }`}
+            >
+              {navLinks.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  onClick={(e) => handleNavClick(e, link.href)}
+                  className={`relative py-1.5 px-0.5 text-xs lg:text-sm font-semibold tracking-wide transition-colors duration-200 select-none flex flex-col items-center justify-center ${
+                    scrolledPastHero
+                      ? link.active
+                        ? "text-amber-600 dark:text-amber-400 font-bold"
+                        : "text-neutral-700 hover:text-amber-600 dark:text-neutral-300 dark:hover:text-amber-400"
+                      : link.active
+                      ? "text-amber-500 dark:text-amber-400 font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]"
+                      : "text-neutral-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 font-medium drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)] dark:drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]"
+                  }`}
+                >
+                  <span>{link.label}</span>
+                  {link.active && (
+                    <span className="absolute bottom-0 inset-x-0 h-0.5 bg-amber-500 dark:bg-amber-400" />
+                  )}
+                </Link>
+              ))}
+            </nav>
+          )}
 
           {/* 3. RIGHT UTILITY ACTIONS - Column 3 (Right-aligned) */}
           <div className="flex items-center justify-end gap-2.5 sm:gap-3">
@@ -287,7 +294,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
                 aria-label="Client Account Portal"
                 title="Client Portal & Project Tracker"
                 className={`p-2.5 rounded-[6px] transition-[color,background-color,border-color] duration-150 focus:outline-none flex items-center justify-center border select-none ${
-                  scrolledPastHero
+                  isMinimal || scrolledPastHero
                     ? "border-neutral-200 dark:border-white/10 text-neutral-700 hover:text-amber-600 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:text-amber-400 dark:hover:bg-white/8"
                     : "border-neutral-900/15 bg-white/45 hover:bg-white/65 text-neutral-900 dark:border-white/20 dark:bg-white/[0.05] dark:text-white dark:hover:bg-white/12"
                 }`}
@@ -297,7 +304,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
             )}
 
             {/* Mobile Menu Hamburger Toggle (reveals when headings are enabled) */}
-            {showHeadings && (
+            {!isMinimal && showHeadings && (
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-label="Toggle Navigation Menu"
@@ -320,6 +327,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
       </div>
 
       {/* 3. MOBILE DRAWER MENU */}
+      {!isMinimal && (
       <div
         className={`fixed inset-x-0 top-0 z-45 pt-28 pb-8 px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-200 dark:border-white/10 shadow-2xl md:hidden transition-all duration-500 ease-in-out ${
           mobileMenuOpen
@@ -491,6 +499,7 @@ export default function ClientNavbar({ isCompleted = false } = {}) {
           </div>
         </div>
       </div>
+      )}
     </>
   );
 }

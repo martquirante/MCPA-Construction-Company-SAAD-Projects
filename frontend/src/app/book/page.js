@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ClientNavbar from "@/modules/shared/ClientNavbar";
-import Footer from "@/modules/shared/Footer";
 import ArchitecturalClipboardInquiry from "@/modules/book/components/ArchitecturalClipboardInquiry";
 import BookingAuthModal from "@/modules/book/components/BookingAuthModal";
 import { useLanguage } from "@/modules/shared/LanguageContext";
@@ -50,12 +49,12 @@ function BookingPageContent() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex flex-col font-sans transition-colors duration-500">
-      {/* Top Sticky Navigation */}
-      <ClientNavbar isCompleted={true} />
+    <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex flex-col font-sans transition-colors duration-500 relative chb-texture">
+      {/* Top Sticky Navigation: Minimal brand bar (Logo & Account Icon only) */}
+      <ClientNavbar isCompleted={true} minimal={true} />
 
-      {/* Main Content Area */}
-      <main className="flex-1 min-h-0 flex flex-col pt-20 sm:pt-24 overflow-hidden">
+      {/* Main Content Area: Flush clipboard aligned snugly to the top */}
+      <main className="flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden">
         {isLoadingAuth ? (
           <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
             <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mb-4" />
@@ -74,9 +73,6 @@ function BookingPageContent() {
           <BookingAuthModal isOpen={true} redirectUrl={currentUrl} selectedStyle={selectedStyle} />
         )}
       </main>
-
-      {/* Architectural Multi-Column Footer */}
-      <Footer />
     </div>
   );
 }

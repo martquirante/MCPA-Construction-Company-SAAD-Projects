@@ -561,6 +561,8 @@ export function SparkleBadgeIcon({ className = "w-4 h-4", strokeWidth = 1.75, ..
   );
 }
 
+export const SparklesIcon = SparkleBadgeIcon;
+
 export function PlusIcon({ className = "w-5 h-5", strokeWidth = 2, ...props }) {
   return (
     <Plus

@@ -14,7 +14,7 @@ import {
   ArrowRightIcon,
   ArrowLeftIcon,
   CloseIcon,
-  SparklesIcon,
+  SparkleBadgeIcon,
   VideoIcon,
   UserIcon,
   PhoneIcon,
@@ -58,6 +58,14 @@ const PROJECT_CATEGORIES = [
     descFil: "Pagpapalaki, dagdag na palapag, pagsasaayos ng loob",
     icon: HammerIcon,
   },
+  {
+    val: "Other",
+    labelEn: "Other / Custom Project",
+    labelFil: "Iba Pa / Custom na Proyekto",
+    descEn: "Specify your own project type below",
+    descFil: "Ilagay ang sariling uri ng proyekto sa ibaba",
+    icon: SparkleBadgeIcon,
+  },
 ];
 
 const ARCH_STYLES = [
@@ -74,19 +82,14 @@ const STOREY_OPTIONS = [
   { val: "2-Storey (Standard)", label: "2-Storey (Standard)" },
   { val: "3-Storey (Multi-Level)", label: "3-Storey (Multi-Level)" },
   { val: "2-Storey with Roof Deck", label: "2-Storey + Roof Deck" },
-];
-
-const BUDGET_OPTIONS = [
-  { val: "₱2.5M - ₱4.0M", descEn: "Starter / Compact Residence", descFil: "Pang-umpisang Tirahan / Compact" },
-  { val: "₱4.0M - ₱7.0M", descEn: "Standard 2-Storey Mid-End", descFil: "Karaniwang 2-Palapag na Mid-End" },
-  { val: "₱7.0M - ₱12.0M+", descEn: "Executive / High-End Luxury", descFil: "Malaki / High-End Luxury Villa" },
-  { val: "Flexible / Subject to Costing", descEn: "Subject to architectural estimation", descFil: "Ayon sa tantya ng arkitekto" },
+  { val: "Other", label: "Other (Specify)" },
 ];
 
 const FINANCING_OPTIONS = [
   { val: "Build Now, Pay Later Program", descEn: "Titled lot BNPL financing program", descFil: "BNPL program para sa may sariling titulo" },
   { val: "Milestone Progress Billing", descEn: "Direct progress billings per construction milestone", descFil: "Bayad bawat yugto ng natapos na gawa" },
   { val: "Bank / Pag-IBIG Housing Loan Assistance", descEn: "Full technical document assistance for bank take-out", descFil: "Tulong sa dokumento para sa housing loan" },
+  { val: "Other", descEn: "Specify financing arrangement", descFil: "Ilagay ang ibang paraan ng pagbabayad" },
 ];
 
 const LOT_STATUS_OPTIONS = [
@@ -95,6 +98,7 @@ const LOT_STATUS_OPTIONS = [
   { val: "Rights / Tax Declaration", desc: "Hawak ang karapatan / Tax Declaration" },
   { val: "In Acquisition / Purchasing", desc: "Kasalukuyang binibili o pinoproseso ang lupa" },
   { val: "Looking for Lot Assistance", desc: "Wala pa / naghahanap pa ng lote sa Bulacan o Pampanga" },
+  { val: "Other", desc: "Other lot status — please specify" },
 ];
 
 const FEATURE_TAG_OPTIONS = [
@@ -121,16 +125,25 @@ export default function ArchitecturalClipboardInquiry({
   const [animClass, setAnimClass] = useState("");
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Validation errors per sheet
+  const [errors, setErrors] = useState({});
+  const [shakeKey, setShakeKey] = useState(0);
+  const [addressAttempted, setAddressAttempted] = useState(false);
+
   // --- SHEET 1: PROJECT CLASSIFICATION & AESTHETIC ---
-  const [projectType, setProjectType] = useState("Residential Villa / Two-Storey");
-  const [preferredStyle, setPreferredStyle] = useState(selectedStyle || "Contemporary Modern");
-  const [storeys, setStoreys] = useState("2-Storey (Standard)");
-  const [targetTimeline, setTargetTimeline] = useState("Within 3 Months");
+  const [projectType, setProjectType] = useState("");
+  const [projectTypeOther, setProjectTypeOther] = useState("");
+  const [preferredStyle, setPreferredStyle] = useState(selectedStyle || "");
+  const [preferredStyleCustom, setPreferredStyleCustom] = useState("");
+  const [storeys, setStoreys] = useState("");
+  const [storeysOther, setStoreysOther] = useState("");
+  const [targetTimeline, setTargetTimeline] = useState("");
+  const [targetTimelineOther, setTargetTimelineOther] = useState("");
 
   // --- SHEET 2: PROPOSED CONSTRUCTION SITE & SATELLITE MAP ---
-  const [buildProvince, setBuildProvince] = useState("Bulacan");
-  const [buildProvinceCode, setBuildProvinceCode] = useState("0301400000");
-  const [buildCity, setBuildCity] = useState("Plaridel");
+  const [buildProvince, setBuildProvince] = useState("");
+  const [buildProvinceCode, setBuildProvinceCode] = useState("");
+  const [buildCity, setBuildCity] = useState("");
   const [buildCityCode, setBuildCityCode] = useState("");
   const [buildBarangay, setBuildBarangay] = useState("");
   const [buildBarangayCode, setBuildBarangayCode] = useState("");
@@ -139,25 +152,27 @@ export default function ArchitecturalClipboardInquiry({
   const [buildHouseNo, setBuildHouseNo] = useState("");
   const [buildBlkLot, setBuildBlkLot] = useState("");
 
-  const [mapCoordinates, setMapCoordinates] = useState("14.8871, 120.8572");
-  const [lotStatus, setLotStatus] = useState("Titled & Ready (Clean TCT)");
-  const [lotArea, setLotArea] = useState("240");
+  const [mapCoordinates, setMapCoordinates] = useState("");
+  const [lotStatus, setLotStatus] = useState("");
+  const [lotStatusOther, setLotStatusOther] = useState("");
+  const [lotArea, setLotArea] = useState("");
 
   // --- SHEET 3: SPATIAL WISHLIST, BUDGET & MEETING ---
-  const [bedrooms, setBedrooms] = useState("3 - 4 Bedrooms");
-  const [bathrooms, setBathrooms] = useState("2 - 3 Bathrooms");
-  const [carGarage, setCarGarage] = useState("2-Car Garage");
-  const [selectedFeatures, setSelectedFeatures] = useState(new Set(["high_ceiling", "dirty_kitchen"]));
-  const [budgetRange, setBudgetRange] = useState("₱4.0M - ₱7.0M");
-  const [financingOption, setFinancingOption] = useState("Build Now, Pay Later Program");
+  const [bedrooms, setBedrooms] = useState("");
+  const [bedroomsOther, setBedroomsOther] = useState("");
+  const [bathrooms, setBathrooms] = useState("");
+  const [bathroomsOther, setBathroomsOther] = useState("");
+  const [carGarage, setCarGarage] = useState("");
+  const [carGarageOther, setCarGarageOther] = useState("");
+  const [selectedFeatures, setSelectedFeatures] = useState(new Set());
+  const [budgetRange, setBudgetRange] = useState("");
+  const [financingOption, setFinancingOption] = useState("");
+  const [financingOptionOther, setFinancingOptionOther] = useState("");
 
-  const [meetingMode, setMeetingMode] = useState("Online Meeting (Google Meet)");
-  const [meetingDate, setMeetingDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 2);
-    return d.toISOString().split("T")[0];
-  });
-  const [meetingTime, setMeetingTime] = useState("09:00 AM - 10:30 AM PHT");
+  const [meetingMode, setMeetingMode] = useState("");
+  const [meetingDate, setMeetingDate] = useState("");
+  const [meetingTime, setMeetingTime] = useState("");
+  const [meetingTimeOther, setMeetingTimeOther] = useState("");
   const [specialNotes, setSpecialNotes] = useState("");
 
   // Submission State
@@ -197,8 +212,66 @@ export default function ArchitecturalClipboardInquiry({
   }, [buildHouseNo, buildBlkLot, buildStreet, buildSubdivision, buildBarangay, buildCity, buildProvince]);
 
   // Paper-Flip Navigation Transitions
+  const validateSheet1 = () => {
+    const e = {};
+    if (!projectType) e.projectType = "Please select a project category.";
+    if (projectType === "Other" && !projectTypeOther.trim()) e.projectTypeOther = "Please describe your project type.";
+    if (!preferredStyle) e.preferredStyle = "Please select an architectural style.";
+    if (preferredStyle === "Custom Architectural Concept" && !preferredStyleCustom.trim()) e.preferredStyleCustom = "Please describe your custom concept.";
+    if (!storeys) e.storeys = "Please select the number of storeys.";
+    if (storeys === "Other" && !storeysOther.trim()) e.storeysOther = "Please specify the number of storeys.";
+    if (!targetTimeline) e.targetTimeline = "Please select a target construction timeline.";
+    if (targetTimeline === "Other" && !targetTimelineOther.trim()) e.targetTimelineOther = "Please describe your target timeline.";
+    return e;
+  };
+
+  const validateSheet2 = () => {
+    const e = {};
+    if (!buildProvince) e.buildProvince = "Please select a province.";
+    if (!buildCity) e.buildCity = "Please select a city/municipality.";
+    if (!buildBarangay) e.buildBarangay = "Please select a barangay.";
+    if (!lotStatus) e.lotStatus = "Please select the lot title status.";
+    if (lotStatus === "Other" && !lotStatusOther.trim()) e.lotStatusOther = "Please describe your lot status.";
+    if (!lotArea || isNaN(Number(lotArea)) || Number(lotArea) < 20) e.lotArea = "Please enter a valid lot area (min. 20 sqm).";
+    return e;
+  };
+
+  const validateSheet3 = () => {
+    const e = {};
+    if (!bedrooms) e.bedrooms = "Please select the number of bedrooms.";
+    if (bedrooms === "Other" && !bedroomsOther.trim()) e.bedroomsOther = "Please specify the number of bedrooms.";
+    if (!bathrooms) e.bathrooms = "Please select the number of bathrooms.";
+    if (bathrooms === "Other" && !bathroomsOther.trim()) e.bathroomsOther = "Please specify the number of bathrooms.";
+    if (!carGarage) e.carGarage = "Please select garage capacity.";
+    if (carGarage === "Other" && !carGarageOther.trim()) e.carGarageOther = "Please specify your garage requirement.";
+    if (!budgetRange || !budgetRange.trim()) e.budgetRange = "Please enter your target budget range.";
+    if (!financingOption) e.financingOption = "Please select a financing option.";
+    if (financingOption === "Other" && !financingOptionOther.trim()) e.financingOptionOther = "Please describe your financing arrangement.";
+    if (!meetingMode) e.meetingMode = "Please select a meeting mode.";
+    if (!meetingDate) e.meetingDate = "Please select a consultation date.";
+    if (!meetingTime) e.meetingTime = "Please select a preferred time slot.";
+    if (meetingTime === "Other" && !meetingTimeOther.trim()) e.meetingTimeOther = "Please specify your preferred time.";
+    return e;
+  };
+
   const goToSheet = (targetSheet, direction = "next") => {
     if (isAnimating || targetSheet === sheet) return;
+
+    // Validate before advancing forward
+    if (direction === "next") {
+      let errs = {};
+      if (sheet === 1) errs = validateSheet1();
+      if (sheet === 2) errs = validateSheet2();
+      if (Object.keys(errs).length > 0) {
+        setErrors(errs);
+        setShakeKey((k) => k + 1);
+        if (sheet === 2) setAddressAttempted(true);
+        return;
+      }
+    }
+
+    setErrors({});
+    setAddressAttempted(false);
     setIsAnimating(true);
 
     const outClass = direction === "next" ? "sheet-anim-out-next" : "sheet-anim-out-prev";
@@ -220,6 +293,14 @@ export default function ArchitecturalClipboardInquiry({
   // Handle Submission to Backend
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+    // Validate Sheet 3 before submitting
+    const errs = validateSheet3();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      setShakeKey((k) => k + 1);
+      return;
+    }
+    setErrors({});
     setSubmitError("");
     setIsSubmitting(true);
 
@@ -233,10 +314,10 @@ export default function ArchitecturalClipboardInquiry({
       clientEmail: currentUser?.email || "",
       clientPhone: currentUser?.phoneNumber || "",
       userId: currentUser?.userId || currentUser?.id || null,
-      projectType,
-      preferredStyle,
-      storeys,
-      targetDate: targetTimeline,
+      projectType: projectType === "Other" ? (projectTypeOther || "Other") : projectType,
+      preferredStyle: preferredStyle === "Custom Architectural Concept" ? (preferredStyleCustom || "Custom Architectural Concept") : preferredStyle,
+      storeys: storeys === "Other" ? (storeysOther || "Other") : storeys,
+      targetDate: targetTimeline === "Other" ? (targetTimelineOther || "Other") : targetTimeline,
       location: formattedBuildAddress,
       siteAddressDetails: {
         province: buildProvince,
@@ -248,20 +329,20 @@ export default function ArchitecturalClipboardInquiry({
         blkLot: buildBlkLot,
       },
       mapCoordinates,
-      lotStatus,
+      lotStatus: lotStatus === "Other" ? (lotStatusOther || "Other") : lotStatus,
       lotArea: lotArea ? `${lotArea} sqm` : "Not specified",
-      budgetRange,
-      financingOption,
+      budgetRange: budgetRange === "Other" ? (budgetRangeOther || "Other") : budgetRange,
+      financingOption: financingOption === "Other" ? (financingOptionOther || "Other") : financingOption,
       spatialWishlist: {
-        bedrooms,
-        bathrooms,
-        carGarage,
+        bedrooms: bedrooms === "Other" ? (bedroomsOther || "Other") : bedrooms,
+        bathrooms: bathrooms === "Other" ? (bathroomsOther || "Other") : bathrooms,
+        carGarage: carGarage === "Other" ? (carGarageOther || "Other") : carGarage,
         featureTags: Array.from(selectedFeatures),
       },
       meetingMode,
       meetingDate: meetingDate || "Earliest Available Slot",
-      meetingTime,
-      message: specialNotes || `Storeys: ${storeys} • Bedrooms: ${bedrooms} • Bathrooms: ${bathrooms} • Garage: ${carGarage}`,
+      meetingTime: meetingTime === "Other" ? (meetingTimeOther || "Other") : meetingTime,
+      message: specialNotes || `Storeys: ${storeys === "Other" ? (storeysOther || "Other") : storeys} • Bedrooms: ${bedrooms === "Other" ? (bedroomsOther || "Other") : bedrooms} • Bathrooms: ${bathrooms === "Other" ? (bathroomsOther || "Other") : bathrooms} • Garage: ${carGarage === "Other" ? (carGarageOther || "Other") : carGarage}`,
       locationType: currentUser?.clientType || "Local",
       status: "Pending Review",
     };
@@ -305,13 +386,13 @@ export default function ArchitecturalClipboardInquiry({
       className={`relative w-full min-h-0 overscroll-contain scrollbar-thin transition-all select-none ${
         isModal
           ? "p-0"
-          : "max-h-[calc(100dvh-5rem)] overflow-y-auto py-8 px-3 sm:px-6 max-w-5xl mx-auto"
+          : "w-full pt-12 sm:pt-14 md:pt-16 pb-6 sm:pb-8 px-2 sm:px-4 md:px-6 max-w-[960px] mx-auto"
       }`}
     >
       {/* =========================================================================
           THE CLIPBOARD CONTAINER (Architectural Yellow Hardboard with Tactile Fiber Texture)
           ========================================================================= */}
-      <div className="relative rounded-3xl p-3.5 sm:p-7 md:p-9 mcpa-clipboard-board transition-all">
+      <div className="relative rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 md:p-6 mcpa-clipboard-board transition-all">
         {/* TOP CLAMP ASSEMBLY: FIXED METALLIC CLIP WITH RIVETS & SHADOW */}
         <div className="absolute -top-5 sm:-top-6 inset-x-0 flex justify-center z-30 pointer-events-none">
           <div className="relative flex flex-col items-center">
@@ -370,11 +451,11 @@ export default function ArchitecturalClipboardInquiry({
         <div className="clipboard-perspective mt-6 sm:mt-5">
           {!isSubmitted ? (
             <div
-              className={`relative rounded-2xl mcpa-paper-sheet p-5 sm:p-8 md:p-10 transition-all ${animClass}`}
+              className={`relative rounded-xl sm:rounded-2xl mcpa-paper-sheet p-4 sm:p-6 md:p-8 transition-all ${animClass}`}
             >
               {/* STAMPED VERIFIED CLIENT PROFILE HEADER (NO REDUNDANT INPUTS) */}
-              <div className="border-b border-neutral-200 dark:border-white/10 pb-5 mb-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="border-b border-neutral-200 dark:border-white/10 pb-4 mb-5">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
                   {/* Left: Document Branding & Reference Number */}
                   <div>
                     <div className="inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400 font-bold mb-1">
@@ -382,25 +463,25 @@ export default function ArchitecturalClipboardInquiry({
                       <span>•</span>
                       <span>STAGE 1: BRIEF</span>
                     </div>
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold uppercase tracking-tight text-neutral-900 dark:text-white">
+                    <h2 className="text-lg sm:text-2xl md:text-3xl font-extrabold uppercase tracking-tight text-neutral-900 dark:text-white leading-tight">
                       {isFil ? "Architectural Client Profiling" : "Architectural Client Profiling"}
                     </h2>
                   </div>
 
                   {/* Right: Sheet Tab Indicator */}
-                  <div className="flex items-center gap-1.5 self-start sm:self-auto bg-neutral-100 dark:bg-white/[0.05] p-1 rounded-xl border border-neutral-200 dark:border-white/10 font-mono text-xs">
+                  <div className="flex items-center gap-1 self-start sm:self-auto bg-neutral-100 dark:bg-white/[0.05] p-1 rounded-xl border border-neutral-200 dark:border-white/10 font-mono text-xs shrink-0">
                     {[1, 2, 3].map((num) => (
                       <button
                         key={num}
                         type="button"
                         onClick={() => goToSheet(num, num > sheet ? "next" : "prev")}
-                        className={`px-3 py-1 rounded-lg transition-all font-bold cursor-pointer ${
+                        className={`px-2.5 sm:px-3 py-1 rounded-lg transition-all font-bold cursor-pointer text-[11px] sm:text-xs ${
                           sheet === num
                             ? "bg-amber-500 text-neutral-950 shadow-xs"
                             : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
                         }`}
                       >
-                        {isFil ? `Pahina ${num}` : `Sheet ${num}`}
+                        {isFil ? `P${num}` : `Sheet ${num}`}
                       </button>
                     ))}
                   </div>
@@ -408,31 +489,25 @@ export default function ArchitecturalClipboardInquiry({
 
                 {/* Stamped Verified Client Profile Strip */}
                 {currentUser && (
-                  <div className="mt-4 p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/12 border border-amber-500/30 flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono">
-                    <div className="flex items-center gap-2">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-mono">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       {currentUser.avatarUrl || currentUser.avatar_url || currentUser.photoURL || currentUser.picture ? (
                         <img
                           src={currentUser.avatarUrl || currentUser.avatar_url || currentUser.photoURL || currentUser.picture}
                           alt={`${currentUser.fullName || "Client"} profile`}
-                          className="w-7 h-7 rounded-full object-cover border border-emerald-500/40 shrink-0"
+                          className="w-6 h-6 rounded-full object-cover border border-emerald-500/40 shrink-0"
                         />
                       ) : (
                         <ShieldCheckIcon className="w-4 h-4 text-emerald-500 shrink-0" />
                       )}
-                      <span className="font-bold text-neutral-900 dark:text-white">
+                      <span className="font-bold text-neutral-900 dark:text-white truncate">
                         {currentUser.fullName || "Valued Client"}
                       </span>
-                      <span className="text-neutral-400">•</span>
-                      <span className="text-neutral-600 dark:text-neutral-300">{currentUser.email}</span>
+                      <span className="text-neutral-400 hidden sm:inline">•</span>
+                      <span className="text-neutral-500 dark:text-neutral-400 truncate hidden sm:inline">{currentUser.email}</span>
                       {currentUser.phoneNumber && (
-                        <>
-                          <span className="text-neutral-400 hidden sm:inline">•</span>
-                          <span className="text-neutral-600 dark:text-neutral-300 hidden sm:inline">{currentUser.phoneNumber}</span>
-                        </>
+                        <span className="text-neutral-500 dark:text-neutral-400 hidden md:inline">• {currentUser.phoneNumber}</span>
                       )}
-                    </div>
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] uppercase">
-                      <span>✓ {currentUser.clientType === "OFW" ? "OFW VERIFIED" : "HOMEOWNER ACCOUNT"}</span>
                     </div>
                   </div>
                 )}
@@ -442,13 +517,12 @@ export default function ArchitecturalClipboardInquiry({
                   SHEET 1: PROJECT CLASSIFICATION & AESTHETIC STYLE
                   ========================================================================= */}
               {sheet === 1 && (
-                <div className="space-y-6 animate-in fade-in duration-200">
-                  {/* Category Selection */}
+                <div className="space-y-5 animate-in fade-in duration-200">
                   <div>
                     <label className="block text-xs font-mono uppercase tracking-wider font-bold text-neutral-800 dark:text-neutral-200 mb-3">
                       1. {isFil ? "Uri ng Proyekto (Project Category) *" : "Project Classification & Category *"}
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2.5 rounded-xl transition-all ${errors.projectType ? "ring-2 ring-red-500/50 p-2 bg-red-500/5" : ""}`}>
                       {PROJECT_CATEGORIES.map((cat) => {
                         const Icon = cat.icon;
                         const isSelected = projectType === cat.val;
@@ -456,14 +530,19 @@ export default function ArchitecturalClipboardInquiry({
                           <button
                             key={cat.val}
                             type="button"
-                            onClick={() => setProjectType(cat.val)}
-                            className={`p-4 rounded-xl text-left border transition-all cursor-pointer flex items-start gap-3.5 ${
+                            onClick={() => {
+                              // Toggle off if already selected
+                              setProjectType(isSelected ? "" : cat.val);
+                              if (isSelected || cat.val !== "Other") setProjectTypeOther("");
+                              if (errors.projectType) setErrors((p) => ({ ...p, projectType: undefined }));
+                            }}
+                            className={`p-3 sm:p-4 rounded-xl text-left border transition-all cursor-pointer flex items-start gap-3 ${
                               isSelected
                                 ? "bg-amber-500/12 dark:bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/30 text-neutral-900 dark:text-white shadow-md"
                                 : "bg-neutral-50 dark:bg-white/[0.03] border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 hover:border-amber-500/50"
                             }`}
                           >
-                            <div className={`p-2.5 rounded-lg shrink-0 ${isSelected ? "bg-amber-500 text-neutral-950 font-bold" : "bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-300"}`}>
+                            <div className={`p-2.5 rounded-lg shrink-0 ${isSelected ? "bg-amber-500 text-neutral-950 font-bold" : "text-neutral-600 dark:text-neutral-300"}`}>
                               <Icon className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
@@ -478,6 +557,23 @@ export default function ArchitecturalClipboardInquiry({
                         );
                       })}
                     </div>
+                    {errors.projectType && <p className="mt-1.5 text-[11px] text-red-500 font-mono">{errors.projectType}</p>}
+                    {projectType === "Other" && (
+                      <div className="mt-3">
+                        <input
+                          type="text"
+                          value={projectTypeOther}
+                          onChange={(e) => {
+                            setProjectTypeOther(e.target.value);
+                            if (errors.projectTypeOther) setErrors((p) => ({ ...p, projectTypeOther: undefined }));
+                          }}
+                          placeholder={isFil ? "Ilarawan ang uri ng inyong proyekto..." : "Describe your project type (e.g. Chapel, School Building, Gym...)"}
+                          className={`w-full h-11 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.projectTypeOther ? "border-red-500" : "border-amber-400"}`}
+                          autoFocus
+                        />
+                        {errors.projectTypeOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.projectTypeOther}</p>}
+                      </div>
+                    )}
                   </div>
 
                   {/* Architectural Style Peg */}
@@ -485,14 +581,18 @@ export default function ArchitecturalClipboardInquiry({
                     <label className="block text-xs font-mono uppercase tracking-wider font-bold text-neutral-800 dark:text-neutral-200 mb-3">
                       2. {isFil ? "Estilong Pang-Arkitektura (Aesthetic Style Peg) *" : "Architectural Style & Design Peg *"}
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 rounded-xl transition-all ${errors.preferredStyle ? "ring-2 ring-red-500/50 p-2 bg-red-500/5" : ""}`}>
                       {ARCH_STYLES.map((style) => {
                         const isSelected = preferredStyle === style.name;
                         return (
                           <button
                             key={style.name}
                             type="button"
-                            onClick={() => setPreferredStyle(style.name)}
+                            onClick={() => {
+                              setPreferredStyle(isSelected ? "" : style.name);
+                              if (isSelected || style.name !== "Custom Architectural Concept") setPreferredStyleCustom("");
+                              if (errors.preferredStyle) setErrors((p) => ({ ...p, preferredStyle: undefined }));
+                            }}
                             className={`p-3 rounded-xl text-left border transition-all cursor-pointer ${
                               isSelected
                                 ? "bg-amber-500 text-neutral-950 border-amber-500 font-bold shadow-md"
@@ -507,6 +607,27 @@ export default function ArchitecturalClipboardInquiry({
                         );
                       })}
                     </div>
+                    {errors.preferredStyle && <p className="mt-1.5 text-[11px] text-red-500 font-mono">{errors.preferredStyle}</p>}
+                    {preferredStyle === "Custom Architectural Concept" && (
+                      <div className="mt-3">
+                        <input
+                          type="text"
+                          value={preferredStyleCustom}
+                          onChange={(e) => {
+                            setPreferredStyleCustom(e.target.value);
+                            if (errors.preferredStyleCustom) setErrors((p) => ({ ...p, preferredStyleCustom: undefined }));
+                          }}
+                          placeholder={
+                            isFil
+                              ? "Ilarawan ang inyong sariling architectural concept o peg..."
+                              : "Describe your custom architectural concept or design peg (e.g. Modern Farmhouse, Brutalist, Japandi...)"
+                          }
+                          className={`w-full h-11 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.preferredStyleCustom ? "border-red-500" : "border-amber-400"}`}
+                          autoFocus
+                        />
+                        {errors.preferredStyleCustom && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.preferredStyleCustom}</p>}
+                      </div>
+                    )}
                   </div>
 
                   {/* Intended Storeys & Target Start */}
@@ -517,13 +638,29 @@ export default function ArchitecturalClipboardInquiry({
                       </label>
                       <select
                         value={storeys}
-                        onChange={(e) => setStoreys(e.target.value)}
-                        className="w-full h-11 px-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                        onChange={(e) => {
+                          setStoreys(e.target.value);
+                          if (e.target.value !== "Other") setStoreysOther("");
+                          if (errors.storeys) setErrors((p) => ({ ...p, storeys: undefined }));
+                        }}
+                        className={`w-full h-11 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.storeys ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                       >
+                        <option value="">— Select number of storeys —</option>
                         {STOREY_OPTIONS.map((opt) => (
                           <option key={opt.val} value={opt.val}>{opt.label}</option>
                         ))}
                       </select>
+                      {errors.storeys && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.storeys}</p>}
+                      {storeys === "Other" && (
+                        <input
+                          type="text"
+                          value={storeysOther}
+                          onChange={(e) => setStoreysOther(e.target.value)}
+                          placeholder={isFil ? "Ilagay ang bilang ng palapag..." : "Specify number of storeys..."}
+                          className="mt-2 w-full h-11 px-3.5 rounded-xl border border-amber-400 bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400"
+                          autoFocus
+                        />
+                      )}
                     </div>
 
                     <div>
@@ -532,26 +669,50 @@ export default function ArchitecturalClipboardInquiry({
                       </label>
                       <select
                         value={targetTimeline}
-                        onChange={(e) => setTargetTimeline(e.target.value)}
-                        className="w-full h-11 px-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                        onChange={(e) => {
+                          setTargetTimeline(e.target.value);
+                          if (e.target.value !== "Other") setTargetTimelineOther("");
+                          if (errors.targetTimeline) setErrors((p) => ({ ...p, targetTimeline: undefined }));
+                        }}
+                        className={`w-full h-11 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.targetTimeline ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                       >
-                        <option value="Immediate (Within 1-3 Months)">{isFil ? "Agad (Sa loob ng 1-3 Buwan)" : "Immediate (Within 1-3 Months)"}</option>
-                        <option value="Within 3-6 Months">{isFil ? "Sa loob ng 3-6 Buwan" : "Within 3-6 Months"}</option>
-                        <option value="Planning for Next Year (6-12 Months)">{isFil ? "Pagpaplano para sa susunod na taon (6-12 Buwan)" : "Planning for Next Year (6-12 Months)"}</option>
-                        <option value="Flexible / Exploratory">{isFil ? "Flexible / Paglilinaw pa lamang" : "Flexible / Exploratory"}</option>
+                        <option value="">— Select target timeline —</option>
+                        <option value="Immediate (Within 1-3 Months)">Immediate (Within 1-3 Months)</option>
+                        <option value="Within 3-6 Months">Within 3-6 Months</option>
+                        <option value="Planning for Next Year (6-12 Months)">Planning for Next Year (6-12 Months)</option>
+                        <option value="Flexible / Exploratory">Flexible / Exploratory</option>
+                        <option value="Other">Other (Specify)</option>
                       </select>
+                      {errors.targetTimeline && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.targetTimeline}</p>}
+                      {targetTimeline === "Other" && (
+                        <div className="mt-2">
+                          <input type="text" value={targetTimelineOther} onChange={(e) => { setTargetTimelineOther(e.target.value); if (errors.targetTimelineOther) setErrors((p) => ({ ...p, targetTimelineOther: undefined })); }} placeholder="e.g. Within 2 years, After OFW contract ends..." className={`w-full h-10 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.targetTimelineOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                          {errors.targetTimelineOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.targetTimelineOther}</p>}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Sheet 1 Footer Action */}
-                  <div className="pt-6 border-t border-neutral-200 dark:border-white/10 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => goToSheet(2, "next")}
-                      className="w-full sm:w-auto px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
-                    >
-                      <span>{isFil ? "Susunod: Lote at Satellite Mapa →" : "Next: Proposed Site & Satellite Map →"}</span>
-                    </button>
+                  <div className="pt-5 border-t border-neutral-200 dark:border-white/10 space-y-3">
+                    {/* Validation error summary */}
+                    {Object.keys(errors).length > 0 && (
+                      <div key={shakeKey} className="mcpa-shake text-red-600 dark:text-red-500 text-xs font-mono space-y-1">
+                        <p className="font-bold uppercase tracking-wider mb-1">⚠ Please complete the following before continuing:</p>
+                        {Object.values(errors).filter(Boolean).map((msg, i) => (
+                          <p key={i}>• {msg}</p>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => goToSheet(2, "next")}
+                        className="w-full sm:w-auto px-6 py-3.5 sm:py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer active:scale-[0.98]"
+                      >
+                        <span>Next: Site & Satellite Map →</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -571,26 +732,35 @@ export default function ArchitecturalClipboardInquiry({
                     </span>
                   </div>
 
-                  {/* Philippine Structured Address Cascade (Exact match with sign up!) */}
+                  {/* Philippine Structured Address Cascade */}
                   <div>
                     <PhAddressCascadeSection
                       province={buildProvince}
                       provinceCode={buildProvinceCode}
-                      onProvinceChange={(name, code) => {
-                        setBuildProvince(name);
-                        setBuildProvinceCode(code);
+                      onProvinceChange={(nameOrObj, code) => {
+                        const name = typeof nameOrObj === "object" ? nameOrObj.name : nameOrObj;
+                        const pCode = typeof nameOrObj === "object" ? nameOrObj.code : code;
+                        setBuildProvince(name ?? "");
+                        setBuildProvinceCode(pCode ?? "");
+                        setErrors((p) => ({ ...p, buildProvince: undefined, buildCity: undefined, buildBarangay: undefined }));
                       }}
                       city={buildCity}
                       cityCode={buildCityCode}
-                      onCityChange={(name, code) => {
-                        setBuildCity(name);
-                        setBuildCityCode(code);
+                      onCityChange={(nameOrObj, code) => {
+                        const name = typeof nameOrObj === "object" ? nameOrObj.name : nameOrObj;
+                        const cCode = typeof nameOrObj === "object" ? nameOrObj.code : code;
+                        setBuildCity(name ?? "");
+                        setBuildCityCode(cCode ?? "");
+                        setErrors((p) => ({ ...p, buildCity: undefined, buildBarangay: undefined }));
                       }}
                       barangay={buildBarangay}
                       barangayCode={buildBarangayCode}
-                      onBarangayChange={(name, code) => {
-                        setBuildBarangay(name);
-                        setBuildBarangayCode(code);
+                      onBarangayChange={(nameOrObj, code) => {
+                        const name = typeof nameOrObj === "object" ? nameOrObj.name : nameOrObj;
+                        const bCode = typeof nameOrObj === "object" ? nameOrObj.code : code;
+                        setBuildBarangay(name ?? "");
+                        setBuildBarangayCode(bCode ?? "");
+                        setErrors((p) => ({ ...p, buildBarangay: undefined }));
                       }}
                       subdivision={buildSubdivision}
                       onSubdivisionChange={setBuildSubdivision}
@@ -603,7 +773,17 @@ export default function ArchitecturalClipboardInquiry({
                       title={isFil ? "Lugar ng Pagtatayuan (Construction Site)" : "Proposed Project Site Location"}
                       isBuildSite={true}
                       activeLang={language}
+                      attempted={addressAttempted}
+                      onClearErrors={() => setErrors((p) => ({ ...p, buildProvince: undefined, buildCity: undefined, buildBarangay: undefined }))}
                     />
+                    {/* Address field-level errors shown below the cascade */}
+                    {(errors.buildProvince || errors.buildCity || errors.buildBarangay) && (
+                      <div className="mt-2 space-y-1">
+                        {errors.buildProvince && <p className="text-[11px] text-red-500 font-mono">• {errors.buildProvince}</p>}
+                        {errors.buildCity && <p className="text-[11px] text-red-500 font-mono">• {errors.buildCity}</p>}
+                        {errors.buildBarangay && <p className="text-[11px] text-red-500 font-mono">• {errors.buildBarangay}</p>}
+                      </div>
+                    )}
                   </div>
 
                   {/* Interactive Google / Satellite Map with Fullscreen */}
@@ -614,6 +794,9 @@ export default function ArchitecturalClipboardInquiry({
                       locationAddress={formattedBuildAddress}
                       city={buildCity}
                       province={buildProvince}
+                      barangay={buildBarangay}
+                      subdivision={buildSubdivision}
+                      street={buildStreet}
                     />
                   </div>
 
@@ -625,13 +808,25 @@ export default function ArchitecturalClipboardInquiry({
                       </label>
                       <select
                         value={lotStatus}
-                        onChange={(e) => setLotStatus(e.target.value)}
-                        className="w-full h-11 px-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                        onChange={(e) => {
+                          setLotStatus(e.target.value);
+                          if (e.target.value !== "Other") setLotStatusOther("");
+                          if (errors.lotStatus) setErrors((p) => ({ ...p, lotStatus: undefined }));
+                        }}
+                        className={`w-full h-11 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.lotStatus ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                       >
+                        <option value="">— Select lot status —</option>
                         {LOT_STATUS_OPTIONS.map((opt) => (
                           <option key={opt.val} value={opt.val}>{opt.val}</option>
                         ))}
                       </select>
+                      {errors.lotStatus && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.lotStatus}</p>}
+                      {lotStatus === "Other" && (
+                        <div className="mt-2">
+                          <input type="text" value={lotStatusOther} onChange={(e) => { setLotStatusOther(e.target.value); if (errors.lotStatusOther) setErrors((p) => ({ ...p, lotStatusOther: undefined })); }} placeholder="e.g. Inherited land, Foreclosed property..." className={`w-full h-10 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.lotStatusOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                          {errors.lotStatusOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.lotStatusOther}</p>}
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -643,32 +838,45 @@ export default function ArchitecturalClipboardInquiry({
                         min="20"
                         max="10000"
                         value={lotArea}
-                        onChange={(e) => setLotArea(e.target.value)}
+                        onChange={(e) => {
+                          setLotArea(e.target.value);
+                          if (errors.lotArea) setErrors((p) => ({ ...p, lotArea: undefined }));
+                        }}
                         placeholder="e.g. 240"
-                        className="w-full h-11 px-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                        className={`w-full h-11 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.lotArea ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                       />
+                      {errors.lotArea && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.lotArea}</p>}
                     </div>
                   </div>
 
                   {/* Sheet 2 Navigation */}
-                  <div className="pt-6 border-t border-neutral-200 dark:border-white/10 flex items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => goToSheet(1, "prev")}
-                      className="px-5 py-3 rounded-xl border border-neutral-300 dark:border-white/15 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5 font-mono text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors"
-                    >
-                      <ArrowLeftIcon className="w-4 h-4" />
-                      <span>{isFil ? "Bumalik (Pahina 1)" : "Back (Sheet 1)"}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => goToSheet(3, "next")}
-                      className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer transition-all"
-                    >
-                      <span>{isFil ? "Susunod: Wishlist at Budget →" : "Next: Wishlist & Budget →"}</span>
-                      <ArrowRightIcon className="w-4 h-4" />
-                    </button>
+                  <div className="pt-5 border-t border-neutral-200 dark:border-white/10 space-y-3">
+                    {Object.keys(errors).length > 0 && (
+                      <div key={shakeKey} className="mcpa-shake text-red-600 dark:text-red-500 text-xs font-mono space-y-1">
+                        <p className="font-bold uppercase tracking-wider mb-1">⚠ Please complete the following before continuing:</p>
+                        {Object.values(errors).filter(Boolean).map((msg, i) => (
+                          <p key={i}>• {msg}</p>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => goToSheet(1, "prev")}
+                        className="px-5 py-3 rounded-xl border border-neutral-300 dark:border-white/15 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5 font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors active:scale-[0.98]"
+                      >
+                        <ArrowLeftIcon className="w-4 h-4" />
+                        <span>Back (Sheet 1)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => goToSheet(3, "next")}
+                        className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer transition-all active:scale-[0.98]"
+                      >
+                        <span>Next: Wishlist & Budget →</span>
+                        <ArrowRightIcon className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -691,15 +899,28 @@ export default function ArchitecturalClipboardInquiry({
                         </span>
                         <select
                           value={bedrooms}
-                          onChange={(e) => setBedrooms(e.target.value)}
-                          className="w-full h-10 px-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                          onChange={(e) => {
+                            setBedrooms(e.target.value);
+                            if (e.target.value !== "Other") setBedroomsOther("");
+                            if (errors.bedrooms) setErrors((p) => ({ ...p, bedrooms: undefined }));
+                          }}
+                          className={`w-full h-10 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.bedrooms ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                         >
+                          <option value="">— Select —</option>
                           <option value="2 Bedrooms">2 Bedrooms</option>
                           <option value="3 Bedrooms">3 Bedrooms</option>
                           <option value="3 - 4 Bedrooms">3 - 4 Bedrooms</option>
                           <option value="4 - 5 Bedrooms">4 - 5 Bedrooms</option>
                           <option value="5+ Bedrooms">5+ Luxury Bedrooms</option>
+                          <option value="Other">Other (Specify)</option>
                         </select>
+                        {errors.bedrooms && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.bedrooms}</p>}
+                        {bedrooms === "Other" && (
+                          <div className="mt-1.5">
+                            <input type="text" value={bedroomsOther} onChange={(e) => { setBedroomsOther(e.target.value); if (errors.bedroomsOther) setErrors((p) => ({ ...p, bedroomsOther: undefined })); }} placeholder="e.g. 6 Bedrooms, Studio..." className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.bedroomsOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                            {errors.bedroomsOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.bedroomsOther}</p>}
+                          </div>
+                        )}
                       </div>
 
                       {/* Bathrooms */}
@@ -709,14 +930,27 @@ export default function ArchitecturalClipboardInquiry({
                         </span>
                         <select
                           value={bathrooms}
-                          onChange={(e) => setBathrooms(e.target.value)}
-                          className="w-full h-10 px-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                          onChange={(e) => {
+                            setBathrooms(e.target.value);
+                            if (e.target.value !== "Other") setBathroomsOther("");
+                            if (errors.bathrooms) setErrors((p) => ({ ...p, bathrooms: undefined }));
+                          }}
+                          className={`w-full h-10 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.bathrooms ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                         >
+                          <option value="">— Select —</option>
                           <option value="2 Bathrooms">2 Bathrooms</option>
                           <option value="2 - 3 Bathrooms">2 - 3 Bathrooms</option>
                           <option value="3 - 4 Bathrooms">3 - 4 Bathrooms</option>
                           <option value="4+ Bathrooms">4+ Bathrooms</option>
+                          <option value="Other">Other (Specify)</option>
                         </select>
+                        {errors.bathrooms && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.bathrooms}</p>}
+                        {bathrooms === "Other" && (
+                          <div className="mt-1.5">
+                            <input type="text" value={bathroomsOther} onChange={(e) => { setBathroomsOther(e.target.value); if (errors.bathroomsOther) setErrors((p) => ({ ...p, bathroomsOther: undefined })); }} placeholder="e.g. 5 Bathrooms, 1 powder room..." className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.bathroomsOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                            {errors.bathroomsOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.bathroomsOther}</p>}
+                          </div>
+                        )}
                       </div>
 
                       {/* Garage */}
@@ -726,14 +960,28 @@ export default function ArchitecturalClipboardInquiry({
                         </span>
                         <select
                           value={carGarage}
-                          onChange={(e) => setCarGarage(e.target.value)}
-                          className="w-full h-10 px-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                          onChange={(e) => {
+                            setCarGarage(e.target.value);
+                            if (e.target.value !== "Other") setCarGarageOther("");
+                            if (errors.carGarage) setErrors((p) => ({ ...p, carGarage: undefined }));
+                          }}
+                          className={`w-full h-10 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.carGarage ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                         >
+                          <option value="">— Select —</option>
                           <option value="1-Car Garage">1-Car Garage</option>
                           <option value="2-Car Garage">2-Car Garage</option>
                           <option value="3-Car Garage">3-Car Garage</option>
                           <option value="4+ Car Luxury Garage">4+ Car Luxury Garage</option>
+                          <option value="No Garage / Carport Only">No Garage / Carport Only</option>
+                          <option value="Other">Other (Specify)</option>
                         </select>
+                        {errors.carGarage && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.carGarage}</p>}
+                        {carGarage === "Other" && (
+                          <div className="mt-1.5">
+                            <input type="text" value={carGarageOther} onChange={(e) => { setCarGarageOther(e.target.value); if (errors.carGarageOther) setErrors((p) => ({ ...p, carGarageOther: undefined })); }} placeholder="e.g. Basement parking, Tandem garage..." className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.carGarageOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                            {errors.carGarageOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.carGarageOther}</p>}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -771,17 +1019,20 @@ export default function ArchitecturalClipboardInquiry({
                       <label className="block text-xs font-mono uppercase tracking-wider font-bold text-neutral-800 dark:text-neutral-200 mb-2">
                         3. {isFil ? "Target na Budget Scope *" : "Target Budget Scope *"}
                       </label>
-                      <select
-                        value={budgetRange}
-                        onChange={(e) => setBudgetRange(e.target.value)}
-                        className="w-full h-11 px-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
-                      >
-                        {BUDGET_OPTIONS.map((b) => (
-                          <option key={b.val} value={b.val}>
-                            {b.val} — {isFil ? b.descFil : b.descEn}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500 dark:text-neutral-400 font-mono text-sm pointer-events-none">₱</span>
+                        <input
+                          type="text"
+                          value={budgetRange}
+                          onChange={(e) => {
+                            setBudgetRange(e.target.value);
+                            if (errors.budgetRange) setErrors((p) => ({ ...p, budgetRange: undefined }));
+                          }}
+                          placeholder="e.g. 4,000,000 – 7,000,000"
+                          className={`w-full h-11 pl-7 pr-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.budgetRange ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
+                        />
+                      </div>
+                      {errors.budgetRange && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.budgetRange}</p>}
                     </div>
 
                     <div>
@@ -790,15 +1041,27 @@ export default function ArchitecturalClipboardInquiry({
                       </label>
                       <select
                         value={financingOption}
-                        onChange={(e) => setFinancingOption(e.target.value)}
-                        className="w-full h-11 px-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                        onChange={(e) => {
+                          setFinancingOption(e.target.value);
+                          if (e.target.value !== "Other") setFinancingOptionOther("");
+                          if (errors.financingOption) setErrors((p) => ({ ...p, financingOption: undefined }));
+                        }}
+                        className={`w-full h-11 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.financingOption ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                       >
+                        <option value="">— Select financing option —</option>
                         {FINANCING_OPTIONS.map((f) => (
                           <option key={f.val} value={f.val}>
-                            {f.val}
+                            {f.val === "Other" ? "Other (Specify)" : f.val}
                           </option>
                         ))}
                       </select>
+                      {errors.financingOption && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.financingOption}</p>}
+                      {financingOption === "Other" && (
+                        <div className="mt-2">
+                          <input type="text" value={financingOptionOther} onChange={(e) => { setFinancingOptionOther(e.target.value); if (errors.financingOptionOther) setErrors((p) => ({ ...p, financingOptionOther: undefined })); }} placeholder="e.g. Cash payment, Personal loan, OFW remittance..." className={`w-full h-10 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.financingOptionOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                          {errors.financingOptionOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.financingOptionOther}</p>}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -808,7 +1071,7 @@ export default function ArchitecturalClipboardInquiry({
                       5. {isFil ? "Unang Konsultasyon (Initial Consultation Meeting) *" : "Initial Consultation Meeting Preference *"}
                     </label>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl transition-all ${errors.meetingMode ? "ring-2 ring-red-500/50 p-2 bg-red-500/5" : ""}`}>
                       {[
                         {
                           val: "Online Meeting (Google Meet)",
@@ -831,14 +1094,17 @@ export default function ArchitecturalClipboardInquiry({
                           <button
                             key={mode.val}
                             type="button"
-                            onClick={() => setMeetingMode(mode.val)}
+                            onClick={() => {
+                              setMeetingMode(isSelected ? "" : mode.val);
+                              if (errors.meetingMode) setErrors((p) => ({ ...p, meetingMode: undefined }));
+                            }}
                             className={`p-3 rounded-xl text-left border transition-all cursor-pointer flex items-center gap-3 ${
                               isSelected
                                 ? "bg-amber-500/15 border-amber-500 text-neutral-900 dark:text-white font-bold ring-1 ring-amber-500/30"
                                 : "bg-white dark:bg-neutral-900/50 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50"
                             }`}
                           >
-                            <div className={`p-2 rounded-lg ${isSelected ? "bg-amber-500 text-neutral-950" : "bg-neutral-200 dark:bg-white/10"}`}>
+                            <div className={`p-2 rounded-lg shrink-0 ${isSelected ? "bg-amber-500 text-neutral-950" : "bg-neutral-200 dark:bg-white/10"}`}>
                               <Icon className="w-4 h-4" />
                             </div>
                             <div>
@@ -850,6 +1116,8 @@ export default function ArchitecturalClipboardInquiry({
                       })}
                     </div>
 
+                    {errors.meetingMode && <p className="text-[11px] text-red-500 font-mono">{errors.meetingMode}</p>}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                       <div>
                         <span className="text-[11px] font-mono text-neutral-500 block mb-1">
@@ -858,9 +1126,13 @@ export default function ArchitecturalClipboardInquiry({
                         <input
                           type="date"
                           value={meetingDate}
-                          onChange={(e) => setMeetingDate(e.target.value)}
-                          className="w-full h-10 px-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                          onChange={(e) => {
+                            setMeetingDate(e.target.value);
+                            if (errors.meetingDate) setErrors((p) => ({ ...p, meetingDate: undefined }));
+                          }}
+                          className={`w-full h-10 px-3 rounded-xl border bg-white dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.meetingDate ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                         />
+                        {errors.meetingDate && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.meetingDate}</p>}
                       </div>
 
                       <div>
@@ -869,14 +1141,27 @@ export default function ArchitecturalClipboardInquiry({
                         </span>
                         <select
                           value={meetingTime}
-                          onChange={(e) => setMeetingTime(e.target.value)}
-                          className="w-full h-10 px-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                          onChange={(e) => {
+                            setMeetingTime(e.target.value);
+                            if (e.target.value !== "Other") setMeetingTimeOther("");
+                            if (errors.meetingTime) setErrors((p) => ({ ...p, meetingTime: undefined }));
+                          }}
+                          className={`w-full h-10 px-3 rounded-xl border bg-white dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.meetingTime ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                         >
+                          <option value="">— Select time slot —</option>
                           <option value="09:00 AM - 10:30 AM PHT">09:00 AM - 10:30 AM PHT (Morning)</option>
                           <option value="02:00 PM - 03:30 PM PHT">02:00 PM - 03:30 PM PHT (Afternoon)</option>
                           <option value="04:00 PM - 05:30 PM PHT">04:00 PM - 05:30 PM PHT (Late Afternoon)</option>
                           <option value="08:00 PM - 09:30 PM PHT (OFW Evening Slot)">08:00 PM - 09:30 PM PHT (OFW Evening Slot)</option>
+                          <option value="Other">Other (Specify)</option>
                         </select>
+                        {errors.meetingTime && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.meetingTime}</p>}
+                        {meetingTime === "Other" && (
+                          <div className="mt-1.5">
+                            <input type="text" value={meetingTimeOther} onChange={(e) => { setMeetingTimeOther(e.target.value); if (errors.meetingTimeOther) setErrors((p) => ({ ...p, meetingTimeOther: undefined })); }} placeholder="e.g. 7:00 AM, Weekend morning..." className={`w-full h-9 px-3 rounded-xl border bg-white dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.meetingTimeOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                            {errors.meetingTimeOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.meetingTimeOther}</p>}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -895,43 +1180,47 @@ export default function ArchitecturalClipboardInquiry({
                     />
                   </div>
 
-                  {/* Error Notification */}
-                  {submitError && (
-                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-mono">
-                      {submitError}
+                  {/* Error Notification & Sheet 3 Navigation */}
+                  <div className="pt-6 border-t border-neutral-200 dark:border-white/10 space-y-3">
+                    {(submitError || Object.keys(errors).length > 0) && (
+                      <div key={shakeKey} className="mcpa-shake text-red-600 dark:text-red-500 text-xs font-mono space-y-1">
+                        <p className="font-bold uppercase tracking-wider mb-1">⚠ Please complete the following before submitting:</p>
+                        {Object.values(errors).filter(Boolean).map((msg, i) => (
+                          <p key={i}>• {msg}</p>
+                        ))}
+                        {submitError && <p>• {submitError}</p>}
+                      </div>
+                    )}
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => goToSheet(2, "prev")}
+                        disabled={isSubmitting}
+                        className="px-5 py-3 rounded-xl border border-neutral-300 dark:border-white/15 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5 font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                      >
+                        <ArrowLeftIcon className="w-4 h-4" />
+                        <span>Back (Sheet 2)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
+                        className="px-7 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-amber-500/25 cursor-pointer transition-all active:scale-[0.99]"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin" />
+                            <span>Submitting Brief...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckIcon className="w-4 h-4" />
+                            <span>Submit Brief & Book Meeting ✔</span>
+                          </>
+                        )}
+                      </button>
                     </div>
-                  )}
-
-                  {/* Sheet 3 Navigation & Submit */}
-                  <div className="pt-6 border-t border-neutral-200 dark:border-white/10 flex items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => goToSheet(2, "prev")}
-                      disabled={isSubmitting}
-                      className="px-5 py-3 rounded-xl border border-neutral-300 dark:border-white/15 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5 font-mono text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors"
-                    >
-                      <ArrowLeftIcon className="w-4 h-4" />
-                      <span>{isFil ? "Bumalik (Pahina 2)" : "Back (Sheet 2)"}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={isSubmitting}
-                      className="px-7 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider flex items-center gap-2 shadow-xl shadow-amber-500/25 cursor-pointer transition-all active:scale-[0.99]"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin" />
-                          <span>{isFil ? "Ipinapasa ang Brief..." : "Submitting Brief..."}</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckIcon className="w-4 h-4" />
-                          <span>{isFil ? "Ipasa ang Brief at I-book ang Meeting ✔" : "Submit Brief & Book Meeting ✔"}</span>
-                        </>
-                      )}
-                    </button>
                   </div>
                 </div>
               )}
@@ -974,11 +1263,15 @@ export default function ArchitecturalClipboardInquiry({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-2xl mx-auto my-6 text-left font-mono text-[11px]">
                 <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
                   <span className="text-neutral-400 block text-[9px]">CATEGORY</span>
-                  <span className="font-bold text-neutral-900 dark:text-white truncate block">{projectType}</span>
+                  <span className="font-bold text-neutral-900 dark:text-white truncate block">
+                    {projectType === "Other" ? (projectTypeOther || "Other") : projectType}
+                  </span>
                 </div>
                 <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
                   <span className="text-neutral-400 block text-[9px]">STYLE PEG</span>
-                  <span className="font-bold text-neutral-900 dark:text-white truncate block">{preferredStyle}</span>
+                  <span className="font-bold text-neutral-900 dark:text-white truncate block">
+                    {preferredStyle === "Custom Architectural Concept" ? (preferredStyleCustom || "Custom Architectural Concept") : preferredStyle}
+                  </span>
                 </div>
                 <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
                   <span className="text-neutral-400 block text-[9px]">LOT LOCATION</span>

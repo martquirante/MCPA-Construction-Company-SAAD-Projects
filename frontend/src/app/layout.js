@@ -1,6 +1,7 @@
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -83,6 +84,12 @@ export default function RootLayout({ children }) {
       className={`${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased font-sans`}
     >
       <head>
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossOrigin=""
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
