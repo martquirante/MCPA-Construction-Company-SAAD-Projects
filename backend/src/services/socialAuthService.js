@@ -14,7 +14,7 @@ class SocialAuthService {
 
     // 1. Try Google Tokeninfo endpoint (Standard for GIS credential ID token)
     try {
-      const tokenInfoUrl = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`;
+      const tokenInfoUrl = `https://oauth2.gocdogleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`;
       const res = await fetch(tokenInfoUrl);
       if (res.ok) {
         const payload = await res.json();

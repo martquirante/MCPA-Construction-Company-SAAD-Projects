@@ -703,100 +703,152 @@ html.dark .architectural-cta-card,
 }
 
 /* =========================================================================
-   ARCHITECTURAL YELLOW CLIPBOARD HARDBOARD (TACTILE FIBERBOARD TEXTURE)
+   AUTHENTIC ARCHITECTURAL HARDBOARD CLIPBOARD (TACTILE WOOD FIBER & MASONITE)
    ========================================================================= */
 .mcpa-clipboard-board {
-  /* Warm Architectural Manila / Hardboard Yellow in Light Theme */
-  background-color: #d97706;
+  /* Warm Architectural Kraft Hardboard / Masonite in Light Theme */
+  background-color: #b45a0b;
   background-image:
-    /* Top ambient rim light */
-    linear-gradient(180deg, rgba(254, 240, 138, 0.42) 0%, rgba(245, 158, 11, 0.1) 12%, rgba(217, 119, 6, 0) 25%),
-    /* Radial board vignette depth */
-    radial-gradient(ellipse at 50% 40%, rgba(251, 191, 36, 0.35) 0%, rgba(180, 83, 9, 0.6) 80%, rgba(146, 64, 14, 0.95) 100%),
-    /* Micro vertical fiber grain striations */
+    /* Top ambient rim light reflection */
+    linear-gradient(180deg, rgba(254, 240, 138, 0.55) 0%, rgba(245, 158, 11, 0.18) 8%, rgba(180, 90, 11, 0) 22%),
+    /* Ambient board vignette (darker pressed edges, lighter center) */
+    radial-gradient(ellipse at 50% 35%, rgba(245, 158, 11, 0.45) 0%, rgba(146, 64, 14, 0.75) 65%, rgba(95, 35, 5, 0.98) 100%),
+    /* Primary vertical wood grain fibers (distinct timber lines) */
     repeating-linear-gradient(
       90deg,
-      rgba(0, 0, 0, 0.04) 0px,
-      rgba(0, 0, 0, 0.04) 1px,
-      transparent 1px,
-      transparent 3px
+      rgba(60, 20, 3, 0.18) 0px,
+      rgba(60, 20, 3, 0.18) 1.5px,
+      transparent 1.5px,
+      transparent 6px
     ),
-    /* Micro horizontal fiber grain striations */
+    /* Secondary honey wood fiber highlights */
+    repeating-linear-gradient(
+      90deg,
+      rgba(254, 243, 199, 0.22) 0px,
+      rgba(254, 243, 199, 0.22) 1px,
+      transparent 1px,
+      transparent 11px
+    ),
+    /* Micro cross-compression grain */
     repeating-linear-gradient(
       0deg,
-      rgba(255, 255, 255, 0.05) 0px,
-      rgba(255, 255, 255, 0.05) 1px,
+      rgba(0, 0, 0, 0.08) 0px,
+      rgba(0, 0, 0, 0.08) 1px,
       transparent 1px,
-      transparent 4px
+      transparent 8px
     ),
-    /* Procedural organic masonite / fiberboard texture noise */
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='hardboardNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.15 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23hardboardNoise)'/%3E%3C/svg%3E");
-  border: 3.5px solid #b45309;
+    /* Procedural organic masonite / wood pulp fiber speckles */
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 320 320' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='hbLight'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.035 0.55' numOctaves='4' stitchTiles='stitch' result='grain'/%3E%3CfeColorMatrix type='matrix' values='0.35 0 0 0 0.55 0 0.22 0 0 0.32 0 0 0.08 0 0.12 0 0 0 0.45 0' in='grain' result='fibers'/%3E%3CfeTurbulence type='turbulence' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch' result='specks'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.28 0' in='specks' result='pulp'/%3E%3CfeMerge%3E%3CfeMergeNode in='fibers'/%3E%3CfeMergeNode in='pulp'/%3E%3C/feMerge%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23hbLight)'/%3E%3C/svg%3E");
+  background-size: auto, auto, auto, auto, auto, 280px 280px;
+  border-top: 4px solid #d97706;
+  border-left: 4px solid #b45309;
+  border-right: 4px solid #92400e;
+  border-bottom: 5px solid #78350f;
   box-shadow: 
-    inset 0 2px 4px rgba(254, 240, 138, 0.55),
-    inset 0 -4px 8px rgba(120, 53, 15, 0.65),
-    0 22px 50px -10px rgba(0, 0, 0, 0.45),
-    0 35px 80px -15px rgba(180, 83, 9, 0.3);
+    /* 3D Chamfered beveled rim edge (top highlight, bottom shadow) */
+    inset 0 3px 2px rgba(254, 240, 138, 0.75),
+    inset 3px 0 2px rgba(254, 240, 138, 0.5),
+    inset 0 -5px 6px rgba(45, 15, 2, 0.85),
+    inset -4px 0 5px rgba(45, 15, 2, 0.65),
+    /* Desk surface ambient occlusion & deep drop shadow */
+    0 10px 25px -5px rgba(0, 0, 0, 0.4),
+    0 25px 60px -12px rgba(0, 0, 0, 0.5),
+    0 35px 85px -15px rgba(146, 64, 14, 0.35);
 }
 
 .dark .mcpa-clipboard-board {
   /* Rich Deep Burnished Ochre / Golden Amber Hardboard in Dark Theme */
-  background-color: #b45309;
+  background-color: #8c3f0b;
   background-image:
-    linear-gradient(180deg, rgba(253, 224, 71, 0.28) 0%, rgba(217, 119, 6, 0.1) 12%, rgba(180, 83, 9, 0) 25%),
-    radial-gradient(ellipse at 50% 40%, rgba(245, 158, 11, 0.28) 0%, rgba(146, 64, 14, 0.75) 75%, rgba(120, 53, 15, 0.98) 100%),
+    linear-gradient(180deg, rgba(253, 224, 71, 0.38) 0%, rgba(217, 119, 6, 0.15) 8%, rgba(140, 63, 11, 0) 22%),
+    radial-gradient(ellipse at 50% 35%, rgba(217, 119, 6, 0.4) 0%, rgba(115, 45, 7, 0.88) 65%, rgba(55, 18, 2, 0.99) 100%),
     repeating-linear-gradient(
       90deg,
-      rgba(0, 0, 0, 0.07) 0px,
-      rgba(0, 0, 0, 0.07) 1px,
+      rgba(35, 10, 2, 0.28) 0px,
+      rgba(35, 10, 2, 0.28) 1.5px,
+      transparent 1.5px,
+      transparent 6px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(253, 224, 71, 0.18) 0px,
+      rgba(253, 224, 71, 0.18) 1px,
       transparent 1px,
-      transparent 3px
+      transparent 11px
     ),
     repeating-linear-gradient(
       0deg,
-      rgba(255, 255, 255, 0.04) 0px,
-      rgba(255, 255, 255, 0.04) 1px,
+      rgba(0, 0, 0, 0.12) 0px,
+      rgba(0, 0, 0, 0.12) 1px,
       transparent 1px,
-      transparent 4px
+      transparent 8px
     ),
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='hardboardNoiseDark'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23hardboardNoiseDark)'/%3E%3C/svg%3E");
-  border: 3.5px solid #78350f;
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 320 320' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='hbDark'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.035 0.55' numOctaves='4' stitchTiles='stitch' result='grain'/%3E%3CfeColorMatrix type='matrix' values='0.28 0 0 0 0.42 0 0.16 0 0 0.24 0 0 0.05 0 0.08 0 0 0 0.52 0' in='grain' result='fibers'/%3E%3CfeTurbulence type='turbulence' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch' result='specks'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.35 0' in='specks' result='pulp'/%3E%3CfeMerge%3E%3CfeMergeNode in='fibers'/%3E%3CfeMergeNode in='pulp'/%3E%3C/feMerge%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23hbDark)'/%3E%3C/svg%3E");
+  background-size: auto, auto, auto, auto, auto, 280px 280px;
+  border-top: 4px solid #b45309;
+  border-left: 4px solid #92400e;
+  border-right: 4px solid #78350f;
+  border-bottom: 5px solid #451a03;
   box-shadow: 
-    inset 0 1.5px 3px rgba(254, 240, 138, 0.35),
-    inset 0 -4px 10px rgba(0, 0, 0, 0.75),
-    0 25px 65px -12px rgba(0, 0, 0, 0.8),
-    0 0 50px -10px rgba(217, 119, 6, 0.25);
+    inset 0 3px 2px rgba(254, 240, 138, 0.5),
+    inset 3px 0 2px rgba(254, 240, 138, 0.35),
+    inset 0 -6px 8px rgba(0, 0, 0, 0.95),
+    inset -5px 0 6px rgba(0, 0, 0, 0.85),
+    0 15px 35px -5px rgba(0, 0, 0, 0.7),
+    0 30px 75px -15px rgba(0, 0, 0, 0.85),
+    0 0 55px -10px rgba(180, 83, 9, 0.3);
 }
 
 /* =========================================================================
-   TACTILE ARCHITECTURAL DRAFTING PAPER SHEET (WHITE IN LIGHT, GRAY IN DARK)
+   AUTHENTIC ARCHITECTURAL DRAFTING PAPER (COTTON RAG TOOTH & FIBER STIPPLING)
    ========================================================================= */
 .mcpa-paper-sheet {
-  /* Crisp Architectural Drafting Paper White in Light Theme */
-  background-color: #ffffff;
+  /* Warm Ivory Architectural Bond Drafting Paper in Light Theme */
+  background-color: #fdfbf7;
   background-image:
-    /* Tactile natural paper fiber stippling texture */
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paperNoiseLight'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.048 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paperNoiseLight)'/%3E%3C/svg%3E");
-  background-size: auto;
-  border: 1px solid rgba(214, 211, 209, 0.9);
+    /* Top clamp pressure indentation shadow */
+    linear-gradient(180deg, rgba(78, 30, 4, 0.09) 0%, rgba(78, 30, 4, 0.02) 18px, transparent 32px),
+    /* Delicate technical millimeter grid watermark */
+    radial-gradient(circle, rgba(146, 64, 14, 0.045) 0.8px, transparent 0.8px),
+    /* Micro horizontal paper grain fibers */
+    repeating-linear-gradient(
+      0deg,
+      rgba(120, 53, 15, 0.03) 0px,
+      rgba(120, 53, 15, 0.03) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    /* Tactile organic cotton rag paper tooth and fiber texture */
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paperLight'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch' result='tooth'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.35 0 0 0 0 0.30 0 0 0 0 0.24 0 0 0 0.18 0' in='tooth' result='rag'/%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.12 0.85' numOctaves='3' stitchTiles='stitch' result='strands'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.14 0' in='strands' result='fibers'/%3E%3CfeMerge%3E%3CfeMergeNode in='rag'/%3E%3CfeMergeNode in='fibers'/%3E%3C/feMerge%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paperLight)'/%3E%3C/svg%3E");
+  background-size: 100% 100%, 18px 18px, auto, 200px 200px;
+  border: 1px solid rgba(180, 83, 9, 0.2);
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.05),
-    0 10px 25px -4px rgba(0, 0, 0, 0.12),
-    0 24px 38px -10px rgba(0, 0, 0, 0.08);
+    /* Crisp contact shadow onto underlying sheets */
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 8px 20px -3px rgba(78, 30, 4, 0.14),
+    0 22px 42px -8px rgba(0, 0, 0, 0.16);
 }
 
 .dark .mcpa-paper-sheet {
-  /* Slate / Charcoal Architectural Drafting Gray in Dark Theme */
-  background-color: #212631;
+  /* Slate Charcoal Architectural Drafting Paper in Dark Theme */
+  background-color: #202633;
   background-image:
-    /* Tactile dark drafting paper fiber stippling texture */
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paperNoiseDark'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paperNoiseDark)'/%3E%3C/svg%3E");
-  background-size: auto;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0.08) 20px, transparent 36px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.04) 0.8px, transparent 0.8px),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.025) 0px,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paperDark'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch' result='tooth'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.4 0 0 0 0 0.4 0 0 0 0 0.4 0 0 0 0.22 0' in='tooth' result='rag'/%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.12 0.85' numOctaves='3' stitchTiles='stitch' result='strands'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.16 0' in='strands' result='fibers'/%3E%3CfeMerge%3E%3CfeMergeNode in='rag'/%3E%3CfeMergeNode in='fibers'/%3E%3C/feMerge%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paperDark)'/%3E%3C/svg%3E");
+  background-size: 100% 100%, 18px 18px, auto, 200px 200px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.35),
-    0 12px 30px -5px rgba(0, 0, 0, 0.6),
-    0 28px 45px -12px rgba(0, 0, 0, 0.45);
+    0 1px 4px rgba(0, 0, 0, 0.4),
+    0 10px 25px -4px rgba(0, 0, 0, 0.65),
+    0 25px 45px -10px rgba(0, 0, 0, 0.6);
 }
 
 @keyframes mcpaShake {

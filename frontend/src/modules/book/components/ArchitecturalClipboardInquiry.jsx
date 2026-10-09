@@ -24,6 +24,8 @@ import {
 import { useLanguage } from "@/modules/shared/LanguageContext";
 import PhAddressCascadeSection from "@/modules/portal/components/PhAddressCascadeSection";
 import LotMapPicker from "@/modules/portal/components/LotMapPicker";
+import { Building2, MapPin, Coffee, Search, ExternalLink } from "lucide-react";
+import VenueSearchModal, { EstablishmentLogo } from "./VenueSearchModal";
 
 const PROJECT_CATEGORIES = [
   {
@@ -108,7 +110,43 @@ const FEATURE_TAG_OPTIONS = [
   { id: "balcony_lanai", labelEn: "Balcony / Covered Lanai", labelFil: "Balkonahe o Covered Lanai" },
   { id: "home_office", labelEn: "Dedicated Home Office / Study", labelFil: "Home Office / Kwarto sa Trabaho" },
   { id: "swimming_pool", labelEn: "Swimming Pool Provision", labelFil: "Probissyon sa Swimming Pool" },
+  { id: "other", labelEn: "Others (Specify)", labelFil: "Iba Pa (Tukuyin)" },
 ];
+
+function formatSingleBudgetNumber(numStr) {
+  const hasTrailingDot = numStr.endsWith(".");
+  const clean = numStr.replace(/,/g, "").trim();
+  if (!clean) return "";
+
+  const dotParts = clean.split(".");
+  const intPart = dotParts[0];
+  const decPart = dotParts.length > 1 ? dotParts.slice(1).join("") : null;
+  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+  if (decPart !== null) return `${formattedInt}.${decPart}`;
+  if (hasTrailingDot) return `${formattedInt}.`;
+  return formattedInt;
+}
+
+function formatBudgetInput(raw) {
+  if (!raw) return "";
+  // Disallow letters and invalid characters (allow only numbers, commas, dots, dashes, and spaces)
+  const sanitized = raw.replace(/[^0-9,.\-\s–—]/g, "");
+  if (!sanitized) return "";
+
+  const dashMatch = sanitized.match(/(\s*[-–—]\s*)/);
+  if (dashMatch) {
+    const parts = sanitized.split(/[-–—]/);
+    const formattedParts = parts.map((p) => formatSingleBudgetNumber(p));
+    if (sanitized.endsWith("-") || sanitized.endsWith("–") || sanitized.endsWith("—") || sanitized.endsWith(" ")) {
+      return `${formattedParts[0]} - ${formattedParts[1] || ""}`;
+    }
+    return formattedParts.join(" - ");
+  }
+
+  const res = formatSingleBudgetNumber(sanitized);
+  return sanitized.endsWith(" ") ? `${res} ` : res;
+}
 
 export default function ArchitecturalClipboardInquiry({
   currentUser,
@@ -165,15 +203,175 @@ export default function ArchitecturalClipboardInquiry({
   const [carGarage, setCarGarage] = useState("");
   const [carGarageOther, setCarGarageOther] = useState("");
   const [selectedFeatures, setSelectedFeatures] = useState(new Set());
+  const [featuresOther, setFeaturesOther] = useState("");
   const [budgetRange, setBudgetRange] = useState("");
+  const [budgetPickerOpen, setBudgetPickerOpen] = useState(false);
+  const [budgetCustom, setBudgetCustom] = useState("");
   const [financingOption, setFinancingOption] = useState("");
   const [financingOptionOther, setFinancingOptionOther] = useState("");
 
   const [meetingMode, setMeetingMode] = useState("");
+  const [inPersonVenue, setInPersonVenue] = useState("office"); // "office" | "site" | "cafe"
+  const [venueCafeDetails, setVenueCafeDetails] = useState("");
+  const [isVenueModalOpen, setIsVenueModalOpen] = useState(false);
   const [meetingDate, setMeetingDate] = useState("");
   const [meetingTime, setMeetingTime] = useState("");
   const [meetingTimeOther, setMeetingTimeOther] = useState("");
   const [specialNotes, setSpecialNotes] = useState("");
+
+  const notesTextareaRef = useRef(null);
+
+  // Auto-resize textarea as content grows or shrinks
+  useEffect(() => {
+    const el = notesTextareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextH = Math.max(92, el.scrollHeight);
+    el.style.height = `${nextH}px`;
+  }, [specialNotes, sheet]);
+
+  // Detected Peg Links extracted from Special Notes
+  const detectedLinks = useMemo(() => {
+    if (!specialNotes) return [];
+    const matches = specialNotes.match(/(https?:\/\/[^\s<]+[^<.,:;"')\]\s]|www\.[^\s<]+[^<.,:;"')\]\s])/gi) || [];
+    const unique = Array.from(new Set(matches));
+
+    return unique.map((raw) => {
+      const href = raw.startsWith("http") ? raw : `https://${raw}`;
+      try {
+        const urlObj = new URL(href);
+        const host = urlObj.hostname.replace(/^www\./, "").toLowerCase();
+
+        let label = "Web Reference";
+        let brandName = host;
+        let categoryColor = "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30";
+
+        if (host.includes("pinterest") || host === "pin.it") {
+          label = "Pinterest Peg / Moodboard";
+          brandName = "Pinterest";
+          categoryColor = "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30";
+        } else if (host.includes("drive.google")) {
+          label = "Google Drive Folder";
+          brandName = "Google Drive";
+          categoryColor = "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30";
+        } else if (host.includes("youtube") || host === "youtu.be") {
+          label = "YouTube Video / Tour";
+          brandName = "YouTube";
+          categoryColor = "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30";
+        } else if (host.includes("instagram")) {
+          label = "Instagram Post / Reel";
+          brandName = "Instagram";
+          categoryColor = "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/30";
+        } else if (host.includes("facebook") || host.includes("fb.watch")) {
+          label = "Facebook Album / Post";
+          brandName = "Facebook";
+          categoryColor = "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30";
+        } else if (host.includes("tiktok")) {
+          label = "TikTok Peg Video";
+          brandName = "TikTok";
+          categoryColor = "bg-neutral-500/10 text-neutral-800 dark:text-neutral-200 border-neutral-500/30";
+        } else if (host.includes("canva")) {
+          label = "Canva Moodboard";
+          brandName = "Canva";
+          categoryColor = "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/30";
+        } else if (host.includes("dropbox")) {
+          label = "Dropbox Peg Folder";
+          brandName = "Dropbox";
+          categoryColor = "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30";
+        } else if (host.includes("houzz")) {
+          label = "Houzz Architectural Design";
+          brandName = "Houzz";
+          categoryColor = "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30";
+        } else if (host.includes("archdaily")) {
+          label = "ArchDaily Architectural Feature";
+          brandName = "ArchDaily";
+          categoryColor = "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30";
+        } else if (host.includes("behance")) {
+          label = "Behance Design Concept";
+          brandName = "Behance";
+          categoryColor = "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30";
+        }
+
+        const favicon = `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(
+          urlObj.origin
+        )}&size=64`;
+
+        return {
+          raw,
+          href,
+          hostname: host,
+          brandName,
+          label,
+          categoryColor,
+          pathname: urlObj.pathname.length > 28 ? urlObj.pathname.slice(0, 28) + "..." : urlObj.pathname,
+          favicon,
+        };
+      } catch {
+        return null;
+      }
+    }).filter(Boolean);
+  }, [specialNotes]);
+
+  // Calculate today's date in local time (YYYY-MM-DD) to disallow past dates
+  const todayDateString = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  // Check if current authenticated client logged in via Google OAuth
+  const isGoogleUser = useMemo(() => {
+    if (!currentUser) return false;
+    const provider = (
+      currentUser.authProvider ||
+      currentUser.auth_provider ||
+      currentUser.provider ||
+      ""
+    ).toLowerCase();
+    if (provider === "google") return true;
+
+    const avatar =
+      currentUser.avatarUrl ||
+      currentUser.avatar_url ||
+      currentUser.photoURL ||
+      currentUser.picture ||
+      "";
+    if (avatar.includes("googleusercontent.com")) return true;
+
+    if (currentUser.googleId || currentUser.google_id) return true;
+    return false;
+  }, [currentUser]);
+
+  // Robust client phone resolution across all profile and storage keys
+  const clientPhone = useMemo(() => {
+    if (!currentUser) return "";
+    const direct =
+      currentUser.phoneNumber ||
+      currentUser.phone ||
+      currentUser.contactNumber ||
+      currentUser.contact_number ||
+      currentUser.mobileNumber ||
+      currentUser.mobile;
+    if (direct) return direct;
+
+    if (typeof window !== "undefined") {
+      try {
+        const savedPhone = localStorage.getItem("mcpa_client_phone");
+        if (savedPhone) return savedPhone;
+
+        const briefs = JSON.parse(localStorage.getItem("mcpa_client_briefs") || "[]");
+        const found = briefs.find(
+          (b) =>
+            (b.client_email === currentUser.email || b.email === currentUser.email) &&
+            (b.client_phone || b.phone)
+        );
+        if (found?.client_phone || found?.phone) return found.client_phone || found.phone;
+      } catch {}
+    }
+    return "";
+  }, [currentUser]);
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -190,8 +388,15 @@ export default function ArchitecturalClipboardInquiry({
   const toggleFeature = (id) => {
     setSelectedFeatures((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        if (id === "other") {
+          setFeaturesOther("");
+          setErrors((p) => ({ ...p, featuresOther: undefined }));
+        }
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -244,11 +449,27 @@ export default function ArchitecturalClipboardInquiry({
     if (bathrooms === "Other" && !bathroomsOther.trim()) e.bathroomsOther = "Please specify the number of bathrooms.";
     if (!carGarage) e.carGarage = "Please select garage capacity.";
     if (carGarage === "Other" && !carGarageOther.trim()) e.carGarageOther = "Please specify your garage requirement.";
+    if (selectedFeatures.has("other") && !featuresOther.trim()) {
+      e.featuresOther = isFil
+        ? "Pakitukoy ang iba pang katangian o provision."
+        : "Please specify your custom architectural feature(s).";
+    }
     if (!budgetRange || !budgetRange.trim()) e.budgetRange = "Please enter your target budget range.";
     if (!financingOption) e.financingOption = "Please select a financing option.";
     if (financingOption === "Other" && !financingOptionOther.trim()) e.financingOptionOther = "Please describe your financing arrangement.";
     if (!meetingMode) e.meetingMode = "Please select a meeting mode.";
-    if (!meetingDate) e.meetingDate = "Please select a consultation date.";
+    if (meetingMode.includes("In-Person") && inPersonVenue === "cafe" && !venueCafeDetails.trim()) {
+      e.venueCafeDetails = isFil
+        ? "Pakitukoy ang coffee shop o lugar ng pagpupulong."
+        : "Please select or search your preferred coffee shop or venue.";
+    }
+    if (!meetingDate) {
+      e.meetingDate = isFil ? "Pumili ng araw ng pagpupulong." : "Please select a consultation date.";
+    } else if (meetingDate < todayDateString) {
+      e.meetingDate = isFil
+        ? "Hindi maaaring pumili ng nakaraang petsa. Piliin ang kasalukuyan o darating na araw."
+        : "Past dates are not allowed. Please choose today or a future date.";
+    }
     if (!meetingTime) e.meetingTime = "Please select a preferred time slot.";
     if (meetingTime === "Other" && !meetingTimeOther.trim()) e.meetingTimeOther = "Please specify your preferred time.";
     return e;
@@ -307,6 +528,23 @@ export default function ArchitecturalClipboardInquiry({
     const id = "MCPA-CPB-" + Math.floor(100000 + Math.random() * 900000);
     setSubmissionId(id);
 
+    const isF2F = meetingMode.includes("In-Person");
+    const resolvedVenueType = !isF2F
+      ? null
+      : inPersonVenue === "office"
+      ? "MCPA Head Office"
+      : inPersonVenue === "site"
+      ? "Project Site"
+      : "Coffee Shop / Public Venue";
+
+    const resolvedVenueDetails = !isF2F
+      ? null
+      : inPersonVenue === "office"
+      ? "2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan"
+      : inPersonVenue === "site"
+      ? (formattedBuildAddress || "Proposed Project Site")
+      : venueCafeDetails;
+
     const briefPayload = {
       id,
       submissionId: id,
@@ -337,9 +575,17 @@ export default function ArchitecturalClipboardInquiry({
         bedrooms: bedrooms === "Other" ? (bedroomsOther || "Other") : bedrooms,
         bathrooms: bathrooms === "Other" ? (bathroomsOther || "Other") : bathrooms,
         carGarage: carGarage === "Other" ? (carGarageOther || "Other") : carGarage,
-        featureTags: Array.from(selectedFeatures),
+        featureTags: Array.from(selectedFeatures).map((id) =>
+          id === "other"
+            ? (featuresOther.trim() ? `Other: ${featuresOther.trim()}` : "Other")
+            : id
+        ),
+        featureTagsOther: selectedFeatures.has("other") ? featuresOther.trim() : "",
       },
-      meetingMode,
+      meetingMode: isF2F ? `In-Person (${resolvedVenueType})` : meetingMode,
+      venueType: resolvedVenueType,
+      venueDetails: resolvedVenueDetails,
+      wantsMeeting: true,
       meetingDate: meetingDate || "Earliest Available Slot",
       meetingTime: meetingTime === "Other" ? (meetingTimeOther || "Other") : meetingTime,
       message: specialNotes || `Storeys: ${storeys === "Other" ? (storeysOther || "Other") : storeys} • Bedrooms: ${bedrooms === "Other" ? (bedroomsOther || "Other") : bedrooms} • Bathrooms: ${bathrooms === "Other" ? (bathroomsOther || "Other") : bathrooms} • Garage: ${carGarage === "Other" ? (carGarageOther || "Other") : carGarage}`,
@@ -379,6 +625,12 @@ export default function ArchitecturalClipboardInquiry({
     setIsSubmitted(false);
     setSheet(1);
     setSpecialNotes("");
+    setSelectedFeatures(new Set());
+    setFeaturesOther("");
+    setMeetingMode("");
+    setInPersonVenue("office");
+    setVenueCafeDetails("");
+    setIsVenueModalOpen(false);
   };
 
   return (
@@ -393,44 +645,55 @@ export default function ArchitecturalClipboardInquiry({
           THE CLIPBOARD CONTAINER (Architectural Yellow Hardboard with Tactile Fiber Texture)
           ========================================================================= */}
       <div className="relative rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 md:p-6 mcpa-clipboard-board transition-all">
-        {/* TOP CLAMP ASSEMBLY: FIXED METALLIC CLIP WITH RIVETS & SHADOW */}
-        <div className="absolute -top-5 sm:-top-6 inset-x-0 flex justify-center z-30 pointer-events-none">
+        {/* TOP CLAMP ASSEMBLY: HEAVY-DUTY ARCHITECTURAL SPRING CLAMP WITH STEEL WIRE & RIVETS */}
+        <div className="absolute -top-6 sm:-top-7 inset-x-0 flex justify-center z-30 pointer-events-none">
           <div className="relative flex flex-col items-center">
-            {/* Hanging Hole Pin */}
-            <div className="w-5 h-5 rounded-full bg-neutral-900 border-2 border-neutral-500 shadow-inner -mb-2 z-10" />
+            {/* Arched Steel Hanging Wire Bracket */}
+            <div className="w-12 h-5 -mb-2.5 rounded-t-xl border-x-[3.5px] border-t-[3.5px] border-neutral-300 dark:border-neutral-500 bg-transparent shadow-[0_2px_4px_rgba(0,0,0,0.4)] z-15" />
 
-            {/* Heavy-Duty Metal Clamp Bar */}
-            <div className="w-64 sm:w-84 h-11 sm:h-12 rounded-b-2xl bg-gradient-to-b from-neutral-200 via-neutral-300 to-neutral-400 dark:from-neutral-700 dark:via-neutral-600 dark:to-neutral-800 border-x border-b border-white/60 dark:border-white/15 shadow-[0_12px_24px_rgba(0,0,0,0.55)] flex items-center justify-between px-3.5 sm:px-6">
-              {/* Twin Silver Mounting Rivets */}
-              <div className="w-3.5 h-3.5 rounded-full bg-neutral-400 dark:bg-neutral-500 border border-neutral-600 shadow-inner flex items-center justify-center shrink-0">
-                <div className="w-1.5 h-0.5 bg-neutral-600 rotate-45" />
+            {/* Heavy-Duty Industrial Brushed Metal Clamp Bar */}
+            <div className="relative w-72 sm:w-96 h-12 sm:h-13 rounded-b-2xl bg-gradient-to-b from-slate-100 via-slate-200 to-slate-400 dark:from-neutral-600 dark:via-neutral-700 dark:to-neutral-800 border-x-2 border-b-2 border-slate-300 dark:border-neutral-600 shadow-[0_16px_30px_rgba(0,0,0,0.65)] flex items-center justify-between px-4 sm:px-6 z-20">
+              {/* Metallic Top Bevel Highlight Strip */}
+              <div className="absolute top-0 inset-x-0 h-[1.5px] bg-white/90 dark:bg-white/30 rounded-t-none" />
+
+              {/* Left Industrial Cross-Head Rivet Bolt */}
+              <div className="relative w-4 h-4 rounded-full bg-gradient-to-br from-slate-200 via-slate-300 to-slate-500 border border-slate-600 dark:border-neutral-500 shadow-[inset_0_1px_2px_rgba(255,255,255,0.9),0_1.5px_3px_rgba(0,0,0,0.5)] flex items-center justify-center shrink-0">
+                <div className="absolute w-2 h-[1px] bg-slate-700 dark:bg-neutral-900 rotate-45" />
+                <div className="absolute w-[1px] h-2 bg-slate-700 dark:bg-neutral-900 rotate-45" />
               </div>
 
               {/* Embossed Company Logo & INQUIRY SHEET Title on Clip */}
-              <div className="flex items-center justify-center gap-2 sm:gap-2.5 min-w-0">
+              <div className="flex items-center justify-center gap-2 sm:gap-2.5 min-w-0 px-2">
                 <img
                   src="/assets/mcpa-logo.svg"
                   alt="MCPA Logo"
-                  className="h-3.5 sm:h-4 w-auto object-contain block dark:hidden drop-shadow-xs"
+                  className="h-3.5 sm:h-4 w-auto object-contain block dark:hidden drop-shadow-[0_1px_0_rgba(255,255,255,0.8)]"
                 />
                 <img
                   src="/assets/logo-white.svg"
                   alt="MCPA Logo"
-                  className="h-3.5 sm:h-4 w-auto object-contain hidden dark:block drop-shadow-xs"
+                  className="h-3.5 sm:h-4 w-auto object-contain hidden dark:block drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]"
                 />
-                <span className="h-3 w-[1px] bg-neutral-400/80 dark:bg-white/20 shrink-0" />
-                <span className="font-mono text-[9.5px] sm:text-[11px] font-extrabold uppercase tracking-[0.2em] sm:tracking-[0.25em] text-neutral-800 dark:text-neutral-100 drop-shadow-[0_1px_1px_rgba(255,255,255,0.7)] dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)] truncate">
-                  INQUIRY SHEET
+                <span className="h-3 w-[1px] bg-slate-400/80 dark:bg-white/20 shrink-0" />
+                <span className="font-mono text-[9px] sm:text-[10.5px] font-extrabold uppercase tracking-[0.22em] sm:tracking-[0.28em] text-slate-800 dark:text-neutral-100 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)] truncate select-none">
+                  INQUIRY DOSSIER
                 </span>
               </div>
 
-              <div className="w-3.5 h-3.5 rounded-full bg-neutral-400 dark:bg-neutral-500 border border-neutral-600 shadow-inner flex items-center justify-center shrink-0">
-                <div className="w-1.5 h-0.5 bg-neutral-600 -rotate-45" />
+              {/* Right Industrial Cross-Head Rivet Bolt */}
+              <div className="relative w-4 h-4 rounded-full bg-gradient-to-br from-slate-200 via-slate-300 to-slate-500 border border-slate-600 dark:border-neutral-500 shadow-[inset_0_1px_2px_rgba(255,255,255,0.9),0_1.5px_3px_rgba(0,0,0,0.5)] flex items-center justify-center shrink-0">
+                <div className="absolute w-2 h-[1px] bg-slate-700 dark:bg-neutral-900 -rotate-45" />
+                <div className="absolute w-[1px] h-2 bg-slate-700 dark:bg-neutral-900 -rotate-45" />
               </div>
+
+              {/* Bottom Clamp Gripping Jaw Lip */}
+              <div className="absolute -bottom-1 inset-x-2 h-1 rounded-b-sm bg-slate-700 dark:bg-neutral-900 border-b border-black/90" />
             </div>
 
-            {/* Realistic Spring Clamp Shadow casting over paper */}
-            <div className="w-64 sm:w-96 h-3 bg-black/40 blur-xs rounded-full -mt-1 pointer-events-none" />
+            {/* Direct Contact Clamp Shadow biting into paper */}
+            <div className="w-72 sm:w-96 h-2 bg-black/65 blur-[1.5px] -mt-0.5 z-10 pointer-events-none" />
+            {/* Soft Ambient Shadow Spreading Downward */}
+            <div className="w-80 sm:w-[28rem] h-5 bg-black/45 blur-md -mt-1 pointer-events-none" />
           </div>
         </div>
 
@@ -448,23 +711,28 @@ export default function ArchitecturalClipboardInquiry({
         {/* =========================================================================
             THE ARCHITECTURAL DRAFTING SHEET (Clamped Paper beneath the clip)
             ========================================================================= */}
-        <div className="clipboard-perspective mt-6 sm:mt-5">
+        <div className="relative clipboard-perspective mt-6 sm:mt-5">
+          {/* Physical Stacked Sheets Illusion (Underlying Sheet 3 & Sheet 2 visible edges) */}
+          <div className="absolute inset-0 translate-y-2 translate-x-1 rotate-[0.35deg] rounded-xl sm:rounded-2xl bg-[#f0e4d0] dark:bg-[#141922] border border-amber-900/25 dark:border-white/5 shadow-md pointer-events-none opacity-85" />
+          <div className="absolute inset-0 translate-y-1 -translate-x-0.5 -rotate-[0.2deg] rounded-xl sm:rounded-2xl bg-[#f7eedf] dark:bg-[#1a1f2b] border border-amber-900/18 dark:border-white/8 shadow-sm pointer-events-none opacity-95" />
+
           {!isSubmitted ? (
             <div
               className={`relative rounded-xl sm:rounded-2xl mcpa-paper-sheet p-4 sm:p-6 md:p-8 transition-all ${animClass}`}
             >
+              {/* Technical Blueprint Corner Crosshair Registration Marks (+) */}
+              <div className="absolute top-3 left-3 text-amber-800/35 dark:text-amber-400/25 font-mono text-[11px] font-bold select-none pointer-events-none leading-none">+</div>
+              <div className="absolute top-3 right-3 text-amber-800/35 dark:text-amber-400/25 font-mono text-[11px] font-bold select-none pointer-events-none leading-none">+</div>
+              <div className="absolute bottom-3 left-3 text-amber-800/35 dark:text-amber-400/25 font-mono text-[11px] font-bold select-none pointer-events-none leading-none">+</div>
+              <div className="absolute bottom-3 right-3 text-amber-800/35 dark:text-amber-400/25 font-mono text-[11px] font-bold select-none pointer-events-none leading-none">+</div>
               {/* STAMPED VERIFIED CLIENT PROFILE HEADER (NO REDUNDANT INPUTS) */}
               <div className="border-b border-neutral-200 dark:border-white/10 pb-4 mb-5">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
                   {/* Left: Document Branding & Reference Number */}
                   <div>
-                    <div className="inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400 font-bold mb-1">
-                      <span>PROJECT INTAKE DOSSIER</span>
-                      <span>•</span>
-                      <span>STAGE 1: BRIEF</span>
-                    </div>
+
                     <h2 className="text-lg sm:text-2xl md:text-3xl font-extrabold uppercase tracking-tight text-neutral-900 dark:text-white leading-tight">
-                      {isFil ? "Architectural Client Profiling" : "Architectural Client Profiling"}
+                      CLIENT INQUIRY SHEET
                     </h2>
                   </div>
 
@@ -489,25 +757,77 @@ export default function ArchitecturalClipboardInquiry({
 
                 {/* Stamped Verified Client Profile Strip */}
                 {currentUser && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-mono">
-                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                      {currentUser.avatarUrl || currentUser.avatar_url || currentUser.photoURL || currentUser.picture ? (
-                        <img
-                          src={currentUser.avatarUrl || currentUser.avatar_url || currentUser.photoURL || currentUser.picture}
-                          alt={`${currentUser.fullName || "Client"} profile`}
-                          className="w-6 h-6 rounded-full object-cover border border-emerald-500/40 shrink-0"
-                        />
-                      ) : (
-                        <ShieldCheckIcon className="w-4 h-4 text-emerald-500 shrink-0" />
-                      )}
-                      <span className="font-bold text-neutral-900 dark:text-white truncate">
-                        {currentUser.fullName || "Valued Client"}
-                      </span>
-                      <span className="text-neutral-400 hidden sm:inline">•</span>
-                      <span className="text-neutral-500 dark:text-neutral-400 truncate hidden sm:inline">{currentUser.email}</span>
-                      {currentUser.phoneNumber && (
-                        <span className="text-neutral-500 dark:text-neutral-400 hidden md:inline">• {currentUser.phoneNumber}</span>
-                      )}
+                  <div className="mt-3 p-2.5 sm:p-3 rounded-xl bg-neutral-100/90 dark:bg-white/[0.04] border border-neutral-200/90 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs font-mono">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      {/* Avatar with Google badge */}
+                      <div className="relative shrink-0">
+                        {currentUser.avatarUrl || currentUser.avatar_url || currentUser.photoURL || currentUser.picture ? (
+                          <img
+                            src={currentUser.avatarUrl || currentUser.avatar_url || currentUser.photoURL || currentUser.picture}
+                            alt={`${currentUser.fullName || "Client"} profile`}
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-emerald-500/50 shadow-xs"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold">
+                            {(currentUser.fullName || "C").charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        {isGoogleUser && (
+                          <div
+                            className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/20 shadow-xs flex items-center justify-center p-0.5"
+                            title="Signed in with Google"
+                          >
+                            <svg className="w-full h-full" viewBox="0 0 24 24">
+                              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Name, Google Badge & Contacts (Visible on ALL devices) */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-neutral-900 dark:text-white text-xs truncate">
+                            {currentUser.fullName || currentUser.name || "Valued Client"}
+                          </span>
+
+                          {/* Google Badge on ALL Devices */}
+                          {isGoogleUser && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-white/10 shadow-2xs text-[10px] font-medium text-neutral-700 dark:text-neutral-200">
+                              <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24">
+                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                              </svg>
+                              <span className="leading-none text-[9.5px]">Google</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Email & Phone Contact Line (Visible on Mobile + Desktop) */}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
+                          {currentUser.email && (
+                            <span className="flex items-center gap-1 break-all">
+                              <span className="text-neutral-400 dark:text-neutral-500">✉</span>
+                              <span>{currentUser.email}</span>
+                            </span>
+                          )}
+
+                          {clientPhone ? (
+                            <>
+                              <span className="text-neutral-300 dark:text-neutral-600">•</span>
+                              <span className="flex items-center gap-1">
+                                <span className="text-neutral-400 dark:text-neutral-500">☎</span>
+                                <span>{clientPhone}</span>
+                              </span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1011,6 +1331,30 @@ export default function ArchitecturalClipboardInquiry({
                         );
                       })}
                     </div>
+                    {selectedFeatures.has("other") && (
+                      <div className="mt-2.5">
+                        <input
+                          type="text"
+                          value={featuresOther}
+                          onChange={(e) => {
+                            setFeaturesOther(e.target.value);
+                            if (errors.featuresOther) setErrors((p) => ({ ...p, featuresOther: undefined }));
+                          }}
+                          placeholder={
+                            isFil
+                              ? "Tukuyin ang iba pang katangian o provision (hal. Solar panels, Roof deck bar, Home elevator...)"
+                              : "e.g. Solar panels, Roof deck bar, Home elevator, Garden gazebo..."
+                          }
+                          className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${
+                            errors.featuresOther ? "border-red-500" : "border-amber-400"
+                          }`}
+                          autoFocus
+                        />
+                        {errors.featuresOther && (
+                          <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.featuresOther}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Budget & Financing Program */}
@@ -1020,17 +1364,37 @@ export default function ArchitecturalClipboardInquiry({
                         3. {isFil ? "Target na Budget Scope *" : "Target Budget Scope *"}
                       </label>
                       <div className="relative">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500 dark:text-neutral-400 font-mono text-sm pointer-events-none">₱</span>
+                        {/* Peso sign */}
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500 dark:text-neutral-400 font-mono text-sm pointer-events-none select-none">₱</span>
                         <input
                           type="text"
+                          inputMode="numeric"
                           value={budgetRange}
                           onChange={(e) => {
-                            setBudgetRange(e.target.value);
+                            // Strip everything except digits
+                            const raw = e.target.value.replace(/[^0-9]/g, "");
+                            // Format with commas
+                            const formatted = raw ? Number(raw).toLocaleString("en-PH") : "";
+                            setBudgetRange(formatted);
                             if (errors.budgetRange) setErrors((p) => ({ ...p, budgetRange: undefined }));
                           }}
-                          placeholder="e.g. 4,000,000 – 7,000,000"
-                          className={`w-full h-11 pl-7 pr-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.budgetRange ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
+                          placeholder="e.g. 4,000,000"
+                          className={`w-full h-12 pl-8 pr-28 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.budgetRange ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                         />
+                        {/* Smart label badge — K / M / B */}
+                        {budgetRange && (() => {
+                          const raw = Number(budgetRange.replace(/,/g, ""));
+                          let label = "";
+                          if (raw >= 1_000_000_000) label = `${(raw / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
+                          else if (raw >= 1_000_000) label = `${(raw / 1_000_000).toFixed(2).replace(/\.?0+$/, "")}M`;
+                          else if (raw >= 1_000) label = `${(raw / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+                          if (!label) return null;
+                          return (
+                            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs font-mono font-bold tracking-wide select-none">
+                              ₱{label}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {errors.budgetRange && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.budgetRange}</p>}
                     </div>
@@ -1065,12 +1429,13 @@ export default function ArchitecturalClipboardInquiry({
                     </div>
                   </div>
 
-                  {/* Meeting Setup (Google Meet vs MCPA Office) */}
+                  {/* Meeting Setup (Google Meet vs In-Person with 3 Venue Sub-Options) */}
                   <div className="p-4 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10 space-y-4">
                     <label className="block text-xs font-mono uppercase tracking-wider font-bold text-neutral-800 dark:text-neutral-200">
                       5. {isFil ? "Unang Konsultasyon (Initial Consultation Meeting) *" : "Initial Consultation Meeting Preference *"}
                     </label>
 
+                    {/* Top Choice: Online vs In-Person */}
                     <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl transition-all ${errors.meetingMode ? "ring-2 ring-red-500/50 p-2 bg-red-500/5" : ""}`}>
                       {[
                         {
@@ -1081,10 +1446,10 @@ export default function ArchitecturalClipboardInquiry({
                           icon: VideoIcon,
                         },
                         {
-                          val: "In-Person (MCPA Head Office)",
-                          labelEn: "In-Person (MCPA Head Office)",
-                          labelFil: "Face-to-Face sa MCPA Office",
-                          desc: isFil ? "Plaridel, Bulacan Headquarters" : "Plaridel, Bulacan HQ / Site Visit",
+                          val: "In-Person",
+                          labelEn: "In-Person Consultation",
+                          labelFil: "Face-to-Face sa Personal",
+                          desc: isFil ? "Tanggapan ng MCPA, Site, o Cafe" : "Office HQ, Project Site, or Cafe",
                           icon: BuildingIcon,
                         },
                       ].map((mode) => {
@@ -1118,16 +1483,254 @@ export default function ArchitecturalClipboardInquiry({
 
                     {errors.meetingMode && <p className="text-[11px] text-red-500 font-mono">{errors.meetingMode}</p>}
 
+                    {/* SUB-OPTIONS FOR IN-PERSON: 1) MCPA Office, 2) On-Site, 3) Coffee Shop / Restaurant */}
+                    {meetingMode === "In-Person" && (
+                      <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-neutral-950/70 border border-amber-500/30 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                            <span>{isFil ? "Pumili ng Lokasyon ng Pagpupulong *" : "Select In-Person Meeting Venue *"}</span>
+                          </span>
+                          <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold uppercase">
+                            {inPersonVenue === "office" ? "Office HQ" : inPersonVenue === "site" ? "On-Site" : "Cafe / Public"}
+                          </span>
+                        </div>
+
+                        {/* 3 Selectable Venue Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          {/* 1. Visit MCPA Office */}
+                          <button
+                            type="button"
+                            onClick={() => setInPersonVenue("office")}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                              inPersonVenue === "office"
+                                ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/40 text-neutral-900 dark:text-white"
+                                : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`p-1.5 rounded-lg shrink-0 ${inPersonVenue === "office" ? "bg-amber-500 text-neutral-950" : "bg-neutral-200 dark:bg-white/10 text-neutral-500"}`}>
+                                <Building2 className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs font-bold">
+                                {isFil ? "Tanggapan ng MCPA" : "Visit MCPA Office"}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                              {isFil ? "Plaridel, Bulacan HQ" : "Plaridel, Bulacan Head Office"}
+                            </span>
+                          </button>
+
+                          {/* 2. On-Site Consultation */}
+                          <button
+                            type="button"
+                            onClick={() => setInPersonVenue("site")}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                              inPersonVenue === "site"
+                                ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/40 text-neutral-900 dark:text-white"
+                                : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`p-1.5 rounded-lg shrink-0 ${inPersonVenue === "site" ? "bg-amber-500 text-neutral-950" : "bg-neutral-200 dark:bg-white/10 text-neutral-500"}`}>
+                                <MapPin className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs font-bold">
+                                {isFil ? "Mismong Project Site" : "Proposed Project Site"}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                              {isFil ? "Ocular sa lote mula sa Step 2" : "On-site ocular at lot in Step 2"}
+                            </span>
+                          </button>
+
+                          {/* 3. Coffee Shop / Restaurant */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInPersonVenue("cafe");
+                              if (!venueCafeDetails) setIsVenueModalOpen(true);
+                            }}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                              inPersonVenue === "cafe"
+                                ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/40 text-neutral-900 dark:text-white"
+                                : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`p-1.5 rounded-lg shrink-0 ${inPersonVenue === "cafe" ? "bg-amber-500 text-neutral-950" : "bg-neutral-200 dark:bg-white/10 text-neutral-500"}`}>
+                                <Coffee className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs font-bold">
+                                {isFil ? "Coffee Shop / Cafe" : "Coffee Shop / Venue"}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                              {isFil ? "Starbucks, fast food, mall sa PH" : "Starbucks, fast food, mall in PH"}
+                            </span>
+                          </button>
+                        </div>
+
+                        {/* Card 1 Details: Office Address + Google Maps Link */}
+                        {inPersonVenue === "office" && (
+                          <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 space-y-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                              <div>
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 block font-bold">
+                                  {isFil ? "Opisyal na Address ng Tanggapan:" : "Official Headquarters Address:"}
+                                </span>
+                                <p className="text-xs font-bold text-neutral-900 dark:text-white mt-0.5">
+                                  MCPA Construction &amp; Supply Head Office
+                                </p>
+                                <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-mono mt-0.5">
+                                  2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
+                                </p>
+                                <span className="text-[10px] text-neutral-500 block mt-0.5">
+                                  (Near Tabang Tollway Exit &amp; WalterMart Plaridel • Private Client Parking Available)
+                                </span>
+                              </div>
+                              <a
+                                href="https://www.google.com/maps/search/?api=1&query=MCPA+Construction+and+Supply+Tabang+Plaridel+Bulacan"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-[11px] uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors shrink-0 shadow-xs cursor-pointer"
+                              >
+                                <span>Open in Google Maps</span>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Card 2 Details: Project Lot from Step 2 */}
+                        {inPersonVenue === "site" && (
+                          <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 space-y-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                              <div>
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 block font-bold">
+                                  {isFil ? "Lokasyon ng Lote ng Proyekto (Galing sa Step 2):" : "Proposed Construction Lot Address (From Step 2):"}
+                                </span>
+                                <p className="text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-1.5 mt-0.5">
+                                  <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                  <span>
+                                    {formattedBuildAddress
+                                      ? formattedBuildAddress.replace(/Ã±/g, "ñ").replace(/Ã‘/g, "Ñ")
+                                      : (isFil ? "Nailagay na lote sa Step 2" : "Location specified in Step 2")}
+                                  </span>
+                                </p>
+                                {mapCoordinates && (
+                                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-mono mt-0.5">
+                                    GPS Pin: {mapCoordinates}
+                                  </p>
+                                )}
+                                <p className="text-[10px] text-neutral-500 mt-1 italic">
+                                  * {isFil
+                                    ? "Ang aming lead architect at civil engineer ang pupunta sa mismong lote ninyo para sa ocular at terrain assessment."
+                                    : "Our architectural and engineering team will meet you directly at your property for preliminary ocular and terrain inspection."}
+                                </p>
+                              </div>
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapCoordinates || formattedBuildAddress || "Bulacan")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-[11px] uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors shrink-0 shadow-xs cursor-pointer"
+                              >
+                                <span>Open in Google Maps</span>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Card 3 Details: Coffee Shop / Fast Food / Public Venue */}
+                        {inPersonVenue === "cafe" && (
+                          <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 space-y-2">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 block font-bold">
+                                {isFil ? "Napiling Coffee Shop o Lugar (Pilipinas Lamang):" : "Selected Public Meeting Venue (Philippines Only):"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setIsVenueModalOpen(true)}
+                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-[11px] uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                              >
+                                <Search className="w-3.5 h-3.5" />
+                                <span>{venueCafeDetails ? (isFil ? "Palitan ang Lugar" : "Change Venue") : (isFil ? "Maghanap ng Venue" : "Search Venue (Google Maps Style)")}</span>
+                              </button>
+                            </div>
+
+                            {venueCafeDetails ? (
+                              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <EstablishmentLogo
+                                    name={venueCafeDetails}
+                                    className="w-10 h-10 shrink-0"
+                                    iconClassName="w-5 h-5"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-xs font-bold text-neutral-900 dark:text-white block truncate">
+                                      {venueCafeDetails.split(" (")[0].split(" — ")[0]}
+                                    </span>
+                                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400 truncate font-mono mt-0.5">
+                                      {venueCafeDetails}
+                                    </p>
+                                  </div>
+                                </div>
+                                <a
+                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueCafeDetails)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-[11px] uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors shrink-0 shadow-xs cursor-pointer"
+                                >
+                                  <span>Open in Google Maps</span>
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
+                            ) : (
+                              <div
+                                onClick={() => setIsVenueModalOpen(true)}
+                                className="p-3 rounded-lg border-2 border-dashed border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 transition-all cursor-pointer text-center"
+                              >
+                                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
+                                  🔍 {isFil ? "Pindutin para maghanap ng Starbucks, Jollibee, McDo, cafe o mall sa Pilipinas" : "Click to search Starbucks, Jollibee, McDonald's, cafe or mall in the Philippines"}
+                                </p>
+                              </div>
+                            )}
+                            {errors.venueCafeDetails && (
+                              <p className="text-[11px] text-red-500 font-mono">{errors.venueCafeDetails}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                       <div>
-                        <span className="text-[11px] font-mono text-neutral-500 block mb-1">
-                          {isFil ? "Napiling Araw" : "Target Consultation Date"}
-                        </span>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-mono text-neutral-500 block">
+                            {isFil ? "Napiling Araw" : "Target Consultation Date"}
+                          </span>
+                          <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-semibold">
+                            {isFil ? "Ngayon o Pa-usog Lamang" : "Today onwards only"}
+                          </span>
+                        </div>
                         <input
                           type="date"
+                          min={todayDateString}
                           value={meetingDate}
                           onChange={(e) => {
-                            setMeetingDate(e.target.value);
+                            const val = e.target.value;
+                            if (val && val < todayDateString) {
+                              setErrors((p) => ({
+                                ...p,
+                                meetingDate: isFil
+                                  ? "Hindi maaaring pumili ng nakaraang petsa. Piliin ang kasalukuyan o darating na araw."
+                                  : "Past dates are not allowed. Please choose today or a future date.",
+                              }));
+                              setMeetingDate(val);
+                              return;
+                            }
+                            setMeetingDate(val);
                             if (errors.meetingDate) setErrors((p) => ({ ...p, meetingDate: undefined }));
                           }}
                           className={`w-full h-10 px-3 rounded-xl border bg-white dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.meetingDate ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
@@ -1168,16 +1771,88 @@ export default function ArchitecturalClipboardInquiry({
 
                   {/* Special Design Notes */}
                   <div>
-                    <label className="block text-xs font-mono uppercase tracking-wider font-bold text-neutral-800 dark:text-neutral-200 mb-2">
-                      6. {isFil ? "Espesyal na Kahilingan / Peg Link (Opsyonal)" : "Special Architectural Notes / Peg Links (Optional)"}
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-mono uppercase tracking-wider font-bold text-neutral-800 dark:text-neutral-200">
+                        6. {isFil ? "Espesyal na Kahilingan / Peg Link (Opsyonal)" : "Special Architectural Notes / Peg Links (Optional)"}
+                      </label>
+                      <span className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500">
+                        {isFil ? "Kusang lumalaki • May link preview" : "Auto-expanding • Link preview"}
+                      </span>
+                    </div>
                     <textarea
-                      rows={3}
+                      ref={notesTextareaRef}
                       value={specialNotes}
                       onChange={(e) => setSpecialNotes(e.target.value)}
-                      placeholder={isFil ? "hal. Nais po namin ng modern dirty kitchen, 2-car garage, at malaking bintana sa master bedroom..." : "e.g., Needs spacious master balcony, open concept kitchen, Pinterest peg link: https://..."}
-                      className="w-full p-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none"
+                      placeholder={isFil ? "hal. Nais po namin ng modern dirty kitchen, 2-car garage, at Pinterest peg link: https://pin.it/..." : "e.g., Needs spacious master balcony, open concept kitchen, Pinterest peg link: https://..."}
+                      className="w-full p-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none min-h-[92px] resize-none overflow-hidden transition-[height] duration-150 leading-relaxed"
                     />
+
+                    {/* Detected Peg Links List */}
+                    {detectedLinks.length > 0 && (
+                      <div className="mt-2.5 space-y-2 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-bold flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>
+                              {isFil
+                                ? `Nadetect na Peg Link (${detectedLinks.length}):`
+                                : `Detected Peg Links (${detectedLinks.length}):`}
+                            </span>
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-400 italic">
+                            {isFil ? "Awtomatikong babasahin ng arkitekto" : "Ready for architect review"}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {detectedLinks.map((link, idx) => (
+                            <div
+                              key={`peg-link-${idx}`}
+                              className="p-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 flex items-center justify-between gap-2.5 shadow-2xs hover:border-amber-500/50 transition-all group"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className="w-7 h-7 rounded-lg bg-neutral-100 dark:bg-white/10 p-1 flex items-center justify-center shrink-0 border border-neutral-200 dark:border-white/10 overflow-hidden">
+                                  <img
+                                    src={link.favicon}
+                                    alt={link.brandName}
+                                    className="w-full h-full object-contain"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = "none";
+                                    }}
+                                  />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                                      {link.brandName}
+                                    </span>
+                                    <span
+                                      className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${link.categoryColor}`}
+                                    >
+                                      {link.label}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
+                                    {link.hostname}{link.pathname || "/"}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <a
+                                href={link.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1.5 rounded-lg bg-neutral-100 dark:bg-white/10 hover:bg-amber-500 hover:text-neutral-950 text-neutral-700 dark:text-neutral-300 font-mono text-[10px] font-bold tracking-wider inline-flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                                title="Open link in new tab"
+                              >
+                                <span>Open</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Error Notification & Sheet 3 Navigation */}
@@ -1304,6 +1979,19 @@ export default function ArchitecturalClipboardInquiry({
           )}
         </div>
       </div>
+
+      {/* Google Maps Style Philippines Venue Search Modal */}
+      <VenueSearchModal
+        isOpen={isVenueModalOpen}
+        onClose={() => setIsVenueModalOpen(false)}
+        onSelectVenue={(v) => {
+          setVenueCafeDetails(v);
+          setInPersonVenue("cafe");
+          if (errors.venueCafeDetails) setErrors((p) => ({ ...p, venueCafeDetails: undefined }));
+        }}
+        currentVenue={venueCafeDetails}
+        isFil={isFil}
+      />
     </section>
   );
 }
