@@ -8,6 +8,7 @@ const {
   getWelcomeEmailTemplate,
   getInquiryReceiptTemplate,
   getInquiryAdminAlertTemplate,
+  getInquiryMeetingConfirmationTemplate,
 } = require("../templates/emails");
 
 class EmailService {
@@ -257,6 +258,31 @@ class EmailService {
       console.warn("[EmailService] Admin alert delivery failed:", e.message);
     }
     console.log(`[EmailService] Admin alert dispatched for inquiry ${brief.submission_id}`);
+    return true;
+  }
+
+  /**
+   * Sends consultation schedule approval & confirmation email to client
+   */
+  async sendInquiryMeetingConfirmation(toEmail, brief) {
+    const subject = `Consultation Scheduled & Confirmed — Ref: ${brief.submission_id}`;
+    const htmlContent = getInquiryMeetingConfirmationTemplate(brief);
+
+    try {
+      if (this.resendApiKey) {
+        await this.sendViaResend(toEmail, subject, htmlContent);
+      } else if (this.transporter) {
+        await this.transporter.sendMail({
+          from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
+          to: toEmail,
+          subject,
+          html: htmlContent,
+        });
+      }
+    } catch (e) {
+      console.warn("[EmailService] Consultation confirmation delivery failed:", e.message);
+    }
+    console.log(`[EmailService] Consultation confirmation dispatched to ${toEmail} (Ref: ${brief.submission_id})`);
     return true;
   }
 

@@ -197,10 +197,11 @@ export const MALL_BRANDS = {
   "sm megamall": ["smsupermalls.com", "smmalls.com"],
   "sm hypermarket": ["smsupermalls.com", "smmalls.com"],
   sm: ["smsupermalls.com", "smmalls.com"],
-  "robinsons place": ["robinsonssupermarket.com.ph", "robinsonsdepartmentstore.com.ph", "robinsonsmalls.com"],
-  "robinsons galleria": ["robinsonssupermarket.com.ph", "robinsonsdepartmentstore.com.ph", "robinsonsmalls.com"],
-  "robinsons townville": ["robinsonssupermarket.com.ph", "robinsonsdepartmentstore.com.ph", "robinsonsmalls.com"],
-  robinsons: ["robinsonssupermarket.com.ph", "robinsonsdepartmentstore.com.ph", "robinsonsretailholdings.com.ph", "robinsonsmalls.com"],
+  "robinsons place": ["robinsonsmalls.com", "robinsonsland.com"],
+  "robinsons galleria": ["robinsonsmalls.com", "robinsonsland.com"],
+  "robinsons townville": ["robinsonsmalls.com", "robinsonsland.com"],
+  "robinsons malls": ["robinsonsmalls.com", "robinsonsland.com"],
+  robinsons: ["robinsonsmalls.com", "robinsonsland.com"],
   waltermart: ["waltermartdelivery.com.ph", "waltermart.com.ph"],
   "ayala malls": ["ayalamalls.com"],
   ayala: ["ayalamalls.com"],
@@ -368,6 +369,36 @@ function getBrandGradient(text) {
   return BRAND_GRADIENTS[idx];
 }
 
+// Official Robinsons Malls Vector Logo (Green circle with stylized white 'R' & lime leaf)
+export function RobinsonsLogo({ className = "w-full h-full" }) {
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Robinsons"
+    >
+      <circle cx="50" cy="50" r="48" fill="#006A38" />
+      {/* Lime green leaf accent perched on top-right */}
+      <path
+        d="M58 16 C68 17, 78 25, 75 36 C64 36, 56 28, 58 16 Z"
+        fill="#8DC63F"
+      />
+      {/* Robinsons White Stylized 'R' */}
+      <path
+        d="M28 24 H52 C64 24, 71 30.5, 71 41 C71 50, 64 56, 52 56 H40 V76 H28 V24 Z M40 33.5 V46.5 H51 C56 46.5, 59.5 44, 59.5 40 C59.5 36, 56 33.5, 51 33.5 H40 Z"
+        fill="#FFFFFF"
+      />
+      {/* Diagonal leg of the 'R' */}
+      <path
+        d="M48 53 L69 76 H56 L39 55 Z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
+
 // 100% Flexible Establishment Logo component (Never breaks, handles ANY brand)
 export function EstablishmentLogo({
   name,
@@ -378,6 +409,10 @@ export function EstablishmentLogo({
 }) {
   const [urlIndex, setUrlIndex] = useState(0);
   const [failedAll, setFailedAll] = useState(false);
+
+  // Authenticated Brand Intercept: Robinsons Malls (always render official green logo, never supermarket cherry)
+  const cleanStr = `${brand || ""} ${name || ""}`.toLowerCase();
+  const isRobinsons = cleanStr.includes("robinson");
 
   const candidateDomains = useMemo(() => {
     return resolveCandidateDomains(brand || name);
@@ -399,6 +434,18 @@ export function EstablishmentLogo({
       setFailedAll(true);
     }
   };
+
+  // Direct High-Fidelity Robinsons Logo (Green circle with stylized white 'R' & leaf)
+  if (isRobinsons) {
+    return (
+      <span
+        className={`${className} rounded-full bg-white p-0.5 border border-neutral-200 dark:border-white/15 inline-flex items-center justify-center shrink-0 shadow-2xs overflow-hidden align-middle`}
+        title={brand || name || "Robinsons Malls"}
+      >
+        <RobinsonsLogo className="w-full h-full" />
+      </span>
+    );
+  }
 
   // 1. Render Live API Logo if available
   if (candidateUrls.length > 0 && !failedAll) {
@@ -434,7 +481,7 @@ export function EstablishmentLogo({
 }
 
 // Curated Instant Directory of Popular Consultation Venues in Bulacan, Pampanga, Central Luzon & NCR
-const CURATED_PH_VENUES = [
+export const CURATED_PH_VENUES = [
   // --- STARBUCKS ---
   {
     name: "Starbucks — WalterMart Plaridel",
@@ -950,7 +997,7 @@ const CURATED_PH_VENUES = [
   },
 ];
 
-const FILTER_PRESETS = [
+export const FILTER_PRESETS = [
   { label: "All Spots", brand: "ALL", icon: Sparkles },
   { label: "Starbucks", brand: "Starbucks", icon: Coffee },
   { label: "Jollibee", brand: "Jollibee", icon: UtensilsCrossed },
@@ -1083,7 +1130,7 @@ export default function VenueSearchModal({
               <div>
                 <h3 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-1.5 font-mono uppercase tracking-wide">
                   <span>{isFil ? "Pumili ng Lugar ng Konsultasyon" : "Choose Meeting Venue"}</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold normal-case tracking-normal">
+                  <span className="text-[10px] text-neutral-400 font-mono font-medium normal-case tracking-normal">
                     Philippines Only
                   </span>
                 </h3>
@@ -1112,8 +1159,8 @@ export default function VenueSearchModal({
               onChange={(e) => setQuery(e.target.value)}
               placeholder={
                 isFil
-                  ? "Maghanap ng Starbucks, Jollibee, McDo, cafe, o mall sa Pilipinas..."
-                  : "Search Starbucks, Jollibee, McDonald's, cafe, or mall in PH..."
+                  ? "Ilagay ang meeting venue (hal. Starbucks, Jollibee, McDo, SM Mall)"
+                  : "Enter your meeting venue (ex. Starbucks, Jollibee, McDonald's, SM Mall)"
               }
               className="w-full h-11 text-xs sm:text-sm bg-transparent border-none outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400 font-sans pr-8"
             />
@@ -1305,8 +1352,8 @@ export default function VenueSearchModal({
               onChange={(e) => setCustomInput(e.target.value)}
               placeholder={
                 isFil
-                  ? "o mag-type ng ibang specific branch / landmark..."
-                  : "or type any specific cafe / landmark..."
+                  ? "Ilagay ang branch o landmark (hal. Starbucks WalterMart Plaridel)"
+                  : "Enter your specific branch or landmark (ex. Starbucks WalterMart Plaridel)"
               }
               className="w-full h-9 px-3 rounded-xl border border-neutral-300 dark:border-white/15 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none"
             />

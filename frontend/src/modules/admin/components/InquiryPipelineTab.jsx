@@ -22,6 +22,7 @@ import {
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 import StageCombobox from "@/modules/admin/components/StageCombobox";
 import { InquiryTableSkeleton } from "@/modules/shared/Skeleton";
+import { EstablishmentLogo } from "@/modules/book/components/VenueSearchModal";
 
 const STAGES = [
   {
@@ -89,25 +90,63 @@ const STAGES = [
   },
 ];
 
-function MeetingTypeBadge({ mode }) {
+function MeetingTypeBadge({ brief, mode }) {
+  const effectiveMode = mode || brief?.meetingMode || brief?.meeting_mode || "";
   const isOnline =
-    mode?.toLowerCase().includes("online") ||
-    mode?.toLowerCase().includes("virtual") ||
-    mode?.toLowerCase().includes("meet") ||
-    mode?.toLowerCase().includes("zoom");
+    effectiveMode?.toLowerCase().includes("online") ||
+    effectiveMode?.toLowerCase().includes("virtual") ||
+    effectiveMode?.toLowerCase().includes("meet") ||
+    effectiveMode?.toLowerCase().includes("zoom");
 
   if (isOnline) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
-        <VideoIcon className="w-3 h-3" />
-        Google Meet
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
+        <VideoIcon className="w-3 h-3 shrink-0" />
+        Online Video Call
       </span>
     );
   }
+
+  const venueType = brief?.venueType || brief?.venue_type || "";
+  const venueDetails = brief?.venueDetails || brief?.venue_details || "";
+
+  if (venueType === "Office" || venueType === "MCPA Office") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
+        <span>🏢</span>
+        MCPA Office
+      </span>
+    );
+  }
+
+  if (venueType === "Project Site") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
+        <MapPinIcon className="w-3 h-3 shrink-0" />
+        Project Site
+      </span>
+    );
+  }
+
+  if (venueDetails) {
+    const brandCandidate = venueDetails.split("—")[0].trim().split("-")[0].trim();
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap max-w-[210px] truncate"
+        title={venueDetails}
+      >
+        <span className="w-3.5 h-3.5 rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-white/20">
+          <EstablishmentLogo name={brandCandidate} brand={brandCandidate} className="w-3.5 h-3.5" iconClassName="w-2 h-2" />
+        </span>
+        <span className="truncate">{brandCandidate}</span>
+      </span>
+    );
+  }
+
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold uppercase whitespace-nowrap">
-      <MapPinIcon className="w-3 h-3" />
-      F2F
+      <MapPinIcon className="w-3 h-3 shrink-0" />
+      In-Person
     </span>
   );
 }
@@ -128,7 +167,7 @@ export default function InquiryPipelineTab({
   const [meetingLink, setMeetingLink] = useState("");
   const [meetingDate, setMeetingDate] = useState("");
   const [meetingTime, setMeetingTime] = useState("09:00 AM - 10:30 AM");
-  const [meetingMode, setMeetingMode] = useState("Online / Google Meet");
+  const [meetingMode, setMeetingMode] = useState("Online Video Call");
   const [meetingNotes, setMeetingNotes] = useState("");
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -150,11 +189,23 @@ export default function InquiryPipelineTab({
 
   const openDrawer = (brief) => {
     setSelectedBrief(brief);
-    setMeetingLink(brief.meetingLink || "https://meet.google.com/mcp-buil-tab");
-    setMeetingDate(brief.meetingDate || "");
-    setMeetingTime(brief.meetingTime || "09:00 AM - 10:30 AM");
-    setMeetingMode(brief.meetingMode || "Online / Google Meet");
-    setMeetingNotes(brief.meetingNotes || "");
+    const isOnline = (brief.meetingMode || brief.meeting_mode || "").toLowerCase().includes("online");
+    const defaultF2FVenue =
+      brief.venueDetails ||
+      brief.venue_details ||
+      (brief.venueType === "Office"
+        ? "MCPA Head Office, Tabang, Plaridel, Bulacan"
+        : brief.location || "MCPA Head Office");
+
+    setMeetingLink(
+      brief.meetingLink ||
+      brief.meeting_link ||
+      (isOnline ? "https://meet.google.com/mcp-buil-tab" : defaultF2FVenue)
+    );
+    setMeetingDate(brief.meetingDate || brief.meeting_date || "");
+    setMeetingTime(brief.meetingTime || brief.meeting_time || "09:00 AM - 10:30 AM");
+    setMeetingMode(isOnline ? "Online Video Call" : "Face-to-Face");
+    setMeetingNotes(brief.meetingNotes || brief.meeting_notes || "");
   };
 
   const closeDrawer = () => setSelectedBrief(null);
@@ -168,6 +219,8 @@ export default function InquiryPipelineTab({
       meetingLink,
       meetingMode,
       meetingNotes,
+      venueType: selectedBrief.venueType || selectedBrief.venue_type,
+      venueDetails: selectedBrief.venueDetails || selectedBrief.venue_details,
     });
     setIsApproving(false);
     showToast(`Meeting confirmed for ${selectedBrief.clientName}! Approval email sent.`);
@@ -368,7 +421,7 @@ export default function InquiryPipelineTab({
                           <p className="text-[10px] text-neutral-500 font-mono truncate max-w-[220px]">{brief.location || "—"}</p>
                         </td>
                         <td className="py-3.5 px-4">
-                          <MeetingTypeBadge mode={brief.meetingMode} />
+                          <MeetingTypeBadge brief={brief} mode={brief.meetingMode} />
                         </td>
                         <td className="py-3.5 px-4">
                           {brief.meetingDate ? (
@@ -541,6 +594,28 @@ export default function InquiryPipelineTab({
                         <p className="text-xs font-medium text-neutral-900 dark:text-white leading-relaxed">
                           {selectedBrief.location || "Plaridel, Bulacan"}
                         </p>
+                        {(() => {
+                          const addr = parseSafe(selectedBrief.siteAddressDetails || selectedBrief.site_address_details);
+                          if (!addr) return null;
+                          const details = [
+                            addr.province && `Prov: ${addr.province}`,
+                            addr.city && `City: ${addr.city}`,
+                            addr.barangay && `Brgy: ${addr.barangay}`,
+                            addr.subdivision && `Subd: ${addr.subdivision}`,
+                            addr.street && `Street: ${addr.street}`,
+                            (addr.blkLot || addr.houseNo) && `Lot/Unit: ${[addr.blkLot && `Blk ${addr.blkLot}`, addr.houseNo && `Unit ${addr.houseNo}`].filter(Boolean).join(", ")}`,
+                          ].filter(Boolean);
+                          if (details.length === 0) return null;
+                          return (
+                            <div className="flex flex-wrap gap-1 pt-1.5 border-t border-neutral-100 dark:border-white/5">
+                              {details.map((d, i) => (
+                                <span key={i} className="px-1.5 py-0.5 rounded-[3px] bg-neutral-100 dark:bg-white/5 text-[9px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/5">
+                                  {d}
+                                </span>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
@@ -651,18 +726,118 @@ export default function InquiryPipelineTab({
                 );
               })()}
 
+              {/* Client Consultation Preference */}
+              {(() => {
+                const isOnline = (selectedBrief.meetingMode || selectedBrief.meeting_mode || "").toLowerCase().includes("online");
+                const venueType = selectedBrief.venueType || selectedBrief.venue_type;
+                const venueDetails = selectedBrief.venueDetails || selectedBrief.venue_details;
+                const brandName = venueDetails ? venueDetails.split("—")[0].trim().split("-")[0].trim() : "";
+                const prefDate = selectedBrief.meetingDate || selectedBrief.meeting_date;
+                const prefTime = selectedBrief.meetingTime || selectedBrief.meeting_time;
+
+                return (
+                  <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Client Consultation Preference
+                      </h4>
+                      <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-bold uppercase ${
+                        isOnline
+                          ? "bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-400"
+                          : "bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400"
+                      }`}>
+                        {isOnline ? "Online Video Call" : "In-Person Consultation"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                        <p className="text-[9px] font-mono uppercase text-neutral-500">Requested Date</p>
+                        <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">
+                          {prefDate || "Not specified"}
+                        </p>
+                      </div>
+                      <div className="p-2.5 rounded-[4px] bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
+                        <p className="text-[9px] font-mono uppercase text-neutral-500">Requested Time</p>
+                        <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate mt-0.5">
+                          {prefTime || "Any Available"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {!isOnline && (
+                      <div className="p-3 rounded-[4px] bg-amber-500/10 border border-amber-500/20 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[9px] font-mono uppercase text-amber-700 dark:text-amber-400 font-bold">
+                            Preferred Meeting Venue
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
+                            {venueType || "Face-to-Face"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-start gap-2.5 pt-1">
+                          {brandName ? (
+                            <div className="w-8 h-8 rounded-[6px] overflow-hidden bg-white shadow-xs shrink-0 flex items-center justify-center p-1 border border-neutral-200 dark:border-white/10">
+                              <EstablishmentLogo name={brandName} brand={brandName} className="w-6 h-6" iconClassName="w-4 h-4" />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-[6px] bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0 flex items-center justify-center text-sm">
+                              {venueType === "Office" ? "🏢" : "📍"}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-neutral-900 dark:text-white leading-snug">
+                              {venueDetails || (venueType === "Office" ? "MCPA Head Office, Tabang, Plaridel, Bulacan" : "Project Site / Physical Venue")}
+                            </p>
+                            {venueDetails && (
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueDetails)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 hover:underline"
+                              >
+                                <MapPinIcon className="w-3 h-3" />
+                                View Venue on Google Maps
+                                <ExternalLinkIcon className="w-2.5 h-2.5 ml-0.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {isOnline && (
+                      <div className="p-2.5 rounded-[4px] bg-sky-500/10 border border-sky-500/20 flex items-center gap-2">
+                        <VideoIcon className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+                        <p className="text-[11px] font-mono text-sky-800 dark:text-sky-300">
+                          Client requested a virtual video consultation. Video call link will be included in the confirmation email.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Meeting Setup Form */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                  Meeting Setup
+                  Meeting Setup (Admin Confirmation)
                 </h4>
 
                 {/* Meeting Mode */}
                 <div className="grid grid-cols-2 gap-2">
-                  {["Online / Google Meet", "Face-to-Face"].map((mode) => (
+                  {["Online Video Call", "Face-to-Face"].map((mode) => (
                     <button
                       key={mode}
-                      onClick={() => setMeetingMode(mode)}
+                      onClick={() => {
+                        setMeetingMode(mode);
+                        if (mode === "Face-to-Face" && selectedBrief) {
+                          setMeetingLink(selectedBrief.venueDetails || selectedBrief.venue_details || "MCPA Head Office, Tabang, Plaridel, Bulacan");
+                        } else if (mode === "Online Video Call" && selectedBrief) {
+                          setMeetingLink(selectedBrief.meetingLink || selectedBrief.meeting_link || "https://meet.google.com/mcp-buil-tab");
+                        }
+                      }}
                       className={`p-3 rounded-[4px] border text-[10px] font-mono text-left transition-colors cursor-pointer ${
                         meetingMode === mode
                           ? "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold"
@@ -670,7 +845,7 @@ export default function InquiryPipelineTab({
                       }`}
                     >
                       <div className="flex items-center gap-1.5">
-                        {mode === "Online / Google Meet" ? (
+                        {mode === "Online Video Call" ? (
                           <VideoIcon className="w-3.5 h-3.5 shrink-0" />
                         ) : (
                           <MapPinIcon className="w-3.5 h-3.5 shrink-0" />
@@ -684,7 +859,7 @@ export default function InquiryPipelineTab({
                 {/* Date & Time */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1.5">Date</label>
+                    <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1.5">Confirmed Date</label>
                     <input
                       type="date"
                       value={meetingDate}
@@ -693,7 +868,7 @@ export default function InquiryPipelineTab({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1.5">Time Slot</label>
+                    <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1.5">Confirmed Time Slot</label>
                     <input
                       type="text"
                       value={meetingTime}
@@ -704,33 +879,43 @@ export default function InquiryPipelineTab({
                   </div>
                 </div>
 
-                {/* Meeting Link */}
+                {/* Meeting Link / Venue Address */}
                 <div>
                   <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1.5">
-                    Meeting Link (Google Meet / Zoom / Other)
+                    {meetingMode === "Online Video Call"
+                      ? "Video Meeting Link (Google Meet / Zoom)"
+                      : "Meeting Venue / Physical Location Details"}
                   </label>
                   <div className="flex gap-2">
                     <input
-                      type="url"
+                      type={meetingMode === "Online Video Call" ? "url" : "text"}
                       value={meetingLink}
                       onChange={(e) => setMeetingLink(e.target.value)}
-                      placeholder="https://meet.google.com/..."
+                      placeholder={
+                        meetingMode === "Online Video Call"
+                          ? "https://meet.google.com/..."
+                          : "Starbucks, Robinsons Malolos / MCPA Head Office..."
+                      }
                       className="flex-1 px-3 py-2 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors"
                     />
                     <button
                       onClick={handleCopyLink}
-                      title="Copy link"
+                      title="Copy link or venue"
                       className="px-3 py-2 rounded-[4px] bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer shrink-0"
                     >
                       <CopyIcon className="w-4 h-4" />
                     </button>
                     {meetingLink && (
                       <a
-                        href={meetingLink}
+                        href={
+                          meetingLink.startsWith("http://") || meetingLink.startsWith("https://")
+                            ? meetingLink
+                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(meetingLink)}`
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="px-3 py-2 rounded-[4px] bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors shrink-0"
-                        title="Test link"
+                        title={meetingLink.startsWith("http") ? "Open meeting link" : "Open in Google Maps"}
                       >
                         <ExternalLinkIcon className="w-4 h-4" />
                       </a>

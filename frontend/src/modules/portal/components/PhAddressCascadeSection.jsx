@@ -297,7 +297,12 @@ export default function PhAddressCascadeSection({
         </label>
         <input
           type="text"
-          placeholder={t.subdivisionVillagePlaceholder || "e.g. Grand Royale Subd. or San Lorenzo Village"}
+          placeholder={
+            t.subdivisionVillagePlaceholder ||
+            (activeLang === "fil"
+              ? "Ilagay ang subdivision (hal. Grand Royale Subd.)"
+              : "Enter your subdivision (ex. Grand Royale Subd.)")
+          }
           value={subdivision}
           onChange={(e) => {
             onSubdivisionChange(e.target.value);
@@ -315,7 +320,12 @@ export default function PhAddressCascadeSection({
           </label>
           <input
             type="text"
-            placeholder={t.phaseStreetPlaceholder || "e.g. Phase 2, Diamond St."}
+            placeholder={
+              t.phaseStreetPlaceholder ||
+              (activeLang === "fil"
+                ? "Ilagay ang kalye o phase (hal. Phase 2, Diamond St.)"
+                : "Enter your street or phase (ex. Phase 2, Diamond St.)")
+            }
             value={street}
             onChange={(e) => {
               onStreetChange(e.target.value);
@@ -332,7 +342,11 @@ export default function PhAddressCascadeSection({
             </label>
             <input
               type="text"
-              placeholder="Unit 4B"
+              placeholder={
+                activeLang === "fil"
+                  ? "Ilagay ang house/unit (hal. Unit 4B)"
+                  : "Enter your house/unit (ex. Unit 4B)"
+              }
               value={houseNo}
               onChange={(e) => {
                 onHouseNoChange(e.target.value);
@@ -347,7 +361,11 @@ export default function PhAddressCascadeSection({
             </label>
             <input
               type="text"
-              placeholder="Blk 14 Lot 8"
+              placeholder={
+                activeLang === "fil"
+                  ? "Ilagay ang block & lot (hal. Blk 14 Lot 8)"
+                  : "Enter your block & lot (ex. Blk 14 Lot 8)"
+              }
               value={blkLot}
               onChange={(e) => {
                 onBlkLotChange(e.target.value);

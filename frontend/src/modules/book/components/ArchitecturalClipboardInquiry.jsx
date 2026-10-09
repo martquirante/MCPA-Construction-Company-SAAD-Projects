@@ -24,8 +24,9 @@ import {
 import { useLanguage } from "@/modules/shared/LanguageContext";
 import PhAddressCascadeSection from "@/modules/portal/components/PhAddressCascadeSection";
 import LotMapPicker from "@/modules/portal/components/LotMapPicker";
-import { Building2, MapPin, Coffee, Search, ExternalLink } from "lucide-react";
+import { Building2, MapPin, Coffee, ExternalLink } from "lucide-react";
 import VenueSearchModal, { EstablishmentLogo } from "./VenueSearchModal";
+import VenueCombobox from "./VenueCombobox";
 
 const PROJECT_CATEGORIES = [
   {
@@ -676,7 +677,7 @@ export default function ArchitecturalClipboardInquiry({
                 />
                 <span className="h-3 w-[1px] bg-slate-400/80 dark:bg-white/20 shrink-0" />
                 <span className="font-mono text-[9px] sm:text-[10.5px] font-extrabold uppercase tracking-[0.22em] sm:tracking-[0.28em] text-slate-800 dark:text-neutral-100 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)] truncate select-none">
-                  INQUIRY DOSSIER
+                  INQUIRY SHEET
                 </span>
               </div>
 
@@ -887,7 +888,7 @@ export default function ArchitecturalClipboardInquiry({
                             setProjectTypeOther(e.target.value);
                             if (errors.projectTypeOther) setErrors((p) => ({ ...p, projectTypeOther: undefined }));
                           }}
-                          placeholder={isFil ? "Ilarawan ang uri ng inyong proyekto..." : "Describe your project type (e.g. Chapel, School Building, Gym...)"}
+                          placeholder={isFil ? "Ilagay ang inyong uri ng proyekto (hal. Kapilya, Gusali ng Paaralan, Gym)" : "Enter your project type (ex. Chapel, School Building, Gym)"}
                           className={`w-full h-11 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.projectTypeOther ? "border-red-500" : "border-amber-400"}`}
                           autoFocus
                         />
@@ -939,8 +940,8 @@ export default function ArchitecturalClipboardInquiry({
                           }}
                           placeholder={
                             isFil
-                              ? "Ilarawan ang inyong sariling architectural concept o peg..."
-                              : "Describe your custom architectural concept or design peg (e.g. Modern Farmhouse, Brutalist, Japandi...)"
+                              ? "Ilagay ang inyong architectural peg (hal. Modern Farmhouse, Brutalist, Japandi)"
+                              : "Enter your architectural concept (ex. Modern Farmhouse, Brutalist, Japandi)"
                           }
                           className={`w-full h-11 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.preferredStyleCustom ? "border-red-500" : "border-amber-400"}`}
                           autoFocus
@@ -976,7 +977,7 @@ export default function ArchitecturalClipboardInquiry({
                           type="text"
                           value={storeysOther}
                           onChange={(e) => setStoreysOther(e.target.value)}
-                          placeholder={isFil ? "Ilagay ang bilang ng palapag..." : "Specify number of storeys..."}
+                          placeholder={isFil ? "Ilagay ang bilang ng palapag (hal. 4 Storeys, Penthouse)" : "Enter your number of storeys (ex. 4 Storeys, Penthouse)"}
                           className="mt-2 w-full h-11 px-3.5 rounded-xl border border-amber-400 bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400"
                           autoFocus
                         />
@@ -1006,7 +1007,7 @@ export default function ArchitecturalClipboardInquiry({
                       {errors.targetTimeline && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.targetTimeline}</p>}
                       {targetTimeline === "Other" && (
                         <div className="mt-2">
-                          <input type="text" value={targetTimelineOther} onChange={(e) => { setTargetTimelineOther(e.target.value); if (errors.targetTimelineOther) setErrors((p) => ({ ...p, targetTimelineOther: undefined })); }} placeholder="e.g. Within 2 years, After OFW contract ends..." className={`w-full h-10 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.targetTimelineOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                          <input type="text" value={targetTimelineOther} onChange={(e) => { setTargetTimelineOther(e.target.value); if (errors.targetTimelineOther) setErrors((p) => ({ ...p, targetTimelineOther: undefined })); }} placeholder={isFil ? "Ilagay ang target timeline (hal. Sa loob ng 2 taon, Pagkatapos ng kontrata)" : "Enter your target timeline (ex. Within 2 years, After OFW contract ends)"} className={`w-full h-10 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.targetTimelineOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
                           {errors.targetTimelineOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.targetTimelineOther}</p>}
                         </div>
                       )}
@@ -1143,7 +1144,7 @@ export default function ArchitecturalClipboardInquiry({
                       {errors.lotStatus && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.lotStatus}</p>}
                       {lotStatus === "Other" && (
                         <div className="mt-2">
-                          <input type="text" value={lotStatusOther} onChange={(e) => { setLotStatusOther(e.target.value); if (errors.lotStatusOther) setErrors((p) => ({ ...p, lotStatusOther: undefined })); }} placeholder="e.g. Inherited land, Foreclosed property..." className={`w-full h-10 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.lotStatusOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                          <input type="text" value={lotStatusOther} onChange={(e) => { setLotStatusOther(e.target.value); if (errors.lotStatusOther) setErrors((p) => ({ ...p, lotStatusOther: undefined })); }} placeholder={isFil ? "Ilagay ang kalagayan ng lote (hal. Pamanang lupa, Nabili sa subasta)" : "Enter your lot status (ex. Inherited land, Foreclosed property)"} className={`w-full h-10 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.lotStatusOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
                           {errors.lotStatusOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.lotStatusOther}</p>}
                         </div>
                       )}
@@ -1162,7 +1163,7 @@ export default function ArchitecturalClipboardInquiry({
                           setLotArea(e.target.value);
                           if (errors.lotArea) setErrors((p) => ({ ...p, lotArea: undefined }));
                         }}
-                        placeholder="e.g. 240"
+                        placeholder={isFil ? "Ilagay ang sukat ng lote (hal. 240)" : "Enter your lot area in sqm (ex. 240)"}
                         className={`w-full h-11 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none ${errors.lotArea ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                       />
                       {errors.lotArea && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.lotArea}</p>}
@@ -1237,7 +1238,7 @@ export default function ArchitecturalClipboardInquiry({
                         {errors.bedrooms && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.bedrooms}</p>}
                         {bedrooms === "Other" && (
                           <div className="mt-1.5">
-                            <input type="text" value={bedroomsOther} onChange={(e) => { setBedroomsOther(e.target.value); if (errors.bedroomsOther) setErrors((p) => ({ ...p, bedroomsOther: undefined })); }} placeholder="e.g. 6 Bedrooms, Studio..." className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.bedroomsOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                            <input type="text" value={bedroomsOther} onChange={(e) => { setBedroomsOther(e.target.value); if (errors.bedroomsOther) setErrors((p) => ({ ...p, bedroomsOther: undefined })); }} placeholder={isFil ? "Ilagay ang bilang ng kwarto (hal. 6 Bedrooms, Studio)" : "Enter your bedrooms (ex. 6 Bedrooms, Studio)"} className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.bedroomsOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
                             {errors.bedroomsOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.bedroomsOther}</p>}
                           </div>
                         )}
@@ -1267,7 +1268,7 @@ export default function ArchitecturalClipboardInquiry({
                         {errors.bathrooms && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.bathrooms}</p>}
                         {bathrooms === "Other" && (
                           <div className="mt-1.5">
-                            <input type="text" value={bathroomsOther} onChange={(e) => { setBathroomsOther(e.target.value); if (errors.bathroomsOther) setErrors((p) => ({ ...p, bathroomsOther: undefined })); }} placeholder="e.g. 5 Bathrooms, 1 powder room..." className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.bathroomsOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                            <input type="text" value={bathroomsOther} onChange={(e) => { setBathroomsOther(e.target.value); if (errors.bathroomsOther) setErrors((p) => ({ ...p, bathroomsOther: undefined })); }} placeholder={isFil ? "Ilagay ang bilang ng banyo (hal. 5 Bathrooms, 1 Powder Room)" : "Enter your bathrooms (ex. 5 Bathrooms, 1 Powder Room)"} className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.bathroomsOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
                             {errors.bathroomsOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.bathroomsOther}</p>}
                           </div>
                         )}
@@ -1298,7 +1299,7 @@ export default function ArchitecturalClipboardInquiry({
                         {errors.carGarage && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.carGarage}</p>}
                         {carGarage === "Other" && (
                           <div className="mt-1.5">
-                            <input type="text" value={carGarageOther} onChange={(e) => { setCarGarageOther(e.target.value); if (errors.carGarageOther) setErrors((p) => ({ ...p, carGarageOther: undefined })); }} placeholder="e.g. Basement parking, Tandem garage..." className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.carGarageOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                            <input type="text" value={carGarageOther} onChange={(e) => { setCarGarageOther(e.target.value); if (errors.carGarageOther) setErrors((p) => ({ ...p, carGarageOther: undefined })); }} placeholder={isFil ? "Ilagay ang kapasidad ng garahe (hal. Basement parking, Tandem garage)" : "Enter your garage capacity (ex. Basement parking, Tandem garage)"} className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.carGarageOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
                             {errors.carGarageOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.carGarageOther}</p>}
                           </div>
                         )}
@@ -1342,8 +1343,8 @@ export default function ArchitecturalClipboardInquiry({
                           }}
                           placeholder={
                             isFil
-                              ? "Tukuyin ang iba pang katangian o provision (hal. Solar panels, Roof deck bar, Home elevator...)"
-                              : "e.g. Solar panels, Roof deck bar, Home elevator, Garden gazebo..."
+                              ? "Ilagay ang iba pang katangian (hal. Solar panels, Roof deck bar, Home elevator)"
+                              : "Enter your other features (ex. Solar panels, Roof deck bar, Home elevator)"
                           }
                           className={`w-full h-9 px-3 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${
                             errors.featuresOther ? "border-red-500" : "border-amber-400"
@@ -1378,7 +1379,7 @@ export default function ArchitecturalClipboardInquiry({
                             setBudgetRange(formatted);
                             if (errors.budgetRange) setErrors((p) => ({ ...p, budgetRange: undefined }));
                           }}
-                          placeholder="e.g. 4,000,000"
+                          placeholder={isFil ? "Ilagay ang inyong budget (hal. 4,000,000)" : "Enter your target budget (ex. 4,000,000)"}
                           className={`w-full h-12 pl-8 pr-28 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.budgetRange ? "border-red-500" : "border-neutral-300 dark:border-neutral-700"}`}
                         />
                         {/* Smart label badge — K / M / B */}
@@ -1422,7 +1423,7 @@ export default function ArchitecturalClipboardInquiry({
                       {errors.financingOption && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.financingOption}</p>}
                       {financingOption === "Other" && (
                         <div className="mt-2">
-                          <input type="text" value={financingOptionOther} onChange={(e) => { setFinancingOptionOther(e.target.value); if (errors.financingOptionOther) setErrors((p) => ({ ...p, financingOptionOther: undefined })); }} placeholder="e.g. Cash payment, Personal loan, OFW remittance..." className={`w-full h-10 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.financingOptionOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                          <input type="text" value={financingOptionOther} onChange={(e) => { setFinancingOptionOther(e.target.value); if (errors.financingOptionOther) setErrors((p) => ({ ...p, financingOptionOther: undefined })); }} placeholder={isFil ? "Ilagay ang paraan ng pagbabayad (hal. Cash payment, Personal loan, OFW remittance)" : "Enter your financing option (ex. Cash payment, Personal loan, OFW remittance)"} className={`w-full h-10 px-3.5 rounded-xl border bg-neutral-50 dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.financingOptionOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
                           {errors.financingOptionOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.financingOptionOther}</p>}
                         </div>
                       )}
@@ -1439,9 +1440,9 @@ export default function ArchitecturalClipboardInquiry({
                     <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl transition-all ${errors.meetingMode ? "ring-2 ring-red-500/50 p-2 bg-red-500/5" : ""}`}>
                       {[
                         {
-                          val: "Online Meeting (Google Meet)",
-                          labelEn: "Online Meeting (Google Meet)",
-                          labelFil: "Online Call (Google Meet)",
+                          val: "Online Meeting",
+                          labelEn: "Online Meeting",
+                          labelFil: "Online Call",
                           desc: isFil ? "Perpekto para sa OFW o may trabaho" : "Priority for OFWs & busy homeowners",
                           icon: VideoIcon,
                         },
@@ -1454,7 +1455,7 @@ export default function ArchitecturalClipboardInquiry({
                         },
                       ].map((mode) => {
                         const Icon = mode.icon;
-                        const isSelected = meetingMode === mode.val;
+                        const isSelected = meetingMode === mode.val || (mode.val === "Online Meeting" && meetingMode === "Online Meeting (Google Meet)");
                         return (
                           <button
                             key={mode.val}
@@ -1549,7 +1550,6 @@ export default function ArchitecturalClipboardInquiry({
                             type="button"
                             onClick={() => {
                               setInPersonVenue("cafe");
-                              if (!venueCafeDetails) setIsVenueModalOpen(true);
                             }}
                             className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
                               inPersonVenue === "cafe"
@@ -1642,63 +1642,20 @@ export default function ArchitecturalClipboardInquiry({
                           </div>
                         )}
 
-                        {/* Card 3 Details: Coffee Shop / Fast Food / Public Venue */}
+                        {/* Card 3 Details: Coffee Shop / Fast Food / Public Venue Combobox */}
                         {inPersonVenue === "cafe" && (
-                          <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 space-y-2">
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 block font-bold">
-                                {isFil ? "Napiling Coffee Shop o Lugar (Pilipinas Lamang):" : "Selected Public Meeting Venue (Philippines Only):"}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setIsVenueModalOpen(true)}
-                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-[11px] uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                              >
-                                <Search className="w-3.5 h-3.5" />
-                                <span>{venueCafeDetails ? (isFil ? "Palitan ang Lugar" : "Change Venue") : (isFil ? "Maghanap ng Venue" : "Search Venue (Google Maps Style)")}</span>
-                              </button>
-                            </div>
-
-                            {venueCafeDetails ? (
-                              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                  <EstablishmentLogo
-                                    name={venueCafeDetails}
-                                    className="w-10 h-10 shrink-0"
-                                    iconClassName="w-5 h-5"
-                                  />
-                                  <div className="min-w-0 flex-1">
-                                    <span className="text-xs font-bold text-neutral-900 dark:text-white block truncate">
-                                      {venueCafeDetails.split(" (")[0].split(" — ")[0]}
-                                    </span>
-                                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400 truncate font-mono mt-0.5">
-                                      {venueCafeDetails}
-                                    </p>
-                                  </div>
-                                </div>
-                                <a
-                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueCafeDetails)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-[11px] uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors shrink-0 shadow-xs cursor-pointer"
-                                >
-                                  <span>Open in Google Maps</span>
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                </a>
-                              </div>
-                            ) : (
-                              <div
-                                onClick={() => setIsVenueModalOpen(true)}
-                                className="p-3 rounded-lg border-2 border-dashed border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 transition-all cursor-pointer text-center"
-                              >
-                                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
-                                  🔍 {isFil ? "Pindutin para maghanap ng Starbucks, Jollibee, McDo, cafe o mall sa Pilipinas" : "Click to search Starbucks, Jollibee, McDonald's, cafe or mall in the Philippines"}
-                                </p>
-                              </div>
-                            )}
-                            {errors.venueCafeDetails && (
-                              <p className="text-[11px] text-red-500 font-mono">{errors.venueCafeDetails}</p>
-                            )}
+                          <div className="pt-2">
+                            <VenueCombobox
+                              value={venueCafeDetails}
+                              onChange={(venue) => {
+                                setVenueCafeDetails(venue);
+                                if (errors.venueCafeDetails) setErrors((p) => ({ ...p, venueCafeDetails: undefined }));
+                              }}
+                              onClear={() => setVenueCafeDetails("")}
+                              isFil={isFil}
+                              hasError={Boolean(errors.venueCafeDetails)}
+                              errorMessage={errors.venueCafeDetails}
+                            />
                           </div>
                         )}
                       </div>
@@ -1761,7 +1718,7 @@ export default function ArchitecturalClipboardInquiry({
                         {errors.meetingTime && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.meetingTime}</p>}
                         {meetingTime === "Other" && (
                           <div className="mt-1.5">
-                            <input type="text" value={meetingTimeOther} onChange={(e) => { setMeetingTimeOther(e.target.value); if (errors.meetingTimeOther) setErrors((p) => ({ ...p, meetingTimeOther: undefined })); }} placeholder="e.g. 7:00 AM, Weekend morning..." className={`w-full h-9 px-3 rounded-xl border bg-white dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.meetingTimeOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
+                            <input type="text" value={meetingTimeOther} onChange={(e) => { setMeetingTimeOther(e.target.value); if (errors.meetingTimeOther) setErrors((p) => ({ ...p, meetingTimeOther: undefined })); }} placeholder={isFil ? "Ilagay ang inyong gustong oras (hal. 7:00 AM, Sabado ng umaga)" : "Enter your preferred time (ex. 7:00 AM, Weekend morning)"} className={`w-full h-9 px-3 rounded-xl border bg-white dark:bg-neutral-900 text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-neutral-400 ${errors.meetingTimeOther ? "border-red-500" : "border-amber-400"}`} autoFocus />
                             {errors.meetingTimeOther && <p className="mt-1 text-[11px] text-red-500 font-mono">{errors.meetingTimeOther}</p>}
                           </div>
                         )}
@@ -1783,7 +1740,7 @@ export default function ArchitecturalClipboardInquiry({
                       ref={notesTextareaRef}
                       value={specialNotes}
                       onChange={(e) => setSpecialNotes(e.target.value)}
-                      placeholder={isFil ? "hal. Nais po namin ng modern dirty kitchen, 2-car garage, at Pinterest peg link: https://pin.it/..." : "e.g., Needs spacious master balcony, open concept kitchen, Pinterest peg link: https://..."}
+                      placeholder={isFil ? "Ilagay ang inyong espesyal na kahilingan (hal. May modern dirty kitchen, 2-car garage, Pinterest peg: https://pin.it/...)" : "Enter your special architectural notes or peg links (ex. Master balcony, open concept kitchen, Pinterest peg: https://...)"}
                       className="w-full p-3.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white font-mono focus:border-amber-500 focus:outline-none min-h-[92px] resize-none overflow-hidden transition-[height] duration-150 leading-relaxed"
                     />
 

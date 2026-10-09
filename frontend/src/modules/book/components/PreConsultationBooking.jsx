@@ -32,7 +32,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
   const [locationError, setLocationError] = useState("");
   const [mapCoordinates, setMapCoordinates] = useState("14.8871, 120.8572 (Plaridel)");
   const [locationType, setLocationType] = useState(() => (currentUser?.clientType === "OFW" ? "OFW" : "Local")); // "Local" | "OFW"
-  const [meetingMode, setMeetingMode] = useState("Online Meeting (Google Meet)"); // "Online Meeting (Google Meet)" | "In-Person Office Visit"
+  const [meetingMode, setMeetingMode] = useState("Online Meeting"); // "Online Meeting" | "In-Person Office Visit"
   const [meetingDate, setMeetingDate] = useState("");
   const [meetingTime, setMeetingTime] = useState("09:00 AM - 10:30 AM PHT");
 
@@ -323,7 +323,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                           type="text"
                           value={preferredStyle}
                           onChange={(e) => setPreferredStyle(e.target.value)}
-                          placeholder="e.g. Meridian Residence, Modern Zen, Industrial Minimalist"
+                          placeholder="Enter your preferred style (ex. Meridian Residence, Modern Zen)"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
                       </div>
@@ -427,7 +427,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                             setLocation(e.target.value);
                             if (locationError) setLocationError("");
                           }}
-                          placeholder="e.g. Plaridel Bulacan, Malolos, Pampanga, or QC (PH Only)"
+                          placeholder="Enter your site location in PH (ex. Plaridel Bulacan, Malolos, Pampanga)"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
                         <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono mt-1 block">
@@ -443,7 +443,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                           type="number"
                           value={lotArea}
                           onChange={(e) => setLotArea(e.target.value)}
-                          placeholder="e.g. 250"
+                          placeholder="Enter your lot area in sqm (ex. 250)"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
                       </div>
@@ -456,7 +456,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                           type="text"
                           value={targetDate}
                           onChange={(e) => setTargetDate(e.target.value)}
-                          placeholder="e.g. Q4 2025 or Within 3 Months"
+                          placeholder="Enter your target start date (ex. Q4 2025, Within 3 Months)"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
                       </div>
@@ -592,7 +592,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <button
                             type="button"
-                            onClick={() => setMeetingMode("Online Meeting (Google Meet)")}
+                            onClick={() => setMeetingMode("Online Meeting")}
                             className={`p-3.5 rounded-xl text-left border transition-all cursor-pointer ${
                               meetingMode.includes("Online")
                                 ? "bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/20 border-amber-500"
@@ -601,7 +601,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                           >
                             <div className="flex items-center gap-2 mb-1">
                               <VideoIcon className="w-4 h-4 shrink-0" />
-                              <span className="text-xs font-mono uppercase">Online Meeting (Google Meet / Zoom)</span>
+                              <span className="text-xs font-mono uppercase">Online Meeting</span>
                             </div>
                             <div className={`text-[10px] ${meetingMode.includes("Online") ? "text-neutral-800" : "text-neutral-500"}`}>
                               Ideal for OFWs & remote homeowners
@@ -686,7 +686,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                           required
                           value={clientName}
                           onChange={(e) => setClientName(e.target.value)}
-                          placeholder="e.g. Arch. Roberto Cruz"
+                          placeholder="Enter your full name (ex. Roberto Cruz)"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
                       </div>
@@ -700,7 +700,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                           required
                           value={clientEmail}
                           onChange={(e) => setClientEmail(e.target.value)}
-                          placeholder="client@gmail.com"
+                          placeholder="Enter your email address (ex. client@gmail.com)"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
                       </div>
@@ -714,7 +714,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                           required
                           value={clientPhone}
                           onChange={(e) => setClientPhone(e.target.value)}
-                          placeholder="+63 949 775 8239 or 09XX XXX XXXX"
+                          placeholder="Enter your contact number (ex. 0917 123 4567)"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
                       </div>

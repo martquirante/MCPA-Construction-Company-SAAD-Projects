@@ -109,7 +109,7 @@ class BriefsController {
             financingOption || "Milestone Progress Billing",
             uploadedFiles || [],
             locationType || "Local",
-            meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting (Google Meet)"),
+            meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting"),
             meetingDate || "",
             meetingTime || "",
             mapCoordinates || "",
@@ -150,7 +150,7 @@ class BriefsController {
             financingOption || "Milestone Progress Billing",
             uploadedFiles || [],
             locationType || "Local",
-            meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting (Google Meet)"),
+            meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting"),
             meetingDate || "",
             meetingTime || "",
             mapCoordinates || "",
@@ -206,6 +206,9 @@ class BriefsController {
         meetingTime,
         meetingLink,
         meetingNotes,
+        meetingMode,
+        venueType,
+        venueDetails,
         quotationAmount,
         quotationNotes,
         clientPortalCode,
@@ -222,16 +225,22 @@ class BriefsController {
           meeting_time = COALESCE($3, meeting_time),
           meeting_link = COALESCE($4, meeting_link),
           meeting_notes = COALESCE($5, meeting_notes),
-          quotation_amount = COALESCE($6, quotation_amount),
-          quotation_notes = COALESCE($7, quotation_notes),
-          client_portal_code = COALESCE($8, client_portal_code)
-        WHERE brief_id = $9 RETURNING *`,
+          meeting_mode = COALESCE($6, meeting_mode),
+          venue_type = COALESCE($7, venue_type),
+          venue_details = COALESCE($8, venue_details),
+          quotation_amount = COALESCE($9, quotation_amount),
+          quotation_notes = COALESCE($10, quotation_notes),
+          client_portal_code = COALESCE($11, client_portal_code)
+        WHERE brief_id = $12 RETURNING *`,
         [
           status,
           meetingDate || null,
           meetingTime || null,
           meetingLink || null,
           meetingNotes || null,
+          meetingMode || null,
+          venueType || null,
+          venueDetails || null,
           quotationAmount || null,
           quotationNotes || null,
           clientPortalCode || null,
@@ -239,9 +248,34 @@ class BriefsController {
         ]
       );
 
+      const updatedBrief = result.rows[0];
+
+      // Dispatch meeting confirmation email to client if scheduled/approved
+      if (
+        (status === "Under Review" || status === "Meeting Scheduled" || status === "Approved / Accepted") &&
+        updatedBrief?.client_email
+      ) {
+        try {
+          await emailService.sendInquiryMeetingConfirmation(
+            updatedBrief.client_email,
+            updatedBrief
+          );
+        } catch (e) {
+          console.warn("[BriefsController] Meeting confirmation email warning:", e.message);
+        }
+      }
+
+      // Broadcast update in real-time
+      try {
+        const realtimeService = require("../services/realtimeService");
+        if (realtimeService?.broadcastBriefUpdated) {
+          realtimeService.broadcastBriefUpdated(updatedBrief);
+        }
+      } catch (rtErr) {}
+
       return res.json({
         success: true,
-        brief: result.rows[0],
+        brief: updatedBrief,
         message: `Brief updated to '${status}'.`,
       });
     } catch (err) {
