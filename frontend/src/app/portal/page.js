@@ -45,6 +45,7 @@ import {
   CheckCircle2,
   FileText,
   Download,
+  Lock,
 } from "lucide-react";
 import PortalHeroFinancialCard from "@/modules/portal/components/PortalHeroFinancialCard";
 import PortalOverallProgressCard from "@/modules/portal/components/PortalOverallProgressCard";
@@ -56,6 +57,12 @@ import PortalSiteGallerySection from "@/modules/portal/components/PortalSiteGall
 import PortalBillingLedgerSection from "@/modules/portal/components/PortalBillingLedgerSection";
 import PortalMobileBottomNav from "@/modules/portal/components/PortalMobileBottomNav";
 import PortalEmptyState from "@/modules/portal/components/PortalEmptyState";
+import PortalPhase1PreInquiry from "@/modules/portal/components/stages/PortalPhase1PreInquiry";
+import PortalPhase2Consultation from "@/modules/portal/components/stages/PortalPhase2Consultation";
+import PortalPhase3Planning from "@/modules/portal/components/stages/PortalPhase3Planning";
+import PortalPhase4Execution from "@/modules/portal/components/stages/PortalPhase4Execution";
+import PortalPhase5Wrapped from "@/modules/portal/components/stages/PortalPhase5Wrapped";
+import MultiProjectRequestModal from "@/modules/portal/components/MultiProjectRequestModal";
 import { authFetch } from "@/modules/shared/authFetch";
 import { getBookingIntent, clearBookingIntent } from "@/modules/shared/bookingAuthHelper";
 import { isMeetingPast } from "@/modules/shared/meetingHelper";
@@ -76,6 +83,11 @@ function ClientPortalContent() {
   const [portalTab, setPortalTab] = useState("overview");
   const [inquiries, setInquiries] = useState([]);
   const [isLoadingInquiries, setIsLoadingInquiries] = useState(false);
+
+  // Progressive Disclosure Lifecycle States
+  const [dashboardState, setDashboardState] = useState(null);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
+  const [isMultiProjectModalOpen, setIsMultiProjectModalOpen] = useState(false);
 
   // Construction project (from live database)
   const [siteProject, setSiteProject] = useState(null);
@@ -283,30 +295,40 @@ function ClientPortalContent() {
     }
   }, [redirectParam, tabParam, router]);
 
-  // 2. Fetch inquiries and construction data strictly for the logged-in client
+  // 2. Fetch progressive disclosure dashboard-state and live telemetry strictly from database
   const fetchClientData = async (userEmail) => {
     if (!userEmail) return;
     setIsLoadingInquiries(true);
+    setIsLoadingDashboard(true);
 
+    // Hydrate 5-Stage Progressive Disclosure State
+    try {
+      const dashRes = await authFetch("/api/portal/dashboard-state");
+      const dashData = await dashRes.json();
+      if (dashRes.ok && dashData.success) {
+        setDashboardState(dashData);
+        if (dashData.activeProject) {
+          setSiteProject({
+            ...dashData.activeProject,
+            progress_pct: dashData.activeProject.site_progress_pct || 0,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load progressive disclosure dashboard state:", err);
+    } finally {
+      setIsLoadingDashboard(false);
+    }
+
+    // Inquiries strictly from DB
     try {
       const res = await authFetch(`/api/client/inquiries?email=${encodeURIComponent(userEmail)}`);
       const data = await res.json();
-
-      if (res.ok && data.success && Array.isArray(data.briefs) && data.briefs.length > 0) {
+      if (res.ok && data.success && Array.isArray(data.briefs)) {
         setInquiries(data.briefs);
-      } else {
-        const storedBriefs = JSON.parse(localStorage.getItem("mcpa_client_briefs") || "[]");
-        const matched = storedBriefs.filter(
-          (b) => (b.clientEmail || b.client_email || "").toLowerCase() === userEmail.toLowerCase()
-        );
-        setInquiries(matched);
       }
     } catch (e) {
-      const storedBriefs = JSON.parse(localStorage.getItem("mcpa_client_briefs") || "[]");
-      const matched = storedBriefs.filter(
-        (b) => (b.clientEmail || b.client_email || "").toLowerCase() === userEmail.toLowerCase()
-      );
-      setInquiries(matched);
+      console.warn("Inquiries fetch error:", e);
     } finally {
       setIsLoadingInquiries(false);
     }
@@ -315,21 +337,27 @@ function ClientPortalContent() {
     try {
       const siteRes = await fetch(`/api/construction/project?email=${encodeURIComponent(userEmail)}`).then((r) => r.json());
       if (siteRes.success && siteRes.project) {
-        setSiteProject(siteRes.project);
+        setSiteProject((prev) => ({ ...siteRes.project, ...(prev || {}) }));
         setSiteMilestones(siteRes.milestones || []);
         setSitePhotos(siteRes.photos || []);
         setBillingLedger(siteRes.billing || []);
-      } else {
-        setSiteProject(null);
-        setSiteMilestones([]);
-        setSitePhotos([]);
-        setBillingLedger([]);
       }
     } catch (e) {
-      setSiteProject(null);
-      setSiteMilestones([]);
-      setSitePhotos([]);
-      setBillingLedger([]);
+      console.warn("Site project telemetry error:", e);
+    }
+  };
+
+  const isMultiProjectBlocked = Boolean(
+    dashboardState?.hasActiveProject &&
+    dashboardState?.stage_id !== "COMPLETED" &&
+    !dashboardState?.is_multi_project_approved
+  );
+
+  const handleStartInquiryClick = () => {
+    if (isMultiProjectBlocked) {
+      setIsMultiProjectModalOpen(true);
+    } else {
+      setIsInquiryModalOpen(true);
     }
   };
 
@@ -381,11 +409,164 @@ function ClientPortalContent() {
     showToast("Signed out successfully.");
   };
 
-  const handleNewInquirySuccess = (newBrief) => {
+  const handleNewInquirySuccess = async (newBrief) => {
     setInquiries((prev) => [newBrief, ...prev]);
-    showToast(`Inquiry ${newBrief.submission_id} submitted! Confirmation email dispatched.`);
+    showToast(`Inquiry ${newBrief.submission_id} submitted! Advancing to Consultation Phase.`);
+
+    try {
+      await authFetch("/api/projects/inquire", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectTitle: `${newBrief.project_type || "Residential"} Residence (${newBrief.client_name || currentUser?.fullName || "Client"})`,
+          projectType: newBrief.project_type || "Residential",
+          targetLocation: newBrief.location || newBrief.city_province || "Philippines",
+          briefId: newBrief.brief_id,
+        }),
+      });
+    } catch (err) {
+      console.warn("Failed to bridge inquiry to client_projects:", err);
+    }
+
     if (currentUser?.email) fetchClientData(currentUser.email);
   };
+
+  // Progressive Disclosure Stage Gatekeeper & Dynamic Navigation (Hooks placed before any early returns)
+  const currentStageId = dashboardState?.stage_id || "PRE_INQUIRY";
+
+  const STAGE_META = {
+    PRE_INQUIRY: {
+      step: 1,
+      total: 5,
+      title: "Pre-Inquiry Onboarding",
+      shortLabel: "Stage 1",
+      tagline: "Explore & Inquire",
+      badgeStyle: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+      progressPct: 20,
+    },
+    CONSULTATION: {
+      step: 2,
+      total: 5,
+      title: "Consultation & Scoping",
+      shortLabel: "Stage 2",
+      tagline: "Meeting & Quotation",
+      badgeStyle: "bg-sky-500/15 text-sky-500 border-sky-500/30",
+      progressPct: 40,
+    },
+    PRE_CONSTRUCTION: {
+      step: 3,
+      total: 5,
+      title: "Pre-Construction Planning",
+      shortLabel: "Stage 3",
+      tagline: "Blueprints & Contract",
+      badgeStyle: "bg-purple-500/15 text-purple-500 border-purple-500/30",
+      progressPct: 60,
+    },
+    ACTIVE_BUILD: {
+      step: 4,
+      total: 5,
+      title: "Active Site Execution",
+      shortLabel: "Stage 4",
+      tagline: "Live Build & Drone",
+      badgeStyle: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
+      progressPct: 80,
+    },
+    COMPLETED: {
+      step: 5,
+      total: 5,
+      title: "Handover & Completed",
+      shortLabel: "Stage 5",
+      tagline: "Wrapped & Warranty",
+      badgeStyle: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+      progressPct: 100,
+    },
+  };
+
+  const currentStageMeta = STAGE_META[currentStageId] || STAGE_META.PRE_INQUIRY;
+
+  // Dynamic Navigation Items that adjust according to current project phase
+  const getStageNavConfig = () => {
+    switch (currentStageId) {
+      case "CONSULTATION":
+        return {
+          active: [
+            { id: "overview", label: "Consultation Hub", icon: Video },
+            { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
+          ],
+          upcoming: [
+            { id: "planning", label: "Blueprints & Permits", icon: Layers, unlockStage: "Stage 3 (Pre-Construction)", unlockBadge: "Stage 3" },
+            { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
+            { id: "gallery", label: "Live Drone & Webcam", icon: Camera, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
+            { id: "billing", label: "Milestone Escrow", icon: CreditCard, unlockStage: "Stage 3 & 4", unlockBadge: "Stage 3" },
+          ],
+        };
+
+      case "PRE_CONSTRUCTION":
+        return {
+          active: [
+            { id: "overview", label: "Planning Hub", icon: Layers },
+            { id: "billing", label: "Contracts & Escrow", icon: CreditCard, badge: billingLedger.length > 0 ? billingLedger.length : undefined },
+            { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
+          ],
+          upcoming: [
+            { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
+            { id: "gallery", label: "Live Drone & Webcam", icon: Camera, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
+            { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 5 (Completed)", unlockBadge: "Stage 5" },
+          ],
+        };
+
+      case "ACTIVE_BUILD":
+        return {
+          active: [
+            { id: "overview", label: "Live Build Progress", icon: LayoutDashboard },
+            { id: "construction", label: "Site Execution Specs", icon: Building, badge: siteProject ? `${siteProject.progress_pct}%` : undefined },
+            { id: "gallery", label: "Site Gallery & Drone", icon: Camera, badge: sitePhotos.length > 0 ? sitePhotos.length : undefined },
+            { id: "billing", label: "Milestone Billing", icon: CreditCard, badge: billingLedger.length > 0 ? billingLedger.length : undefined },
+            { id: "inquiries", label: "Inquiries", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
+          ],
+          upcoming: [
+            { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 5 (Completed)", unlockBadge: "Stage 5" },
+          ],
+        };
+
+      case "COMPLETED":
+        return {
+          active: [
+            { id: "overview", label: "Project Wrapped", icon: Sparkles },
+            { id: "gallery", label: "Project Photo Vault", icon: Camera, badge: sitePhotos.length > 0 ? sitePhotos.length : undefined },
+            { id: "billing", label: "Billing & Warranty", icon: CreditCard, badge: billingLedger.length > 0 ? billingLedger.length : undefined },
+            { id: "inquiries", label: "Inquiries / New Build", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
+          ],
+          upcoming: [],
+        };
+
+      case "PRE_INQUIRY":
+      default:
+        return {
+          active: [
+            { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+            { id: "inquiries", label: "Inquiries", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
+          ],
+          upcoming: [
+            { id: "consultation", label: "Video Consultation", icon: Video, unlockStage: "Stage 2 (Inquiry Approved)", unlockBadge: "Stage 2" },
+            { id: "planning", label: "Blueprints & Permits", icon: Layers, unlockStage: "Stage 3 (Pre-Construction)", unlockBadge: "Stage 3" },
+            { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
+            { id: "billing", label: "Milestone Escrow", icon: CreditCard, unlockStage: "Stage 3 & 4", unlockBadge: "Stage 3" },
+          ],
+        };
+    }
+  };
+
+  const { active: navItems, upcoming: upcomingItems } = getStageNavConfig();
+
+  // Reset tab to overview if active tab is no longer valid in current stage (Must be called before any early return)
+  useEffect(() => {
+    if (!currentUser) return;
+    const validTabs = [...navItems.map((n) => n.id), "profile"];
+    if (!validTabs.includes(portalTab)) {
+      setPortalTab("overview");
+    }
+  }, [currentUser, currentStageId, navItems, portalTab]);
 
   // Loading state
   if (isLoadingAuth) {
@@ -460,37 +641,6 @@ function ClientPortalContent() {
       </div>
     );
   }
-
-  // =========================================================================
-  // AUTHENTICATED CLIENT CONSOLE (Faithfully Matching Inspo Layout & Architecture)
-  // =========================================================================
-  const navItems = [
-    { id: "overview", label: "Dashboard", icon: LayoutDashboard },
-    {
-      id: "construction",
-      label: "Projects",
-      icon: Building,
-      badge: siteProject ? `${siteProject.progress_pct}%` : undefined,
-    },
-    {
-      id: "gallery",
-      label: "Site Gallery",
-      icon: Camera,
-      badge: sitePhotos.length > 0 ? sitePhotos.length : undefined,
-    },
-    {
-      id: "billing",
-      label: "Billing & Escrow",
-      icon: CreditCard,
-      badge: billingLedger.length > 0 ? billingLedger.length : undefined,
-    },
-    {
-      id: "inquiries",
-      label: "Inquiries",
-      icon: FolderKanban,
-      badge: inquiries.length > 0 ? inquiries.length : undefined,
-    },
-  ];
 
   const currentTabInfo =
     navItems.find((n) => n.id === portalTab) ||
@@ -602,7 +752,7 @@ function ClientPortalContent() {
                 <Link
                   href="/"
                   title="MCPA Homepage"
-                  className="relative z-10 w-10 h-10 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-200 dark:border-white/10 p-1 flex items-center justify-center shrink-0 hover:border-amber-500 transition-colors"
+                  className="relative z-10 w-10 h-10 flex items-center justify-center shrink-0 transition-opacity hover:opacity-80"
                 >
                   <Image
                     src="/assets/logo-white.svg"
@@ -610,7 +760,7 @@ function ClientPortalContent() {
                     fill
                     priority
                     unoptimized
-                    className="object-contain p-1.5 dark:brightness-100 brightness-0"
+                    className="object-contain p-1 dark:brightness-100 brightness-0"
                     sizes="40px"
                   />
                 </Link>
@@ -711,7 +861,7 @@ function ClientPortalContent() {
           </div>
         </div>
 
-        {/* Navigation Menu (Clean items, adapting seamlessly to light & dark theme) */}
+        {/* Navigation Menu (Dynamic items adapting cleanly to active project phase) */}
         <nav
           className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden p-3 ${
             isSidebarCollapsed ? "lg:p-2" : "lg:p-3"
@@ -729,14 +879,14 @@ function ClientPortalContent() {
                     setIsMobileSidebarOpen(false);
                   }}
                   title={item.label}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-[10px] text-xs font-mono tracking-wider transition-all duration-200 cursor-pointer relative ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-[10px] text-xs font-mono tracking-wider transition-all duration-200 relative ${
                     isSidebarCollapsed
                       ? "lg:h-10 lg:justify-center lg:px-0"
                       : "justify-between"
                   } ${
                     isActive
-                      ? "bg-amber-500 text-neutral-950 font-bold shadow-sm"
-                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04]"
+                      ? "bg-amber-500 text-neutral-950 font-bold shadow-sm cursor-pointer"
+                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04] cursor-pointer"
                   }`}
                 >
                   <div
@@ -752,7 +902,7 @@ function ClientPortalContent() {
                             : "text-neutral-500 dark:text-neutral-400 group-hover:text-amber-500"
                         }`}
                       />
-                      {/* Collapsed Mode Overlay Badge: Nakapatong sa top-right ng icon, pantay ang icon centering */}
+                      {/* Collapsed Mode Overlay Badge */}
                       {isSidebarCollapsed && item.badge !== undefined && (
                         <span
                           className={`hidden lg:flex absolute -top-1.5 -right-2 min-w-[14px] h-[14px] px-1 rounded-full text-[9px] font-mono font-bold items-center justify-center shadow-sm leading-none pointer-events-none select-none ${
@@ -775,7 +925,7 @@ function ClientPortalContent() {
                     </span>
                   </div>
 
-                  {/* Expanded Mode & Mobile Drawer Badge (Normal inline right alignment) */}
+                  {/* Expanded Mode Badge */}
                   {item.badge !== undefined && (
                     <span
                       className={`${
@@ -806,13 +956,42 @@ function ClientPortalContent() {
             );
           })}
         </nav>
+
+        {/* Active Project Stage Banner (Progressive Lifecycle Stepper - Placed at Bottom of Sidebar) */}
+        {!isSidebarCollapsed ? (
+          <div className="p-3 border-t border-neutral-200 dark:border-white/5 shrink-0">
+            <div className="p-2.5 rounded-[10px] bg-neutral-100/70 dark:bg-white/[0.02] border border-neutral-200/80 dark:border-white/5 space-y-2">
+              <div className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider font-semibold">
+                Project Stage
+              </div>
+              <div className="text-xs font-bold font-mono text-neutral-900 dark:text-white truncate">
+                {currentStageMeta.title}
+              </div>
+              <div className="w-full h-1 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-amber-500 transition-all duration-500 rounded-full"
+                  style={{ width: `${currentStageMeta.progressPct}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="py-2.5 flex justify-center border-t border-neutral-200 dark:border-white/5 shrink-0">
+            <span
+              className="w-9 h-9 rounded-[8px] bg-amber-500/15 border border-amber-500/30 text-amber-500 font-mono font-bold text-xs flex items-center justify-center cursor-default shadow-xs"
+              title={`Active Stage: ${currentStageMeta.title} (${currentStageMeta.step} of 5)`}
+            >
+              S{currentStageMeta.step}
+            </span>
+          </div>
+        )}
       </aside>
 
       {/* Main Workspace Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         {/* Top Header Bar (Matching Desktop Monitor 1 Inspo) */}
         <header className="sticky top-0 z-30 h-16 bg-white/90 dark:bg-[#080a0e]/90 backdrop-blur-md border-b border-neutral-200 dark:border-white/5 px-4 sm:px-6 flex items-center justify-between gap-3 transition-colors select-none">
-          {/* Left: Mobile hamburger & Active project selector pill */}
+          {/* Left: Mobile hamburger & Active stage selector pill */}
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
@@ -823,16 +1002,12 @@ function ClientPortalContent() {
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Active Project Breadcrumb (Only rendered when a project is mobilized) */}
             {siteProject && (
-              <div className="hidden sm:flex items-center gap-2 text-xs font-mono">
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <span className="font-bold text-neutral-900 dark:text-white truncate max-w-[200px]">
+              <div className="hidden md:flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-400">
+                <span className="font-semibold text-neutral-800 dark:text-neutral-200 truncate max-w-[200px]">
                   {siteProject.name}
                 </span>
-                <span className="text-neutral-400 text-[11px]">
-                  ({siteProject.project_code})
-                </span>
+                <span className="text-neutral-400">({siteProject.project_code})</span>
               </div>
             )}
           </div>
@@ -915,145 +1090,45 @@ function ClientPortalContent() {
         {/* Main Content Body */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto pb-24 md:pb-8">
           {/* ========================================================================= */}
-          {/* TAB 1: EXECUTIVE DASHBOARD OVERVIEW (Matching Desktop Monitor 1)           */}
+          {/* TAB 1: EXECUTIVE DASHBOARD OVERVIEW — 5-STAGE PROGRESSIVE DISCLOSURE      */}
           {/* ========================================================================= */}
           {portalTab === "overview" && (
             <div className="space-y-6">
-              {siteProject ? (
-                <>
-                  {/* Top Row: 3 Key Header Cards (From Desktop Inspo) */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    {/* Card 1: Project Investment Balance */}
-                    <PortalHeroFinancialCard
-                      billingLedger={billingLedger}
-                      contractValue={siteProject.contract_value || null}
-                      onViewBilling={() => setPortalTab("billing")}
-                      onScheduleSite={() => setIsInquiryModalOpen(true)}
-                    />
-
-                    {/* Card 2: Overall Progress (Radial circular ring) */}
-                    <PortalOverallProgressCard
-                      progressPct={siteProject.progress_pct || 0}
-                      nextMilestone={siteProject.current_phase || "Roofing & MEP Handover"}
-                      targetDate="Dec 2026"
-                    />
-
-                    {/* Card 3: On-Site Weather */}
-                    <PortalOnSiteWeatherCard
-                      temperature="31°C"
-                      condition="Sunny"
-                      subtext="Optimal conditions for concrete curing"
-                      location={`${siteProject.location || "Taguig Site"}`}
-                    />
-                  </div>
-
-                  {/* Second Row: 8 cols left, 4 cols right (From Desktop Inspo) */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
-                    {/* Left Column (8 cols): Milestones + Live Timeline */}
-                    <div className="lg:col-span-8 space-y-6">
-                      <PortalMilestoneStepper
-                        milestones={siteMilestones}
-                        overallPct={siteProject.progress_pct || 0}
-                        currentPhase={siteProject.current_phase}
-                        onViewAll={() => setPortalTab("construction")}
-                      />
-
-                      <PortalLiveTimeline
-                        photoLogs={sitePhotos}
-                        onSelectPhoto={() => setPortalTab("gallery")}
-                        onViewAll={() => setPortalTab("gallery")}
-                      />
-                    </div>
-
-                    {/* Right Column (4 cols): Project Specs + Site Supervisor */}
-                    <div className="lg:col-span-4 space-y-6">
-                      <PortalProjectSpecsCard
-                        project={siteProject}
-                        overallPct={siteProject.progress_pct || 0}
-                        onOpenVirtualTour={() => {
-                          if (siteProject.virtual_tour_url) {
-                            window.open(siteProject.virtual_tour_url, "_blank");
-                          }
-                        }}
-                      />
-
-                      <PortalSiteSupervisorCard
-                        leadEngineer={siteProject.lead_engineer || "Engr. Aris Reyes"}
-                        phoneNumber="+63 949 775 8239"
-                        email="aris.reyes@mcpaprojects.ph"
-                      />
-                    </div>
-                  </div>
-                </>
+              {dashboardState?.stage_id === "CONSULTATION" ? (
+                <PortalPhase2Consultation
+                  activeProject={dashboardState.activeProject}
+                  currentUser={currentUser}
+                  showToast={showToast}
+                  onRefreshState={() => fetchClientData(currentUser?.email)}
+                />
+              ) : dashboardState?.stage_id === "PRE_CONSTRUCTION" ? (
+                <PortalPhase3Planning
+                  activeProject={dashboardState.activeProject}
+                  currentUser={currentUser}
+                  showToast={showToast}
+                  onRefreshState={() => fetchClientData(currentUser?.email)}
+                />
+              ) : dashboardState?.stage_id === "ACTIVE_BUILD" ? (
+                <PortalPhase4Execution
+                  activeProject={dashboardState.activeProject}
+                  currentUser={currentUser}
+                  showToast={showToast}
+                  onRefreshState={() => fetchClientData(currentUser?.email)}
+                />
+              ) : dashboardState?.stage_id === "COMPLETED" ? (
+                <PortalPhase5Wrapped
+                  activeProject={dashboardState.activeProject}
+                  currentUser={currentUser}
+                  showToast={showToast}
+                  onStartInquiry={handleStartInquiryClick}
+                />
               ) : (
-                /* Authentic Standby & Consultation State when no site project is mobilized yet */
-                <div className="space-y-6">
-                  {/* Primary Animated Empty State with LottieFiles */}
-                  <PortalEmptyState
-                    type="construction"
-                    badge="Ready for Mobilization"
-                    title="No Construction Site Mobilized Yet"
-                    description="Gantt milestones, daily photos, and progress billing will stream here once site mobilization begins."
-                    secondaryAction={
-                      <button
-                        type="button"
-                        onClick={() => setPortalTab("inquiries")}
-                        className="px-4 py-2.5 rounded-[10px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-900 dark:text-white font-mono font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer inline-flex items-center gap-2"
-                      >
-                        <FolderKanban className="w-4 h-4" />
-                        <span>My Inquiries ({inquiries.length})</span>
-                      </button>
-                    }
-                  />
-
-                  {/* 3-Step Mobilization Roadmap Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 sm:p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-1.5 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <span className="text-amber-600 dark:text-amber-400 font-mono font-bold text-sm">
-                          01
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-400 uppercase">Step One</span>
-                      </div>
-                      <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                        Consultation &amp; Lot Survey
-                      </h4>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                        Submit brief with lot coordinates for architectural and soil review.
-                      </p>
-                    </div>
-
-                    <div className="p-4 sm:p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-1.5 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <span className="text-amber-600 dark:text-amber-400 font-mono font-bold text-sm">
-                          02
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-400 uppercase">Step Two</span>
-                      </div>
-                      <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                        Blueprint &amp; Cost Estimation
-                      </h4>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                        Structural engineering, bill of quantities (BOQ), and city permits.
-                      </p>
-                    </div>
-
-                    <div className="p-4 sm:p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-1.5 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <span className="text-amber-600 dark:text-amber-400 font-mono font-bold text-sm">
-                          03
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-400 uppercase">Step Three</span>
-                      </div>
-                      <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                        Live Site Telemetry
-                      </h4>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                        On-site execution with 4K inspections and progress billing releases.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <PortalPhase1PreInquiry
+                  currentUser={currentUser}
+                  onStartInquiry={handleStartInquiryClick}
+                  onRequestMultiProject={() => setIsMultiProjectModalOpen(true)}
+                  isMultiProjectBlocked={isMultiProjectBlocked}
+                />
               )}
             </div>
           )}
@@ -1767,6 +1842,7 @@ function ClientPortalContent() {
         }}
         onOpenMenu={() => setIsMobileSidebarOpen(true)}
         unreadCount={activeInquiriesCount || 0}
+        stageId={currentStageId}
       />
 
       {/* NEW INQUIRY MODAL */}
@@ -1775,6 +1851,18 @@ function ClientPortalContent() {
         onClose={() => setIsInquiryModalOpen(false)}
         currentUser={currentUser}
         onSuccess={handleNewInquirySuccess}
+      />
+
+      {/* MULTI-PROJECT ANTI-SPAM LOCK MODAL */}
+      <MultiProjectRequestModal
+        isOpen={isMultiProjectModalOpen}
+        onClose={() => setIsMultiProjectModalOpen(false)}
+        currentUser={currentUser}
+        activeProject={dashboardState?.activeProject}
+        showToast={showToast}
+        onSuccess={() => {
+          if (currentUser?.email) fetchClientData(currentUser.email);
+        }}
       />
     </div>
   );

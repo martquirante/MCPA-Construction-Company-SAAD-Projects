@@ -7,7 +7,7 @@ import {
   CreditCard,
   Menu,
   Image as GalleryIcon,
-  MessageSquare,
+  FolderKanban,
   User,
 } from "lucide-react";
 
@@ -106,7 +106,7 @@ function AnimatedTabIcon({ tabId, isActive, isJustSwitched, className = "" }) {
           isJustSwitched ? "animate-tab-pop" : ""
         }`}
       >
-        <MessageSquare
+        <FolderKanban
           className={`w-4 h-4 shrink-0 transition-all duration-300 ${className} ${
             isJustSwitched ? "scale-110" : ""
           }`}
@@ -169,15 +169,48 @@ export default function PortalMobileBottomNav({
   onTabChange,
   onOpenMenu,
   unreadCount = 0,
+  stageId = "PRE_INQUIRY",
 }) {
   const [animatingTab, setAnimatingTab] = useState(null);
 
-  // 3 Primary Navigation Tabs
-  const primaryTabs = [
-    { id: "overview", label: "Dashboard" },
-    { id: "construction", label: "Projects" },
-    { id: "billing", label: "Billing" },
-  ];
+  // Dynamic Primary Navigation Tabs based on active phase
+  const getPrimaryTabs = () => {
+    switch (stageId) {
+      case "CONSULTATION":
+        return [
+          { id: "overview", label: "Consultation" },
+          { id: "inquiries", label: "Inquiries" },
+          { id: "profile", label: "Profile" },
+        ];
+      case "PRE_CONSTRUCTION":
+        return [
+          { id: "overview", label: "Planning" },
+          { id: "billing", label: "Escrow" },
+          { id: "inquiries", label: "Inquiries" },
+        ];
+      case "ACTIVE_BUILD":
+        return [
+          { id: "overview", label: "Progress" },
+          { id: "construction", label: "Projects" },
+          { id: "billing", label: "Billing" },
+        ];
+      case "COMPLETED":
+        return [
+          { id: "overview", label: "Wrapped" },
+          { id: "gallery", label: "Archive" },
+          { id: "billing", label: "Billing" },
+        ];
+      case "PRE_INQUIRY":
+      default:
+        return [
+          { id: "overview", label: "Dashboard" },
+          { id: "inquiries", label: "Inquiries" },
+          { id: "profile", label: "Profile" },
+        ];
+    }
+  };
+
+  const primaryTabs = getPrimaryTabs();
 
   // Secondary tab config when accessed through the sidebar drawer
   const secondaryTabsConfig = {
@@ -264,7 +297,7 @@ export default function PortalMobileBottomNav({
       <div className="fixed bottom-4 left-3 right-3 z-40 lg:hidden flex justify-center pointer-events-none select-none">
         <nav
           aria-label="Mobile Navigation"
-          className="pointer-events-auto w-full max-w-sm sm:max-w-md rounded-full bg-white/80 dark:bg-[#101218]/80 backdrop-blur-2xl border border-neutral-300/80 dark:border-white/15 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.12),inset_0_1px_1px_rgba(255,255,255,0.7)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center justify-between gap-1 transition-all duration-300"
+          className="pointer-events-auto w-auto max-w-[92vw] rounded-full bg-white/85 dark:bg-[#101218]/85 backdrop-blur-2xl border border-neutral-300/80 dark:border-white/15 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.12),inset_0_1px_1px_rgba(255,255,255,0.7)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-300"
         >
           {/* 3 Primary Navigation Buttons */}
           {primaryTabs.map((tab) => {
@@ -276,10 +309,10 @@ export default function PortalMobileBottomNav({
                 key={tab.id}
                 type="button"
                 onClick={() => handleSelectTab(tab.id)}
-                className={`relative flex items-center justify-center transition-all duration-300 ease-out cursor-pointer active:scale-95 ${
+                className={`relative flex items-center justify-center transition-all duration-300 ease-out cursor-pointer active:scale-95 shrink-0 ${
                   isActive
-                    ? "flex-1 py-2 px-3.5 rounded-full overflow-hidden bg-amber-500/20 dark:bg-amber-500/25 border border-amber-500/50 dark:border-amber-400/60 shadow-[0_4px_18px_rgba(245,158,11,0.28),inset_0_1px_2px_rgba(255,255,255,0.5)] scale-105"
-                    : "p-2.5 rounded-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                    ? "px-3 py-1.5 rounded-full overflow-hidden bg-amber-500/20 dark:bg-amber-500/25 border border-amber-500/50 dark:border-amber-400/60 shadow-[0_4px_18px_rgba(245,158,11,0.28),inset_0_1px_2px_rgba(255,255,255,0.5)]"
+                    : "w-9 h-9 rounded-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
                 }`}
                 title={tab.label}
                 aria-label={tab.label}
@@ -288,12 +321,12 @@ export default function PortalMobileBottomNav({
                 {/* Convex Optical Lens Specular Reflection (Magnifying Glass effect) */}
                 {isActive && (
                   <>
-                    <div className="absolute inset-x-2.5 top-0 h-[45%] rounded-t-full bg-gradient-to-b from-white/55 via-white/10 to-transparent pointer-events-none" />
-                    <div className="absolute inset-x-3 bottom-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
+                    <div className="absolute inset-x-2 top-0 h-[45%] rounded-t-full bg-gradient-to-b from-white/55 via-white/10 to-transparent pointer-events-none" />
+                    <div className="absolute inset-x-2 bottom-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
                   </>
                 )}
 
-                <div className="relative flex items-center gap-2">
+                <div className="relative flex items-center gap-1.5">
                   <AnimatedTabIcon
                     tabId={tab.id}
                     isActive={isActive}
@@ -322,10 +355,10 @@ export default function PortalMobileBottomNav({
             onClick={() => {
               if (onOpenMenu) onOpenMenu();
             }}
-            className={`relative flex items-center justify-center transition-all duration-300 ease-out cursor-pointer active:scale-95 ${
+            className={`relative flex items-center justify-center transition-all duration-300 ease-out cursor-pointer active:scale-95 shrink-0 ${
               isExtendedActive
-                ? "flex-1 py-2 px-3.5 rounded-full overflow-hidden bg-amber-500/20 dark:bg-amber-500/25 border border-amber-500/50 dark:border-amber-400/60 shadow-[0_4px_18px_rgba(245,158,11,0.28),inset_0_1px_2px_rgba(255,255,255,0.5)] scale-105"
-                : "p-2.5 rounded-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                ? "px-3 py-1.5 rounded-full overflow-hidden bg-amber-500/20 dark:bg-amber-500/25 border border-amber-500/50 dark:border-amber-400/60 shadow-[0_4px_18px_rgba(245,158,11,0.28),inset_0_1px_2px_rgba(255,255,255,0.5)]"
+                : "w-9 h-9 rounded-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
             }`}
             title="Open Full Menu & More Tabs"
             aria-label="Open Sidebar Menu"
@@ -333,12 +366,12 @@ export default function PortalMobileBottomNav({
             {/* Convex Optical Lens Specular Reflection (when extended tab is open) */}
             {isExtendedActive && (
               <>
-                <div className="absolute inset-x-2.5 top-0 h-[45%] rounded-t-full bg-gradient-to-b from-white/55 via-white/10 to-transparent pointer-events-none" />
-                <div className="absolute inset-x-3 bottom-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
+                <div className="absolute inset-x-2 top-0 h-[45%] rounded-t-full bg-gradient-to-b from-white/55 via-white/10 to-transparent pointer-events-none" />
+                <div className="absolute inset-x-2 bottom-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
               </>
             )}
 
-            <div className="relative flex items-center gap-2">
+            <div className="relative flex items-center gap-1.5">
               <AnimatedTabIcon
                 tabId={extendedTabId}
                 isActive={isExtendedActive}

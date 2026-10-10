@@ -322,6 +322,20 @@ async function initializeDatabase() {
       }
     }
 
+    // Stage Lifecycle Schema Migration (client_projects, stage_transitions, documents, etc.)
+    const fs = require("fs");
+    const path = require("path");
+    const migrationSqlPath = path.join(__dirname, "mcpa_stage_lifecycle_migration.sql");
+    if (fs.existsSync(migrationSqlPath)) {
+      try {
+        const migrationSql = fs.readFileSync(migrationSqlPath, "utf-8");
+        await db.query(migrationSql);
+        console.log("[OK] Stage Lifecycle progressive disclosure schema verified.");
+      } catch (migErr) {
+        console.warn("[WARN] Stage lifecycle migration notice:", migErr.message);
+      }
+    }
+
     // Ensure system_metadata table exists
     await db.query(`
       CREATE TABLE IF NOT EXISTS system_metadata (

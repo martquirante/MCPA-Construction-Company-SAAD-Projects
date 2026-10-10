@@ -1019,6 +1019,38 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
   const [docPhotoDataUrl, setDocPhotoDataUrl] = useState(null);
   const [docLogoDataUrl, setDocLogoDataUrl] = useState(null);
 
+  // Multi-Project Authorization State
+  const [isMultiProjectApproved, setIsMultiProjectApproved] = useState(
+    Boolean(account.is_multi_project_approved)
+  );
+  const [isTogglingMultiProject, setIsTogglingMultiProject] = useState(false);
+
+  const handleToggleMultiProject = async () => {
+    setIsTogglingMultiProject(true);
+    try {
+      const nextVal = !isMultiProjectApproved;
+      const res = await authFetch(`/api/admin/users/${account.user_id}/multi-project-approval`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approved: nextVal }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIsMultiProjectApproved(nextVal);
+        account.is_multi_project_approved = nextVal;
+        if (nextVal) {
+          account.multi_project_requested_at = null;
+        }
+      } else {
+        alert(data.message || "Failed to update multi-project approval.");
+      }
+    } catch (err) {
+      alert("Error updating approval: " + err.message);
+    } finally {
+      setIsTogglingMultiProject(false);
+    }
+  };
+
   // Pre-rasterize logo and client KYC photo to base64 Data URLs for offline/CORS-safe PDF rendering
   useEffect(() => {
     let isMounted = true;
@@ -2106,6 +2138,68 @@ function ClientDossierModal({ account, clientBriefs, onClose }) {
                   </div>
                 </div>
               </div>
+
+              {/* Concurrent Project Gatekeeper & Anti-Spam Control */}
+              <div className="sidebar-section-card bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="sidebar-card-title text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1.5 text-xs">
+                    <ShieldCheckIcon className="w-4 h-4 text-amber-500" />
+                    <span>Multi-Project Authorization</span>
+                  </h4>
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
+                      isMultiProjectApproved
+                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                        : "bg-neutral-500/20 text-neutral-600 dark:text-neutral-400 border border-neutral-500/30"
+                    }`}
+                  >
+                    {isMultiProjectApproved ? "Unlocked" : "1 Project Enforced"}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                  Controls whether this client can initiate multiple concurrent construction projects simultaneously before existing ones reach 100% completion.
+                </p>
+
+                {/* Pending Request Alert */}
+                {account.multi_project_requested_at && !isMultiProjectApproved && (
+                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-1">
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase">
+                      <SparklesIcon className="w-3 h-3 animate-spin" />
+                      <span>Pending Client Request</span>
+                    </div>
+                    {account.multi_project_request_note && (
+                      <p className="text-[11px] italic text-neutral-700 dark:text-neutral-300">
+                        "{account.multi_project_request_note}"
+                      </p>
+                    )}
+                    <span className="text-[9.5px] font-mono text-neutral-500 block">
+                      Submitted on {formatDateTime(account.multi_project_requested_at)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Interactive Toggle Switch */}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs font-mono font-medium text-neutral-800 dark:text-neutral-200">
+                    {isMultiProjectApproved ? "Approved for Multiple Projects" : "Restricted to 1 Project"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleToggleMultiProject}
+                    disabled={isTogglingMultiProject}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      isMultiProjectApproved ? "bg-emerald-500" : "bg-neutral-300 dark:bg-neutral-700"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        isMultiProjectApproved ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* ═════════════════════════════════════════════════════════════ */}
@@ -2478,6 +2572,18 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
             {isOfw ? <PlaneIcon className="w-2.5 h-2.5" /> : <MapPinIcon className="w-2.5 h-2.5" />}
             <span>{isOfw ? "OFW" : "Local"}</span>
           </span>
+          {acc.multi_project_requested_at && !acc.is_multi_project_approved && (
+            <span className="client-card-pill bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold" title="Client submitted request for concurrent project access">
+              <SparklesIcon className="w-2.5 h-2.5 text-amber-500 animate-pulse shrink-0" />
+              <span>Multi-Proj Req</span>
+            </span>
+          )}
+          {acc.is_multi_project_approved && (
+            <span className="client-card-pill bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-semibold" title="Authorized for multiple concurrent projects">
+              <CheckIcon className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+              <span>Multi-Proj Approved</span>
+            </span>
+          )}
           {(acc.auth_provider || "").toLowerCase() === "google" && (
             <span className="client-card-pill google-pill" title="Verified Google Account">
               <GoogleIcon className="w-2.5 h-2.5 shrink-0" />
@@ -3099,6 +3205,16 @@ export default function AccountsTab({ clientBriefs = [] }) {
                                 )}
                                 {(acc.auth_provider || "").toLowerCase() === "facebook" && (
                                   <span title="Verified Facebook Account"><FacebookIcon className="w-3 h-3 shrink-0" /></span>
+                                )}
+                                {acc.multi_project_requested_at && !acc.is_multi_project_approved && (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[9px] font-mono font-bold uppercase" title="Multi-project approval requested">
+                                    Req
+                                  </span>
+                                )}
+                                {acc.is_multi_project_approved && (
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-mono font-bold uppercase" title="Multi-project access unlocked">
+                                    Multi
+                                  </span>
                                 )}
                               </div>
                               <a

@@ -11,6 +11,9 @@ const projectsController = require("./controllers/projectsController");
 const briefsController = require("./controllers/briefsController");
 const constructionController = require("./controllers/constructionController");
 const legalPdfController = require("./controllers/legalPdfController");
+const stageController = require("./controllers/stageController");
+const subStageController = require("./controllers/subStageController");
+const { requireStage, STAGE_ORDER } = require("./middleware/stageGate");
 const initializeDatabase = require("./scripts/initDb");
 const { translateDictionary } = require("./services/translationService");
 const phLocationService = require("./services/phLocationService");
@@ -176,6 +179,43 @@ app.post("/api/projects", upload.single("image"), (req, res) => projectsControll
 app.put("/api/projects/:id", upload.single("image"), (req, res) => projectsController.update(req, res));
 app.patch("/api/projects/:id/featured", (req, res) => projectsController.toggleFeatured(req, res));
 app.delete("/api/projects/:id", (req, res) => projectsController.delete(req, res));
+
+// -----------------------------------------------------------------------------
+// PROGRESSIVE DISCLOSURE & STAGE LIFECYCLE ROUTES
+// -----------------------------------------------------------------------------
+app.post("/api/projects/inquire", requireAuth, (req, res) => stageController.inquire(req, res));
+app.get("/api/users/me/dashboard-state", requireAuth, (req, res) => stageController.getDashboardState(req, res));
+app.get("/api/portal/dashboard-state", requireAuth, (req, res) => stageController.getDashboardState(req, res));
+app.post("/api/admin/projects/:id/advance-stage", requireAuth, requireRole("admin", "super_admin"), (req, res) => stageController.advanceStage(req, res));
+app.patch("/api/admin/users/:userId/multi-project-approval", requireAuth, requireRole("admin", "super_admin"), (req, res) => stageController.toggleMultiProjectApproval(req, res));
+app.post("/api/users/me/request-multi-project", requireAuth, (req, res) => subStageController.requestMultiProject(req, res));
+app.post("/api/projects/:id/reset-rejected", requireAuth, (req, res) => subStageController.resetRejected(req, res));
+
+// Document Vault
+app.get("/api/projects/:id/documents", requireAuth, (req, res) => subStageController.getDocuments(req, res));
+app.post("/api/projects/:id/documents", requireAuth, (req, res) => subStageController.uploadDocument(req, res));
+app.patch("/api/admin/documents/:docId/verify", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.verifyDocument(req, res));
+
+// Consultation (WebRTC Meetings & Chat)
+app.get("/api/projects/:id/meeting", requireAuth, (req, res) => subStageController.getMeetingRoom(req, res));
+app.get("/api/projects/:id/messages", requireAuth, (req, res) => subStageController.getMessages(req, res));
+app.post("/api/projects/:id/messages", requireAuth, (req, res) => subStageController.sendMessage(req, res));
+
+// Pre-Construction & Planning (Blueprints, Permits, Groundbreaking, Contracts)
+app.get("/api/projects/:id/blueprints", requireAuth, (req, res) => subStageController.getBlueprints(req, res));
+app.post("/api/projects/:id/blueprints/:blueprintId/pins", requireAuth, (req, res) => subStageController.saveBlueprintPins(req, res));
+app.get("/api/projects/:id/permits", requireAuth, (req, res) => subStageController.getPermits(req, res));
+app.patch("/api/admin/permits/:permitId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updatePermit(req, res));
+app.post("/api/projects/:id/groundbreaking", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.scheduleGroundbreaking(req, res));
+app.get("/api/projects/:id/contract", requireAuth, (req, res) => subStageController.getContract(req, res));
+app.post("/api/contracts/:id/sign", requireAuth, (req, res) => subStageController.signContract(req, res));
+
+// Execution & Transparency (Loans & BNPL)
+app.get("/api/projects/:id/loans", requireAuth, (req, res) => subStageController.getLoans(req, res));
+
+// Post-Construction & Handover (Wrapped & Public Recap)
+app.get("/api/projects/:id/wrapped", requireAuth, (req, res) => subStageController.getWrapped(req, res));
+app.get("/api/wrapped/:shareToken", (req, res) => subStageController.getPublicWrapped(req, res));
 
 // -----------------------------------------------------------------------------
 // CLIENT BRIEFS / CONSULTATIONS ROUTES (SAAD FLOWCHART PHASES 1-4)

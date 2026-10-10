@@ -6,8 +6,31 @@ const emailService = require("../services/emailService");
 class BriefsController {
   async getAll(req, res) {
     try {
-      const result = await db.query("SELECT * FROM client_briefs ORDER BY brief_id DESC");
-      let briefs = result.rows || [];
+      let briefs = [];
+      try {
+        const result = await db.query(`
+          SELECT 
+            cb.*,
+            cp.client_project_id,
+            cp.stage_id AS current_project_stage,
+            cp.project_code,
+            cp.groundbreaking_date,
+            cp.revision_requests_count
+          FROM public.client_briefs cb
+          LEFT JOIN (
+            SELECT DISTINCT ON (brief_id) *
+            FROM public.client_projects
+            WHERE brief_id IS NOT NULL
+            ORDER BY brief_id, client_project_id DESC
+          ) cp ON cb.brief_id = cp.brief_id
+          ORDER BY cb.brief_id DESC;
+        `);
+        briefs = result.rows || [];
+      } catch (joinErr) {
+        console.warn("[BriefsController.getAll] client_projects join notice, falling back:", joinErr.message);
+        const fallbackRes = await db.query("SELECT * FROM client_briefs ORDER BY brief_id DESC;");
+        briefs = fallbackRes.rows || [];
+      }
 
       try {
         const usersRes = await db.query("SELECT user_id, email, avatar_url, auth_provider, email_verified FROM users");
@@ -237,6 +260,40 @@ class BriefsController {
         realtimeService.broadcastBriefSubmitted(savedBrief);
       } catch (rtErr) {
         console.warn("[BriefsController] Realtime broadcast warning:", rtErr.message);
+      }
+
+      // Auto-bridge to client_projects table at 'CONSULTATION' stage if user account exists
+      try {
+        let targetUserId = userId ? parseInt(userId, 10) : null;
+        if (!targetUserId) {
+          const userLookup = await db.query(
+            "SELECT user_id FROM public.users WHERE LOWER(email) = LOWER($1) LIMIT 1;",
+            [normalizedEmail]
+          );
+          if (userLookup.rows && userLookup.rows.length > 0) {
+            targetUserId = userLookup.rows[0].user_id;
+          }
+        }
+
+        if (targetUserId) {
+          const stageEngineService = require("../services/stageEngineService");
+          const existingProj = await db.query(
+            "SELECT client_project_id FROM public.client_projects WHERE brief_id = $1 LIMIT 1;",
+            [savedBrief.brief_id]
+          );
+          if (!existingProj.rows || existingProj.rows.length === 0) {
+            const projectTitle = `${projectType || "Residential"} Project (${clientName.trim()})`;
+            await stageEngineService.createInquiryProject({
+              userId: targetUserId,
+              projectTitle,
+              projectType: projectType || "Residential Design & Build",
+              targetLocation: location || null,
+              briefId: savedBrief.brief_id,
+            });
+          }
+        }
+      } catch (bridgeErr) {
+        console.warn("[BriefsController.submit] client_projects bridge notice:", bridgeErr.message);
       }
 
       return res.status(201).json({

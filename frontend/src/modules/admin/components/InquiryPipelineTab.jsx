@@ -42,7 +42,11 @@ import {
   User,
   Video,
   Archive,
+  Layers,
+  ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
+import { authFetch } from "@/modules/shared/authFetch";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 import StageCombobox from "@/modules/admin/components/StageCombobox";
 import { InquiryTableSkeleton } from "@/modules/shared/Skeleton";
@@ -322,6 +326,11 @@ export default function InquiryPipelineTab({
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
 
+  // Stage Lifecycle Progression state
+  const [targetLifecycleStage, setTargetLifecycleStage] = useState("CONSULTATION");
+  const [stageAdvanceReason, setStageAdvanceReason] = useState("");
+  const [isAdvancingStage, setIsAdvancingStage] = useState(false);
+
   const filteredBriefs = clientBriefs.filter((b) => {
     const matchStage =
       filterStage === "ALL" ||
@@ -339,6 +348,8 @@ export default function InquiryPipelineTab({
 
   const openReviewModal = (brief) => {
     setSelectedBrief(brief);
+    setTargetLifecycleStage(brief.current_project_stage || brief.currentProjectStage || "CONSULTATION");
+    setStageAdvanceReason("");
     const isOnline = (brief.meetingMode || brief.meeting_mode || "").toLowerCase().includes("online");
     const defaultF2FVenue =
       brief.venueDetails ||
@@ -356,6 +367,38 @@ export default function InquiryPipelineTab({
     setMeetingTime(brief.meetingTime || brief.meeting_time || "09:00 AM - 10:30 AM");
     setMeetingMode(isOnline ? "Online Video Call" : "Face-to-Face");
     setMeetingNotes(brief.meetingNotes || brief.meeting_notes || "");
+  };
+
+  const handleAdvanceStage = async (newStage) => {
+    if (!selectedBrief) return;
+    setIsAdvancingStage(true);
+    try {
+      const targetProjectRef = selectedBrief.client_project_id || selectedBrief.submissionId || selectedBrief.id || selectedBrief.brief_id;
+      const res = await authFetch(`/api/admin/projects/${targetProjectRef}/advance-stage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetStage: newStage,
+          briefId: selectedBrief.brief_id || selectedBrief.id,
+          reason: stageAdvanceReason || `Administrative progression to ${newStage}`,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSelectedBrief((prev) => ({
+          ...prev,
+          current_project_stage: newStage,
+          currentProjectStage: newStage,
+        }));
+        showToast?.(`Project stage successfully advanced to ${newStage}!`);
+      } else {
+        showToast?.(`Failed to advance stage: ${data.message || "Server error"}`);
+      }
+    } catch (err) {
+      showToast?.(`Stage progression error: ${err.message}`);
+    } finally {
+      setIsAdvancingStage(false);
+    }
   };
 
   const closeReviewModal = () => setSelectedBrief(null);
@@ -1554,6 +1597,115 @@ export default function InquiryPipelineTab({
                               rows={2}
                               className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none"
                             />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SECTION 8: 5-STAGE PROGRESSIVE DISCLOSURE CONTROL */}
+                    {!isBriefRejected && (
+                      <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 overflow-hidden shadow-xs">
+                        <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02] flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                              Stage Progression Controls (Progressive Disclosure)
+                            </span>
+                          </div>
+                          <span className="text-xs font-mono">
+                            Current Stage:{" "}
+                            <span className="font-bold text-amber-600 dark:text-amber-400">
+                              {selectedBrief.current_project_stage || selectedBrief.currentProjectStage || "CONSULTATION"}
+                            </span>
+                          </span>
+                        </div>
+
+                        <div className="p-5 space-y-4">
+                          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                            Select the target milestone stage to elevate this client's project. Advancing unlocks the corresponding tab modules in their Client Portal:
+                          </p>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[
+                              {
+                                id: "CONSULTATION",
+                                name: "Stage 2: Consultation",
+                                desc: "Online/F2F meetings, document upload (TCT & IDs), live architect chat.",
+                              },
+                              {
+                                id: "PRE_CONSTRUCTION",
+                                name: "Stage 3: Pre-Construction",
+                                desc: "Architectural blueprints & pin feedback, municipal permits, digital e-contract.",
+                              },
+                              {
+                                id: "ACTIVE_BUILD",
+                                name: "Stage 4: Active Build",
+                                desc: "Live site webcam/drone gallery, weather delays, financial milestones & BNPL.",
+                              },
+                              {
+                                id: "COMPLETED",
+                                name: "Stage 5: Completed",
+                                desc: "Spotify-style Wrapped recap, before/after slider, digital handover warranty vault.",
+                              },
+                            ].map((stage) => {
+                              const isCurrent =
+                                (selectedBrief.current_project_stage || selectedBrief.currentProjectStage || "CONSULTATION") === stage.id;
+                              const isTarget = targetLifecycleStage === stage.id;
+
+                              return (
+                                <div
+                                  key={stage.id}
+                                  onClick={() => setTargetLifecycleStage(stage.id)}
+                                  className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all ${
+                                    isTarget
+                                      ? "ring-2 ring-amber-500 border-amber-500 bg-amber-50/40 dark:bg-amber-950/20"
+                                      : "border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 bg-neutral-50/50 dark:bg-white/[0.02]"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
+                                      {stage.name}
+                                    </span>
+                                    {isCurrent && (
+                                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-bold uppercase">
+                                        Active
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                                    {stage.desc}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                              Stage Progression Reason &amp; Architectural Log
+                            </label>
+                            <input
+                              type="text"
+                              value={stageAdvanceReason}
+                              onChange={(e) => setStageAdvanceReason(e.target.value)}
+                              placeholder="e.g. Quotation approved by client; proceeding to blueprint drafting..."
+                              className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-mono"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-end pt-2 border-t border-neutral-100 dark:border-white/5">
+                            <button
+                              type="button"
+                              onClick={() => handleAdvanceStage(targetLifecycleStage)}
+                              disabled={
+                                isAdvancingStage ||
+                                (selectedBrief.current_project_stage || selectedBrief.currentProjectStage || "CONSULTATION") === targetLifecycleStage
+                              }
+                              className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                              <span>{isAdvancingStage ? "Advancing Stage..." : `Advance Project to ${targetLifecycleStage}`}</span>
+                            </button>
                           </div>
                         </div>
                       </div>

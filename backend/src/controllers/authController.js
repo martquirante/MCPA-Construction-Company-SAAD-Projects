@@ -1099,6 +1099,9 @@ class AuthController {
             u.ph_rep_relationship,
             u.ph_rep_phone,
             u.created_at,
+            COALESCE(u.is_multi_project_approved, false) AS is_multi_project_approved,
+            u.multi_project_requested_at,
+            u.multi_project_request_note,
             COALESCE(b_count.total_inquiries, 0) AS total_inquiries
           FROM users u
           LEFT JOIN (
