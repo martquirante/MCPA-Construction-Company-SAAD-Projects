@@ -66,6 +66,15 @@ const STAGES = [
     textColor: "text-amber-600 dark:text-amber-400",
   },
   {
+    id: "Meeting Scheduled",
+    label: "Meeting Scheduled",
+    iconSrc: "https://cdn.lordicon.com/msoeawqm.json",
+    colors: "primary:#0284c7,secondary:#38bdf8",
+    color: "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30",
+    dot: "bg-sky-500",
+    textColor: "text-sky-600 dark:text-sky-400",
+  },
+  {
     id: "Under Review",
     label: "Under Review",
     iconSrc: "https://cdn.lordicon.com/msoeawqm.json",
@@ -351,7 +360,8 @@ export default function InquiryPipelineTab({
   const handleApprove = async () => {
     if (!selectedBrief) return;
     setIsApproving(true);
-    await onUpdateStatus(selectedBrief.id, "Meeting Scheduled", {
+    const targetRef = selectedBrief.submissionId || selectedBrief.id;
+    await onUpdateStatus(targetRef, "Meeting Scheduled", {
       meetingDate,
       meetingTime,
       meetingLink,
@@ -361,6 +371,20 @@ export default function InquiryPipelineTab({
       venueDetails: selectedBrief.venueDetails || selectedBrief.venue_details,
       isApproved: true,
     });
+    setSelectedBrief((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "Meeting Scheduled",
+            meetingDate,
+            meetingTime,
+            meetingLink,
+            meetingMode,
+            meetingNotes,
+            isApproved: true,
+          }
+        : null
+    );
     setIsApproving(false);
     showToast(`Meeting confirmed for ${selectedBrief.clientName}! Approval email dispatched.`);
     closeReviewModal();
@@ -847,13 +871,38 @@ export default function InquiryPipelineTab({
                   <ClipboardListIcon className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-tight">
                       Consultation Review Dossier
                     </h3>
                     <span className="px-2 py-0.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold">
                       {selectedBrief.submissionId || selectedBrief.id}
                     </span>
+                    {(() => {
+                      const st = selectedBrief.status || "Pending Review";
+                      const isConfirmed = st === "Meeting Scheduled" || st === "Approved / Accepted";
+                      const isRejected = st.toLowerCase().includes("reject");
+                      if (isConfirmed) {
+                        return (
+                          <span className="px-2 py-0.5 rounded-[4px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-mono font-bold flex items-center gap-1">
+                            <CheckIcon className="w-3 h-3" />
+                            {st === "Meeting Scheduled" ? "MEETING SCHEDULED" : "APPROVED"}
+                          </span>
+                        );
+                      }
+                      if (isRejected) {
+                        return (
+                          <span className="px-2 py-0.5 rounded-[4px] bg-rose-500/15 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-[10px] font-mono font-bold">
+                            REJECTED
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="px-2 py-0.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold">
+                          PENDING REVIEW
+                        </span>
+                      );
+                    })()}
                   </div>
                   <p className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
                     Comprehensive Architectural Parameters &amp; Client Project Brief
@@ -1408,15 +1457,34 @@ export default function InquiryPipelineTab({
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  disabled={isApproving}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-wide shadow-lg shadow-amber-500/20 transition-all cursor-pointer active:scale-[0.99]"
-                >
-                  <CheckIcon className="w-4 h-4" />
-                  <span>{isApproving ? "Approving..." : "Approve & Send Email to Client"}</span>
-                </button>
+                {selectedBrief.status === "Meeting Scheduled" || selectedBrief.status === "Approved / Accepted" ? (
+                  <>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-mono font-bold">
+                      <CheckIcon className="w-3.5 h-3.5" />
+                      <span>Confirmed &amp; Scheduled</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleApprove}
+                      disabled={isApproving}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500 hover:text-neutral-950 text-amber-700 dark:text-amber-400 font-bold text-xs uppercase font-mono tracking-wide transition-all cursor-pointer active:scale-[0.99]"
+                      title="Update details and re-send confirmation email"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                      <span>{isApproving ? "Updating..." : "Update / Resend Email"}</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleApprove}
+                    disabled={isApproving}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-wide shadow-lg shadow-amber-500/20 transition-all cursor-pointer active:scale-[0.99]"
+                  >
+                    <CheckIcon className="w-4 h-4" />
+                    <span>{isApproving ? "Approving..." : "Approve & Send Email to Client"}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

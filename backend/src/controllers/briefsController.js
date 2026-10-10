@@ -271,6 +271,21 @@ class BriefsController {
         return res.status(400).json({ message: "Status is required." });
       }
 
+      const cleanId = String(id || "").trim();
+      const isNumeric = /^\d+$/.test(cleanId);
+      const numericId = isNumeric ? parseInt(cleanId, 10) : -1;
+
+      const isRejectAction = Boolean(req.body.isRejected) || status.toLowerCase().includes("reject");
+      const isRescheduleAction = Boolean(req.body.isRescheduled) || Boolean(req.body.rescheduleReason) || status.toLowerCase().includes("reschedule");
+      const isApproveAction = Boolean(req.body.isApproved) || status === "Approved / Accepted" || status === "Meeting Scheduled";
+      const isUnderReviewAction = status === "Under Review";
+
+      const calculatedAvailability = req.body.availabilityStatus || req.body.availability_status || (
+        isApproveAction ? "Confirmed" :
+        isRescheduleAction ? "Rescheduled" :
+        isRejectAction ? "Declined" : null
+      );
+
       const result = await db.query(
         `UPDATE client_briefs SET 
           status = $1,
@@ -283,8 +298,9 @@ class BriefsController {
           venue_details = COALESCE($8, venue_details),
           quotation_amount = COALESCE($9, quotation_amount),
           quotation_notes = COALESCE($10, quotation_notes),
-          client_portal_code = COALESCE($11, client_portal_code)
-        WHERE brief_id = $12 RETURNING *`,
+          client_portal_code = COALESCE($11, client_portal_code),
+          availability_status = COALESCE($12, availability_status)
+        WHERE (brief_id = $13 OR submission_id = $14) RETURNING *`,
         [
           status,
           meetingDate || null,
@@ -297,7 +313,9 @@ class BriefsController {
           quotationAmount || null,
           quotationNotes || null,
           clientPortalCode || null,
-          parseInt(id, 10),
+          calculatedAvailability,
+          numericId,
+          cleanId,
         ]
       );
 
@@ -307,10 +325,6 @@ class BriefsController {
       if (updatedBrief?.client_email) {
         try {
           const clientEmail = updatedBrief.client_email;
-          const isRejectAction = Boolean(req.body.isRejected) || status.toLowerCase().includes("reject");
-          const isRescheduleAction = Boolean(req.body.isRescheduled) || Boolean(req.body.rescheduleReason) || status.toLowerCase().includes("reschedule");
-          const isApproveAction = Boolean(req.body.isApproved) || status === "Approved / Accepted" || status === "Meeting Scheduled";
-          const isUnderReviewAction = status === "Under Review";
 
           if (isRejectAction) {
             await emailService.sendInquiryRejected(clientEmail, updatedBrief, {
@@ -365,7 +379,14 @@ class BriefsController {
   async provisionAccess(req, res) {
     try {
       const { id } = req.params;
-      const briefRes = await db.query("SELECT * FROM client_briefs WHERE brief_id = $1", [parseInt(id, 10)]);
+      const cleanId = String(id || "").trim();
+      const isNumeric = /^\d+$/.test(cleanId);
+      const numericId = isNumeric ? parseInt(cleanId, 10) : -1;
+
+      const briefRes = await db.query(
+        "SELECT * FROM client_briefs WHERE brief_id = $1 OR submission_id = $2",
+        [numericId, cleanId]
+      );
       if (!briefRes.rows || briefRes.rows.length === 0) {
         return res.status(404).json({ message: "Brief not found." });
       }
@@ -373,7 +394,7 @@ class BriefsController {
       const portalCode = `MCPA-${brief.client_name.replace(/[^a-zA-Z]/g, "").slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
 
       // Update brief with code
-      await db.query("UPDATE client_briefs SET client_portal_code = $1, status = 'Approved / Accepted' WHERE brief_id = $2", [portalCode, parseInt(id, 10)]);
+      await db.query("UPDATE client_briefs SET client_portal_code = $1, status = 'Approved / Accepted' WHERE brief_id = $2", [portalCode, brief.brief_id]);
 
       // Create client account in users table if not existing
       const existingUser = await db.query("SELECT user_id FROM users WHERE LOWER(email) = LOWER($1)", [brief.client_email]);
@@ -401,12 +422,21 @@ class BriefsController {
   async delete(req, res) {
     try {
       const { id } = req.params;
-      const briefId = parseInt(id, 10);
+      const cleanId = String(id || "").trim();
+      const isNumeric = /^\d+$/.test(cleanId);
+      const numericId = isNumeric ? parseInt(cleanId, 10) : -1;
 
       // 1. Fetch brief attachments to clean up from Azure mcpa-briefs container
-      const existing = await db.query("SELECT uploaded_files FROM client_briefs WHERE brief_id = $1", [briefId]);
+      const existing = await db.query(
+        "SELECT brief_id, uploaded_files FROM client_briefs WHERE brief_id = $1 OR submission_id = $2",
+        [numericId, cleanId]
+      );
+      if (!existing.rows || existing.rows.length === 0) {
+        return res.status(404).json({ message: "Brief not found." });
+      }
+      const targetBriefId = existing.rows[0].brief_id;
       let attachedFiles = [];
-      if (existing.rows.length > 0 && existing.rows[0].uploaded_files) {
+      if (existing.rows[0].uploaded_files) {
         let files = existing.rows[0].uploaded_files;
         if (typeof files === "string") {
           try { files = JSON.parse(files); } catch (e) { files = [files]; }
@@ -417,7 +447,7 @@ class BriefsController {
       }
 
       // 2. Delete brief from database
-      await db.query("DELETE FROM client_briefs WHERE brief_id = $1", [briefId]);
+      await db.query("DELETE FROM client_briefs WHERE brief_id = $1", [targetBriefId]);
 
       // 3. Purge files from cloud storage (briefs category)
       if (attachedFiles.length > 0) {

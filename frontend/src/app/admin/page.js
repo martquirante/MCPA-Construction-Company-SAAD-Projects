@@ -705,8 +705,15 @@ export default function AdminPage() {
   };
 
   const handleUpdateBriefStatus = async (briefId, newStatus, extraData = {}) => {
+    const targetRef = String(briefId || "").trim();
+    const isTarget = (b) =>
+      b.id === briefId ||
+      b.submissionId === briefId ||
+      String(b.id || "").trim() === targetRef ||
+      String(b.submissionId || "").trim() === targetRef;
+
     const updated = clientBriefs.map((b) =>
-      b.id === briefId ? { ...b, status: newStatus, ...extraData } : b
+      isTarget(b) ? { ...b, status: newStatus, ...extraData } : b
     );
     setClientBriefs(updated);
     try {
@@ -718,11 +725,35 @@ export default function AdminPage() {
 
     // Sync status update to Backend
     try {
-      await fetch(`/api/briefs/${briefId}`, {
+      const res = await fetch(`/api/briefs/${encodeURIComponent(briefId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus, ...extraData }),
       });
+      const data = await res.json();
+      if (data?.success && data?.brief) {
+        const synced = clientBriefs.map((b) =>
+          isTarget(b)
+            ? {
+                ...b,
+                status: data.brief.status || newStatus,
+                meetingDate: data.brief.meeting_date || b.meetingDate,
+                meetingTime: data.brief.meeting_time || b.meetingTime,
+                meetingLink: data.brief.meeting_link || b.meetingLink,
+                meetingMode: data.brief.meeting_mode || b.meetingMode,
+                meetingNotes: data.brief.meeting_notes || b.meetingNotes,
+                venueType: data.brief.venue_type || b.venueType,
+                venueDetails: data.brief.venue_details || b.venueDetails,
+                quotationAmount: data.brief.quotation_amount || b.quotationAmount,
+                quotationNotes: data.brief.quotation_notes || b.quotationNotes,
+              }
+            : b
+        );
+        setClientBriefs(synced);
+        try {
+          localStorage.setItem("mcpa_client_briefs", JSON.stringify(synced));
+        } catch (e) {}
+      }
     } catch (e) {
       console.warn("Could not update brief in backend:", e);
     }
@@ -730,11 +761,18 @@ export default function AdminPage() {
 
   const handleProvisionAccess = async (briefId) => {
     try {
-      const res = await fetch(`/api/briefs/${briefId}/provision`, { method: "POST" });
+      const targetRef = String(briefId || "").trim();
+      const isTarget = (b) =>
+        b.id === briefId ||
+        b.submissionId === briefId ||
+        String(b.id || "").trim() === targetRef ||
+        String(b.submissionId || "").trim() === targetRef;
+
+      const res = await fetch(`/api/briefs/${encodeURIComponent(briefId)}/provision`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
         const updated = clientBriefs.map((b) =>
-          b.id === briefId ? { ...b, clientPortalCode: data.portalCode, status: "Approved / Accepted" } : b
+          isTarget(b) ? { ...b, clientPortalCode: data.portalCode, status: "Approved / Accepted" } : b
         );
         setClientBriefs(updated);
         localStorage.setItem("mcpa_client_briefs", JSON.stringify(updated));
@@ -749,7 +787,14 @@ export default function AdminPage() {
 
   const handleDeleteBrief = async (briefId) => {
     if (!confirm("Are you sure you want to remove this client inquiry?")) return;
-    const updated = clientBriefs.filter((b) => b.id !== briefId);
+    const targetRef = String(briefId || "").trim();
+    const isTarget = (b) =>
+      b.id === briefId ||
+      b.submissionId === briefId ||
+      String(b.id || "").trim() === targetRef ||
+      String(b.submissionId || "").trim() === targetRef;
+
+    const updated = clientBriefs.filter((b) => !isTarget(b));
     setClientBriefs(updated);
     try {
       localStorage.setItem("mcpa_client_briefs", JSON.stringify(updated));
@@ -760,7 +805,7 @@ export default function AdminPage() {
 
     // Sync deletion with Backend
     try {
-      await fetch(`/api/briefs/${briefId}`, { method: "DELETE" });
+      await fetch(`/api/briefs/${encodeURIComponent(briefId)}`, { method: "DELETE" });
     } catch (e) {
       console.warn("Could not delete brief from backend:", e);
     }
