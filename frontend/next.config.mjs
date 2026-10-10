@@ -67,6 +67,10 @@ const nextConfig = {
         : "http://localhost:5000");
     return [
       {
+        source: "/api/icons/:path*",
+        destination: "/assets/icons/:path*",
+      },
+      {
         source: "/api/:path*",
         destination: `${backendUrl}/api/:path*`,
       },

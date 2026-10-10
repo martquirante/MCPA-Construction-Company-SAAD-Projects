@@ -71,6 +71,12 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // -----------------------------------------------------------------------------
+// STATIC ASSETS & ICONS API ENDPOINTS
+// -----------------------------------------------------------------------------
+app.use("/assets", express.static(path.join(__dirname, "assets")));
+app.use("/api/icons", express.static(path.join(__dirname, "assets/icons")));
+
+// -----------------------------------------------------------------------------
 // ROOT STATUS ROUTE
 // -----------------------------------------------------------------------------
 app.get("/", (req, res) => {

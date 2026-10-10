@@ -10,30 +10,51 @@ import PortalAuthShowcase from "@/modules/portal/components/PortalAuthShowcase";
 import PortalInquiryModal from "@/modules/portal/components/PortalInquiryModal";
 import { useAuthoritativeClock } from "@/modules/admin/hooks/useAuthoritativeClock";
 import {
-  ShieldCheckIcon,
-  CheckIcon,
-  CalendarIcon,
-  MapPinIcon,
-  ExternalLinkIcon,
-  ClockIcon,
-  LogOutIcon,
-  HomeIcon,
-  FolderKanbanIcon,
-  BuildingIcon,
-  VideoIcon,
-  FileTextIcon,
-  UserIcon,
-  PlaneIcon,
-  PhoneIcon,
-  MenuIcon,
-  CloseIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  LayoutDashboardIcon,
-  ClipboardListIcon,
-  SettingsIcon,
-  PlusIcon,
-} from "@/modules/shared/Icons";
+  getThemePreference,
+  setThemePreference,
+} from "@/modules/shared/SystemThemeSync";
+import {
+  Sun,
+  Moon,
+  Clock,
+  ShieldCheck,
+  Check,
+  Calendar,
+  MapPin,
+  ExternalLink,
+  LogOut,
+  FolderKanban,
+  Building,
+  Video,
+  User,
+  Plane,
+  Phone,
+  Menu,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  LayoutDashboard,
+  Settings,
+  Plus,
+  CreditCard,
+  Camera,
+  Layers,
+  Search,
+  Bell,
+  Sparkles,
+  Copy,
+  CheckCircle2,
+} from "lucide-react";
+import PortalHeroFinancialCard from "@/modules/portal/components/PortalHeroFinancialCard";
+import PortalOverallProgressCard from "@/modules/portal/components/PortalOverallProgressCard";
+import PortalOnSiteWeatherCard from "@/modules/portal/components/PortalOnSiteWeatherCard";
+import PortalMilestoneStepper from "@/modules/portal/components/PortalMilestoneStepper";
+import PortalProjectSpecsCard from "@/modules/portal/components/PortalProjectSpecsCard";
+import PortalLiveTimeline from "@/modules/portal/components/PortalLiveTimeline";
+import PortalSiteGallerySection from "@/modules/portal/components/PortalSiteGallerySection";
+import PortalBillingLedgerSection from "@/modules/portal/components/PortalBillingLedgerSection";
+import PortalMobileBottomNav from "@/modules/portal/components/PortalMobileBottomNav";
+import PortalEmptyState from "@/modules/portal/components/PortalEmptyState";
 import { authFetch } from "@/modules/shared/authFetch";
 import { getBookingIntent, clearBookingIntent } from "@/modules/shared/bookingAuthHelper";
 
@@ -49,33 +70,108 @@ function ClientPortalContent() {
   const redirectParam = searchParams?.get("redirect");
   const tabParam = searchParams?.get("tab");
 
-  // Active view tab: "overview" | "inquiries" | "construction" | "profile"
+  // Active view tab: "overview" | "inquiries" | "construction" | "gallery" | "billing" | "messages" | "profile"
   const [portalTab, setPortalTab] = useState("overview");
   const [inquiries, setInquiries] = useState([]);
   const [isLoadingInquiries, setIsLoadingInquiries] = useState(false);
 
-  // Construction project (if active)
+  // Construction project (from live database)
   const [siteProject, setSiteProject] = useState(null);
   const [siteMilestones, setSiteMilestones] = useState([]);
   const [sitePhotos, setSitePhotos] = useState([]);
   const [billingLedger, setBillingLedger] = useState([]);
 
-  // Sidebar states (matching Admin architecture)
+  // Sidebar & Layout states
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Theme preference state
+  const [themeMode, setThemeMode] = useState("system");
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Authoritative server clock for Manila time
-  const { dateStr, timeStr, timezoneCode } = useAuthoritativeClock("Asia/Manila");
+  const { dateStr, timeStr, timezoneCode, hasClockSkew, skewText } = useAuthoritativeClock("Asia/Manila");
 
-  // Modal state
+  // Modal & Toast states
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [isUploadingPfp, setIsUploadingPfp] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [currentUser?.avatar_url, currentUser?.avatarUrl]);
+
+  const [copiedId, setCopiedId] = useState(false);
+  const handleCopyId = (id) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(id);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+      showToast("Client ID copied to clipboard!");
+    }
+  };
+
+  const calculateAge = (birthDateStr) => {
+    if (!birthDateStr) return null;
+    const birth = new Date(birthDateStr);
+    if (isNaN(birth.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age > 0 ? `${age} yrs old` : null;
+  };
+
+  const isGoogleAccount = Boolean(
+    currentUser?.authProvider === "google" ||
+    currentUser?.auth_provider === "google" ||
+    currentUser?.email?.toLowerCase().endsWith("@gmail.com") ||
+    currentUser?.avatarUrl?.includes("googleusercontent.com") ||
+    currentUser?.avatar_url?.includes("googleusercontent.com")
+  );
+
+  // If user previously had messages active, gracefully fall back to overview
+  useEffect(() => {
+    if (portalTab === "messages") {
+      setPortalTab("overview");
+    }
+  }, [portalTab]);
 
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 4000);
+  };
+
+  // Sync theme on mount and listen to changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      queueMicrotask(() => {
+        const pref = getThemePreference();
+        setThemeMode(pref);
+        setIsDarkMode(document.documentElement.classList.contains("dark"));
+      });
+
+      const handleThemeChange = (e) => {
+        setThemeMode(e.detail.mode || "system");
+        setIsDarkMode(e.detail.isDark);
+      };
+
+      window.addEventListener("mcpa-theme-change", handleThemeChange);
+      return () => window.removeEventListener("mcpa-theme-change", handleThemeChange);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextMode = isDarkMode ? "light" : "dark";
+    setThemePreference(nextMode);
+    setThemeMode(nextMode);
+    setIsDarkMode(!isDarkMode);
+    showToast(`Switched to ${nextMode === "dark" ? "Dark" : "Light"} Mode`);
   };
 
   const toggleSidebarCollapse = () => {
@@ -156,34 +252,37 @@ function ClientPortalContent() {
       const savedUser = localStorage.getItem("mcpa_client_user");
       const savedToken = localStorage.getItem("mcpa_client_token");
       const savedCollapsed = localStorage.getItem("mcpa_client_sidebar_collapsed");
-      if (savedCollapsed !== null) {
-        setIsSidebarCollapsed(savedCollapsed === "true");
-      }
 
-      if (savedUser) {
-        try {
-          const parsed = JSON.parse(savedUser);
-          setCurrentUser(parsed);
-          setAuthToken(savedToken);
-
-          if (redirectParam) {
-            clearBookingIntent();
-            router.push(redirectParam);
-            return;
-          }
-
-          if (tabParam && ["overview", "inquiries", "construction", "profile"].includes(tabParam)) {
-            setPortalTab(tabParam);
-          }
-        } catch (e) {
-          console.warn("User parse error:", e);
+      queueMicrotask(() => {
+        if (savedCollapsed !== null) {
+          setIsSidebarCollapsed(savedCollapsed === "true");
         }
-      }
-      setIsLoadingAuth(false);
+
+        if (savedUser) {
+          try {
+            const parsed = JSON.parse(savedUser);
+            setCurrentUser(parsed);
+            setAuthToken(savedToken);
+
+            if (redirectParam) {
+              clearBookingIntent();
+              router.push(redirectParam);
+              return;
+            }
+
+            if (tabParam && ["overview", "inquiries", "construction", "gallery", "billing", "profile"].includes(tabParam)) {
+              setPortalTab(tabParam);
+            }
+          } catch (e) {
+            console.warn("User parse error:", e);
+          }
+        }
+        setIsLoadingAuth(false);
+      });
     }
   }, [redirectParam, tabParam, router]);
 
-  // 2. Fetch inquiries when user is logged in
+  // 2. Fetch inquiries and construction data strictly for the logged-in client
   const fetchClientData = async (userEmail) => {
     if (!userEmail) return;
     setIsLoadingInquiries(true);
@@ -211,21 +310,34 @@ function ClientPortalContent() {
       setIsLoadingInquiries(false);
     }
 
-    // Also fetch construction site execution status
+    // Fetch construction site execution status strictly for this client email
     try {
-      const siteRes = await fetch("/api/construction/project").then((r) => r.json());
+      const siteRes = await fetch(`/api/construction/project?email=${encodeURIComponent(userEmail)}`).then((r) => r.json());
       if (siteRes.success && siteRes.project) {
         setSiteProject(siteRes.project);
         setSiteMilestones(siteRes.milestones || []);
         setSitePhotos(siteRes.photos || []);
         setBillingLedger(siteRes.billing || []);
+      } else {
+        setSiteProject(null);
+        setSiteMilestones([]);
+        setSitePhotos([]);
+        setBillingLedger([]);
       }
-    } catch (e) {}
+    } catch (e) {
+      setSiteProject(null);
+      setSiteMilestones([]);
+      setSitePhotos([]);
+      setBillingLedger([]);
+    }
   };
 
   useEffect(() => {
     if (currentUser?.email) {
-      fetchClientData(currentUser.email);
+      const email = currentUser.email;
+      queueMicrotask(() => {
+        fetchClientData(email);
+      });
     }
   }, [currentUser]);
 
@@ -286,19 +398,13 @@ function ClientPortalContent() {
     );
   }
 
-  // Active Pending Inquiries count (for quota limit)
+  // Active Pending Inquiries count
   const activeInquiriesCount = inquiries.filter(
     (b) =>
       (b.status || "Pending Review") === "Pending Review" ||
       (b.status || "").includes("Meeting") ||
       (b.status || "").includes("Review")
   ).length;
-
-  const scheduledMeetingBrief = inquiries.find(
-    (b) =>
-      (b.status || "").includes("Meeting") ||
-      Boolean(b.meeting_date || b.meetingDate || b.meeting_link)
-  );
 
   // UNAUTHENTICATED STATE: Clean, Focused 2-Column Split-Screen Auth Page With Top Utility Bar
   if (!currentUser) {
@@ -355,34 +461,55 @@ function ClientPortalContent() {
   }
 
   // =========================================================================
-  // AUTHENTICATED CLIENT CONSOLE (Admin Layout Structure + Human Tailored UX)
+  // AUTHENTICATED CLIENT CONSOLE (Faithfully Matching Inspo Layout & Architecture)
   // =========================================================================
   const navItems = [
-    { id: "overview", label: "Dashboard", icon: LayoutDashboardIcon },
+    { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+    {
+      id: "construction",
+      label: "Projects",
+      icon: Building,
+      badge: siteProject ? `${siteProject.progress_pct}%` : undefined,
+    },
+    {
+      id: "gallery",
+      label: "Site Gallery",
+      icon: Camera,
+      badge: sitePhotos.length > 0 ? sitePhotos.length : undefined,
+    },
+    {
+      id: "billing",
+      label: "Billing & Escrow",
+      icon: CreditCard,
+      badge: billingLedger.length > 0 ? billingLedger.length : undefined,
+    },
     {
       id: "inquiries",
       label: "Inquiries",
-      icon: FolderKanbanIcon,
+      icon: FolderKanban,
       badge: inquiries.length > 0 ? inquiries.length : undefined,
     },
-    {
-      id: "construction",
-      label: "Site Progress",
-      icon: BuildingIcon,
-      badge: siteProject ? "Active" : undefined,
-    },
-    { id: "profile", label: "Profile & Settings", icon: UserIcon },
   ];
 
-  const currentTabInfo = navItems.find((n) => n.id === portalTab) || navItems[0];
-  const primaryBrief = inquiries[0] || null;
+  const currentTabInfo =
+    navItems.find((n) => n.id === portalTab) ||
+    (portalTab === "profile" ? { id: "profile", label: "Profile", icon: User } : navItems[0]);
+  const clientName = currentUser?.fullName || "Valued Client";
+  const isGoogleUser = Boolean(
+    currentUser?.provider === "google" ||
+    currentUser?.authProvider === "google" ||
+    currentUser?.auth_provider === "google" ||
+    (currentUser?.avatarUrl && currentUser.avatarUrl.includes("googleusercontent.com")) ||
+    (currentUser?.avatar_url && currentUser.avatar_url.includes("googleusercontent.com")) ||
+    (currentUser?.email && currentUser.email.toLowerCase().endsWith("@gmail.com"))
+  );
 
   return (
     <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex font-sans transition-colors duration-300">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 px-4 py-2.5 rounded-[4px] bg-emerald-500 text-neutral-950 font-bold text-xs shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
-          <CheckIcon className="w-4 h-4 shrink-0" />
+        <div className="fixed top-6 right-6 z-50 px-4 py-2.5 rounded-[12px] bg-amber-500 text-neutral-950 font-bold text-xs shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
+          <Check className="w-4 h-4 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -390,10 +517,10 @@ function ClientPortalContent() {
       {/* Logout Confirmation Modal */}
       {isLogoutConfirmOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 p-5 shadow-2xl space-y-4">
+          <div className="w-full max-w-sm rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 p-5 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-rose-500/15 text-rose-500 flex items-center justify-center shrink-0">
-                <LogOutIcon className="w-4 h-4" />
+                <LogOut className="w-4 h-4" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
@@ -408,14 +535,14 @@ function ClientPortalContent() {
               <button
                 type="button"
                 onClick={() => setIsLogoutConfirmOpen(false)}
-                className="px-3 py-1.5 rounded-[4px] text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-[6px] text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmLogout}
-                className="px-3.5 py-1.5 rounded-[4px] bg-rose-600 hover:bg-rose-500 text-white font-mono font-bold text-xs transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-[6px] bg-rose-600 hover:bg-rose-500 text-white font-mono font-bold text-xs transition-colors cursor-pointer"
               >
                 Confirm Sign Out
               </button>
@@ -432,36 +559,27 @@ function ClientPortalContent() {
         />
       )}
 
-      {/* Left Sidebar Navigation (Admin Architecture) */}
+      {/* Left Sidebar Navigation (Matching Desktop & Tablet Inspos, Light & Dark Adaptive) */}
       <aside
         className={`fixed lg:sticky top-0 left-0 h-screen ${
           isSidebarCollapsed ? "lg:w-20" : "lg:w-64"
-        } w-[280px] sm:w-72 max-w-[85vw] bg-white dark:bg-[#101218] border-r border-neutral-200 dark:border-white/5 flex flex-col justify-between z-50 transition-all duration-200 shrink-0 shadow-xl lg:shadow-none ${
+        } w-[280px] sm:w-72 max-w-[85vw] bg-white dark:bg-[#121212] text-neutral-900 dark:text-white border-r border-neutral-200 dark:border-white/5 flex flex-col justify-between z-50 transition-all duration-200 shrink-0 shadow-xl lg:shadow-none ${
           isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
         {/* Top Brand Section */}
         <div className="border-b border-neutral-200 dark:border-white/5 p-4">
-          {/* Mobile View */}
+          {/* Mobile Brand View */}
           <div className="flex lg:hidden items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2 min-w-0">
               <div className="relative w-36 h-9 shrink-0">
-                <Image
-                  src="/assets/mcpa-logo.svg"
-                  alt="MCPA Construction"
-                  fill
-                  priority
-                  unoptimized
-                  className="object-contain object-left block dark:hidden"
-                  sizes="144px"
-                />
                 <Image
                   src="/assets/logo-white.svg"
                   alt="MCPA Construction"
                   fill
                   priority
                   unoptimized
-                  className="object-contain object-left hidden dark:block"
+                  className="object-contain object-left dark:brightness-100 brightness-0"
                   sizes="144px"
                 />
               </div>
@@ -469,97 +587,135 @@ function ClientPortalContent() {
             <button
               type="button"
               onClick={() => setIsMobileSidebarOpen(false)}
-              className="p-1.5 rounded-[4px] text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-1.5 rounded-[6px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
               aria-label="Close Sidebar"
             >
-              <CloseIcon className="w-5 h-5" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Desktop View */}
+          {/* Desktop Brand View */}
           <div className="hidden lg:flex items-center justify-between w-full">
             {isSidebarCollapsed ? (
               <div className="w-full flex flex-col items-center gap-2.5 py-1">
                 <Link
                   href="/"
                   title="MCPA Homepage"
-                  className="relative z-10 w-10 h-10 rounded-[4px] bg-white dark:bg-[#181a24] border border-neutral-200 dark:border-white/10 p-1 flex items-center justify-center shrink-0 hover:border-amber-500 transition-colors"
+                  className="relative z-10 w-10 h-10 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-200 dark:border-white/10 p-1 flex items-center justify-center shrink-0 hover:border-amber-500 transition-colors"
                 >
-                  <Image
-                    src="/assets/mcpa-logo.svg"
-                    alt="MCPA Logo"
-                    fill
-                    priority
-                    unoptimized
-                    className="object-contain p-1.5 block dark:hidden"
-                    sizes="40px"
-                  />
                   <Image
                     src="/assets/logo-white.svg"
                     alt="MCPA Logo"
                     fill
                     priority
                     unoptimized
-                    className="object-contain p-1.5 hidden dark:block"
+                    className="object-contain p-1.5 dark:brightness-100 brightness-0"
                     sizes="40px"
                   />
                 </Link>
                 <button
                   type="button"
                   onClick={toggleSidebarCollapse}
-                  className="p-1.5 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-[6px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                   title="Expand Navigation"
                 >
-                  <ChevronRightIcon className="w-4 h-4" />
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center justify-between w-full gap-3">
-                <Link href="/" className="flex items-center gap-2.5 min-w-0">
-                  <div className="relative w-36 h-9 shrink-0">
-                    <Image
-                      src="/assets/mcpa-logo.svg"
-                      alt="MCPA Construction"
-                      fill
-                      priority
-                      unoptimized
-                      className="object-contain object-left block dark:hidden"
-                      sizes="144px"
-                    />
-                    <Image
-                      src="/assets/logo-white.svg"
-                      alt="MCPA Construction"
-                      fill
-                      priority
-                      unoptimized
-                      className="object-contain object-left hidden dark:block"
-                      sizes="144px"
-                    />
-                  </div>
-                </Link>
-                <button
-                  type="button"
-                  onClick={toggleSidebarCollapse}
-                  className="p-1.5 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                  title="Collapse Navigation"
-                >
-                  <ChevronLeftIcon className="w-4 h-4" />
-                </button>
+              <div className="flex flex-col w-full gap-3">
+                <div className="flex items-center justify-between w-full">
+                  <Link href="/" className="flex items-center gap-2.5 min-w-0">
+                    <div className="relative w-36 h-9 shrink-0">
+                      <Image
+                        src="/assets/logo-white.svg"
+                        alt="MCPA Construction"
+                        fill
+                        priority
+                        unoptimized
+                        className="object-contain object-left dark:brightness-100 brightness-0"
+                        sizes="144px"
+                      />
+                    </div>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={toggleSidebarCollapse}
+                    className="p-1.5 rounded-[6px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    title="Collapse Navigation"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Navigation Menu */}
+        {/* User Account Bar (Below Logo, Before Nav Bar) */}
+        <div className={`p-3 border-b border-neutral-200 dark:border-white/5 ${isSidebarCollapsed ? "lg:p-2" : "lg:p-3"}`}>
+          <div
+            onClick={() => {
+              setPortalTab("profile");
+              setIsMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center ${
+              isSidebarCollapsed ? "justify-center p-1" : "p-2 gap-2.5"
+            } rounded-[10px] bg-neutral-100/70 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:bg-neutral-200/50 dark:hover:bg-white/[0.06] transition-all cursor-pointer group`}
+            role="button"
+            tabIndex={0}
+            title="Manage Profile"
+          >
+            <div className="relative shrink-0">
+              <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/40 font-bold text-xs flex items-center justify-center font-mono overflow-hidden">
+                {(currentUser?.avatar_url || currentUser?.avatarUrl) && !avatarError ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={currentUser.avatar_url || currentUser.avatarUrl}
+                    alt={clientName || "Profile Avatar"}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                    onError={() => setAvatarError(true)}
+                  />
+                ) : (
+                  (clientName || "CL").substring(0, 2).toUpperCase()
+                )}
+              </div>
+              {/* Google Account micro badge */}
+              {isGoogleUser && (
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-white dark:bg-[#181a24] flex items-center justify-center p-0.5 shadow-xs border border-neutral-200 dark:border-white/10 pointer-events-none select-none"
+                  title="Google Account"
+                >
+                  <svg className="w-full h-full shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                </span>
+              )}
+            </div>
+            {!isSidebarCollapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-500 transition-colors">
+                  {clientName}
+                </p>
+                <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 block truncate">
+                  Client / Owner
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Navigation Menu (Clean items, adapting seamlessly to light & dark theme) */}
         <nav
-          className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden p-2.5 ${
-            isSidebarCollapsed ? "lg:p-2" : "lg:p-2.5"
+          className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden p-3 ${
+            isSidebarCollapsed ? "lg:p-2" : "lg:p-3"
           }`}
         >
-          <div className="px-2 pb-1.5 pt-1 text-[9.5px] font-mono uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500 font-bold block lg:hidden">
-            Client Portal Menu
-          </div>
-
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = portalTab === item.id;
@@ -572,13 +728,13 @@ function ClientPortalContent() {
                     setIsMobileSidebarOpen(false);
                   }}
                   title={item.label}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[4px] text-xs font-mono tracking-wider transition-colors cursor-pointer relative ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-[10px] text-xs font-mono tracking-wider transition-all duration-200 cursor-pointer relative ${
                     isSidebarCollapsed
                       ? "lg:h-10 lg:justify-center lg:px-0"
                       : "justify-between"
                   } ${
                     isActive
-                      ? "bg-amber-500 text-neutral-950 font-bold"
+                      ? "bg-amber-500 text-neutral-950 font-bold shadow-sm"
                       : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04]"
                   }`}
                 >
@@ -587,13 +743,28 @@ function ClientPortalContent() {
                       isSidebarCollapsed ? "lg:justify-center lg:gap-0" : ""
                     }`}
                   >
-                    <Icon
-                      className={`w-4 h-4 shrink-0 ${
-                        isActive
-                          ? "text-neutral-950"
-                          : "text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500"
-                      }`}
-                    />
+                    <div className="relative flex items-center justify-center shrink-0">
+                      <Icon
+                        className={`w-4 h-4 shrink-0 transition-colors ${
+                          isActive
+                            ? "text-neutral-950 stroke-[2.5]"
+                            : "text-neutral-500 dark:text-neutral-400 group-hover:text-amber-500"
+                        }`}
+                      />
+                      {/* Collapsed Mode Overlay Badge: Nakapatong sa top-right ng icon, pantay ang icon centering */}
+                      {isSidebarCollapsed && item.badge !== undefined && (
+                        <span
+                          className={`hidden lg:flex absolute -top-1.5 -right-2 min-w-[14px] h-[14px] px-1 rounded-full text-[9px] font-mono font-bold items-center justify-center shadow-sm leading-none pointer-events-none select-none ${
+                            isActive
+                              ? "bg-neutral-950 text-amber-400 border border-neutral-900"
+                              : "bg-amber-500 text-neutral-950 border border-white dark:border-[#101218]"
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+
                     <span
                       className={`truncate ${
                         isSidebarCollapsed ? "block lg:hidden" : "block"
@@ -603,36 +774,25 @@ function ClientPortalContent() {
                     </span>
                   </div>
 
+                  {/* Expanded Mode & Mobile Drawer Badge (Normal inline right alignment) */}
                   {item.badge !== undefined && (
-                    <>
-                      <span
-                        className={`lg:hidden px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono font-bold shrink-0 ${
-                          isActive
-                            ? "bg-neutral-950 text-white"
-                            : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
-                      <span
-                        className={`hidden ${
-                          isSidebarCollapsed
-                            ? "lg:flex absolute top-1 right-1 min-w-[15px] h-[15px] px-0.5 rounded-[3px] bg-amber-500 text-neutral-950 font-bold text-[9px] items-center justify-center font-mono"
-                            : "lg:inline-block px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono font-bold shrink-0 " +
-                              (isActive
-                                ? "bg-neutral-950 text-white"
-                                : "bg-amber-500/15 text-amber-700 dark:text-amber-400")
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
-                    </>
+                    <span
+                      className={`${
+                        isSidebarCollapsed ? "block lg:hidden" : "block"
+                      } px-1.5 py-0.5 rounded-[4px] text-[10px] font-mono font-bold shrink-0 ${
+                        isActive
+                          ? "bg-neutral-950 text-white"
+                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
                   )}
                 </button>
 
                 {/* Floating Tooltip in Collapsed Mode */}
                 {isSidebarCollapsed && (
-                  <div className="hidden lg:flex absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1 rounded-[4px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 items-center gap-2">
+                  <div className="hidden lg:flex absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1 rounded-[6px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-neutral-700 dark:border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 items-center gap-2">
                     <span>{item.label}</span>
                     {item.badge !== undefined && (
                       <span className="px-1 py-0.2 rounded-[2px] bg-amber-500 text-neutral-950 font-bold text-[9px]">
@@ -645,774 +805,367 @@ function ClientPortalContent() {
             );
           })}
         </nav>
-
-        {/* Bottom User Profile Section (Matching Admin Bottom Bar) */}
-        <div className="border-t border-neutral-200 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]">
-          {/* Mobile Profile View */}
-          <div className="lg:hidden p-4 pb-8 space-y-3">
-            <div
-              onClick={() => {
-                setPortalTab("profile");
-                setIsMobileSidebarOpen(false);
-              }}
-              className="flex items-center gap-3 p-1.5 -m-1.5 rounded-[4px] hover:bg-neutral-200/50 dark:hover:bg-white/5 cursor-pointer transition-colors group"
-              role="button"
-              tabIndex={0}
-              title="Open Account Settings & Profile"
-            >
-              <div className="w-9 h-9 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs">
-                {currentUser?.avatar_url || currentUser?.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={currentUser.avatar_url || currentUser.avatarUrl}
-                    alt="Profile Avatar"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  (currentUser?.fullName || "Client")
-                    .split(/\s+/)
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase() || "CL"
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                  {currentUser?.fullName || "Valued Client"}
-                </p>
-                <div className="flex items-center">
-                  <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                    {currentUser?.clientType === "OFW" ? "OFW Client" : "Client Portal"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setPortalTab("profile");
-                  setIsMobileSidebarOpen(false);
-                }}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-[4px] text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-neutral-100 dark:hover:bg-white/5 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
-              >
-                <SettingsIcon className="w-4 h-4 text-amber-500" />
-                <span>Settings</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-[4px] text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
-              >
-                <LogOutIcon className="w-4 h-4" />
-                <span>Log Out</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Desktop Profile View */}
-          <div
-            className={`hidden lg:block ${
-              isSidebarCollapsed ? "p-3 flex flex-col items-center gap-2.5" : "p-3.5 space-y-3"
-            }`}
-          >
-            {isSidebarCollapsed ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setPortalTab("profile")}
-                  className="relative group cursor-pointer focus:outline-none"
-                  title={`${currentUser?.fullName || "Client"} (Client Portal)`}
-                >
-                  <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs">
-                    {currentUser?.avatar_url || currentUser?.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={currentUser.avatar_url || currentUser.avatarUrl}
-                        alt="Profile Avatar"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      (currentUser?.fullName || "Client")
-                        .split(/\s+/)
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase() || "CL"
-                    )}
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPortalTab("profile")}
-                  title="Profile & Settings"
-                  className="p-2 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                >
-                  <SettingsIcon className="w-4 h-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  title="Sign Out"
-                  className="p-2 rounded-[4px] text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                >
-                  <LogOutIcon className="w-4 h-4" />
-                </button>
-              </>
-            ) : (
-              <>
-                <div
-                  onClick={() => setPortalTab("profile")}
-                  className="flex items-center gap-3 p-1.5 -m-1.5 rounded-[4px] hover:bg-neutral-200/50 dark:hover:bg-white/5 cursor-pointer transition-colors group"
-                  role="button"
-                  tabIndex={0}
-                  title="Click to manage profile & settings"
-                >
-                  <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs">
-                    {currentUser?.avatar_url || currentUser?.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={currentUser.avatar_url || currentUser.avatarUrl}
-                        alt="Profile Avatar"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      (currentUser?.fullName || "Client")
-                        .split(/\s+/)
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase() || "CL"
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                      {currentUser?.fullName || "Valued Client"}
-                    </p>
-                    <div className="flex items-center">
-                      <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                        {currentUser?.clientType === "OFW" ? "OFW Client" : "Client Portal"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPortalTab("profile")}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-[4px] text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-neutral-200/60 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
-                  >
-                    <SettingsIcon className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Settings</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-[4px] text-xs font-mono font-semibold text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer"
-                  >
-                    <LogOutIcon className="w-3.5 h-3.5" />
-                    <span>Log Out</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
       </aside>
 
-      {/* Right Content Area (Admin Matching Header & Workspace) */}
+      {/* Main Workspace Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-        {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 h-14 bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-md border-b border-neutral-200 dark:border-white/5 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 transition-colors select-none">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            {/* Hamburger Button for Mobile Drawer */}
+        {/* Top Header Bar (Matching Desktop Monitor 1 Inspo) */}
+        <header className="sticky top-0 z-30 h-16 bg-white/90 dark:bg-[#080a0e]/90 backdrop-blur-md border-b border-neutral-200 dark:border-white/5 px-4 sm:px-6 flex items-center justify-between gap-3 transition-colors select-none">
+          {/* Left: Mobile hamburger & Active project selector pill */}
+          <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-[4px] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+              className="lg:hidden p-2 rounded-[8px] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
               aria-label="Open Sidebar"
             >
-              <MenuIcon className="w-5 h-5" />
+              <Menu className="w-5 h-5" />
             </button>
 
-            {/* Mobile Branding & Active Tab Indicator */}
-            <div className="lg:hidden flex items-center gap-2 min-w-0">
-              <div className="relative w-20 h-6 shrink-0">
-                <Image
-                  src="/assets/mcpa-logo.svg"
-                  alt="MCPA"
-                  fill
-                  priority
-                  unoptimized
-                  className="object-contain object-left block dark:hidden"
-                  sizes="80px"
-                />
-                <Image
-                  src="/assets/logo-white.svg"
-                  alt="MCPA"
-                  fill
-                  priority
-                  unoptimized
-                  className="object-contain object-left hidden dark:block"
-                  sizes="80px"
-                />
+            {/* Active Project Breadcrumb (Only rendered when a project is mobilized) */}
+            {siteProject && (
+              <div className="hidden sm:flex items-center gap-2 text-xs font-mono">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <span className="font-bold text-neutral-900 dark:text-white truncate max-w-[200px]">
+                  {siteProject.name}
+                </span>
+                <span className="text-neutral-400 text-[11px]">
+                  ({siteProject.project_code})
+                </span>
               </div>
-              <span className="text-neutral-300 dark:text-neutral-700 select-none text-xs">/</span>
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 truncate">
-                {currentTabInfo.label}
-              </span>
-            </div>
+            )}
+          </div>
 
-            {/* Desktop Collapse/Expand Toggle */}
-            <button
-              type="button"
-              onClick={toggleSidebarCollapse}
-              className="hidden lg:flex p-1.5 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-              title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {isSidebarCollapsed ? (
-                <ChevronRightIcon className="w-4 h-4" />
-              ) : (
-                <ChevronLeftIcon className="w-4 h-4" />
-              )}
-            </button>
-
-            {/* Desktop Breadcrumb */}
-            <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-neutral-400">
-              <span>MCPA</span>
-              <span>/</span>
-              <span className="text-neutral-500">Client Console</span>
-              <span>/</span>
-              <span className="font-bold text-neutral-900 dark:text-white uppercase tracking-wider">
-                {currentTabInfo.label}
-              </span>
+          {/* Center: Global Search Bar */}
+          <div className="flex-1 max-w-md mx-2 sm:mx-4">
+            <div className="relative flex items-center">
+              <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3.5 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search projects, files, or keywords..."
+                className="w-full pl-9 pr-4 py-1.5 rounded-full bg-neutral-100 dark:bg-white/5 border border-transparent focus:border-amber-500 focus:outline-none text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 font-mono transition-all"
+              />
             </div>
           </div>
 
-          {/* Right Header Utilities: Authoritative Clock, View Site, New Inquiry */}
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            {/* Live Authoritative PHT Clock */}
-            <div className="hidden md:flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-400 border-r border-neutral-200 dark:border-white/10 pr-3 sm:pr-4">
-              <ClockIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <span>
-                {dateStr} • {timeStr} {timezoneCode}
-              </span>
+          {/* Right Utilities: Clock, Theme, Bell */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Real-time Authoritative Server-Synced Clock */}
+            {timeStr && (
+              <div
+                className="flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-400 select-none py-1"
+                title={
+                  hasClockSkew
+                    ? `System Time Verified (PHT). Device clock differs by ${skewText}, auto-corrected via server.`
+                    : "Philippine Standard Time (PHT) · Real-time Server Synced"
+                }
+              >
+                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="tabular-nums text-neutral-600 dark:text-neutral-300">
+                  <span className="hidden sm:inline">{dateStr} · </span>
+                  <span className="text-neutral-800 dark:text-neutral-200 font-medium">
+                    {timeStr}
+                  </span>
+                  <span className="text-neutral-400 dark:text-neutral-500 ml-1 text-[11px]">
+                    {timezoneCode}
+                  </span>
+                </span>
+              </div>
+            )}
+
+            {/* Hairline divider */}
+            <div className="h-4 w-px bg-neutral-200 dark:bg-white/10 hidden sm:block" />
+
+            {/* Notification Bell (Swapped: Now positioned before Theme Toggle) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => showToast("All system inspection telemetries are up to date.")}
+                className="p-1.5 rounded-none hover:bg-neutral-100 dark:hover:bg-white/5 text-neutral-600 dark:text-neutral-300 border border-transparent hover:border-neutral-200 dark:hover:border-white/10 transition-colors cursor-pointer"
+                title="Notifications"
+                aria-label="Notifications"
+              >
+                <Bell className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* View Public Website */}
-            <Link
-              href="/"
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
-              title="Return to Public Website"
-            >
-              <span>View Site</span>
-              <ExternalLinkIcon className="w-3.5 h-3.5" />
-            </Link>
-
-            {/* Submit New Inquiry CTA Button */}
+            {/* Dark & Light Theme Architectural Toggle Switch (Strictly Non-Curved / Sharp Geometric Box) */}
             <button
               type="button"
-              onClick={() => setIsInquiryModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors shadow-xs cursor-pointer"
+              role="switch"
+              aria-checked={isDarkMode}
+              onClick={toggleTheme}
+              className="relative inline-flex items-center h-7 w-14 rounded-none bg-neutral-200 dark:bg-[#141722] border border-neutral-300 dark:border-white/15 p-0.5 transition-colors cursor-pointer select-none focus:outline-none focus:ring-1 focus:ring-amber-500"
+              title={`Switch to ${isDarkMode ? "Light" : "Dark"} Mode`}
+              aria-label="Toggle Dark and Light Mode"
             >
-              <PlusIcon className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">New Inquiry</span>
+              {/* Stationary Background Track Icons */}
+              <div className="w-full flex items-center justify-between px-1.5 pointer-events-none">
+                <Sun className={`w-3 h-3 transition-opacity duration-200 ${!isDarkMode ? "opacity-0" : "text-neutral-400 opacity-60"}`} />
+                <Moon className={`w-3 h-3 transition-opacity duration-200 ${isDarkMode ? "opacity-0" : "text-neutral-500 opacity-60"}`} />
+              </div>
+
+              {/* Sliding Angular / Non-Curved Thumb */}
+              <div
+                className={`absolute top-0.5 bottom-0.5 w-6 rounded-none flex items-center justify-center transition-transform duration-200 ease-out shadow-xs ${
+                  isDarkMode
+                    ? "translate-x-7 bg-amber-500 text-neutral-950 border border-amber-400"
+                    : "translate-x-0 bg-white text-amber-600 border border-neutral-300"
+                }`}
+              >
+                {isDarkMode ? (
+                  <Moon className="w-3.5 h-3.5 stroke-[2.5]" />
+                ) : (
+                  <Sun className="w-3.5 h-3.5 stroke-[2.5]" />
+                )}
+              </div>
             </button>
           </div>
         </header>
 
-        {/* Main Console Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
-          {/* Top Title Banner */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-200 dark:border-white/5 pb-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
-                {portalTab === "overview" && "Dashboard Overview"}
-                {portalTab === "inquiries" && "My Consultation Inquiries"}
-                {portalTab === "construction" && "Active Site Progress"}
-                {portalTab === "profile" && "Client Profile & Settings"}
-              </h1>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                MCPA Construction Client Console — Live Architectural Operations &amp; Consultations
-              </p>
-            </div>
-
-            {/* Quick Status Pill */}
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-[4px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-xs font-mono font-bold flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <span>{activeInquiriesCount} Active / Quota 3</span>
-              </span>
-            </div>
-          </div>
-
+        {/* Main Content Body */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto pb-24 md:pb-8">
           {/* ========================================================================= */}
-          {/* TAB 1: EXECUTIVE DASHBOARD OVERVIEW                                        */}
+          {/* TAB 1: EXECUTIVE DASHBOARD OVERVIEW (Matching Desktop Monitor 1)           */}
           {/* ========================================================================= */}
           {portalTab === "overview" && (
             <div className="space-y-6">
-              {/* 4 Metric KPI Cards (Admin Layout Ergonomics) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* 1. Active Inquiries */}
-                <div className="p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-neutral-500 text-[11px] font-mono uppercase tracking-wider">
-                    <span>Active Inquiries</span>
-                    <FolderKanbanIcon className="w-4 h-4 text-amber-500" />
-                  </div>
-                  <div className="mt-3">
-                    <span className="text-2xl font-bold font-mono text-neutral-900 dark:text-white">
-                      {inquiries.length}
-                    </span>
-                    <p className="text-[11px] text-neutral-400 font-mono mt-0.5">
-                      {activeInquiriesCount} awaiting review
-                    </p>
-                  </div>
-                </div>
+              {siteProject ? (
+                <>
+                  {/* Top Row: 3 Key Header Cards (From Desktop Inspo) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {/* Card 1: Project Investment Balance */}
+                    <PortalHeroFinancialCard
+                      billingLedger={billingLedger}
+                      contractValue={siteProject.contract_value || null}
+                      onViewBilling={() => setPortalTab("billing")}
+                      onScheduleSite={() => setIsInquiryModalOpen(true)}
+                    />
 
-                {/* 2. Scheduled Consultations */}
-                <div className="p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-neutral-500 text-[11px] font-mono uppercase tracking-wider">
-                    <span>Consultation Slot</span>
-                    <CalendarIcon className="w-4 h-4 text-sky-500" />
+                    {/* Card 2: Overall Progress (Radial circular ring) */}
+                    <PortalOverallProgressCard
+                      progressPct={siteProject.progress_pct || 0}
+                      nextMilestone={siteProject.current_phase || "Roofing & MEP Handover"}
+                      targetDate="Dec 2026"
+                    />
+
+                    {/* Card 3: On-Site Weather */}
+                    <PortalOnSiteWeatherCard
+                      temperature="31°C"
+                      condition="Sunny"
+                      subtext="Optimal conditions for concrete curing"
+                      location={`${siteProject.location || "Taguig Site"}`}
+                    />
                   </div>
-                  <div className="mt-3">
-                    <span className="text-2xl font-bold font-mono text-neutral-900 dark:text-white">
-                      {scheduledMeetingBrief ? "1 Active" : "0 Pending"}
-                    </span>
-                    <p className="text-[11px] text-neutral-400 font-mono mt-0.5 truncate">
-                      {scheduledMeetingBrief?.meeting_date
-                        ? `${scheduledMeetingBrief.meeting_date}`
-                        : "Awaiting architect confirmation"}
-                    </p>
-                  </div>
-                </div>
 
-                {/* 3. Site Execution Progress */}
-                <div className="p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-neutral-500 text-[11px] font-mono uppercase tracking-wider">
-                    <span>Site Turnover</span>
-                    <BuildingIcon className="w-4 h-4 text-emerald-500" />
-                  </div>
-                  <div className="mt-3">
-                    <span className="text-2xl font-bold font-mono text-neutral-900 dark:text-white">
-                      {siteProject ? `${siteProject.progress_pct}%` : "0%"}
-                    </span>
-                    <p className="text-[11px] text-neutral-400 font-mono mt-0.5">
-                      {siteProject ? siteProject.name : "Pre-construction & planning"}
-                    </p>
-                  </div>
-                </div>
+                  {/* Second Row: 8 cols left, 4 cols right (From Desktop Inspo) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
+                    {/* Left Column (8 cols): Milestones + Live Timeline */}
+                    <div className="lg:col-span-8 space-y-6">
+                      <PortalMilestoneStepper
+                        milestones={siteMilestones}
+                        overallPct={siteProject.progress_pct || 0}
+                        currentPhase={siteProject.current_phase}
+                        onViewAll={() => setPortalTab("construction")}
+                      />
 
-                {/* 4. Submission Quota */}
-                <div className="p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-neutral-500 text-[11px] font-mono uppercase tracking-wider">
-                    <span>Quota Allowance</span>
-                    <ShieldCheckIcon className="w-4 h-4 text-amber-500" />
-                  </div>
-                  <div className="mt-3">
-                    <span className="text-2xl font-bold font-mono text-neutral-900 dark:text-white">
-                      {activeInquiriesCount} / 3
-                    </span>
-                    <p className="text-[11px] text-neutral-400 font-mono mt-0.5">
-                      {3 - activeInquiriesCount} submission slots free
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Two-Column Workspace Layout (Left: Primary Inquiry / SAAD Stepper; Right: Meeting & Office) */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left 2 Columns: Primary Project & Workflow Stages */}
-                <div className="lg:col-span-2 space-y-6">
-                  {primaryBrief ? (
-                    <div className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-6 shadow-xs space-y-5">
-                      {/* Card Header */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-200 dark:border-white/5 pb-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                              REF: {primaryBrief.submission_id || primaryBrief.submissionId || "MCPA-CPB-000000"}
-                            </span>
-                            {primaryBrief.client_portal_code && (
-                              <span className="px-2 py-0.5 rounded-[3px] bg-neutral-100 dark:bg-white/10 text-[9.5px] font-mono font-bold">
-                                CODE: {primaryBrief.client_portal_code}
-                              </span>
-                            )}
-                          </div>
-                          <h2 className="text-lg font-bold text-neutral-900 dark:text-white">
-                            {primaryBrief.project_type || primaryBrief.projectType || "Residential Villa / Two-Storey"}
-                          </h2>
-                          <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono mt-0.5">
-                            Style: {primaryBrief.preferred_style || "Minimalist Japanese Zen"} • Budget:{" "}
-                            {primaryBrief.budget_range || "Custom"}
-                          </p>
-                        </div>
-
-                        {/* Status Badge */}
-                        <div>
-                          <span
-                            className={`px-3 py-1 rounded-[4px] text-xs font-mono font-bold uppercase tracking-wider inline-flex items-center gap-1.5 ${
-                              (primaryBrief.status || "").includes("Approved")
-                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
-                                : (primaryBrief.status || "").includes("Meeting")
-                                ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/30"
-                                : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
-                            }`}
-                          >
-                            <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
-                            {primaryBrief.status || "Pending Review"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 5-Phase Workflow Stepper */}
-                      <div>
-                        <span className="block text-[10px] font-mono uppercase text-neutral-400 mb-2">
-                          SAAD Flowchart Workflow Stage:
-                        </span>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-[10px] font-mono">
-                          {[
-                            {
-                              step: "1. Lodged",
-                              isDone: true,
-                              isActive: (primaryBrief.status || "Pending Review") === "Pending Review",
-                            },
-                            {
-                              step: "2. Arch Review",
-                              isDone: (primaryBrief.status || "") !== "Pending Review",
-                              isActive: (primaryBrief.status || "") === "Pending Review",
-                            },
-                            {
-                              step: "3. Consultation",
-                              isDone:
-                                (primaryBrief.status || "").includes("Meeting") ||
-                                (primaryBrief.status || "").includes("Approved"),
-                              isActive: (primaryBrief.status || "").includes("Meeting"),
-                            },
-                            {
-                              step: "4. Cost Estimate",
-                              isDone: Boolean(
-                                primaryBrief.quotation_amount ||
-                                  (primaryBrief.status || "").includes("Approved")
-                              ),
-                              isActive: Boolean(primaryBrief.quotation_amount),
-                            },
-                            {
-                              step: "5. Site Mobilization",
-                              isDone: (primaryBrief.status || "").includes("Approved"),
-                              isActive: (primaryBrief.status || "").includes("Approved"),
-                            },
-                          ].map((st, sidx) => (
-                            <div
-                              key={sidx}
-                              className={`p-2 rounded-[4px] border ${
-                                st.isActive
-                                  ? "bg-amber-500 text-neutral-950 border-amber-500 font-bold"
-                                  : st.isDone
-                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-semibold"
-                                  : "bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-400"
-                              }`}
-                            >
-                              {st.step}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Consultation Itinerary & Geolocation Cards */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                        {/* Consultation Itinerary */}
-                        <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5 space-y-2">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                            <CalendarIcon className="w-3.5 h-3.5" />
-                            Consultation Itinerary
-                          </span>
-                          <div className="text-xs space-y-1">
-                            <p className="font-semibold text-neutral-800 dark:text-neutral-200">
-                              Mode: {primaryBrief.meeting_mode || "Online Video Call"}
-                            </p>
-                            <p className="text-neutral-600 dark:text-neutral-400">
-                              Slot: {primaryBrief.meeting_date || "Earliest Slot"} (
-                              {primaryBrief.meeting_time || "02:00 PM - 03:30 PM PHT"})
-                            </p>
-                            <p className="text-[11px] font-mono text-amber-600 dark:text-amber-400">
-                              Status: {primaryBrief.availability_status || "Pending Availability Confirmation"}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Property Geolocation */}
-                        <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5 space-y-2">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
-                            <MapPinIcon className="w-3.5 h-3.5 text-amber-500" />
-                            Property Geolocation
-                          </span>
-                          <div className="text-xs space-y-1">
-                            <p className="font-semibold text-neutral-800 dark:text-neutral-200 truncate">
-                              {primaryBrief.location || "San Jose Del Monte, Bulacan"}
-                            </p>
-                            <p className="text-neutral-600 dark:text-neutral-400">
-                              Lot Area: {primaryBrief.lot_area || "N/A"} • Status:{" "}
-                              {primaryBrief.lot_status || "Titled"}
-                            </p>
-                            {primaryBrief.map_coordinates && (
-                              <div className="pt-1 flex items-center justify-between">
-                                <span className="text-[11px] font-mono text-neutral-500">
-                                  GPS: {primaryBrief.map_coordinates}
-                                </span>
-                                <a
-                                  href={`https://www.google.com/maps/search/?api=1&query=${primaryBrief.map_coordinates}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:underline"
-                                >
-                                  <span>View on Map</span>
-                                  <ExternalLinkIcon className="w-3 h-3" />
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <PortalLiveTimeline
+                        photoLogs={sitePhotos}
+                        onSelectPhoto={() => setPortalTab("gallery")}
+                        onViewAll={() => setPortalTab("gallery")}
+                      />
                     </div>
-                  ) : (
-                    /* Empty Standby Card */
-                    <div className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-10 text-center space-y-3">
-                      <div className="w-12 h-12 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto">
-                        <FolderKanbanIcon className="w-6 h-6" />
-                      </div>
-                      <h3 className="text-sm font-mono font-bold text-neutral-900 dark:text-white uppercase tracking-wider">
-                        No In-Progress Projects Yet
-                      </h3>
-                      <p className="text-xs text-neutral-500 max-w-sm mx-auto">
-                        Submit an architectural consultation brief to begin engineering evaluation and schedule your design meeting.
-                      </p>
+
+                    {/* Right Column (4 cols): Project Specs + Site Supervisor */}
+                    <div className="lg:col-span-4 space-y-6">
+                      <PortalProjectSpecsCard
+                        project={siteProject}
+                        overallPct={siteProject.progress_pct || 0}
+                        onOpenVirtualTour={() => {
+                          if (siteProject.virtual_tour_url) {
+                            window.open(siteProject.virtual_tour_url, "_blank");
+                          }
+                        }}
+                      />
+
+                      <PortalSiteSupervisorCard
+                        leadEngineer={siteProject.lead_engineer || "Engr. Aris Reyes"}
+                        phoneNumber="+63 949 775 8239"
+                        email="aris.reyes@mcpaprojects.ph"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Authentic Standby & Consultation State when no site project is mobilized yet */
+                <div className="space-y-6">
+                  {/* Primary Animated Empty State with LottieFiles */}
+                  <PortalEmptyState
+                    type="construction"
+                    badge="Ready for Mobilization"
+                    title="No Construction Site Mobilized Yet"
+                    description="Gantt milestones, daily photos, and progress billing will stream here once site mobilization begins."
+                    secondaryAction={
                       <button
                         type="button"
-                        onClick={() => setIsInquiryModalOpen(true)}
-                        className="px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider font-mono inline-flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
+                        onClick={() => setPortalTab("inquiries")}
+                        className="px-4 py-2.5 rounded-[10px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-900 dark:text-white font-mono font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer inline-flex items-center gap-2"
                       >
-                        <PlusIcon className="w-4 h-4" />
-                        <span>Start First Project Brief</span>
+                        <FolderKanban className="w-4 h-4" />
+                        <span>My Inquiries ({inquiries.length})</span>
                       </button>
-                    </div>
-                  )}
+                    }
+                  />
 
-                  {/* Recent Inquiries List Table (Admin Flavor) */}
-                  {inquiries.length > 0 && (
-                    <div className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-5 shadow-xs space-y-3">
+                  {/* 3-Step Mobilization Roadmap Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 sm:p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-1.5 transition-colors">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
-                          Recent Inquiries ({inquiries.length} total)
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={() => setPortalTab("inquiries")}
-                          className="text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
-                        >
-                          View All Inquiries →
-                        </button>
+                        <span className="text-amber-600 dark:text-amber-400 font-mono font-bold text-sm">
+                          01
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400 uppercase">Step One</span>
                       </div>
-
-                      <div className="divide-y divide-neutral-100 dark:divide-white/5">
-                        {inquiries.slice(0, 3).map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="py-3 flex items-center justify-between gap-3 text-xs"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-8 h-8 rounded-[4px] bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300 font-mono font-bold text-xs flex items-center justify-center shrink-0">
-                                {idx + 1}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-bold text-neutral-900 dark:text-white truncate">
-                                  {item.project_type || "Custom Build"}
-                                </p>
-                                <p className="text-[11px] text-neutral-500 font-mono truncate">
-                                  {item.submission_id || "MCPA-CPB"} • {item.location || "Bulacan"}
-                                </p>
-                              </div>
-                            </div>
-                            <span
-                              className={`px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold uppercase shrink-0 ${
-                                (item.status || "").includes("Approved")
-                                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                                  : (item.status || "").includes("Meeting")
-                                  ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
-                                  : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                              }`}
-                            >
-                              {item.status || "Pending Review"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right 1 Column: Scheduled Consultations & MCPA Headquarters (Admin Style) */}
-                <div className="space-y-6">
-                  {/* Scheduled Consultations Card */}
-                  <div className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-5 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
-                        Scheduled Consultations
-                      </h3>
-                      <span className="px-1.5 py-0.5 rounded-[3px] bg-sky-500/15 text-sky-700 dark:text-sky-400 text-[10px] font-mono font-bold">
-                        GOOGLE MEET
-                      </span>
+                      <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
+                        Consultation &amp; Lot Survey
+                      </h4>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Submit brief with lot coordinates for architectural and soil review.
+                      </p>
                     </div>
 
-                    {scheduledMeetingBrief ? (
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-sm font-bold text-neutral-900 dark:text-white">
-                            {currentUser.fullName || "Valued Client"}
-                          </p>
-                          <p className="text-xs text-neutral-500 font-mono">
-                            {scheduledMeetingBrief.project_type || "Residential Project Consultation"}
-                          </p>
-                        </div>
-
-                        <div className="p-3 rounded-[4px] bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5 text-xs font-mono space-y-1">
-                          <div className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300">
-                            <CalendarIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                            <span>
-                              {scheduledMeetingBrief.meeting_date || "2026-10-15"} •{" "}
-                              {scheduledMeetingBrief.meeting_time || "02:00 PM - 03:30 PM PHT"}
-                            </span>
-                          </div>
-                        </div>
-
-                        {scheduledMeetingBrief.meeting_link ? (
-                          <a
-                            href={scheduledMeetingBrief.meeting_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full py-2.5 px-4 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-colors"
-                          >
-                            <VideoIcon className="w-4 h-4" />
-                            <span>JOIN GOOGLE MEET ROOM →</span>
-                          </a>
-                        ) : (
-                          <div className="w-full py-2.5 px-4 rounded-[4px] bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300 font-mono text-xs text-center border border-neutral-200 dark:border-white/10">
-                            Session Confirmed • Meeting Link Active on Call Day
-                          </div>
-                        )}
-
-                        {scheduledMeetingBrief.meeting_notes && (
-                          <div className="pt-1">
-                            <span className="block text-[10px] font-mono uppercase text-neutral-400">
-                              Architectural Meeting Note:
-                            </span>
-                            <p className="text-xs text-neutral-600 dark:text-neutral-400 italic mt-0.5">
-                              &ldquo;{scheduledMeetingBrief.meeting_notes}&rdquo;
-                            </p>
-                          </div>
-                        )}
+                    <div className="p-4 sm:p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-1.5 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <span className="text-amber-600 dark:text-amber-400 font-mono font-bold text-sm">
+                          02
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400 uppercase">Step Two</span>
                       </div>
-                    ) : (
-                      <div className="p-6 text-center space-y-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-dashed border-neutral-200 dark:border-white/10">
-                        <ClockIcon className="w-6 h-6 text-neutral-400 mx-auto" />
-                        <p className="text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300">
-                          No Consultations Booked
-                        </p>
-                        <p className="text-[11px] text-neutral-400">
-                          Submit your architectural brief to select a virtual or in-person consultation slot.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Inquiry Status Summary (Admin Style) */}
-                  <div className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-5 shadow-xs space-y-3">
-                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
-                      Inquiry Summary
-                    </h3>
-                    <div className="space-y-2 text-xs font-mono">
-                      <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
-                        <span>Total Inquiries Submitted</span>
-                        <strong className="text-neutral-900 dark:text-white">{inquiries.length}</strong>
-                      </div>
-                      <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
-                        <span>Pending Architectural Review</span>
-                        <strong className="text-amber-600 dark:text-amber-400">
-                          {inquiries.filter((b) => (b.status || "").includes("Pending")).length}
-                        </strong>
-                      </div>
-                      <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
-                        <span>Meetings Set</span>
-                        <strong className="text-sky-600 dark:text-sky-400">
-                          {inquiries.filter((b) => (b.status || "").includes("Meeting")).length}
-                        </strong>
-                      </div>
-                      <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
-                        <span>Approved &amp; Mobilized</span>
-                        <strong className="text-emerald-600 dark:text-emerald-400">
-                          {inquiries.filter((b) => (b.status || "").includes("Approved")).length}
-                        </strong>
-                      </div>
+                      <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
+                        Blueprint &amp; Cost Estimation
+                      </h4>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Structural engineering, bill of quantities (BOQ), and city permits.
+                      </p>
                     </div>
-                  </div>
 
-                  {/* MCPA Headquarters / Support Desk (Admin Style) */}
-                  <div className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-5 shadow-xs space-y-3">
-                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
-                      MCPA Headquarters
-                    </h3>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex items-start gap-2 text-neutral-600 dark:text-neutral-400">
-                        <MapPinIcon className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                        <span>2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan</span>
+                    <div className="p-4 sm:p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-1.5 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <span className="text-amber-600 dark:text-amber-400 font-mono font-bold text-sm">
+                          03
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400 uppercase">Step Three</span>
                       </div>
-                      <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 font-mono">
-                        <PhoneIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span>Hotline: +63 949 775 8239</span>
-                      </div>
-                      <div className="pt-2 border-t border-neutral-100 dark:border-white/5">
-                        <a
-                          href="mailto:contact@mcpaconstruction.com"
-                          className="text-xs font-mono text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
-                        >
-                          <span>contact@mcpaconstruction.com</span>
-                          <ExternalLinkIcon className="w-3 h-3" />
-                        </a>
-                      </div>
+                      <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
+                        Live Site Telemetry
+                      </h4>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        On-site execution with 4K inspections and progress billing releases.
+                      </p>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 2: INQUIRIES & DETAILED CONSULTATIONS                                   */}
+          {/* TAB 2: PROJECTS & SITE PROGRESS (Matching Mobile & Tablet Screen 2)         */}
+          {/* ========================================================================= */}
+          {portalTab === "construction" && (
+            <div className="space-y-6">
+              {siteProject ? (
+                <>
+                  <PortalMilestoneStepper
+                    milestones={siteMilestones}
+                    overallPct={siteProject.progress_pct || 0}
+                    currentPhase={siteProject.current_phase}
+                  />
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
+                    <div className="lg:col-span-7">
+                      <PortalProjectSpecsCard
+                        project={siteProject}
+                        overallPct={siteProject.progress_pct || 0}
+                        onOpenVirtualTour={() => {
+                          if (siteProject.virtual_tour_url) {
+                            window.open(siteProject.virtual_tour_url, "_blank");
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="lg:col-span-5">
+                      <PortalSiteSupervisorCard
+                        leadEngineer={siteProject.lead_engineer || "Engr. Aris Reyes"}
+                        phoneNumber="+63 949 775 8239"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <PortalEmptyState
+                  type="milestones"
+                  badge="Gantt Roadmap"
+                  title="No Milestones Scheduled"
+                  description="Milestone checklists and inspection sign-offs will stream here once site works begin."
+                  actionButton={
+                    <button
+                      type="button"
+                      onClick={() => setIsInquiryModalOpen(true)}
+                      className="px-5 py-2.5 rounded-[10px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer shadow-xs inline-flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4 stroke-[2.5]" />
+                      <span>Start Construction Consultation</span>
+                    </button>
+                  }
+                />
+              )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 3: SITE PHOTO GALLERY & DAILY LOGS (Matching Screen 3 Inspo)           */}
+          {/* ========================================================================= */}
+          {portalTab === "gallery" && (
+            <div className="space-y-6">
+              <PortalSiteGallerySection
+                photos={sitePhotos}
+                projectCode={siteProject?.project_code || "PRJ-ACTIVE"}
+              />
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 4: PROGRESS BILLING & ESCROW (Matching Screen 4 Inspo)                 */}
+          {/* ========================================================================= */}
+          {portalTab === "billing" && (
+            <div className="space-y-6">
+              <PortalBillingLedgerSection
+                billing={billingLedger}
+                projectCode={siteProject?.project_code || "PRJ-ACTIVE"}
+                onProofUploaded={() => {
+                  if (currentUser?.email) {
+                    fetchClientData(currentUser.email);
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 5: CONSULTATION INQUIRIES                                              */}
           {/* ========================================================================= */}
           {portalTab === "inquiries" && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#101218] p-4 rounded-[6px] border border-neutral-200 dark:border-white/5">
-                <div>
-                  <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
-                    Consultation Briefs Pipeline ({inquiries.length})
-                  </h2>
-                  <p className="text-xs text-neutral-500">
-                    Track your architectural project parameters, lot coordinates, and schedule determinations.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsInquiryModalOpen(true)}
-                  className="px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider font-mono inline-flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
-                >
-                  <PlusIcon className="w-3.5 h-3.5" />
-                  <span>Submit New Inquiry</span>
-                </button>
+              <div className="bg-white dark:bg-[#101218] p-4 rounded-[16px] border border-neutral-200 dark:border-white/5 transition-colors">
+                <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+                  Consultation Briefs Pipeline ({inquiries.length})
+                </h2>
+                <p className="text-xs text-neutral-500">
+                  Track your architectural project parameters, lot coordinates, and schedule determinations.
+                </p>
               </div>
 
               {isLoadingInquiries ? (
@@ -1420,26 +1173,22 @@ function ClientPortalContent() {
                   Loading your consultation briefs...
                 </div>
               ) : inquiries.length === 0 ? (
-                <div className="rounded-[8px] bg-white dark:bg-[#0f121a] border border-neutral-200 dark:border-white/10 p-12 text-center space-y-4">
-                  <div className="w-12 h-12 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-xs">
-                    <FolderKanbanIcon className="w-6 h-6 animate-pulse" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-                      No Active Inquiries Found
-                    </h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto mt-1">
-                      You have not submitted any architectural project briefs yet. Click the button below to start your dream design and build consultation.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsInquiryModalOpen(true)}
-                    className="px-6 py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider cursor-pointer shadow-xs inline-flex items-center gap-2"
-                  >
-                    <span>Start First Project Inquiry</span>
-                  </button>
-                </div>
+                <PortalEmptyState
+                  type="messages"
+                  badge="Inquiry Pipeline"
+                  title="No Active Consultation Inquiries"
+                  description="Submit your architectural brief to start your design consultation with MCPA engineers."
+                  actionButton={
+                    <button
+                      type="button"
+                      onClick={() => setIsInquiryModalOpen(true)}
+                      className="px-6 py-2.5 rounded-[10px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider cursor-pointer shadow-xs inline-flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4 stroke-[2.5]" />
+                      <span>Start First Project Inquiry</span>
+                    </button>
+                  }
+                />
               ) : (
                 <div className="grid grid-cols-1 gap-6">
                   {inquiries.map((brief, idx) => {
@@ -1450,9 +1199,8 @@ function ClientPortalContent() {
                     return (
                       <div
                         key={id}
-                        className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-6 sm:p-7 shadow-xs space-y-5"
+                        className="rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-6 sm:p-7 shadow-xs space-y-5 transition-colors"
                       >
-                        {/* Card Header */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-200 dark:border-white/5 pb-4">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
@@ -1460,8 +1208,8 @@ function ClientPortalContent() {
                                 Ref: {id}
                               </span>
                               {brief.client_portal_code && (
-                                <span className="px-2 py-0.5 rounded-[3px] bg-neutral-100 dark:bg-white/10 text-[9.5px] font-mono font-bold">
-                                  CODE: {brief.client_portal_code}
+                                <span className="text-[10px] font-mono font-bold text-neutral-400">
+                                  • CODE: {brief.client_portal_code}
                                 </span>
                               )}
                             </div>
@@ -1474,131 +1222,43 @@ function ClientPortalContent() {
                             </p>
                           </div>
 
-                          {/* Status Badge */}
                           <div>
-                            <span
-                              className={`px-3 py-1 rounded-[4px] text-xs font-mono font-bold uppercase tracking-wider inline-flex items-center gap-1.5 ${
-                                status.includes("Approved")
-                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
-                                  : status.includes("Meeting")
-                                  ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/30"
-                                  : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
-                              }`}
-                            >
-                              <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                            <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                               {status}
                             </span>
                           </div>
                         </div>
 
-                        {/* 5-Phase Workflow Stepper */}
-                        <div>
-                          <span className="block text-[10px] font-mono uppercase text-neutral-400 mb-2">
-                            SAAD Flowchart Workflow Stage:
-                          </span>
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-[10px] font-mono">
-                            {[
-                              { step: "1. Lodged", isDone: true, isActive: status === "Pending Review" },
-                              { step: "2. Arch Review", isDone: status !== "Pending Review", isActive: status === "Pending Review" },
-                              {
-                                step: "3. Consultation",
-                                isDone: status.includes("Meeting") || status.includes("Approved"),
-                                isActive: status.includes("Meeting"),
-                              },
-                              {
-                                step: "4. Cost Estimate",
-                                isDone: Boolean(brief.quotation_amount || status.includes("Approved")),
-                                isActive: Boolean(brief.quotation_amount),
-                              },
-                              {
-                                step: "5. Site Mobilization",
-                                isDone: status.includes("Approved"),
-                                isActive: status.includes("Approved"),
-                              },
-                            ].map((st, sidx) => (
-                              <div
-                                key={sidx}
-                                className={`p-2 rounded-[4px] border ${
-                                  st.isActive
-                                    ? "bg-amber-500 text-neutral-950 border-amber-500 font-bold"
-                                    : st.isDone
-                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-semibold"
-                                    : "bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-400"
-                                }`}
-                              >
-                                {st.step}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
                         {/* Meeting Itinerary & Pinned Lot Details */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                          {/* Consultation Box */}
-                          <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5 space-y-2">
+                          <div className="p-4 rounded-[12px] bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5 space-y-2">
                             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                              <CalendarIcon className="w-3.5 h-3.5" />
+                              <Calendar className="w-3.5 h-3.5" />
                               Consultation Itinerary
                             </span>
                             <div className="text-xs space-y-1">
                               <p className="font-semibold text-neutral-800 dark:text-neutral-200">
                                 Mode: {brief.venue_type ? `In-Person (${brief.venue_type})` : brief.meeting_mode || "Online Meeting"}
                               </p>
-                              {brief.venue_details && (
-                                <p className="text-neutral-600 dark:text-neutral-400">
-                                  <strong>Venue:</strong> {brief.venue_details}
-                                </p>
-                              )}
                               <p className="text-neutral-600 dark:text-neutral-400">
-                                <strong>Slot:</strong> {brief.meeting_date || "Earliest Slot"} (
-                                {brief.meeting_time || "02:00 PM PHT"})
+                                Slot: {brief.meeting_date || "Earliest Available"} ({brief.meeting_time || "02:00 PM PHT"})
                               </p>
-                              <p className="text-[11px] font-mono text-amber-600 dark:text-amber-400">
-                                Status: {brief.availability_status || "Pending Availability Confirmation"}
-                              </p>
-                              {brief.meeting_link && (
-                                <a
-                                  href={brief.meeting_link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-xs text-sky-600 dark:text-sky-400 hover:underline font-mono pt-1"
-                                >
-                                  <VideoIcon className="w-3.5 h-3.5" />
-                                  <span>Join Google Meet Session →</span>
-                                </a>
-                              )}
                             </div>
                           </div>
 
-                          {/* Property & Coordinates Box */}
-                          <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5 space-y-2">
+                          <div className="p-4 rounded-[12px] bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5 space-y-2">
                             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
-                              <MapPinIcon className="w-3.5 h-3.5 text-amber-500" />
+                              <MapPin className="w-3.5 h-3.5 text-amber-500" />
                               Property Geolocation
                             </span>
                             <div className="text-xs space-y-1">
                               <p className="font-semibold text-neutral-800 dark:text-neutral-200">
-                                Location: {brief.location || "Bulacan"}
+                                Location: {brief.location || "Philippines"}
                               </p>
                               <p className="text-neutral-600 dark:text-neutral-400">
-                                Lot Area: {brief.lot_area || "N/A"} • Status: {brief.lot_status || "Titled"}
+                                Lot Area: {brief.lot_area || "N/A"}
                               </p>
-                              {mapCoord && (
-                                <div className="pt-1 flex items-center justify-between">
-                                  <span className="text-[11px] font-mono text-neutral-500">
-                                    GPS: {mapCoord}
-                                  </span>
-                                  <a
-                                    href={`https://www.google.com/maps/search/?api=1&query=${mapCoord}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:underline"
-                                  >
-                                    <span>View on Map</span>
-                                    <ExternalLinkIcon className="w-3 h-3" />
-                                  </a>
-                                </div>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -1611,244 +1271,44 @@ function ClientPortalContent() {
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 3: ACTIVE SITE PROGRESS                                               */}
-          {/* ========================================================================= */}
-          {portalTab === "construction" && (
-            <div className="space-y-6">
-              {!siteProject ? (
-                <div className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-12 text-center space-y-3">
-                  <BuildingIcon className="w-10 h-10 text-neutral-400 mx-auto" />
-                  <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-                    No Construction Site Active Yet
-                  </h3>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
-                    Once your consultation is finalized and contract documents are executed, live Gantt milestones, 360° inspection logs, and billing statements will stream here.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Live Progress Card */}
-                  <div className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-6 sm:p-7 space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
-                        <span className="text-[10px] font-mono uppercase text-amber-500 font-bold">
-                          Active Project: {siteProject.project_code}
-                        </span>
-                        <h2 className="text-lg font-bold text-neutral-900 dark:text-white">
-                          {siteProject.name}
-                        </h2>
-                        <p className="text-xs text-neutral-500 font-mono">
-                          Lead Engineer: {siteProject.lead_engineer || "Engr. Quirante"} • Location: {siteProject.location}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-3xl font-extrabold font-mono text-amber-500">
-                          {siteProject.progress_pct || 0}%
-                        </span>
-                        <span className="block text-[10px] font-mono text-neutral-400 uppercase">
-                          Overall Turnover Completion
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="w-full h-3 rounded-[3px] bg-neutral-100 dark:bg-white/10 overflow-hidden">
-                      <div
-                        className="h-full bg-amber-500 transition-all duration-500"
-                        style={{ width: `${siteProject.progress_pct || 0}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Milestones */}
-                  <div className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-6">
-                    <h3 className="text-sm font-mono uppercase font-bold text-neutral-900 dark:text-white mb-4">
-                      Phase Execution Milestones
-                    </h3>
-                    <div className="space-y-3">
-                      {siteMilestones.map((m) => (
-                        <div
-                          key={m.milestone_id}
-                          className="p-3.5 rounded-[4px] bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5 flex items-center justify-between"
-                        >
-                          <div>
-                            <div className="text-xs font-mono font-bold text-neutral-900 dark:text-white">
-                              {m.phase_name}
-                            </div>
-                            <div className="text-[11px] text-neutral-400">
-                              Target Date: {m.target_date || "Scheduled"} • Weight: {m.weight}%
-                            </div>
-                          </div>
-                          <span
-                            className={`px-2.5 py-0.5 rounded-[3px] text-[10px] font-mono font-bold ${
-                              m.status === "Completed"
-                                ? "bg-emerald-500/20 text-emerald-400"
-                                : m.status === "In Progress"
-                                ? "bg-amber-500/20 text-amber-400"
-                                : "bg-neutral-500/10 text-neutral-400"
-                            }`}
-                          >
-                            {m.status} ({m.completion_pct}%)
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 4: CLIENT PROFILE & SETTINGS                                          */}
+          {/* TAB 7: CLIENT EXECUTIVE PROFILE & ARCHITECTURAL DOSSIER                   */}
           {/* ========================================================================= */}
           {portalTab === "profile" && (
-            <div className="max-w-4xl rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-6 sm:p-8 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 dark:border-white/5 pb-4">
-                <div className="flex items-center gap-3.5">
-                  {/* Client Profile Avatar with Free-Will Upload Overlay */}
-                  <div className="relative group shrink-0">
-                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-amber-500/80 bg-neutral-900 shadow-md">
-                      {currentUser.avatarUrl || currentUser.avatar_url ? (
-                        <img
-                          src={currentUser.avatarUrl || currentUser.avatar_url}
-                          alt={currentUser.fullName || "Profile Avatar"}
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                          crossOrigin="anonymous"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-amber-500/20 text-amber-500 font-bold font-mono text-xl">
-                          {(currentUser.fullName || "CL").substring(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      <label
-                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity"
-                        title="Change Profile Picture (Free Will)"
-                      >
-                        <span className="text-[9px] font-mono font-bold uppercase tracking-wider">
-                          {isUploadingPfp ? "Saving..." : "Change"}
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handlePfpUpload}
-                          disabled={isUploadingPfp}
-                        />
-                      </label>
-                    </div>
-                    <div
-                      className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center border-2 border-white dark:border-[#101218]"
-                      title="Profile Picture"
-                    >
-                      <UserIcon className="w-3 h-3" />
-                    </div>
-                  </div>
+            <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-300">
+              {/* 1. Executive Identity Hero Banner */}
+              <div className="relative overflow-hidden rounded-[22px] bg-white dark:bg-[#101218] border border-neutral-200/80 dark:border-white/10 p-6 sm:p-8 shadow-sm transition-colors">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-radial from-amber-500/10 via-transparent to-transparent pointer-events-none -mr-20 -mt-20 blur-2xl" />
 
-                  <div>
-                    <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-                      {currentUser.fullName || "Client Account"}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {currentUser.kycPhotoUrl || currentUser.kyc_photo_url ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-semibold font-mono">
-                          <ShieldCheckIcon className="w-3 h-3" />
-                          <span>Biometric KYC Verified</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10.5px] font-semibold font-mono">
-                          <ShieldCheckIcon className="w-3 h-3" />
-                          <span>Account Verified</span>
-                        </span>
-                      )}
-                      <span className="text-[11px] font-mono text-neutral-400">
-                        ID: #{String(currentUser.userId || currentUser.user_id || "CL").padStart(4, "0")}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <span className="text-xs font-mono text-neutral-400">
-                  Auth:{" "}
-                  <strong className="text-neutral-700 dark:text-neutral-200 uppercase">
-                    {currentUser.authProvider || "Local / Password"}
-                  </strong>
-                </span>
-              </div>
-
-              <div className="space-y-6 text-xs">
-                {/* Dedicated Dual Photos Display: KYC vs PFP */}
-                <div className="p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5 space-y-3">
-                  <h4 className="text-[11px] font-mono uppercase tracking-wider text-neutral-700 dark:text-neutral-300 font-bold flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <ShieldCheckIcon className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Identity Verification &amp; Profile Media</span>
-                    </span>
-                    <span className="text-[9.5px] text-neutral-400 font-normal">
-                      KYC Biometrics ≠ Account Avatar (PFP)
-                    </span>
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Card A: Official Biometric KYC Face Verification Selfie */}
-                    <div className="p-3.5 rounded-lg bg-white dark:bg-[#0f121a] border border-emerald-500/25 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                          <ShieldCheckIcon className="w-3.5 h-3.5" />
-                          <span>Official Biometric KYC Photo</span>
-                        </span>
-                        {currentUser.kycPhotoUrl || currentUser.kyc_photo_url ? (
-                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                            Immutable Record
-                          </span>
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  {/* Left: Avatar & Identity Details */}
+                  <div className="flex items-center gap-4 sm:gap-6 min-w-0">
+                    {/* User Avatar with Hover Change Badge */}
+                    <div className="relative group shrink-0">
+                      <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-amber-500/50 bg-neutral-900 shadow-md">
+                        {(currentUser?.avatarUrl || currentUser?.avatar_url) && !avatarError ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={currentUser.avatarUrl || currentUser.avatar_url}
+                            alt={currentUser.fullName || "Profile Avatar"}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
+                            onError={() => setAvatarError(true)}
+                          />
                         ) : (
-                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                            Live Camera Only
-                          </span>
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-500/20 to-amber-600/30 text-amber-500 font-bold font-mono text-2xl sm:text-3xl">
+                            {(currentUser?.fullName || clientName || "CL").substring(0, 2).toUpperCase()}
+                          </div>
                         )}
-                      </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className="relative w-16 h-16 rounded-md overflow-hidden border border-emerald-500/40 bg-neutral-900 shrink-0">
-                          {currentUser.kycPhotoUrl || currentUser.kyc_photo_url ? (
-                            <img
-                              src={currentUser.kycPhotoUrl || currentUser.kyc_photo_url}
-                              alt="Biometric KYC Face Verification"
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                              crossOrigin="anonymous"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-emerald-500/10 text-emerald-500">
-                              <ShieldCheckIcon className="w-5 h-5" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 text-[11px] font-mono space-y-1">
-                          <p className="text-neutral-800 dark:text-neutral-200 font-semibold leading-tight">
-                            {currentUser.kycPhotoUrl || currentUser.kyc_photo_url
-                              ? "Biometric Live Scan Capture"
-                              : "Pending Live Biometric Selfie"}
-                          </p>
-                          <p className="text-[10px] text-neutral-400 leading-snug">
-                            {currentUser.kycPhotoUrl || currentUser.kyc_photo_url
-                              ? "Official compliance facial scan. Secured under RA 10173."
-                              : "Naka-lock sa live camera biometric scan lamang."}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card B: Profile Picture (PFP / Free Will Avatar) */}
-                    <div className="p-3.5 rounded-lg bg-white dark:bg-[#0f121a] border border-amber-500/25 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          <UserIcon className="w-3.5 h-3.5" />
-                          <span>Account Profile Picture (PFP)</span>
-                        </span>
-                        <label className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 cursor-pointer transition-colors inline-flex items-center gap-1">
-                          <span>{isUploadingPfp ? "Uploading..." : "Upload New PFP"}</span>
+                        <label
+                          className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity backdrop-blur-xs"
+                          title="Change Profile Picture (PFP)"
+                        >
+                          <Camera className="w-4 h-4 text-amber-400 mb-1" />
+                          <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-center px-1">
+                            {isUploadingPfp ? "Saving..." : "Change PFP"}
+                          </span>
                           <input
                             type="file"
                             accept="image/*"
@@ -1858,181 +1318,385 @@ function ClientPortalContent() {
                           />
                         </label>
                       </div>
-
-                      <div className="flex items-center gap-3">
-                        <div className="relative w-16 h-16 rounded-md overflow-hidden border border-amber-500/40 bg-neutral-900 shrink-0">
-                          {currentUser.avatarUrl || currentUser.avatar_url ? (
-                            <img
-                              src={currentUser.avatarUrl || currentUser.avatar_url}
-                              alt="User Profile Picture"
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                              crossOrigin="anonymous"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-amber-500/20 text-amber-500 font-bold font-mono text-base">
-                              {(currentUser.fullName || "CL").substring(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 text-[11px] font-mono space-y-1">
-                          <p className="text-neutral-800 dark:text-neutral-200 font-semibold leading-tight">
-                            {currentUser.avatarUrl || currentUser.avatar_url
-                              ? "Personalized Profile Avatar"
-                              : "Initials Monogram Avatar"}
-                          </p>
-                          <p className="text-[10px] text-neutral-400 leading-snug">
-                            You have the free will to update or replace your PFP anytime without changing your verified KYC file.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 1. Personal & Contact Profile */}
-                <div>
-                  <h4 className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold mb-2.5 flex items-center gap-1.5">
-                    <UserIcon className="w-3.5 h-3.5" />
-                    <span>1. Personal &amp; Demographic Profile</span>
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5">
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Full Legal Name</span>
-                      <span className="font-semibold text-neutral-900 dark:text-white">
-                        {currentUser.fullName || currentUser.full_name || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Email Address</span>
-                      <span className="font-mono text-neutral-900 dark:text-white font-medium">{currentUser.email}</span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Mobile Number</span>
-                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                        <span className="font-mono text-neutral-900 dark:text-white font-medium">
-                          {currentUser.phoneNumber || currentUser.phone_number || "—"}
+                      {isGoogleUser ? (
+                        <span
+                          className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white dark:bg-[#181a24] flex items-center justify-center border-2 border-white dark:border-[#101218] shadow-md p-1 pointer-events-none select-none"
+                          title="Verified Google Account"
+                        >
+                          <svg className="w-full h-full shrink-0" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                          </svg>
                         </span>
-                        {(currentUser.hasViberWhatsapp || currentUser.has_viber_whatsapp) && (
-                          <span className="px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-mono text-[9.5px] font-bold">
-                            Viber / WA
+                      ) : (
+                        <span
+                          className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center border-2 border-white dark:border-[#101218] shadow-xs"
+                          title="Verified Client Profile"
+                        >
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Metadata Header */}
+                    <div className="min-w-0 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-3">
+                        {/* Demographic Badge (No background - clean text & icon) */}
+                        {currentUser?.clientType === "OFW" || currentUser?.client_type === "OFW" ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold text-amber-600 dark:text-amber-400">
+                            <Plane className="w-3.5 h-3.5 shrink-0" />
+                            <span>Overseas Worker (OFW)</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                            <MapPin className="w-3.5 h-3.5 shrink-0" />
+                            <span>Local Resident (PH)</span>
                           </span>
                         )}
                       </div>
+
+                      <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white truncate">
+                        {currentUser?.fullName || clientName}
+                      </h2>
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-400">
+                        <span className="text-neutral-700 dark:text-neutral-300 font-medium">
+                          {currentUser?.occupation || "Verified Property Owner / Client"}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Member Since {currentUser?.createdAt || currentUser?.created_at
+                            ? new Date(currentUser.createdAt || currentUser.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+                            : "2026"}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Date of Birth &amp; Age</span>
-                      <span className="text-neutral-800 dark:text-neutral-200 font-medium">
-                        {currentUser.birthDate || currentUser.birth_date || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Client Demographic</span>
-                      <span className="font-semibold text-neutral-900 dark:text-white flex items-center gap-1 mt-0.5">
-                        {currentUser.clientType === "OFW" || currentUser.client_type === "OFW" ? (
-                          <>
-                            <PlaneIcon className="w-3.5 h-3.5 text-amber-500" />
-                            <span>Overseas Filipino Worker (OFW)</span>
-                          </>
-                        ) : (
-                          <>
-                            <MapPinIcon className="w-3.5 h-3.5 text-emerald-500" />
-                            <span>Local Resident (PH)</span>
-                          </>
-                        )}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Civil Status</span>
-                      <span className="text-neutral-800 dark:text-neutral-200 font-medium">
-                        {currentUser.civilStatus || currentUser.civil_status || "Single"}
-                      </span>
-                    </div>
-                    <div className="sm:col-span-2 lg:col-span-3">
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Residential Address</span>
-                      <span className="text-neutral-800 dark:text-neutral-200 font-medium">
-                        {currentUser.locationAddress || currentUser.location_address || "—"}
-                      </span>
-                    </div>
+                  </div>
+
+                  {/* Right Actions: Clean Sign Out Button */}
+                  <div className="flex items-center gap-3 shrink-0 self-start md:self-center">
+                    <button
+                      type="button"
+                      onClick={() => setIsLogoutConfirmOpen(true)}
+                      className="px-4 py-2 rounded-[10px] border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/60 font-mono font-bold text-xs inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                      title="Sign Out of Portal"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
                   </div>
                 </div>
-
-                {/* 2. Architectural Project & Lot Specifications */}
-                <div>
-                  <h4 className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold mb-2.5 flex items-center gap-1.5">
-                    <HomeIcon className="w-3.5 h-3.5" />
-                    <span>2. Architectural Project &amp; Lot Specifications</span>
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5">
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Target Project</span>
-                      <span className="font-semibold text-neutral-900 dark:text-white">
-                        {currentUser.targetProjectType || currentUser.target_project_type || "Custom Residential"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Lot Ownership Status</span>
-                      <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                        {currentUser.lotOwnershipStatus || currentUser.lot_ownership_status || "Titled Lot (Clean Title)"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 block text-[10px] font-mono uppercase">Target Build Location</span>
-                      <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                        {currentUser.targetBuildLocation || currentUser.target_build_location || currentUser.locationAddress || "—"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. OFW Representative (if applicable) */}
-                {(currentUser.clientType === "OFW" || currentUser.client_type === "OFW") && (
-                  <div>
-                    <h4 className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold mb-2.5 flex items-center gap-1.5">
-                      <PlaneIcon className="w-3.5 h-3.5" />
-                      <span>3. Overseas Worker &amp; Local Representative</span>
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-4 rounded-xl bg-neutral-50 dark:bg-[#141722] border border-neutral-200 dark:border-white/5">
-                      <div>
-                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Host Country</span>
-                        <span className="font-semibold text-neutral-900 dark:text-white">
-                          {currentUser.ofwCountry || currentUser.ofw_country || "Overseas"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">PH Representative</span>
-                        <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                          {currentUser.phRepName || currentUser.ph_rep_name || "—"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-neutral-400 block text-[10px] font-mono uppercase">Representative Contact</span>
-                        <span className="font-mono text-neutral-800 dark:text-neutral-200">
-                          {currentUser.phRepPhone || currentUser.ph_rep_phone || "—"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              <div className="pt-4 border-t border-neutral-200 dark:border-white/5 flex items-center justify-between">
-                <span className="text-[11px] font-mono text-neutral-400 flex items-center gap-1.5">
-                  <ShieldCheckIcon className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>RA 10173 Data Privacy Protection Secured</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="px-4 py-2 rounded-[4px] border border-rose-500/40 text-rose-500 hover:bg-rose-500/10 text-xs font-mono font-bold transition-colors cursor-pointer"
-                >
-                  Sign Out of Portal
-                </button>
+              {/* 2. Structured Bento Grid for All Enrollment Details */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* CARD 1: Personal & Demographic Profile */}
+                <div className="rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200/80 dark:border-white/10 p-5 sm:p-6 space-y-4 shadow-xs transition-colors">
+                  <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/api/icons/user.png" alt="User" className="w-4.5 h-4.5 object-contain shrink-0" />
+                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+                        Personal &amp; Demographic Profile
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-mono text-neutral-400">Step 1 &amp; 2 Onboarding</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Full Legal Name</span>
+                      <p className="font-semibold text-neutral-900 dark:text-neutral-100">
+                        {currentUser?.fullName || clientName}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Date of Birth &amp; Age</span>
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                        {currentUser?.birthDate || currentUser?.birth_date ? (
+                          <>
+                            {currentUser.birthDate || currentUser.birth_date}
+                            {calculateAge(currentUser.birthDate || currentUser.birth_date) && (
+                              <span className="text-amber-500 ml-1.5 font-bold">
+                                ({calculateAge(currentUser.birthDate || currentUser.birth_date)})
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          "Recorded on File"
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Civil Status</span>
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                        {currentUser?.civilStatus || currentUser?.civil_status || "Single"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Spouse Name</span>
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                        {currentUser?.spouseName || currentUser?.spouse_name || "— (Not Applicable)"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Occupation / Profession</span>
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                        {currentUser?.occupation || "Property Owner / Executive"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Employer / Company</span>
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                        {currentUser?.employerName || currentUser?.employer_name || "Private Enterprise"}
+                      </p>
+                    </div>
+
+                    <div className="sm:col-span-2 space-y-1 pt-1 border-t border-neutral-100 dark:border-white/5">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Monthly Income Classification</span>
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                        {currentUser?.monthlyIncome || currentUser?.monthly_income || "Confidential (Enrolled in Project Financing)"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 2: Verified Contact & Communication Channels */}
+                <div className="rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200/80 dark:border-white/10 p-5 sm:p-6 space-y-4 shadow-xs transition-colors">
+                  <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/api/icons/phone.png" alt="Phone" className="w-4.5 h-4.5 object-contain shrink-0" />
+                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+                        Contact &amp; Telemetry Channels
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-mono text-emerald-500 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Live Verified
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
+                    <div className="space-y-1 sm:col-span-2">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Official Email Address</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {isGoogleAccount && (
+                          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                          </svg>
+                        )}
+                        <p className="font-semibold text-neutral-900 dark:text-white truncate">
+                          {currentUser?.email}
+                        </p>
+                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                          {isGoogleAccount ? "(Google Verified Account)" : "(Primary Inquiries)"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Mobile Contact Number</span>
+                      <p className="font-semibold text-neutral-900 dark:text-white">
+                        {currentUser?.phoneNumber || currentUser?.phone_number || "—"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Messaging App Compatibility</span>
+                      <p className="font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span>{currentUser?.hasViberWhatsapp || currentUser?.has_viber_whatsapp ? "Viber / WhatsApp Connected" : "Standard Roaming SMS"}</span>
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Preferred Consultation Window</span>
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                        {currentUser?.preferredContactTime || currentUser?.preferred_contact_time || "Anytime (PH Daytime 08:00 - 17:00 PHT)"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Emergency Contact</span>
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                        {currentUser?.emergencyContact || currentUser?.emergency_contact || currentUser?.phRepPhone || "Liaison On File"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 3: Permanent Residential Address */}
+                <div className="rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200/80 dark:border-white/10 p-5 sm:p-6 space-y-4 shadow-xs transition-colors">
+                  <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/api/icons/location.png" alt="Location" className="w-4.5 h-4.5 object-contain shrink-0" />
+                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+                        Permanent Residential Address
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-mono text-neutral-400">Civil Registry Record</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Registered Full Address</span>
+                    <p className="font-semibold text-neutral-900 dark:text-white leading-relaxed text-xs">
+                      {currentUser?.locationAddress || currentUser?.location_address || "Bulacan / NCR, Philippines"}
+                    </p>
+                  </div>
+
+                  <div className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 flex items-center justify-between pt-1">
+                    <span>Jurisdiction: Republic of the Philippines</span>
+                    <span className="text-emerald-500 font-semibold">Titled Property Owner Jurisdiction</span>
+                  </div>
+                </div>
+
+                {/* CARD 4: Architectural Project Specifications (from Step 4) */}
+                <div className="rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200/80 dark:border-white/10 p-5 sm:p-6 space-y-4 shadow-xs transition-colors">
+                  <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/api/icons/projects.png" alt="Projects" className="w-4.5 h-4.5 object-contain shrink-0" />
+                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+                        Architectural Build &amp; Lot Baseline
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-mono text-amber-500 font-bold">Step 4 Parameters</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Target Architectural Project</span>
+                      <p className="font-semibold text-neutral-900 dark:text-white">
+                        {currentUser?.targetProjectType || currentUser?.target_project_type || "Custom Residential Architectural Build"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Lot Title &amp; Ownership Status</span>
+                      <p className="font-medium text-emerald-600 dark:text-emerald-400 font-bold">
+                        {currentUser?.lotOwnershipStatus || currentUser?.lot_ownership_status || "Titled Lot (Clean Title)"}
+                      </p>
+                    </div>
+
+                    <div className="sm:col-span-2 space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Target Build Location</span>
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                        {currentUser?.targetBuildLocation || currentUser?.target_build_location || currentUser?.locationAddress || currentUser?.location_address || "Central Luzon / NCR, Philippines"}
+                      </p>
+                    </div>
+
+                    {(currentUser?.subdivisionLotDetails || currentUser?.subdivision_lot_details) && (
+                      <div className="sm:col-span-2 space-y-1 pt-1 border-t border-neutral-100 dark:border-white/5">
+                        <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Subdivision / Block &amp; Lot Details</span>
+                        <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                          {currentUser.subdivisionLotDetails || currentUser.subdivision_lot_details}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Overseas Worker & Local Representative Card (Shown for OFW or when Rep on record) */}
+              {(currentUser?.clientType === "OFW" || currentUser?.client_type === "OFW" || currentUser?.phRepName || currentUser?.ph_rep_name) && (
+                <div className="rounded-[18px] bg-gradient-to-r from-amber-500/[0.04] via-amber-500/[0.02] to-transparent border border-amber-500/20 p-5 sm:p-6 space-y-4 shadow-xs transition-colors">
+                  <div className="flex items-center justify-between border-b border-amber-500/10 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/api/icons/location.png" alt="Station" className="w-4.5 h-4.5 object-contain shrink-0" />
+                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                        Overseas Filipino Worker (OFW) Station &amp; Local Representative
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-mono text-neutral-400">On-Site Inspection Proxy</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Current Host Country</span>
+                      <p className="font-bold text-neutral-900 dark:text-white">
+                        {currentUser?.ofwCountry || currentUser?.ofw_country || "Overseas Station"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Authorized Local Representative</span>
+                      <p className="font-semibold text-neutral-900 dark:text-white">
+                        {currentUser?.phRepName || currentUser?.ph_rep_name || "—"}
+                        {(currentUser?.phRepRelationship || currentUser?.ph_rep_relationship) && (
+                          <span className="text-neutral-500 text-[10px] block font-normal">
+                            ({currentUser.phRepRelationship || currentUser.ph_rep_relationship})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Representative Contact Number</span>
+                      <p className="font-semibold text-neutral-900 dark:text-white">
+                        {currentUser?.phRepPhone || currentUser?.ph_rep_phone || "—"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Security, Biometric Isolation & Compliance Assurance Footer */}
+              <div className="rounded-[18px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/80 dark:border-white/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div className="text-xs font-mono">
+                    <p className="font-bold text-neutral-900 dark:text-white">
+                      Republic Act 10173 · Data Privacy Act of 2012 Certified
+                    </p>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Biometric KYC scan selfies are isolated in encrypted compliance vaults and kept strictly separate from your account profile avatar.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                  <span className="px-2.5 py-1 rounded-[6px] bg-transparent text-[10px] font-mono text-neutral-600 dark:text-neutral-300 font-semibold border border-neutral-300/60 dark:border-white/10 flex items-center gap-1.5">
+                    {isGoogleAccount && (
+                      <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                      </svg>
+                    )}
+                    <span>Auth: {isGoogleAccount ? "Google OAuth 2.0" : currentUser?.authProvider || currentUser?.auth_provider || "Secure Session"}</span>
+                  </span>
+                </div>
               </div>
             </div>
           )}
         </main>
       </div>
+
+      {/* Floating Glassmorphic Bottom Navigation for Mobile & Tablet (< 1024px) */}
+      <PortalMobileBottomNav
+        activeTab={portalTab}
+        onTabChange={(tab) => {
+          setPortalTab(tab);
+        }}
+        onOpenMenu={() => setIsMobileSidebarOpen(true)}
+        unreadCount={activeInquiriesCount || 0}
+      />
 
       {/* NEW INQUIRY MODAL */}
       <PortalInquiryModal

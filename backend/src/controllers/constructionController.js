@@ -6,10 +6,16 @@ class ConstructionController {
   async getProject(req, res) {
     try {
       const requestedCode = req.params.code;
+      const clientEmail = req.query.email;
       let projRes;
 
       if (requestedCode) {
         projRes = await db.query("SELECT * FROM site_projects WHERE project_code = $1", [requestedCode]);
+      } else if (clientEmail) {
+        projRes = await db.query(
+          "SELECT * FROM site_projects WHERE LOWER(client_email) = LOWER($1) ORDER BY project_id DESC LIMIT 1",
+          [clientEmail]
+        );
       } else {
         projRes = await db.query("SELECT * FROM site_projects ORDER BY project_id DESC LIMIT 1");
       }

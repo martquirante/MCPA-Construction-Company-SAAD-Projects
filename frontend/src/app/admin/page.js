@@ -1295,13 +1295,28 @@ export default function AdminPage() {
                       isSidebarCollapsed ? "lg:justify-center lg:gap-0" : ""
                     }`}
                   >
-                    <Icon
-                      className={`w-4 h-4 shrink-0 ${
-                        isActive
-                          ? "text-neutral-950"
-                          : "text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500"
-                      }`}
-                    />
+                    <div className="relative flex items-center justify-center shrink-0">
+                      <Icon
+                        className={`w-4 h-4 shrink-0 ${
+                          isActive
+                            ? "text-neutral-950"
+                            : "text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500"
+                        }`}
+                      />
+                      {/* Collapsed Mode Overlay Badge: Nakapatong sa top-right ng icon */}
+                      {isSidebarCollapsed && item.badge !== undefined && item.badge > 0 && (
+                        <span
+                          className={`hidden lg:flex absolute -top-1.5 -right-2 min-w-[14px] h-[14px] px-1 rounded-full text-[9px] font-mono font-bold items-center justify-center shadow-sm leading-none pointer-events-none select-none ${
+                            isActive
+                              ? "bg-neutral-950 text-amber-400 border border-neutral-900"
+                              : "bg-amber-500 text-neutral-950 border border-white dark:border-[#101218]"
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+
                     <span
                       className={`truncate ${
                         isSidebarCollapsed ? "block lg:hidden" : "block"
@@ -1324,11 +1339,11 @@ export default function AdminPage() {
                         {item.badge}
                       </span>
 
-                      {/* Desktop Badge */}
+                      {/* Desktop Expanded Mode Badge */}
                       <span
                         className={`hidden ${
                           isSidebarCollapsed
-                            ? "lg:flex absolute top-1 right-1 min-w-[15px] h-[15px] px-0.5 rounded-[3px] bg-amber-500 text-neutral-950 font-bold text-[9px] items-center justify-center font-mono"
+                            ? "hidden"
                             : "lg:inline-block px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono font-bold shrink-0 " +
                               (isActive
                                 ? "bg-neutral-950 text-white dark:bg-neutral-950 dark:text-white"
