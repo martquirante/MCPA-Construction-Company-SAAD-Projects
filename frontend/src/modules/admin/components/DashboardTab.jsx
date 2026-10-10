@@ -15,10 +15,13 @@ import {
   MailIcon,
   PhoneIcon,
   ExternalLinkIcon,
+  GoogleIcon,
 } from "@/modules/shared/Icons";
+import { resolveClientAvatar } from "@/modules/admin/components/InquiryPipelineTab";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 import MetricCard3D from "@/modules/admin/components/MetricCard3D";
 import { DashboardOverviewSkeleton } from "@/modules/shared/Skeleton";
+import { isMeetingPast } from "@/modules/shared/meetingHelper";
 
 const PROJECT_STAGE_COLORS = {
   "Residential": "bg-amber-500/10 text-amber-300/90 border-amber-500/20",
@@ -55,15 +58,30 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
   if (isLoading && (!clientBriefs || clientBriefs.length === 0) && (!allProjects || allProjects.length === 0)) {
     return <DashboardOverviewSkeleton />;
   }
+  const isRejectedBrief = (b) => {
+    const s = (b.status || "").toLowerCase();
+    return s.includes("reject") || s.includes("decline");
+  };
+
   const pendingCount = clientBriefs.filter(
     (b) => !b.status || b.status === "Pending Review"
   ).length;
-  const scheduledCount = clientBriefs.filter((b) => b.meetingDate).length;
+  const scheduledCount = clientBriefs.filter(
+    (b) => b.meetingDate && !isRejectedBrief(b) && !isMeetingPast(b.meetingDate, b.meetingTime)
+  ).length;
   const approvedCount = clientBriefs.filter((b) => b.status === "Approved / Accepted").length;
   const needsActionCount = clientBriefs.filter(
     (b) => b.status === "Needs Information" || b.status === "Under Review"
   ).length;
-  const upcomingMeetings = clientBriefs.filter((b) => b.meetingDate && b.meetingLink).slice(0, 4);
+  const upcomingMeetings = clientBriefs
+    .filter((b) => b.meetingDate && !isRejectedBrief(b))
+    .sort((a, b) => {
+      const aPast = isMeetingPast(a.meetingDate, a.meetingTime);
+      const bPast = isMeetingPast(b.meetingDate, b.meetingTime);
+      if (aPast !== bPast) return aPast ? 1 : -1;
+      return new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0);
+    })
+    .slice(0, 4);
   const recentActivity = [...clientBriefs]
     .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0))
     .slice(0, 5);
@@ -217,25 +235,69 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
             ) : (
               <div className="rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0f1117] overflow-hidden divide-y divide-neutral-100 dark:divide-white/[0.05] shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
                 {recentActivity.map((brief, idx) => {
+                  const clientAvatar = resolveClientAvatar(brief);
+                  const isGoogle =
+                    brief.authProvider === "google" ||
+                    brief.auth_provider === "google" ||
+                    brief.clientEmail?.toLowerCase().endsWith("@gmail.com") ||
+                    (clientAvatar && clientAvatar.includes("googleusercontent"));
+                  const displayProjectType = (brief.projectType || "").includes("Residential Villa")
+                    ? "Residential"
+                    : brief.projectType || "Consultation Request";
+
                   const status = brief.status || "Pending Review";
                   const isPending = status === "Pending Review";
-                  const isApproved = status === "Approved / Accepted";
+                  const isApproved = status === "Approved / Accepted" || status === "Meeting Scheduled";
+                  const isRejected =
+                    Boolean(brief.isRejected) ||
+                    status.toLowerCase().includes("reject") ||
+                    status.toLowerCase().includes("decline");
                   const briefKey = brief?.id ? `${brief.id}-${idx}` : `brief-act-${idx}`;
+
                   return (
                     <div key={briefKey} className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-white/[0.02] transition-colors">
-                      <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 font-semibold text-xs flex items-center justify-center shrink-0 uppercase font-mono">
-                        {brief.clientName?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
+                      <div className="relative shrink-0">
+                        {clientAvatar ? (
+                          <img
+                            src={clientAvatar}
+                            alt={brief.clientName || "Client"}
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
+                            className="w-8 h-8 rounded-full object-cover border border-amber-500/40 shadow-xs"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              const fallback = e.currentTarget.parentElement?.querySelector(".client-avatar-fallback");
+                              if (fallback) fallback.style.display = "flex";
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          style={{ display: clientAvatar ? "none" : "flex" }}
+                          className="client-avatar-fallback w-8 h-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 font-semibold text-xs items-center justify-center uppercase font-mono"
+                        >
+                          {brief.clientName?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
+                        </div>
+                        {isGoogle && (
+                          <span
+                            className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
+                            title="Google Account Verified"
+                          >
+                            <GoogleIcon className="w-2.5 h-2.5" />
+                          </span>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate">{brief.clientName}</p>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{brief.projectType || "Consultation Request"} — {brief.location || "Location TBD"}</p>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{displayProjectType} — {brief.location || "Location TBD"}</p>
                       </div>
-                      <span className={`shrink-0 px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-bold uppercase border ${
-                        isApproved
-                          ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-400"
+                      <span className={`shrink-0 text-[11px] font-mono font-bold uppercase ${
+                        isRejected
+                          ? "text-rose-600 dark:text-rose-400"
+                          : isApproved
+                          ? "text-emerald-600 dark:text-emerald-400"
                           : isPending
-                          ? "bg-amber-500/10 border-amber-500/25 text-amber-700 dark:text-amber-400"
-                          : "bg-sky-500/10 border-sky-500/25 text-sky-700 dark:text-sky-400"
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-sky-600 dark:text-sky-400"
                       }`}>
                         {status}
                       </span>
@@ -261,36 +323,87 @@ export default function DashboardTab({ clientBriefs = [], allProjects = [], onNa
               />
             ) : (
               <div className="space-y-3">
-                {upcomingMeetings.map((brief, idx) => (
-                  <div
-                    key={brief?.id ? `${brief.id}-${idx}` : `brief-meet-${idx}`}
-                    className="p-4 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-2.5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate">{brief.clientName}</p>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">{brief.projectType || "Consultation"}</p>
+                {upcomingMeetings.map((brief, idx) => {
+                  const clientAvatar = resolveClientAvatar(brief);
+                  const isGoogle =
+                    brief.authProvider === "google" ||
+                    brief.auth_provider === "google" ||
+                    brief.clientEmail?.toLowerCase().endsWith("@gmail.com") ||
+                    (clientAvatar && clientAvatar.includes("googleusercontent"));
+                  const displayProjectType = (brief.projectType || "").includes("Residential Villa")
+                    ? "Residential"
+                    : brief.projectType || "Consultation";
+
+                  return (
+                    <div
+                      key={brief?.id ? `${brief.id}-${idx}` : `brief-meet-${idx}`}
+                      className="p-4 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="relative shrink-0">
+                            {clientAvatar ? (
+                              <img
+                                src={clientAvatar}
+                                alt={brief.clientName || "Client"}
+                                referrerPolicy="no-referrer"
+                                crossOrigin="anonymous"
+                                className="w-8 h-8 rounded-full object-cover border border-amber-500/40 shadow-xs"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                  const fallback = e.currentTarget.parentElement?.querySelector(".client-avatar-fallback");
+                                  if (fallback) fallback.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              style={{ display: clientAvatar ? "none" : "flex" }}
+                              className="client-avatar-fallback w-8 h-8 rounded-full bg-neutral-100 dark:bg-white/[0.06] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 font-semibold text-xs items-center justify-center uppercase font-mono"
+                            >
+                              {brief.clientName?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
+                            </div>
+                            {isGoogle && (
+                              <span
+                                className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
+                                title="Google Account Verified"
+                              >
+                                <GoogleIcon className="w-2.5 h-2.5" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate">{brief.clientName}</p>
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">{displayProjectType}</p>
+                          </div>
+                        </div>
+                        <MeetingTypeBadge mode={brief.meetingMode} />
                       </div>
-                      <MeetingTypeBadge mode={brief.meetingMode} />
+                      <div className="flex items-center justify-between text-xs font-mono">
+                        <div className="flex items-center gap-1.5 text-neutral-600 dark:text-neutral-300">
+                          <CalendarIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                          <span>{brief.meetingDate}{brief.meetingTime && ` — ${brief.meetingTime}`}</span>
+                        </div>
+                        {isMeetingPast(brief.meetingDate, brief.meetingTime) && (
+                          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono">
+                            Concluded
+                          </span>
+                        )}
+                      </div>
+                      {!isMeetingPast(brief.meetingDate, brief.meetingTime) && brief.meetingLink && (
+                        <a
+                          href={brief.meetingLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 w-full justify-center px-3 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-colors shadow-xs"
+                        >
+                          <VideoIcon className="w-3.5 h-3.5" />
+                          Join Meeting
+                          <ArrowRightIcon className="w-3.5 h-3.5" />
+                        </a>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300 font-mono">
-                      <CalendarIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                      <span>{brief.meetingDate}{brief.meetingTime && ` — ${brief.meetingTime}`}</span>
-                    </div>
-                    {brief.meetingLink && (
-                      <a
-                        href={brief.meetingLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 w-full justify-center px-3 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-colors shadow-xs"
-                      >
-                        <VideoIcon className="w-3.5 h-3.5" />
-                        Join Meeting
-                        <ArrowRightIcon className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

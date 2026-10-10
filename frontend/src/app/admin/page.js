@@ -736,7 +736,12 @@ export default function AdminPage() {
           isTarget(b)
             ? {
                 ...b,
+                ...extraData,
                 status: data.brief.status || newStatus,
+                isRejected: extraData.isRejected ?? (newStatus.toLowerCase().includes("reject") ? true : b.isRejected),
+                isArchived: extraData.isArchived ?? (newStatus.toLowerCase().includes("archive") ? true : b.isArchived),
+                rejectionReason: extraData.rejectionReason || data.brief.rejection_reason || b.rejectionReason,
+                rejectionNotes: extraData.rejectionNotes || data.brief.rejection_notes || b.rejectionNotes,
                 meetingDate: data.brief.meeting_date || b.meetingDate,
                 meetingTime: data.brief.meeting_time || b.meetingTime,
                 meetingLink: data.brief.meeting_link || b.meetingLink,
@@ -753,9 +758,12 @@ export default function AdminPage() {
         try {
           localStorage.setItem("mcpa_client_briefs", JSON.stringify(synced));
         } catch (e) {}
+        return data.brief;
       }
+      return { status: newStatus, ...extraData };
     } catch (e) {
       console.warn("Could not update brief in backend:", e);
+      return { status: newStatus, ...extraData };
     }
   };
 

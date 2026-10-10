@@ -185,6 +185,8 @@ app.get("/api/briefs/:id/pdf", (req, res) => briefsController.downloadPdf(req, r
 app.post("/api/briefs/pdf", (req, res) => briefsController.downloadPdf(req, res));
 app.post("/api/briefs", (req, res) => briefsController.submit(req, res));
 app.patch("/api/briefs/:id", (req, res) => briefsController.updateStatus(req, res));
+app.post("/api/briefs/:id/reject", (req, res) => briefsController.reject(req, res));
+app.post("/api/briefs/:id/archive", (req, res) => briefsController.archive(req, res));
 app.post("/api/briefs/:id/provision", (req, res) => briefsController.provisionAccess(req, res));
 app.delete("/api/briefs/:id", (req, res) => briefsController.delete(req, res));
 

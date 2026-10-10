@@ -25,7 +25,11 @@ function generateInquiryPdf(brief = {}) {
       const clientEmail = brief.client_email || brief.clientEmail || "—";
       const clientPhone = brief.client_phone || brief.clientPhone || "—";
       const status = brief.status || "Pending Review";
-      const projectType = brief.project_type || brief.projectType || "Residential Design & Build";
+      let rawProjectType = brief.project_type || brief.projectType || "Residential";
+      if (typeof rawProjectType === "string" && rawProjectType.toLowerCase().includes("residential")) {
+        rawProjectType = "Residential";
+      }
+      const projectType = rawProjectType;
       const preferredStyle = brief.preferred_style || brief.preferredStyle || "Modern Contemporary";
       const storeys = brief.storeys || "2-Storey (Standard)";
       const targetDate = brief.target_date || brief.targetDate || "Within 3 Months";
@@ -101,40 +105,42 @@ function generateInquiryPdf(brief = {}) {
 
       if (hasLogo) {
         try {
-          doc.image(logoPath, ML, 32, { width: 110 });
+          // mcpa-logo.png is 2000x667 (~3:1 aspect ratio). At width 95pt, rendered height is ~31.7pt.
+          // Placed at y = 28, bottom reaches ~59.7pt, giving clear breathing room above the address line.
+          doc.image(logoPath, ML, 28, { width: 95 });
         } catch (_) {
-          doc.font("Helvetica-Bold").fontSize(18).fillColor(C_PRIMARY).text("MCPA CONSTRUCTION & SUPPLY", ML, 34, { lineBreak: false });
+          doc.font("Helvetica-Bold").fontSize(16).fillColor(C_PRIMARY).text("MCPA CONSTRUCTION & SUPPLY", ML, 30, { lineBreak: false });
         }
       } else {
-        doc.font("Helvetica-Bold").fontSize(18).fillColor(C_PRIMARY).text("MCPA CONSTRUCTION & SUPPLY", ML, 34, { lineBreak: false });
+        doc.font("Helvetica-Bold").fontSize(16).fillColor(C_PRIMARY).text("MCPA CONSTRUCTION & SUPPLY", ML, 30, { lineBreak: false });
       }
 
-      // Address and contact under logo (tagline removed per user request)
-      const headerTextY = hasLogo ? 64 : 56;
+      // Address and contact under logo with comfortable margin to prevent any text/logo overlap
+      const headerTextY = hasLogo ? 68 : 56;
       doc.font("Helvetica").fontSize(7).fillColor(C_MUTED)
         .text("2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines • contact@mcpaconstruction.com", ML, headerTextY, { lineBreak: false });
 
       // Top-right status indicator (Text only, background pill completely removed per user request)
       const rightX = PW - MR - 160;
-      doc.font("Helvetica-Bold").fontSize(9.5).fillColor(C_AMBER)
-        .text(status.toUpperCase(), rightX, 34, { width: 160, align: "right", lineBreak: false });
+      doc.font("Helvetica-Bold").fontSize(9).fillColor(C_AMBER)
+        .text(status.toUpperCase(), rightX, 28, { width: 160, align: "right", lineBreak: false });
 
       doc.font("Courier-Bold").fontSize(8).fillColor(C_PRIMARY)
-        .text(`REF: ${submissionId}`, rightX, 48, { width: 160, align: "right", lineBreak: false });
+        .text(`REF: ${submissionId}`, rightX, 41, { width: 160, align: "right", lineBreak: false });
       doc.font("Helvetica").fontSize(7).fillColor(C_MUTED)
-        .text(`Date: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}`, rightX, 60, { width: 160, align: "right", lineBreak: false });
+        .text(`Date: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}`, rightX, 53, { width: 160, align: "right", lineBreak: false });
 
       // Accent underline across entire page width
       doc.save()
-        .strokeColor(C_PRIMARY).lineWidth(1.5)
-        .moveTo(ML, 78).lineTo(PW - MR, 78)
+        .strokeColor(C_PRIMARY).lineWidth(1.2)
+        .moveTo(ML, 82).lineTo(PW - MR, 82)
         .stroke().restore();
 
       // 2. DOCUMENT TITLE (Clean Typography, Background box completely removed per user request)
       doc.font("Helvetica-Bold").fontSize(11).fillColor(C_PRIMARY)
-        .text("CLIENT INQUIRY INFORMATION", ML, 88, { width: CW, align: "center", characterSpacing: 1, lineBreak: false });
+        .text("CLIENT INQUIRY INFORMATION", ML, 94, { width: CW, align: "center", characterSpacing: 1.2, lineBreak: false });
 
-      let currY = 110;
+      let currY = 118;
 
       // Helper for Section Headers
       const drawSectionHeader = (title, num) => {

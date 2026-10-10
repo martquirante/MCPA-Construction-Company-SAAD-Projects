@@ -41,11 +41,13 @@ import {
   Mail,
   User,
   Video,
+  Archive,
 } from "lucide-react";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 import StageCombobox from "@/modules/admin/components/StageCombobox";
 import { InquiryTableSkeleton } from "@/modules/shared/Skeleton";
 import { EstablishmentLogo } from "@/modules/book/components/VenueSearchModal";
+import { isMeetingPast } from "@/modules/shared/meetingHelper";
 
 const STAGES = [
   {
@@ -318,6 +320,7 @@ export default function InquiryPipelineTab({
 
   // PDF Export state
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   const filteredBriefs = clientBriefs.filter((b) => {
     const matchStage =
@@ -511,20 +514,73 @@ export default function InquiryPipelineTab({
 
     try {
       const logNote = `[REJECTED]: ${rejectReason}${rejectNotes ? ` — ${rejectNotes}` : ""}`;
-      await onUpdateStatus(selectedBrief.id, "Rejected / Declined", {
+      const briefId = selectedBrief.id || selectedBrief.submissionId;
+
+      await onUpdateStatus(briefId, "Rejected / Declined", {
         rejectionReason: rejectReason,
         rejectionNotes: rejectNotes,
         meetingNotes: selectedBrief.meetingNotes ? `${selectedBrief.meetingNotes}\n${logNote}` : logNote,
         isRejected: true,
       });
 
-      showToast(`Inquiry ${selectedBrief.submissionId || selectedBrief.id} from ${selectedBrief.clientName} officially rejected.`);
+      // Ensure dedicated rejection endpoint is also called for backend email dispatch
+      try {
+        await fetch(`/api/briefs/${encodeURIComponent(briefId)}/reject`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rejectionReason: rejectReason,
+            rejectionNotes: rejectNotes,
+            meetingNotes: selectedBrief.meetingNotes ? `${selectedBrief.meetingNotes}\n${logNote}` : logNote,
+          }),
+        });
+      } catch (postErr) {
+        // Handled via onUpdateStatus fallback
+      }
+
+      // Update local modal state immediately for real-time button and badge reflection
+      setSelectedBrief((prev) => ({
+        ...prev,
+        status: "Rejected / Declined",
+        isRejected: true,
+        rejectionReason: rejectReason,
+        rejectionNotes: rejectNotes,
+        availabilityStatus: "Declined",
+      }));
+
+      showToast(`Inquiry ${selectedBrief.submissionId || selectedBrief.id} officially rejected and automated email sent to ${selectedBrief.clientEmail || "client"}.`);
       setIsRejectModalOpen(false);
-      closeReviewModal();
+      // Retain review modal open so admin sees real-time status change to REJECTED with Archive Dossier button
     } catch (err) {
       setRejectError(err.message || "Failed to reject inquiry.");
     } finally {
       setIsSubmittingReject(false);
+    }
+  };
+
+  const handleArchiveDossier = async () => {
+    if (!selectedBrief) return;
+    setIsArchiving(true);
+    try {
+      const briefId = selectedBrief.id || selectedBrief.submissionId;
+      await onUpdateStatus(briefId, "Archived", {
+        isArchived: true,
+        archivedAt: new Date().toISOString(),
+      });
+
+      try {
+        await fetch(`/api/briefs/${encodeURIComponent(briefId)}/archive`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (e) {}
+
+      setSelectedBrief((prev) => (prev ? { ...prev, status: "Archived", isArchived: true } : null));
+      showToast(`Dossier ${selectedBrief.submissionId || selectedBrief.id} archived successfully.`);
+    } catch (err) {
+      showToast("Failed to archive dossier: " + err.message);
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -574,7 +630,9 @@ export default function InquiryPipelineTab({
   };
 
   const pendingCount = clientBriefs.filter((b) => !b.status || b.status === "Pending Review").length;
-  const scheduledCount = clientBriefs.filter((b) => b.meetingDate).length;
+  const scheduledCount = clientBriefs.filter(
+    (b) => b.meetingDate && !(b.status || "").toLowerCase().includes("reject") && !(b.status || "").toLowerCase().includes("decline")
+  ).length;
   const approvedCount = clientBriefs.filter((b) => b.status === "Approved / Accepted").length;
   const rejectedCount = clientBriefs.filter((b) => (b.status || "").toLowerCase().includes("reject")).length;
 
@@ -808,7 +866,14 @@ export default function InquiryPipelineTab({
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           {brief.meetingDate ? (
                             <div>
-                              <p className="font-mono text-neutral-900 dark:text-white">{brief.meetingDate}</p>
+                              <p className="font-mono text-neutral-900 dark:text-white flex items-center gap-1.5">
+                                <span>{brief.meetingDate}</span>
+                                {isMeetingPast(brief.meetingDate, brief.meetingTime) && (
+                                  <span className="text-[9.5px] font-mono text-neutral-400 dark:text-neutral-500 font-medium">
+                                    (Concluded)
+                                  </span>
+                                )}
+                              </p>
                               {brief.meetingTime && <p className="text-[10px] text-neutral-500 font-mono">{brief.meetingTime}</p>}
                             </div>
                           ) : (
@@ -861,80 +926,90 @@ export default function InquiryPipelineTab({
       {selectedBrief && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
           <div
-            className="w-full max-w-4xl max-h-[92vh] flex flex-col bg-white dark:bg-[#0e1017] rounded-2xl border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            className="w-full max-w-4xl max-h-[92vh] flex flex-col bg-white dark:bg-[#0e1017] rounded-2xl border border-neutral-200/90 dark:border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-white/5 shrink-0 bg-neutral-50/80 dark:bg-white/[0.02]">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                  <ClipboardListIcon className="w-4 h-4" />
+            <div className="flex items-center justify-between px-6 py-4.5 border-b border-neutral-200/80 dark:border-white/10 shrink-0 bg-white dark:bg-[#0e1017]">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <FileText className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-tight">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white tracking-tight">
                       Consultation Review Dossier
                     </h3>
-                    <span className="px-2 py-0.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold">
+                    <span className="text-xs font-mono font-semibold text-neutral-500 dark:text-neutral-400">
                       {selectedBrief.submissionId || selectedBrief.id}
                     </span>
                     {(() => {
                       const st = selectedBrief.status || "Pending Review";
                       const isConfirmed = st === "Meeting Scheduled" || st === "Approved / Accepted";
-                      const isRejected = st.toLowerCase().includes("reject");
+                      const isRejected = Boolean(selectedBrief.isRejected) || st.toLowerCase().includes("reject");
+                      const isArchived = Boolean(selectedBrief.isArchived) || st.toLowerCase().includes("archive");
                       if (isConfirmed) {
                         return (
-                          <span className="px-2 py-0.5 rounded-[4px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-mono font-bold flex items-center gap-1">
-                            <CheckIcon className="w-3 h-3" />
+                          <span className="text-emerald-600 dark:text-emerald-400 text-xs font-mono font-bold flex items-center gap-1">
+                            <CheckIcon className="w-3.5 h-3.5" />
                             {st === "Meeting Scheduled" ? "MEETING SCHEDULED" : "APPROVED"}
                           </span>
                         );
                       }
                       if (isRejected) {
                         return (
-                          <span className="px-2 py-0.5 rounded-[4px] bg-rose-500/15 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-[10px] font-mono font-bold">
+                          <span className="text-rose-600 dark:text-rose-400 text-xs font-mono font-bold flex items-center gap-1">
+                            <XCircleIcon className="w-3.5 h-3.5 text-rose-500" />
                             REJECTED
                           </span>
                         );
                       }
+                      if (isArchived) {
+                        return (
+                          <span className="text-neutral-500 dark:text-neutral-400 text-xs font-mono font-bold flex items-center gap-1">
+                            <Archive className="w-3.5 h-3.5 text-neutral-400" />
+                            ARCHIVED
+                          </span>
+                        );
+                      }
                       return (
-                        <span className="px-2 py-0.5 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold">
+                        <span className="text-amber-600 dark:text-amber-400 text-xs font-mono font-bold">
                           PENDING REVIEW
                         </span>
                       );
                     })()}
                   </div>
-                  <p className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
-                    Comprehensive Architectural Parameters &amp; Client Project Brief
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
+                    Architectural Parameters &amp; Client Project Scope Docket
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => handleDownloadPdf(selectedBrief)}
                   disabled={isDownloadingPdf}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-white/15 bg-white dark:bg-white/[0.04] hover:bg-neutral-100 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold uppercase transition-colors cursor-pointer shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-white/15 bg-white dark:bg-white/[0.04] hover:bg-neutral-50 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 text-xs font-medium transition-colors cursor-pointer shadow-xs disabled:opacity-50"
                   title="Download Official Architectural Brief PDF"
                 >
-                  <Download className="w-3.5 h-3.5 text-amber-500" />
-                  <span>{isDownloadingPdf ? "Exporting..." : "Download PDF"}</span>
+                  <Download className="w-3.5 h-3.5 text-neutral-600 dark:text-neutral-300" />
+                  <span>{isDownloadingPdf ? "Exporting..." : "Export PDF"}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={closeReviewModal}
-                  className="p-2 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                  title="Close Modal"
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Close (Esc)"
                 >
                   <CloseIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Modal Scrollable Body (100% of information) */}
-            <div className="flex-1 overflow-y-auto p-6 sm:p-7 space-y-6">
+            {/* Modal Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-7 space-y-6 bg-neutral-50/50 dark:bg-[#0a0c10]">
               {(() => {
                 const isOnline = (selectedBrief.meetingMode || selectedBrief.meeting_mode || "").toLowerCase().includes("online");
                 const spatial = parseSafe(selectedBrief.spatialWishlist || selectedBrief.spatial_wishlist);
@@ -957,146 +1032,172 @@ export default function InquiryPipelineTab({
                   selectedBrief.clientEmail?.toLowerCase().endsWith("@gmail.com") ||
                   (modalAvatar && modalAvatar.includes("googleusercontent"));
 
+                // Clean formatting helpers
+                const rawProjectType = selectedBrief.projectType || "";
+                const displayProjectType = rawProjectType.toLowerCase().includes("residential")
+                  ? "Residential"
+                  : rawProjectType || "Residential";
+
+                const formatBudget = (val) => {
+                  if (!val) return "Flexible / Custom Plan";
+                  const str = String(val).trim();
+                  if (str.includes("₱") || str.toLowerCase().includes("php")) return str;
+                  const num = parseFloat(str.replace(/[^0-9.]/g, ""));
+                  if (isNaN(num)) return str;
+                  return `₱${num.toLocaleString("en-PH")}`;
+                };
+
+                const isBriefRejected =
+                  Boolean(selectedBrief.isRejected) ||
+                  (selectedBrief.status || "").toLowerCase().includes("reject");
+
                 return (
                   <>
-                    {/* SECTION 1: CLIENT IDENTITY & ACCOUNT DOSSIER */}
-                    <div className="p-5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-4">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500">
-                          Client Identification &amp; Account Origin
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10.5px] font-mono font-bold uppercase text-purple-700 dark:text-purple-400">
-                            {selectedBrief.locationType === "OFW" ? "OFW Priority Client" : "Local Homeowner"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4">
-                        <div className="relative shrink-0">
-                          {modalAvatar ? (
-                            <img
-                              src={modalAvatar}
-                              alt={selectedBrief.clientName || "Client"}
-                              referrerPolicy="no-referrer"
-                              crossOrigin="anonymous"
-                              className="w-14 h-14 rounded-full object-cover border-2 border-amber-500/50 shadow-sm"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                                const fb = e.currentTarget.parentElement?.querySelector(".modal-avatar-fallback");
-                                if (fb) fb.style.display = "flex";
-                              }}
-                            />
-                          ) : null}
-                          <div
-                            style={{ display: modalAvatar ? "none" : "flex" }}
-                            className="modal-avatar-fallback w-14 h-14 rounded-full bg-amber-500/20 border-2 border-amber-500/40 text-amber-700 dark:text-amber-400 font-extrabold text-lg items-center justify-center uppercase"
-                          >
-                            {selectedBrief.clientName?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
-                          </div>
-                          {isGoogleAccount && (
-                            <span
-                              className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
-                              title="Google User Identity"
+                    {/* SECTION 1: CLIENT IDENTIFICATION HERO */}
+                    <div className="p-5 rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 shadow-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="relative shrink-0">
+                            {modalAvatar ? (
+                              <img
+                                src={modalAvatar}
+                                alt={selectedBrief.clientName || "Client"}
+                                referrerPolicy="no-referrer"
+                                crossOrigin="anonymous"
+                                className="w-14 h-14 rounded-full object-cover ring-2 ring-neutral-200/80 dark:ring-white/10 shadow-xs"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                  const fb = e.currentTarget.parentElement?.querySelector(".modal-avatar-fallback");
+                                  if (fb) fb.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              style={{ display: modalAvatar ? "none" : "flex" }}
+                              className="modal-avatar-fallback w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-400 font-bold text-base items-center justify-center uppercase font-mono"
                             >
-                              <GoogleIcon className="w-3 h-3" />
-                            </span>
-                          )}
+                              {selectedBrief.clientName?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
+                            </div>
+                            {isGoogleAccount && (
+                              <span
+                                className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
+                                title="Google Account Verified"
+                              >
+                                <GoogleIcon className="w-3 h-3" />
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">
+                                {selectedBrief.clientName}
+                              </h4>
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold tracking-wide uppercase bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                {selectedBrief.locationType === "OFW" ? "OFW Priority Client" : "Domestic Homeowner"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 flex items-center gap-1.5 font-mono">
+                              <Mail className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                              <a href={`mailto:${selectedBrief.clientEmail}`} className="hover:underline hover:text-neutral-900 dark:hover:text-white truncate">
+                                {selectedBrief.clientEmail || "No registered email"}
+                              </a>
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white leading-tight">
-                            {selectedBrief.clientName}
-                          </h4>
-                          <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400 mt-0.5">
-                            {selectedBrief.clientEmail || "No registered email"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs font-mono border-t border-neutral-200 dark:border-white/5">
-                        <div className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300">
-                          <Phone className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span>Phone: <strong>{selectedBrief.clientPhone || "—"}</strong></span>
-                        </div>
-                        <div className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300">
-                          <Mail className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span className="truncate">Email: <strong>{selectedBrief.clientEmail || "—"}</strong></span>
-                        </div>
-                        <div className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300">
-                          <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span>Submitted: <strong>{selectedBrief.createdAt ? new Date(selectedBrief.createdAt).toLocaleDateString() : "Recent"}</strong></span>
+                        {/* Contact & Submission Metadata */}
+                        <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-1.5 pt-3 sm:pt-0 border-t sm:border-t-0 border-neutral-100 dark:border-white/5 text-xs text-neutral-600 dark:text-neutral-300 font-mono">
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                            <a href={selectedBrief.clientPhone ? `tel:${selectedBrief.clientPhone}` : undefined} className="font-semibold text-neutral-900 dark:text-white hover:underline">
+                              {selectedBrief.clientPhone || "—"}
+                            </a>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+                            <Clock className="w-3 h-3 text-neutral-400 shrink-0" />
+                            <span>Submitted: {selectedBrief.createdAt ? new Date(selectedBrief.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Recent"}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* SECTION 2: ARCHITECTURAL SCOPE & CLASSIFICATION */}
-                    <div className="p-5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-4">
-                      <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
-                        <Building2 className="w-4 h-4 text-amber-500" />
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider">
-                          Architectural Classification &amp; Project Scope
+                    {/* SECTION 2: ARCHITECTURAL SPECIFICATIONS MATRIX */}
+                    <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 overflow-hidden shadow-xs">
+                      <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02] flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center gap-2">
+                          <Building2 className="w-3.5 h-3.5 text-amber-500" />
+                          Project Scope &amp; Architectural Parameters
+                        </span>
+                        <span className="text-[11px] font-mono text-neutral-500">
+                          Classification: <strong className="text-neutral-800 dark:text-neutral-200">{displayProjectType}</strong>
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-[9px] font-mono uppercase text-neutral-500">Project Type</p>
-                          <p className="text-xs font-bold text-neutral-900 dark:text-white mt-1 break-words">
-                            {selectedBrief.projectType || "Residential"}
+                      {/* 4-Column Technical Matrix */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 divide-x-0 md:divide-x divide-neutral-200/80 dark:divide-white/5">
+                        <div className="p-4 space-y-1">
+                          <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Project Type</p>
+                          <p className="text-sm font-semibold text-neutral-900 dark:text-white">
+                            {displayProjectType}
                           </p>
                         </div>
-                        <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-[9px] font-mono uppercase text-neutral-500">Style Peg</p>
-                          <p className="text-xs font-bold text-neutral-900 dark:text-white mt-1 break-words">
+                        <div className="p-4 space-y-1">
+                          <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Architectural Style</p>
+                          <p className="text-sm font-semibold text-neutral-900 dark:text-white">
                             {styleVal || "Modern Contemporary"}
                           </p>
                         </div>
-                        <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-[9px] font-mono uppercase text-neutral-500">Building Height</p>
-                          <p className="text-xs font-bold text-neutral-900 dark:text-white mt-1 break-words">
+                        <div className="p-4 space-y-1">
+                          <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Building Height</p>
+                          <p className="text-sm font-semibold text-neutral-900 dark:text-white">
                             {storeysVal || "2-Storey (Standard)"}
                           </p>
                         </div>
-                        <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-[9px] font-mono uppercase text-neutral-500">Target Timeline</p>
-                          <p className="text-xs font-bold text-neutral-900 dark:text-white mt-1 break-words">
+                        <div className="p-4 space-y-1">
+                          <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Target Timeline</p>
+                          <p className="text-sm font-semibold text-neutral-900 dark:text-white">
                             {timelineVal || "Within 3 Months"}
                           </p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-[9px] font-mono uppercase text-neutral-500">Estimated Budget Allocation</p>
-                          <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-1">
-                            {selectedBrief.budgetRange || "Flexible Architectural Plan"}
-                          </p>
+                      {/* Financial & Contract Row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-neutral-200/80 dark:border-white/5 divide-y sm:divide-y-0 sm:divide-x divide-neutral-200/80 dark:divide-white/5 bg-neutral-50/40 dark:bg-white/[0.01]">
+                        <div className="p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Estimated Budget Allocation</p>
+                            <p className="text-base font-bold text-amber-600 dark:text-amber-400 font-mono mt-0.5">
+                              {formatBudget(selectedBrief.budgetRange)}
+                            </p>
+                          </div>
+                          <span className="text-[11px] font-mono text-neutral-400">Target Capital</span>
                         </div>
-                        <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-[9px] font-mono uppercase text-neutral-500">Financing Method</p>
-                          <p className="text-xs font-bold text-neutral-900 dark:text-white mt-1">
-                            {financingVal || "Milestone Progress Billing"}
-                          </p>
+                        <div className="p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Financing Structure</p>
+                            <p className="text-sm font-semibold text-neutral-900 dark:text-white mt-0.5">
+                              {financingVal || "Milestone Progress Billing"}
+                            </p>
+                          </div>
+                          <span className="text-[11px] font-mono text-neutral-400">Contract Plan</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* SECTION 3: PROPOSED CONSTRUCTION SITE & SATELLITE GPS */}
-                    <div className="p-5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-4">
-                      <div className="flex items-center justify-between flex-wrap gap-2 text-neutral-500 dark:text-neutral-400">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-amber-500" />
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider">
-                            Proposed Construction Site &amp; Geographical Coordinates
-                          </span>
-                        </div>
+                    {/* SECTION 3: SITE & GEOGRAPHICAL ANALYSIS */}
+                    <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 overflow-hidden shadow-xs">
+                      <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02] flex items-center justify-between flex-wrap gap-2">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center gap-2">
+                          <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                          Site Location &amp; Cadastral Information
+                        </span>
                         {coords && (
                           <a
                             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coords)}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-amber-500/15 hover:bg-amber-500 text-amber-700 hover:text-neutral-950 dark:text-amber-400 dark:hover:text-neutral-950 font-mono text-[10px] font-bold uppercase transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 font-mono text-xs font-semibold transition-colors cursor-pointer"
                           >
                             <span>Open Satellite Map</span>
                             <ExternalLink className="w-3 h-3" />
@@ -1104,186 +1205,174 @@ export default function InquiryPipelineTab({
                         )}
                       </div>
 
-                      <div className="p-3.5 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5 space-y-2">
-                        <p className="text-[9px] font-mono uppercase text-neutral-500">Complete Lot Address</p>
-                        <p className="text-xs font-semibold text-neutral-900 dark:text-white leading-relaxed">
-                          {selectedBrief.location || "Bulacan, Philippines"}
-                        </p>
-
-                        {/* Granular Philippine Address Breakdown */}
-                        {addr && (
-                          <div className="flex flex-wrap gap-1.5 pt-2 border-t border-neutral-100 dark:border-white/5">
-                            {addr.province && (
-                              <span className="px-2 py-0.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 text-[9px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/5">
-                                Prov: <strong>{addr.province}</strong>
-                              </span>
-                            )}
-                            {addr.city && (
-                              <span className="px-2 py-0.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 text-[9px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/5">
-                                City: <strong>{addr.city}</strong>
-                              </span>
-                            )}
-                            {addr.barangay && (
-                              <span className="px-2 py-0.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 text-[9px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/5">
-                                Brgy: <strong>{addr.barangay}</strong>
-                              </span>
-                            )}
-                            {addr.subdivision && (
-                              <span className="px-2 py-0.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 text-[9px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/5">
-                                Subd: <strong>{addr.subdivision}</strong>
-                              </span>
-                            )}
-                            {addr.street && (
-                              <span className="px-2 py-0.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 text-[9px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/5">
-                                Street: <strong>{addr.street}</strong>
-                              </span>
-                            )}
-                            {(addr.blkLot || addr.houseNo) && (
-                              <span className="px-2 py-0.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 text-[9px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/5">
-                                Unit: <strong>{[addr.blkLot && `Blk ${addr.blkLot}`, addr.houseNo && `No. ${addr.houseNo}`].filter(Boolean).join(", ")}</strong>
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-[9px] font-mono uppercase text-neutral-500">Lot Legal &amp; Title Status</p>
-                          <p className="text-xs font-bold text-neutral-900 dark:text-white mt-1">
-                            {lotStatusVal || "Already Owned / Titled"}
+                      <div className="p-5 space-y-4">
+                        <div>
+                          <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">Lot Address</p>
+                          <p className="text-sm font-semibold text-neutral-900 dark:text-white leading-relaxed">
+                            {selectedBrief.location || "Bulacan, Philippines"}
                           </p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-[9px] font-mono uppercase text-neutral-500">Lot Area Specification</p>
-                          <p className="text-xs font-bold text-neutral-900 dark:text-white mt-1">
-                            {lotAreaVal || "Not specified"}
-                          </p>
-                        </div>
-                      </div>
 
-                      {coords && (
-                        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-mono uppercase font-bold text-amber-700 dark:text-amber-400">
-                              Captured Satellite Pin Coordinates
+                          {/* Philippine Address Granular Chips */}
+                          {addr && (
+                            <div className="flex flex-wrap gap-1.5 mt-2.5">
+                              {addr.province && (
+                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                  Prov: <strong>{addr.province}</strong>
+                                </span>
+                              )}
+                              {addr.city && (
+                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                  City: <strong>{addr.city}</strong>
+                                </span>
+                              )}
+                              {addr.barangay && (
+                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                  Brgy: <strong>{addr.barangay}</strong>
+                                </span>
+                              )}
+                              {addr.subdivision && (
+                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                  Subd: <strong>{addr.subdivision}</strong>
+                                </span>
+                              )}
+                              {addr.street && (
+                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                  Street: <strong>{addr.street}</strong>
+                                </span>
+                              )}
+                              {(addr.blkLot || addr.houseNo) && (
+                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                  Unit: <strong>{[addr.blkLot && `Blk ${addr.blkLot}`, addr.houseNo && `No. ${addr.houseNo}`].filter(Boolean).join(", ")}</strong>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Title, Lot Area, Coordinates Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-neutral-100 dark:border-white/5">
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Title &amp; Ownership Status</p>
+                            <p className="text-xs font-semibold text-neutral-900 dark:text-white">
+                              {lotStatusVal || "Already Owned / Titled"}
                             </p>
-                            <p className="text-xs font-mono font-bold text-neutral-800 dark:text-neutral-200 truncate mt-0.5">
-                              {coords}
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Lot Area Dimension</p>
+                            <p className="text-xs font-semibold text-neutral-900 dark:text-white">
+                              {lotAreaVal || "Not specified"}
+                            </p>
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">GPS Pin Coordinates</p>
+                            <p className="text-xs font-mono font-medium text-neutral-700 dark:text-neutral-300 truncate">
+                              {coords || "Not pinned"}
                             </p>
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
 
-                    {/* SECTION 4: SPATIAL PROGRAMMING & ARCHITECTURAL WISHLIST */}
+                    {/* SECTION 4: SPATIAL PROGRAM */}
                     {spatial && (
-                      <div className="p-5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-4">
-                        <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
-                          <Sparkles className="w-4 h-4 text-amber-500" />
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider">
-                            Spatial Programming &amp; Architecture Wishlist
+                      <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 overflow-hidden shadow-xs">
+                        <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02]">
+                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center gap-2">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            Spatial Requirements &amp; Architectural Wishlist
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5 text-center">
-                            <p className="text-[9px] font-mono uppercase text-neutral-500">Bedrooms</p>
-                            <p className="text-base font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">
-                              {spatial.bedrooms || "3"} BR
-                            </p>
-                          </div>
-                          <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5 text-center">
-                            <p className="text-[9px] font-mono uppercase text-neutral-500">Bathrooms</p>
-                            <p className="text-base font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">
-                              {spatial.bathrooms || "2"} Bath
-                            </p>
-                          </div>
-                          <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5 text-center">
-                            <p className="text-[9px] font-mono uppercase text-neutral-500">Car Garage</p>
-                            <p className="text-base font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">
-                              {spatial.carGarage || "2 Cars"}
-                            </p>
-                          </div>
-                        </div>
-
-                        {Array.isArray(spatial.featureTags) && spatial.featureTags.length > 0 && (
-                          <div className="space-y-2 pt-1">
-                            <p className="text-[9px] font-mono uppercase text-neutral-500">
-                              Selected Architectural Feature Tags
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {spatial.featureTags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[11px] font-mono capitalize"
-                                >
-                                  {tag.replace(/[_-]/g, " ")}
-                                </span>
-                              ))}
+                        <div className="p-5 space-y-4">
+                          <div className="grid grid-cols-3 divide-x divide-neutral-200/80 dark:divide-white/5 text-center">
+                            <div className="py-2">
+                              <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Bedrooms</p>
+                              <p className="text-xl font-bold text-neutral-900 dark:text-white mt-0.5">
+                                {spatial.bedrooms || "3"} <span className="text-xs font-normal text-neutral-400">BR</span>
+                              </p>
+                            </div>
+                            <div className="py-2">
+                              <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Bathrooms</p>
+                              <p className="text-xl font-bold text-neutral-900 dark:text-white mt-0.5">
+                                {spatial.bathrooms || "2"} <span className="text-xs font-normal text-neutral-400">Bath</span>
+                              </p>
+                            </div>
+                            <div className="py-2">
+                              <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Car Garage</p>
+                              <p className="text-xl font-bold text-neutral-900 dark:text-white mt-0.5">
+                                {spatial.carGarage || "2"} <span className="text-xs font-normal text-neutral-400">Slots</span>
+                              </p>
                             </div>
                           </div>
-                        )}
+
+                          {Array.isArray(spatial.featureTags) && spatial.featureTags.length > 0 && (
+                            <div className="pt-3 border-t border-neutral-100 dark:border-white/5 space-y-2">
+                              <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">
+                                Desired Architectural Features
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {spatial.featureTags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="px-2.5 py-1 rounded-md bg-neutral-100 dark:bg-white/5 text-neutral-700 dark:text-neutral-300 text-xs font-medium capitalize"
+                                  >
+                                    {tag.replace(/[_-]/g, " ")}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
 
-                    {/* SECTION 5: CONSULTATION PREFERENCE & VENUE */}
-                    <div className="p-5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-4">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
-                          <Calendar className="w-4 h-4 text-amber-500" />
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider">
-                            Client Consultation Logistics Preference
-                          </span>
-                        </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
-                          isOnline
-                            ? "bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-400"
-                            : "bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400"
-                        }`}>
-                          {isOnline ? "Online Video Call" : "In-Person Consultation"}
+                    {/* SECTION 5: CONSULTATION LOGISTICS PREFERENCE */}
+                    <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 overflow-hidden shadow-xs">
+                      <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02] flex items-center justify-between flex-wrap gap-2">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center gap-2">
+                          <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                          Consultation Logistics Preference
+                        </span>
+                        <span className="text-xs font-mono font-semibold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
+                          {isOnline ? <Video className="w-3.5 h-3.5 text-sky-500" /> : <MapPin className="w-3.5 h-3.5 text-amber-500" />}
+                          {isOnline ? "Virtual Video Call" : "In-Person Consultation"}
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-[9px] font-mono uppercase text-neutral-500">Client Requested Date</p>
-                          <p className="text-xs font-bold text-neutral-900 dark:text-white mt-1">
-                            {selectedBrief.meetingDate || selectedBrief.meeting_date || "Earliest Available"}
-                          </p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-[9px] font-mono uppercase text-neutral-500">Client Requested Time</p>
-                          <p className="text-xs font-bold text-neutral-900 dark:text-white mt-1">
-                            {selectedBrief.meetingTime || selectedBrief.meeting_time || "Any Available Slot"}
-                          </p>
-                        </div>
-                      </div>
-
-                      {!isOnline && (
-                        <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[10px] font-mono uppercase text-amber-700 dark:text-amber-400 font-bold">
-                              Selected In-Person Venue
-                            </span>
-                            <span className="text-[10px] font-mono text-neutral-500">
-                              {venueType || "Physical Establishment"}
-                            </span>
+                      <div className="p-5 space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Requested Date</p>
+                            <p className="text-sm font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
+                              <span>{selectedBrief.meetingDate || selectedBrief.meeting_date || "Earliest Available"}</span>
+                              {isMeetingPast(selectedBrief.meetingDate || selectedBrief.meeting_date, selectedBrief.meetingTime || selectedBrief.meeting_time) && (
+                                <span className="text-[10px] font-mono text-neutral-400 font-normal">
+                                  (Concluded)
+                                </span>
+                              )}
+                            </p>
                           </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Requested Time Window</p>
+                            <p className="text-sm font-semibold text-neutral-900 dark:text-white">
+                              {selectedBrief.meetingTime || selectedBrief.meeting_time || "Any Available Slot"}
+                            </p>
+                          </div>
+                        </div>
 
-                          <div className="flex items-start gap-3 pt-1">
+                        {!isOnline && (
+                          <div className="pt-3 border-t border-neutral-100 dark:border-white/5 flex items-start gap-3">
                             {brandName ? (
-                              <div className="w-10 h-10 rounded-lg overflow-hidden bg-white shadow-xs shrink-0 flex items-center justify-center p-1 border border-neutral-200 dark:border-white/10">
-                                <EstablishmentLogo name={brandName} brand={brandName} className="w-7 h-7" iconClassName="w-5 h-5" />
+                              <div className="w-9 h-9 rounded-lg overflow-hidden bg-white shadow-xs shrink-0 flex items-center justify-center p-1 border border-neutral-200 dark:border-white/10">
+                                <EstablishmentLogo name={brandName} brand={brandName} className="w-6 h-6" iconClassName="w-4 h-4" />
                               </div>
                             ) : (
-                              <div className="w-10 h-10 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0 flex items-center justify-center text-lg">
+                              <div className="w-9 h-9 rounded-lg bg-neutral-100 dark:bg-white/5 text-neutral-700 dark:text-neutral-300 shrink-0 flex items-center justify-center text-sm">
                                 {venueType === "Office" ? "🏢" : "📍"}
                               </div>
                             )}
-
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-bold text-neutral-900 dark:text-white leading-snug">
+                              <p className="text-xs font-semibold text-neutral-900 dark:text-white">
                                 {venueDetails || (venueType === "Office" ? "MCPA Head Office, Tabang, Plaridel, Bulacan" : "Project Site / Physical Venue")}
                               </p>
                               {venueDetails && (
@@ -1291,201 +1380,286 @@ export default function InquiryPipelineTab({
                                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueDetails)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 hover:underline"
+                                  className="mt-1 inline-flex items-center gap-1 text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:underline"
                                 >
-                                  <MapPinIcon className="w-3 h-3" />
                                   <span>View Venue Location on Google Maps</span>
                                   <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
                                 </a>
                               )}
                             </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {isOnline && (
-                        <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center gap-2.5">
-                          <Video className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
-                          <p className="text-[11px] font-mono text-sky-800 dark:text-sky-300">
-                            Client selected virtual video consultation. Google Meet / Zoom link will be dispatched with the confirmation email.
-                          </p>
-                        </div>
-                      )}
+                        {isOnline && (
+                          <div className="pt-3 border-t border-neutral-100 dark:border-white/5 flex items-center gap-2.5 text-xs text-neutral-600 dark:text-neutral-400">
+                            <Video className="w-4 h-4 text-sky-500 shrink-0" />
+                            <span>Client requested an online consultation. Dedicated video link will be attached upon approval.</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* SECTION 6: CLIENT SPECIAL REMARKS & NOTES */}
+                    {/* SECTION 6: CLIENT SPECIAL REMARKS */}
                     {selectedBrief.message && (
-                      <div className="p-5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-2">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500">
-                          Client Special Remarks &amp; Design Notes
-                        </span>
-                        <div className="p-3.5 rounded-lg bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/5">
-                          <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed italic">
-                            "{selectedBrief.message}"
-                          </p>
-                        </div>
+                      <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 p-5 space-y-2 shadow-xs">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Client Remarks &amp; Design Notes</p>
+                        <p className="text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed italic border-l-2 border-amber-500 pl-3">
+                          "{selectedBrief.message}"
+                        </p>
                       </div>
                     )}
 
-                    {/* SECTION 7: ADMIN MEETING SETUP & INTERACTIVE CONFIRMATION */}
-                    <div className="p-5 rounded-xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                          Admin Meeting Confirmation Controls
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-500">
-                          Status: <strong>{selectedBrief.status || "Pending Review"}</strong>
-                        </span>
-                      </div>
-
-                      {/* Mode Switcher */}
-                      <div className="grid grid-cols-2 gap-3">
-                        {["Online Video Call", "Face-to-Face"].map((mode) => (
-                          <button
-                            key={mode}
-                            type="button"
-                            onClick={() => {
-                              setMeetingMode(mode);
-                              if (mode === "Face-to-Face" && selectedBrief) {
-                                setMeetingLink(selectedBrief.venueDetails || selectedBrief.venue_details || "MCPA Head Office, Tabang, Plaridel, Bulacan");
-                              } else if (mode === "Online Video Call" && selectedBrief) {
-                                setMeetingLink(selectedBrief.meetingLink || selectedBrief.meeting_link || "https://meet.google.com/mcp-buil-tab");
-                              }
-                            }}
-                            className={`p-3 rounded-lg border text-xs font-mono text-left transition-colors cursor-pointer flex items-center gap-2 ${
-                              meetingMode === mode
-                                ? "border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold shadow-xs"
-                                : "border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900/60 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50"
-                            }`}
-                          >
-                            {mode === "Online Video Call" ? <Video className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
-                            <span>{mode}</span>
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Date & Time */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1">
-                            Confirmed Date
-                          </label>
-                          <input
-                            type="date"
-                            value={meetingDate}
-                            onChange={(e) => setMeetingDate(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors"
-                          />
+                    {/* SECTION 7: ADMIN DETERMINATION RECORD OR CONFIRMATION CONTROLS */}
+                    {isBriefRejected ? (
+                      <div className="rounded-xl bg-rose-50/70 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/40 p-5 space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
+                            <ShieldAlert className="w-4 h-4 shrink-0" />
+                            <span className="text-xs font-mono font-bold uppercase tracking-wider">
+                              Administrative Determination: Declined
+                            </span>
+                          </div>
+                          <span className="text-xs font-mono font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                            <XCircleIcon className="w-3.5 h-3.5" />
+                            REJECTED
+                          </span>
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1">
-                            Confirmed Time Slot
-                          </label>
-                          <input
-                            type="text"
-                            value={meetingTime}
-                            onChange={(e) => setMeetingTime(e.target.value)}
-                            placeholder="09:00 AM - 10:30 AM"
-                            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors"
-                          />
+
+                        <div className="space-y-1.5 text-xs">
+                          <div>
+                            <span className="text-[10px] font-mono uppercase text-neutral-500 block">Determination Reason</span>
+                            <span className="font-semibold text-rose-700 dark:text-rose-300">
+                              {selectedBrief.rejectionReason || selectedBrief.rejection_reason || "Location Outside Service Coverage / Capacity Limit"}
+                            </span>
+                          </div>
+                          {(selectedBrief.rejectionNotes || selectedBrief.rejection_notes) && (
+                            <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/40">
+                              <span className="text-[10px] font-mono uppercase text-neutral-500 block">Assessment Notes</span>
+                              <span className="text-neutral-700 dark:text-neutral-300 italic">
+                                "{selectedBrief.rejectionNotes || selectedBrief.rejection_notes}"
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs font-mono text-neutral-600 dark:text-neutral-400 pt-1">
+                          <CheckCircle2Icon className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span>Official rejection notice was sent via email to <strong>{selectedBrief.clientEmail}</strong></span>
                         </div>
                       </div>
+                    ) : (
+                      /* ACTIVE CONTROLS: CONFIRMATION & SCHEDULE EDIT */
+                      <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 overflow-hidden shadow-xs">
+                        <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02] flex items-center justify-between">
+                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
+                            Consultation Confirmation Setup
+                          </span>
+                          <span className="text-xs font-mono text-neutral-500">
+                            Status: <strong className="text-amber-600 dark:text-amber-400">{selectedBrief.status || "Pending Review"}</strong>
+                          </span>
+                        </div>
 
-                      {/* Meeting Link or Physical Address */}
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1">
-                          {meetingMode === "Online Video Call" ? "Virtual Video Meeting Link" : "Confirmed Physical Meeting Venue"}
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type={meetingMode === "Online Video Call" ? "url" : "text"}
-                            value={meetingLink}
-                            onChange={(e) => setMeetingLink(e.target.value)}
-                            placeholder={meetingMode === "Online Video Call" ? "https://meet.google.com/..." : "MCPA Head Office / Venue"}
-                            className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleCopyLink}
-                            className="px-3 py-2 rounded-lg bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-amber-600 transition-colors cursor-pointer shrink-0"
-                            title="Copy link"
-                          >
-                            <CopyIcon className="w-3.5 h-3.5" />
-                          </button>
+                        <div className="p-5 space-y-4">
+                          {/* Segmented Mode Control */}
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-2">
+                              Meeting Mode
+                            </label>
+                            <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-neutral-100 dark:bg-white/5 border border-neutral-200/80 dark:border-white/5">
+                              {["Online Video Call", "Face-to-Face"].map((mode) => (
+                                <button
+                                  key={mode}
+                                  type="button"
+                                  onClick={() => {
+                                    setMeetingMode(mode);
+                                    if (mode === "Face-to-Face" && selectedBrief) {
+                                      setMeetingLink(selectedBrief.venueDetails || selectedBrief.venue_details || "MCPA Head Office, Tabang, Plaridel, Bulacan");
+                                    } else if (mode === "Online Video Call" && selectedBrief) {
+                                      setMeetingLink(selectedBrief.meetingLink || selectedBrief.meeting_link || "https://meet.google.com/mcp-buil-tab");
+                                    }
+                                  }}
+                                  className={`py-2 px-3 rounded-md text-xs font-medium transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                                    meetingMode === mode
+                                      ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold shadow-xs"
+                                      : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                                  }`}
+                                >
+                                  {mode === "Online Video Call" ? <Video className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
+                                  <span>{mode}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Date & Time Row */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                                Confirmed Date *
+                              </label>
+                              <input
+                                type="date"
+                                value={meetingDate}
+                                onChange={(e) => setMeetingDate(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                                Confirmed Time Slot *
+                              </label>
+                              <input
+                                type="text"
+                                value={meetingTime}
+                                onChange={(e) => setMeetingTime(e.target.value)}
+                                placeholder="09:00 AM - 10:30 AM"
+                                className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Link / Address with Copy */}
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                              {meetingMode === "Online Video Call" ? "Google Meet / Video Link" : "Physical Consultation Venue"}
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type={meetingMode === "Online Video Call" ? "url" : "text"}
+                                value={meetingLink}
+                                onChange={(e) => setMeetingLink(e.target.value)}
+                                placeholder={meetingMode === "Online Video Call" ? "https://meet.google.com/..." : "MCPA Head Office / Venue"}
+                                className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleCopyLink}
+                                className="px-3 py-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-300 transition-colors cursor-pointer shrink-0"
+                                title="Copy link"
+                              >
+                                <CopyIcon className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Internal Notes */}
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                              Engineering &amp; Architectural Internal Notes
+                            </label>
+                            <textarea
+                              value={meetingNotes}
+                              onChange={(e) => setMeetingNotes(e.target.value)}
+                              placeholder="Add internal notes, engineering parameters, or client preferences..."
+                              rows={2}
+                              className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none"
+                            />
+                          </div>
                         </div>
                       </div>
-
-                      {/* Admin Notes */}
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1">
-                          Admin Engineering &amp; Architectural Internal Notes
-                        </label>
-                        <textarea
-                          value={meetingNotes}
-                          onChange={(e) => setMeetingNotes(e.target.value)}
-                          placeholder="Add internal notes, client preferences, or engineering scope notes..."
-                          rows={2}
-                          className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors resize-none"
-                        />
-                      </div>
-                    </div>
+                    )}
                   </>
                 );
               })()}
             </div>
 
             {/* Modal Sticky Footer Action Bar */}
-            <div className="px-6 py-4 border-t border-neutral-200 dark:border-white/5 flex flex-wrap items-center justify-between gap-3 shrink-0 bg-neutral-50/90 dark:bg-white/[0.02]">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={openRescheduleModal}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-white/10 hover:border-amber-500/50 text-neutral-700 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 text-xs font-mono font-bold uppercase transition-colors cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Reschedule</span>
-                </button>
+            <div className="px-6 py-4 border-t border-neutral-200/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-3 shrink-0 bg-white dark:bg-[#0e1017]">
+              {(() => {
+                const currentStatus = (selectedBrief?.status || "Pending Review").trim();
+                const isBriefRejected =
+                  Boolean(selectedBrief?.isRejected) ||
+                  currentStatus.toLowerCase().includes("reject");
+                const isBriefArchived =
+                  Boolean(selectedBrief?.isArchived) ||
+                  currentStatus.toLowerCase().includes("archive");
 
-                <button
-                  type="button"
-                  onClick={openRejectModal}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-600 dark:text-rose-400 text-xs font-mono font-bold uppercase transition-colors cursor-pointer"
-                >
-                  <XCircleIcon className="w-3.5 h-3.5" />
-                  <span>Reject</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {selectedBrief.status === "Meeting Scheduled" || selectedBrief.status === "Approved / Accepted" ? (
-                  <>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-mono font-bold">
-                      <CheckIcon className="w-3.5 h-3.5" />
-                      <span>Confirmed &amp; Scheduled</span>
+                // CASE 1: REJECTED STATE -> SHOW SINGLE 'ARCHIVE DOSSIER'
+                if (isBriefRejected) {
+                  return (
+                    <div className="flex items-center justify-end w-full">
+                      <button
+                        type="button"
+                        onClick={handleArchiveDossier}
+                        disabled={isArchiving}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-neutral-300 dark:border-white/10 bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 font-semibold text-xs tracking-wide transition-all cursor-pointer disabled:opacity-50 shadow-xs ml-auto"
+                        title="Archive this rejected dossier"
+                      >
+                        <Archive className="w-4 h-4" />
+                        <span>{isArchiving ? "Archiving..." : "Archive Dossier"}</span>
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleApprove}
-                      disabled={isApproving}
-                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500 hover:text-neutral-950 text-amber-700 dark:text-amber-400 font-bold text-xs uppercase font-mono tracking-wide transition-all cursor-pointer active:scale-[0.99]"
-                      title="Update details and re-send confirmation email"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{isApproving ? "Updating..." : "Update / Resend Email"}</span>
-                    </button>
+                  );
+                }
+
+                // CASE 2: ARCHIVED STATE
+                if (isBriefArchived) {
+                  return (
+                    <div className="flex items-center justify-end w-full">
+                      <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-400 text-xs font-mono font-medium ml-auto">
+                        <Archive className="w-3.5 h-3.5" />
+                        <span>Dossier Archived</span>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // CASE 3: STANDARD STATE (PENDING, APPROVED)
+                return (
+                  <>
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={openRescheduleModal}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-neutral-300 dark:border-white/10 hover:border-neutral-400 bg-white dark:bg-white/[0.04] text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 text-neutral-500" />
+                        <span>Reschedule</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={openRejectModal}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-xs font-medium transition-colors cursor-pointer"
+                      >
+                        <XCircleIcon className="w-3.5 h-3.5" />
+                        <span>Decline Request</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2.5">
+                      {selectedBrief.status === "Meeting Scheduled" || selectedBrief.status === "Approved / Accepted" ? (
+                        <>
+                          <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
+                            <CheckIcon className="w-3.5 h-3.5" />
+                            <span>Confirmed &amp; Scheduled</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleApprove}
+                            disabled={isApproving}
+                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500 hover:text-neutral-950 text-amber-700 dark:text-amber-400 font-semibold text-xs tracking-wide transition-all cursor-pointer disabled:opacity-50"
+                            title="Update details and re-send confirmation email"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                            <span>{isApproving ? "Updating..." : "Update / Resend"}</span>
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleApprove}
+                          disabled={isApproving}
+                          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-[0.99]"
+                        >
+                          <CheckIcon className="w-4 h-4" />
+                          <span>{isApproving ? "Confirming..." : "Approve & Send Email"}</span>
+                        </button>
+                      )}
+                    </div>
                   </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleApprove}
-                    disabled={isApproving}
-                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 font-bold text-xs uppercase font-mono tracking-wide shadow-lg shadow-amber-500/20 transition-all cursor-pointer active:scale-[0.99]"
-                  >
-                    <CheckIcon className="w-4 h-4" />
-                    <span>{isApproving ? "Approving..." : "Approve & Send Email to Client"}</span>
-                  </button>
-                )}
-              </div>
+                );
+              })()}
             </div>
           </div>
         </div>

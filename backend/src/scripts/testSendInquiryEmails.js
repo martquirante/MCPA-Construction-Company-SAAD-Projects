@@ -15,7 +15,7 @@ async function runTest() {
     client_name: "Raymart Quirante",
     client_email: targetEmail,
     client_phone: "+63 938 876 3473",
-    project_type: "Residential Villa / Two-Storey",
+    project_type: "Residential",
     preferred_style: "Minimalist Japanese Zen",
     storeys: "2-Storey (Standard)",
     location: "Brgy. San Rafael V, City of San Jose Del Monte, Bulacan",

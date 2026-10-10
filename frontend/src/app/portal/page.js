@@ -58,6 +58,7 @@ import PortalMobileBottomNav from "@/modules/portal/components/PortalMobileBotto
 import PortalEmptyState from "@/modules/portal/components/PortalEmptyState";
 import { authFetch } from "@/modules/shared/authFetch";
 import { getBookingIntent, clearBookingIntent } from "@/modules/shared/bookingAuthHelper";
+import { isMeetingPast } from "@/modules/shared/meetingHelper";
 
 function ClientPortalContent() {
   const router = useRouter();
@@ -1200,7 +1201,10 @@ function ClientPortalContent() {
                               )}
                             </div>
                             <h2 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white">
-                              {brief.project_type || brief.projectType || "Residential Design & Build"}
+                              {(() => {
+                                const pt = brief.project_type || brief.projectType || "Residential Design & Build";
+                                return pt.toLowerCase().includes("residential") ? "Residential" : pt;
+                              })()}
                             </h2>
                             <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono mt-0.5">
                               Style: {brief.preferred_style || "Contemporary Modern"} • Budget:{" "}
@@ -1208,40 +1212,19 @@ function ClientPortalContent() {
                             </p>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2">
-                            {brief.availability_status && (
-                              <span
-                                className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
-                                  brief.availability_status === "Confirmed"
-                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-                                    : brief.availability_status === "Declined"
-                                    ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
-                                    : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
-                                }`}
-                              >
-                                {brief.availability_status}
-                              </span>
-                            )}
+                          {/* Status: Clean text-only without pill backgrounds or borders */}
+                          <div className="flex items-center">
                             <span
-                              className={`text-xs font-mono font-bold uppercase tracking-wider px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                              className={`text-xs font-mono font-bold uppercase tracking-wider ${
                                 status.toLowerCase().includes("scheduled") || status.toLowerCase().includes("approved")
-                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                  ? "text-emerald-600 dark:text-emerald-400"
                                   : status.toLowerCase().includes("reject") || status.toLowerCase().includes("decline")
-                                  ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                                  ? "text-red-600 dark:text-red-400"
                                   : status.toLowerCase().includes("review")
-                                  ? "bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400"
-                                  : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                                  ? "text-sky-600 dark:text-sky-400"
+                                  : "text-amber-600 dark:text-amber-400"
                               }`}
                             >
-                              <span
-                                className={`w-2 h-2 rounded-full ${
-                                  status.toLowerCase().includes("scheduled") || status.toLowerCase().includes("approved")
-                                    ? "bg-emerald-500"
-                                    : status.toLowerCase().includes("reject")
-                                    ? "bg-red-500"
-                                    : "bg-amber-500 animate-pulse"
-                                }`}
-                              />
                               {status}
                             </span>
                           </div>
@@ -1258,8 +1241,13 @@ function ClientPortalContent() {
                               <p className="font-semibold text-neutral-800 dark:text-neutral-200">
                                 Mode: {brief.venue_type ? `In-Person (${brief.venue_type})` : brief.meeting_mode || "Online Meeting"}
                               </p>
-                              <p className="text-neutral-600 dark:text-neutral-400">
-                                Slot: {brief.meeting_date || "Earliest Available"} ({brief.meeting_time || "02:00 PM PHT"})
+                              <p className="text-neutral-600 dark:text-neutral-400 flex items-center gap-1.5 flex-wrap">
+                                <span>Slot: {brief.meeting_date || "Earliest Available"} ({brief.meeting_time || "02:00 PM PHT"})</span>
+                                {isMeetingPast(brief.meeting_date || brief.meetingDate, brief.meeting_time || brief.meetingTime) && (
+                                  <span className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 font-medium">
+                                    • Concluded
+                                  </span>
+                                )}
                               </p>
                             </div>
                           </div>
@@ -1280,8 +1268,13 @@ function ClientPortalContent() {
                           </div>
                         </div>
 
-                        {/* Meeting Link Room Card (When scheduled by admin) */}
-                        {(brief.meeting_link || brief.meetingLink) && (
+                        {/* Meeting Link Room Card (Only active when scheduled, not rejected, and not past) */}
+                        {Boolean(
+                          (brief.meeting_link || brief.meetingLink) &&
+                          !status.toLowerCase().includes("reject") &&
+                          !status.toLowerCase().includes("decline") &&
+                          !isMeetingPast(brief.meeting_date || brief.meetingDate, brief.meeting_time || brief.meetingTime)
+                        ) && (
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-[12px] bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25">
                             <div className="flex items-center gap-2.5">
                               <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">

@@ -379,6 +379,28 @@ class BriefsController {
     }
   }
 
+  async reject(req, res) {
+    try {
+      req.body.status = "Rejected / Declined";
+      req.body.isRejected = true;
+      return await this.updateStatus(req, res);
+    } catch (err) {
+      console.error("[BriefsController.reject] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to reject brief: " + err.message });
+    }
+  }
+
+  async archive(req, res) {
+    try {
+      req.body.status = "Archived";
+      req.body.isArchived = true;
+      return await this.updateStatus(req, res);
+    } catch (err) {
+      console.error("[BriefsController.archive] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to archive brief: " + err.message });
+    }
+  }
+
   async provisionAccess(req, res) {
     try {
       const { id } = req.params;

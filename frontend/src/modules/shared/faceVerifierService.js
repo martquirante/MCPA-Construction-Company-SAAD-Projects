@@ -315,7 +315,7 @@ function detectObstructions(img, faceBox, landmarks) {
       code: "SUNGLASSES_DETECTED",
       type: "sunglasses",
       fil: "Naka-shades o sunglasses. Pakitanggal ang salamin sa mata upang makita ang mga mata.",
-      en: "Sunglasses or tinted glasses detected. Please remove them to verify eye biometrics.",
+      en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
     });
   } else {
     const bx1 = Math.round(Math.min(re_x, le_x) + fw * 0.12);
@@ -346,7 +346,7 @@ function detectObstructions(img, faceBox, landmarks) {
           code: "EYEGLASSES_DETECTED",
           type: "eyeglasses",
           fil: "Naka-salamin sa mata na may makapal na frame. Pakitanggal ang salamin upang maging malinaw ang beripikasyon.",
-          en: "Eyeglasses with dark frames detected. Please remove eyeglasses for identity verification.",
+          en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
         });
       }
     }
@@ -396,7 +396,7 @@ function detectObstructions(img, faceBox, landmarks) {
         code: "HAT_DETECTED",
         type: "hat",
         fil: "Naka-sumbrero, cap, o safety helmet. Pakitanggal ang anumang panakip sa ulo bago magpatuloy.",
-        en: "Hat, cap, or safety helmet detected. Please remove any headwear to proceed.",
+        en: "Facial obstruction detected. Please remove any hats, masks, or headwear.",
       });
     }
   }
@@ -423,7 +423,7 @@ function detectObstructions(img, faceBox, landmarks) {
         code: "MASK_DETECTED",
         type: "mask",
         fil: "Naka-face mask o may takip ang bibig at ilong. Pakitanggal ang mask o panyo bago magpatuloy.",
-        en: "Face mask or mouth/nose covering detected. Please remove your mask to continue.",
+        en: "Facial obstruction detected. Please remove any hats, masks, or headwear.",
       });
     }
   }
@@ -458,7 +458,7 @@ function detectObstructions(img, faceBox, landmarks) {
       code: "FACE_OBSTRUCTED",
       type: "occlusion",
       fil: "May nakaharang o sagabal sa iyong mukha (tulad ng kamay o bagay). Alisin ang anumang nakaharang.",
-      en: "Obstruction or object detected covering part of your face. Please ensure your face is fully clear.",
+      en: "Facial obstruction detected. Please remove any hats, masks, or headwear.",
     });
   }
 
@@ -565,13 +565,13 @@ async function verifyFaceTelemetry(imageInput, referenceInput = null, clientMeta
     issues.push({
       code: "TOO_DARK",
       fil: "Masyadong madilim ang paligid. Lumipat sa mas maliwanag na lugar o buksan ang ilaw.",
-      en: "Lighting is too dark. Please move to a brighter area or turn on more lights.",
+      en: "Environment is too dark. Please move to a well-lit area or turn on a light.",
     });
   } else if (lighting.is_too_bright) {
     issues.push({
       code: "TOO_BRIGHT",
       fil: "Masyadong maliwanag o may matinding silaw. Iwasan ang matinding backlight.",
-      en: "Excessive glare or backlight detected. Please adjust lighting to avoid washing out facial features.",
+      en: "Lighting is too bright. Please avoid direct sunlight or harsh backlighting.",
     });
   }
 
@@ -580,7 +580,7 @@ async function verifyFaceTelemetry(imageInput, referenceInput = null, clientMeta
       code: "BLURRY_IMAGE",
       type: "quality",
       fil: "Malabo o gumagalaw ang litrato. Hawakan nang maayos at steady ang camera.",
-      en: "Image is blurry or motion-degraded. Hold the camera steady and refocus.",
+      en: "Camera is too shaky. Please hold your phone still or place it on a stable surface.",
     });
   }
 
@@ -591,13 +591,13 @@ async function verifyFaceTelemetry(imageInput, referenceInput = null, clientMeta
     issues.push({
       code: "NO_FACE_DETECTED",
       fil: "Walang nakitang mukha sa litrato. Tumingin nang diretso sa camera nang buo ang mukha.",
-      en: "No human face was detected. Please ensure your full face is visible to the camera.",
+      en: "No face detected. Look directly at camera.",
     });
   } else if (faceCount > 1) {
     issues.push({
       code: "MULTIPLE_FACES",
       fil: "Maraming tao ang nakita sa camera. Isang tao lamang ang dapat makita sa biometric frame.",
-      en: "Multiple faces detected. Only one person must be visible for biometric verification.",
+      en: "Multiple faces detected. Please ensure you are the only person in the frame.",
     });
   } else {
     const { x: fx, y: fy, width: fw, height: fh } = faceBox;
@@ -617,7 +617,7 @@ async function verifyFaceTelemetry(imageInput, referenceInput = null, clientMeta
       issues.push({
         code: "OFF_CENTER",
         fil: "Igitna ang iyong mukha sa bilog na gabay.",
-        en: "Center your face properly within the circular viewfinder.",
+        en: "You are too close. Please step back slightly to fit your face inside the circle.",
       });
     }
 
@@ -630,14 +630,14 @@ async function verifyFaceTelemetry(imageInput, referenceInput = null, clientMeta
       issues.push({
         code: "TOO_FAR",
         fil: "Masyadong malayo ang iyong mukha. Lumapit nang bahagya sa camera.",
-        en: "You are too far from the camera. Please move slightly closer.",
+        en: "You are too far. Please move closer to the camera.",
       });
     } else if (ratio > 0.88) {
       is_too_close = true;
       issues.push({
         code: "TOO_CLOSE",
         fil: "Masyadong malapit ang iyong mukha. Dumistansya nang kaunti.",
-        en: "You are too close to the camera. Please step back slightly.",
+        en: "You are too close. Please step back slightly to fit your face inside the circle.",
       });
     }
 

@@ -488,6 +488,17 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
     }
   }, [signupStep, authMode]);
 
+  // Clean up any lingering camera state, errors, or obstruction warnings when transitioning to Step 4 (Project Tab)
+  useEffect(() => {
+    if (signupStep === 4) {
+      setErrorMessage("");
+      setFaceObstructionError("");
+      setFaceErrorType("");
+      setFaceCheckFeedback("");
+      setIsLivenessModalOpen(false);
+    }
+  }, [signupStep]);
+
   const handleLegalScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     const maxScroll = scrollHeight - clientHeight;
@@ -2471,23 +2482,86 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
                       />
                     </div>
 
-                    {/* Compact Guidelines & Biometric Motion Sequence */}
-                    <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-[#161a23] border border-neutral-200 dark:border-neutral-800 space-y-1.5 transition-colors text-left">
-                      {/* 2-Column Rules */}
-                      <div className="grid grid-cols-2 gap-2 text-[11px] leading-tight">
-                        <div className="flex items-center gap-1.5 text-neutral-700 dark:text-neutral-300">
-                          <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px]">✓</span>
-                          <span className="truncate font-medium">Good Lighting</span>
+                    {/* KYC DO's and DON'Ts Comprehensive Biometric Guide */}
+                    <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/90 dark:bg-[#161a23]/90 p-3 sm:p-3.5 space-y-2.5 text-left transition-colors shadow-xs">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200/60 dark:border-neutral-800/60">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-900 dark:text-white">
+                          <ShieldCheckIcon className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span>{activeLang === "fil" ? "Mga Gabay sa Biometric KYC (DO's at DON'Ts)" : "KYC Biometric Verification Guidelines"}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-neutral-700 dark:text-neutral-300">
-                          <span className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center shrink-0 text-[10px]">✓</span>
-                          <span className="truncate font-medium">No Hats or Masks</span>
+                        <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wider">
+                          Anti-Spoofing
+                        </span>
+                      </div>
+
+                      {/* 2-Column Responsive DO's & DON'Ts */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {/* DO's Column */}
+                        <div className="p-2.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/25 space-y-1.5">
+                          <div className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-400 text-[11px] uppercase tracking-wide">
+                            <span className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center text-[10px]">✓</span>
+                            <span>{activeLang === "fil" ? "MGA DAPAT GAWIN (DO's)" : "DO's"}</span>
+                          </div>
+                          <ul className="space-y-1 text-[11px] text-neutral-700 dark:text-neutral-300 leading-tight">
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-emerald-500 font-bold shrink-0">•</span>
+                              <span>{activeLang === "fil" ? "Iposisyon ang mukha nang maayos sa loob ng bilog." : "Position your face squarely inside the provided circle."}</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-emerald-500 font-bold shrink-0">•</span>
+                              <span>{activeLang === "fil" ? "Siguruhing maliwanag ang silid at nakaharap sa ilaw." : "Ensure you are in a well-lit room where light is facing you."}</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-emerald-500 font-bold shrink-0">•</span>
+                              <span>{activeLang === "fil" ? "Sundin ang mga galaw sa screen (dahan-dahang lumingon, kumurap)." : "Follow on-screen instructions smoothly (turn head, blink)."}</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-emerald-500 font-bold shrink-0">•</span>
+                              <span>{activeLang === "fil" ? "Pribadong lugar kung saan ikaw lang ang nasa camera." : "Ensure a private area where no one else is in frame."}</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-emerald-500 font-bold shrink-0">•</span>
+                              <span>{activeLang === "fil" ? "Linisin ang camera lens para sa malinaw na biometric scan." : "Ensure your camera lens is clean for a crisp image."}</span>
+                            </li>
+                          </ul>
+                        </div>
+
+                        {/* DON'Ts Column */}
+                        <div className="p-2.5 rounded-xl bg-rose-500/10 dark:bg-rose-500/10 border border-rose-500/25 space-y-1.5">
+                          <div className="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-400 text-[11px] uppercase tracking-wide">
+                            <span className="w-4 h-4 rounded-full bg-rose-500/20 flex items-center justify-center text-[10px]">✕</span>
+                            <span>{activeLang === "fil" ? "MGA BAWAL GAWIN (DON'Ts)" : "DON'Ts"}</span>
+                          </div>
+                          <ul className="space-y-1 text-[11px] text-neutral-700 dark:text-neutral-300 leading-tight">
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-rose-500 font-bold shrink-0">•</span>
+                              <span>{activeLang === "fil" ? "Huwag magpatayo ng ibang tao sa iyong likuran o tabi." : "Don't have anyone else stand behind or near you."}</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-rose-500 font-bold shrink-0">•</span>
+                              <span>{activeLang === "fil" ? "Huwag magsuot ng sunglasses, sumbrero, mask, o makapal na salamin." : "Don't wear sunglasses, caps, masks, or heavy eyeglasses."}</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-rose-500 font-bold shrink-0">•</span>
+                              <span>{activeLang === "fil" ? "Huwag tumapat sa maliwanag na bintana (matinding backlight)." : "Don't stand in front of bright windows or harsh backlights."}</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-rose-500 font-bold shrink-0">•</span>
+                              <span>{activeLang === "fil" ? "Huwag gumalaw nang mabilis habang lumilingon." : "Don't move too fast when asked to tilt or turn head."}</span>
+                            </li>
+                            <li className="flex items-start gap-1.5">
+                              <span className="text-rose-500 font-bold shrink-0">•</span>
+                              <span>{activeLang === "fil" ? "Huwag ilapit nang sobra ang camera sa iyong mukha." : "Don't hold the camera too close to your face."}</span>
+                            </li>
+                          </ul>
                         </div>
                       </div>
 
                       {/* 6-step movement overview */}
-                      <div className="pt-1.5 border-t border-neutral-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
-                        <span className="shrink-0 font-semibold uppercase">6 Steps:</span>
+                      <div className="pt-2 border-t border-neutral-200/60 dark:border-neutral-800/60 flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
+                        <span className="shrink-0 font-bold uppercase text-amber-600 dark:text-amber-400">
+                          {activeLang === "fil" ? "6 na Hakbang:" : "6 Challenges:"}
+                        </span>
                         <span className="truncate font-sans font-medium text-neutral-600 dark:text-neutral-300">
                           Center → Right → Left → Tilt Up → Down → Blink
                         </span>
@@ -2624,6 +2698,10 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
                       return;
                     }
                     setErrorMessage("");
+                    setFaceObstructionError("");
+                    setFaceErrorType("");
+                    setFaceCheckFeedback("");
+                    setIsLivenessModalOpen(false);
                     setSignupStep(4);
                   }}
                   className={`h-11 rounded-xl font-bold text-sm shadow-sm flex items-center justify-center gap-2 transition-all ${
@@ -3331,7 +3409,12 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
       {/* ========================================================================= */}
       <MediaPipeLivenessModal
         isOpen={isLivenessModalOpen}
-        onClose={() => setIsLivenessModalOpen(false)}
+        onClose={() => {
+          setIsLivenessModalOpen(false);
+          setErrorMessage("");
+          setFaceObstructionError("");
+          setFaceErrorType("");
+        }}
         activeLang={activeLang}
         purpose="kyc"
         referenceAvatar={socialConnected?.avatarUrl || null}
@@ -3342,6 +3425,7 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
           setCapturedSelfie(verifiedImage);
           setIsLivenessVerified(true);
           setFaceObstructionError("");
+          setFaceErrorType("");
           setErrorMessage("");
 
           const matchNotice =

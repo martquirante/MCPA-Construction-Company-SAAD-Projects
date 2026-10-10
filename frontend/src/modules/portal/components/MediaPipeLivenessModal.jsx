@@ -228,10 +228,10 @@ const CHALLENGES = [
   },
   {
     id: "blink",
-    fil: "Blink your eyes naturally",
-    en: "Blink your eyes naturally",
-    subFil: "Close and open your eyes once",
-    subEn: "Close and open your eyes once",
+    fil: "I-relax ang mukha at kumurap nang natural",
+    en: "Please relax your face and blink naturally",
+    subFil: "I-relax ang mukha at kumurap nang natural sa camera",
+    subEn: "Please relax your face and blink naturally",
     icon: Eye,
     arrowDirection: "blink",
   },
@@ -399,6 +399,9 @@ export default function MediaPipeLivenessModal({
   const frameCounterRef = useRef(0);
   const latestMeshRef = useRef(null);
   const warningDebounceRef = useRef({ text: "", count: 0 });
+  const isFinishedRef = useRef(false);
+  const stepStartTimeRef = useRef(null);
+  const lastStepIndexRef = useRef(null);
 
   // Responsive hold requirement: 3 consecutive frames (~90-100ms) with 0 active warnings
   const REQUIRED_HOLD_FRAMES = 3;
@@ -428,14 +431,29 @@ export default function MediaPipeLivenessModal({
       animFrameIdRef.current = null;
     }
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
       streamRef.current = null;
+    }
+    if (videoRef.current) {
+      try {
+        videoRef.current.srcObject = null;
+      } catch (e) {}
     }
     if (faceMeshInstanceRef.current && typeof faceMeshInstanceRef.current.close === "function") {
       try {
         faceMeshInstanceRef.current.close();
       } catch (e) {}
       faceMeshInstanceRef.current = null;
+    }
+    if (canvasRef.current) {
+      try {
+        const ctx = canvasRef.current.getContext("2d");
+        if (ctx) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      } catch (e) {}
     }
   }, []);
 
@@ -497,13 +515,13 @@ export default function MediaPipeLivenessModal({
       if (avgLum < 24 || avgCenterLum < 20) {
         return {
           type: "dark",
-          text: "Face is too dark. Please face a light source or turn on a room light.",
+          text: "Environment is too dark. Please move to a well-lit area or turn on a light.",
         };
       }
       if (avgLum > 235 || avgCenterLum > 240) {
         return {
           type: "bright",
-          text: "Too bright or direct glare. Avoid harsh backlights.",
+          text: "Lighting is too bright. Please avoid direct sunlight or harsh backlighting.",
         };
       }
     } catch (e) {}
@@ -584,11 +602,35 @@ export default function MediaPipeLivenessModal({
         navigator.vibrate([120, 80, 120]);
       }
       const obs = pyResult?.obstructions?.issues?.[0] || pyResult?.issues?.[0];
+      let alertEn = obs?.en || "Facial obstruction detected. Please remove any hats, masks, or headwear.";
+      if (obs?.code === "SUNGLASSES_DETECTED" || obs?.code === "EYEGLASSES_DETECTED") {
+        alertEn = "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.";
+      } else if (
+        obs?.code === "HAT_DETECTED" ||
+        obs?.code === "MASK_DETECTED" ||
+        obs?.code === "FACE_OBSTRUCTED" ||
+        obs?.code === "OBSTRUCTION_DETECTED"
+      ) {
+        alertEn = "Facial obstruction detected. Please remove any hats, masks, or headwear.";
+      } else if (obs?.code === "TOO_CLOSE") {
+        alertEn = "You are too close. Please step back slightly to fit your face inside the circle.";
+      } else if (obs?.code === "TOO_FAR") {
+        alertEn = "You are too far. Please move closer to the camera.";
+      } else if (obs?.code === "TOO_DARK" || obs?.code === "FACE_TOO_DARK") {
+        alertEn = "Environment is too dark. Please move to a well-lit area or turn on a light.";
+      } else if (obs?.code === "TOO_BRIGHT" || obs?.code === "FACE_TOO_BRIGHT") {
+        alertEn = "Lighting is too bright. Please avoid direct sunlight or harsh backlighting.";
+      } else if (obs?.code === "MULTIPLE_FACES") {
+        alertEn = "Multiple faces detected. Please ensure you are the only person in the frame.";
+      } else if (obs?.code === "SPOOF_DETECTED") {
+        alertEn = "Security alert: Liveness check failed. Please ensure you are scanning your actual face. Printed photos or screens are strictly prohibited.";
+      }
+
       const alertData = {
         code: obs?.code || "OBSTRUCTION_DETECTED",
         type: obs?.type || "obstruction",
-        fil: obs?.en || obs?.fil || "Face obstruction or profile mismatch detected. Please remove any hat, glasses, or mask before proceeding.",
-        en: obs?.en || "Face obstruction or profile mismatch detected. Please remove any hat, glasses, or mask before proceeding.",
+        fil: obs?.fil || alertEn,
+        en: alertEn,
       };
       setObstructionAlert(alertData);
       setFeedbackMessage(alertData.en);
@@ -601,25 +643,37 @@ export default function MediaPipeLivenessModal({
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       navigator.vibrate([70, 50, 120]);
     }
+    isFinishedRef.current = true;
     setIsCompleted(true);
     setCurrentStepIndex(CHALLENGES.length);
+    setDebouncedWarning("");
+    setWarningMessage("");
+    setFeedbackMessage("");
+    setObstructionAlert(null);
+    cleanupStream(); // COMPLETELY STOP CAMERA, TRACKS, AND ANIMATION FRAME IMMEDIATELY
 
     setTimeout(() => {
       if (onVerified && snapshot) {
         onVerified(snapshot, pyResult);
       }
-    }, 900);
-  }, [captureFrame, onVerified, verifyWithPythonBackend, activeLang]);
+    }, 800);
+  }, [captureFrame, onVerified, verifyWithPythonBackend, cleanupStream, setDebouncedWarning]);
 
-  // Process MediaPipe landmarks frame-by-frame with ULTRA-STRICT validation
-  // Process MediaPipe landmarks frame-by-frame with smooth, human-friendly validation
   const onResults = useCallback((results) => {
+    if (isFinishedRef.current || isCompleted || !isOpen) return;
+
     const canvas = canvasRef.current;
     const video = videoRef.current;
     if (!canvas || !video) return;
 
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const now = Date.now();
+    if (lastStepIndexRef.current !== currentStepIndex) {
+      lastStepIndexRef.current = currentStepIndex;
+      stepStartTimeRef.current = now;
+    }
 
     // -------------------------------------------------------------
     // SCENARIO 1: LIGHTING & ENVIRONMENT (Run every 6 frames)
@@ -654,11 +708,7 @@ export default function MediaPipeLivenessModal({
     if (results.multiFaceLandmarks.length > 1) {
       setFaceDetected(false);
       poseHoldCounterRef.current = 0;
-      setDebouncedWarning(
-        activeLang === "fil"
-          ? "Maraming tao ang nakikita sa camera. Isang tao lamang ang kailangan."
-          : "Multiple faces detected. Only one person allowed."
-      );
+      setDebouncedWarning("Multiple faces detected. Please ensure you are the only person in the frame.");
       return;
     }
 
@@ -726,17 +776,13 @@ export default function MediaPipeLivenessModal({
     // -------------------------------------------------------------
     if (faceHeight < 0.09 || cheekWidth < 0.07) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setDebouncedWarning(
-        activeLang === "fil"
-          ? "Masyadong malayo ang mukha. Lumapit nang bahagya sa camera."
-          : "Face too far. Move closer to the camera."
-      );
+      setDebouncedWarning("You are too far. Please move closer to the camera.");
       return;
     }
 
-    if (faceHeight > 0.94 || cheekWidth > 0.88) {
+    if (faceHeight > 0.90 || cheekWidth > 0.84) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setDebouncedWarning("Face too close. Move back slightly.");
+      setDebouncedWarning("You are too close. Please step back slightly to fit your face inside the circle.");
       return;
     }
 
@@ -752,7 +798,7 @@ export default function MediaPipeLivenessModal({
 
     if (!isCentered) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setDebouncedWarning("Keep face centered inside the circle.");
+      setDebouncedWarning("You are too close. Please step back slightly to fit your face inside the circle.");
       return;
     }
 
@@ -761,9 +807,9 @@ export default function MediaPipeLivenessModal({
     // -------------------------------------------------------------
     if (prevNoseRef.current) {
       const moveDelta = Math.hypot(nose.x - prevNoseRef.current.x, nose.y - prevNoseRef.current.y);
-      if (moveDelta > 0.24) {
+      if (moveDelta > 0.22) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setDebouncedWarning("Moving too fast. Move slowly and steadily.");
+        setDebouncedWarning("Camera is too shaky. Please hold your phone still or place it on a stable surface.");
         prevNoseRef.current = { x: nose.x, y: nose.y };
         return;
       }
@@ -841,6 +887,13 @@ export default function MediaPipeLivenessModal({
 
     // STEP 1: TURN HEAD (FIRST DIRECTION: RIGHT)
     if (currentStepIndex === 1) {
+      const stepDuration = now - (stepStartTimeRef.current || now);
+      if (stepDuration > 4500 && Math.abs(yawDelta) < 0.015) {
+        setDebouncedWarning("No movement detected. Please hold the camera steady and perform the requested action naturally.");
+      } else if (stepDuration > 8500) {
+        setDebouncedWarning("Action not verified. Please relax and try again, ensuring you follow the exact movement on screen.");
+      }
+
       const isTurned = Math.abs(yawDelta) >= 0.04;
 
       if (isTurned) {
@@ -855,7 +908,7 @@ export default function MediaPipeLivenessModal({
         }
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setDebouncedWarning("");
+        if (stepDuration <= 4500) setDebouncedWarning("");
         setFeedbackMessage("Slowly turn head to the right...");
       }
       return;
@@ -863,6 +916,13 @@ export default function MediaPipeLivenessModal({
 
     // STEP 2: TURN HEAD (OPPOSITE DIRECTION: LEFT)
     if (currentStepIndex === 2) {
+      const stepDuration = now - (stepStartTimeRef.current || now);
+      if (stepDuration > 4500 && Math.abs(yawDelta) < 0.015) {
+        setDebouncedWarning("No movement detected. Please hold the camera steady and perform the requested action naturally.");
+      } else if (stepDuration > 8500) {
+        setDebouncedWarning("Action not verified. Please relax and try again, ensuring you follow the exact movement on screen.");
+      }
+
       const firstDir = firstTurnDirRef.current || 1;
       const isOppositeTurn = (yawDelta * firstDir) <= -0.04;
       const isWrongDir = (yawDelta * firstDir) > 0.08;
@@ -879,7 +939,7 @@ export default function MediaPipeLivenessModal({
         setDebouncedWarning("Wrong direction! Turn your head to the opposite side (Left).");
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setDebouncedWarning("");
+        if (stepDuration <= 4500) setDebouncedWarning("");
         setFeedbackMessage("Slowly turn head to the left...");
       }
       return;
@@ -887,6 +947,13 @@ export default function MediaPipeLivenessModal({
 
     // STEP 3: TILT HEAD UPWARD
     if (currentStepIndex === 3) {
+      const stepDuration = now - (stepStartTimeRef.current || now);
+      if (stepDuration > 4500 && Math.abs(pitchDelta) < 0.015) {
+        setDebouncedWarning("No movement detected. Please hold the camera steady and perform the requested action naturally.");
+      } else if (stepDuration > 8500) {
+        setDebouncedWarning("Action not verified. Please relax and try again, ensuring you follow the exact movement on screen.");
+      }
+
       const isTiltedUp = pitchDelta < -0.025 || (nose.y - baseNoseY) < -0.020;
       const isWrongDown = pitchDelta > 0.070 || (nose.y - baseNoseY) > 0.055;
 
@@ -902,7 +969,7 @@ export default function MediaPipeLivenessModal({
         setDebouncedWarning("Wrong direction! Tilt your head Upward.");
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setDebouncedWarning("");
+        if (stepDuration <= 4500) setDebouncedWarning("");
         setFeedbackMessage("Tilt your head slightly upward...");
       }
       return;
@@ -910,6 +977,13 @@ export default function MediaPipeLivenessModal({
 
     // STEP 4: TILT HEAD DOWNWARD
     if (currentStepIndex === 4) {
+      const stepDuration = now - (stepStartTimeRef.current || now);
+      if (stepDuration > 4500 && Math.abs(pitchDelta) < 0.015) {
+        setDebouncedWarning("No movement detected. Please hold the camera steady and perform the requested action naturally.");
+      } else if (stepDuration > 8500) {
+        setDebouncedWarning("Action not verified. Please relax and try again, ensuring you follow the exact movement on screen.");
+      }
+
       const isTiltedDown = pitchDelta > 0.025 || (nose.y - baseNoseY) > 0.020;
       const isWrongUp = pitchDelta < -0.070 || (nose.y - baseNoseY) < -0.055;
 
@@ -925,7 +999,7 @@ export default function MediaPipeLivenessModal({
         setDebouncedWarning("Wrong direction! Tilt your head Downward.");
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setDebouncedWarning("");
+        if (stepDuration <= 4500) setDebouncedWarning("");
         setFeedbackMessage("Tilt your head slightly downward...");
       }
       return;
@@ -933,8 +1007,15 @@ export default function MediaPipeLivenessModal({
 
     // STEP 5: BLINK EYES NATURALLY
     if (currentStepIndex === 5) {
-      setDebouncedWarning("");
-      setFeedbackMessage("Blink your eyes naturally...");
+      const stepDuration = now - (stepStartTimeRef.current || now);
+      if (stepDuration > 3500 && !blinkStateRef.current.hasClosed) {
+        setDebouncedWarning("Please relax your face and blink naturally.");
+      } else if (stepDuration > 8500) {
+        setDebouncedWarning("Action not verified. Please relax and try again, ensuring you follow the exact movement on screen.");
+      } else {
+        setDebouncedWarning("");
+      }
+      setFeedbackMessage("Please relax your face and blink naturally.");
       if (avgEAR > 0.16) {
         blinkStateRef.current.hasOpened = true;
       }
@@ -946,18 +1027,29 @@ export default function MediaPipeLivenessModal({
       }
       return;
     }
-  }, [currentStepIndex, advanceStep, checkEnvironment, completeVerification, setDebouncedWarning]);
+  }, [currentStepIndex, advanceStep, checkEnvironment, completeVerification, setDebouncedWarning, activeLang, isCompleted, isOpen]);
 
   // Initialize Camera & MediaPipe
   useEffect(() => {
     if (!isOpen) {
+      isFinishedRef.current = false;
       cleanupStream();
       setCurrentStepIndex(0);
       setIsCompleted(false);
       setCapturedDataUrl("");
       setDebouncedWarning("");
+      setWarningMessage("");
+      setFeedbackMessage("");
+      setCameraError("");
+      setObstructionAlert(null);
+      setFaceDetected(false);
       firstTurnDirRef.current = null;
       baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null };
+      stepStartTimeRef.current = null;
+      lastStepIndexRef.current = null;
+      poseHoldCounterRef.current = 0;
+      prevNoseRef.current = null;
+      blinkStateRef.current = { hasOpened: false, hasClosed: false };
       return;
     }
 

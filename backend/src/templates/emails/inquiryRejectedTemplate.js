@@ -91,7 +91,7 @@ function getInquiryRejectedTemplate(brief = {}, rejectMeta = {}) {
 
               <!-- Main Title -->
               <h1 class="text-title h1-title" style="margin: 0 0 10px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">
-                Project Inquiry Status Update
+                Consultation Request Status Update
               </h1>
 
               <!-- Greeting & Core Message -->
@@ -99,7 +99,7 @@ function getInquiryRejectedTemplate(brief = {}, rejectMeta = {}) {
                 Dear <strong>${clientName}</strong>,
               </p>
               <p class="text-body" style="margin: 0 0 20px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
-                Thank you for considering <strong>MCPA Construction &amp; Supply</strong> for your construction project. After a comprehensive engineering review of Brief Reference <span style="font-family: 'Courier New', Courier, monospace; font-weight: 700; color: #b91c1c;">${submissionId}</span>, we regret to inform you that our board is unable to accept this engagement at this time.
+                Thank you for reaching out to <strong>MCPA Construction &amp; Supply</strong> and submitting your project brief. Following a thorough architectural and engineering evaluation of your consultation appointment request (Reference <span style="font-family: 'Courier New', Courier, monospace; font-weight: 700; color: #b91c1c;">${submissionId}</span>), we regret to inform you that our team is unable to approve and schedule this consultation appointment at this time.
               </p>
 
               <!-- Reason Breakdown Card -->
@@ -117,7 +117,7 @@ function getInquiryRejectedTemplate(brief = {}, rejectMeta = {}) {
                   </tr>
                   <tr>
                     <td valign="top" style="padding-bottom: 8px;">
-                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Official Reason</span>
+                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Determination Reason</span>
                       <strong class="info-value" style="display: block; font-size: 13px; color: #b91c1c; margin-top: 2px;">${reason}</strong>
                     </td>
                   </tr>
@@ -134,7 +134,7 @@ function getInquiryRejectedTemplate(brief = {}, rejectMeta = {}) {
 
               <!-- Respectful Closing -->
               <p class="text-body" style="margin: 0 0 24px 0; font-size: 13px; line-height: 1.6; color: #475569;">
-                Our project commitments and current regional zoning prioritize high-density coverage in key Central Luzon sectors. Should your project timeline, location, or architectural requirements evolve in the future, we would be pleased to review a new submission.
+                We sincerely appreciate your interest in collaborating with MCPA Construction. Our current project commitments and regional focus dictate our active capacity. Should your timeline, location, or scope evolve in the future, we would be pleased to evaluate a subsequent inquiry.
               </p>
 
               <!-- Divider -->

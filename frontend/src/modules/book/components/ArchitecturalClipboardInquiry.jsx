@@ -31,11 +31,11 @@ import VenueCombobox from "./VenueCombobox";
 
 const PROJECT_CATEGORIES = [
   {
-    val: "Residential Villa / Two-Storey",
-    labelEn: "Residential Villa / Two-Storey",
-    labelFil: "Residential Villa / Two-Storey",
-    descEn: "Single-detached, 2-storey modern house, bungalow",
-    descFil: "Single-detached, 2-palapag na modernong bahay, bungalow",
+    val: "Residential",
+    labelEn: "Residential",
+    labelFil: "Residential",
+    descEn: "Single-detached, modern house, bungalow",
+    descFil: "Single-detached, modernong bahay, bungalow",
     icon: HomeIcon,
   },
   {
@@ -860,14 +860,16 @@ export default function ArchitecturalClipboardInquiry({
                     <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2.5 rounded-xl transition-all ${errors.projectType ? "ring-2 ring-red-500/50 p-2 bg-red-500/5" : ""}`}>
                       {PROJECT_CATEGORIES.map((cat) => {
                         const Icon = cat.icon;
-                        const isSelected = projectType === cat.val;
+                        const isSelected =
+                          projectType === cat.val ||
+                          (cat.val === "Residential" && projectType === "Residential Villa / Two-Storey");
                         return (
                           <button
                             key={cat.val}
                             type="button"
                             onClick={() => {
                               // Toggle off if already selected
-                              setProjectType(isSelected ? "" : cat.val);
+                              setProjectType(isSelected && projectType === cat.val ? "" : cat.val);
                               if (isSelected || cat.val !== "Other") setProjectTypeOther("");
                               if (errors.projectType) setErrors((p) => ({ ...p, projectType: undefined }));
                             }}
