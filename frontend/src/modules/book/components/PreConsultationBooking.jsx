@@ -179,13 +179,17 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
 
     // Persist to backend database
     try {
-      fetch("/api/briefs", {
+      const res = await fetch("/api/briefs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(brief),
-      }).catch((e) => console.warn("Could not sync brief with backend:", e));
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.warn("Backend brief registration note:", data.message || `Status ${res.status}`);
+      }
     } catch (e) {
-      // Offline fallback
+      console.warn("Could not sync brief with backend:", e);
     }
 
     setIsSubmitted(true);

@@ -155,8 +155,8 @@ export default function ClientNavbar({ isCompleted = false, minimal = false } = 
   // In minimal mode (such as /book), headings/nav links are completely hidden.
   const showHeadings = !isMinimal && (!isHome || isCompleted || scrolledPastHero);
 
-  // "Book an Appointment" CTA button: hidden in minimal mode or on /book
-  const showHeaderBooking = !isMinimal && (!isHome || isCompleted || scrolledPastHero) && pathname !== "/book";
+  // "Book an Appointment" CTA button: hidden on home page hero until scrolled past hero (as hero has its own CTA), hidden in minimal mode or on /book
+  const showHeaderBooking = !isMinimal && (!isHome || scrolledPastHero) && pathname !== "/book";
 
   // Client Portal link/icon is visible when completed, scrolled past hero, on subpages, or in minimal mode
   const showClientPortal = true;

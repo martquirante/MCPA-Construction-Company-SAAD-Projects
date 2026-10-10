@@ -39,11 +39,12 @@ import {
   CreditCard,
   Camera,
   Layers,
-  Search,
   Bell,
   Sparkles,
   Copy,
   CheckCircle2,
+  FileText,
+  Download,
 } from "lucide-react";
 import PortalHeroFinancialCard from "@/modules/portal/components/PortalHeroFinancialCard";
 import PortalOverallProgressCard from "@/modules/portal/components/PortalOverallProgressCard";
@@ -85,7 +86,6 @@ function ClientPortalContent() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Theme preference state
   const [themeMode, setThemeMode] = useState("system");
@@ -836,20 +836,6 @@ function ClientPortalContent() {
             )}
           </div>
 
-          {/* Center: Global Search Bar */}
-          <div className="flex-1 max-w-md mx-2 sm:mx-4">
-            <div className="relative flex items-center">
-              <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3.5 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search projects, files, or keywords..."
-                className="w-full pl-9 pr-4 py-1.5 rounded-full bg-neutral-100 dark:bg-white/5 border border-transparent focus:border-amber-500 focus:outline-none text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 font-mono transition-all"
-              />
-            </div>
-          </div>
-
           {/* Right Utilities: Clock, Theme, Bell */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Real-time Authoritative Server-Synced Clock */}
@@ -1222,9 +1208,40 @@ function ClientPortalContent() {
                             </p>
                           </div>
 
-                          <div>
-                            <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                          <div className="flex flex-wrap items-center gap-2">
+                            {brief.availability_status && (
+                              <span
+                                className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+                                  brief.availability_status === "Confirmed"
+                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                    : brief.availability_status === "Declined"
+                                    ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                                    : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                                }`}
+                              >
+                                {brief.availability_status}
+                              </span>
+                            )}
+                            <span
+                              className={`text-xs font-mono font-bold uppercase tracking-wider px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                                status.toLowerCase().includes("scheduled") || status.toLowerCase().includes("approved")
+                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                  : status.toLowerCase().includes("reject") || status.toLowerCase().includes("decline")
+                                  ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                                  : status.toLowerCase().includes("review")
+                                  ? "bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400"
+                                  : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                              }`}
+                            >
+                              <span
+                                className={`w-2 h-2 rounded-full ${
+                                  status.toLowerCase().includes("scheduled") || status.toLowerCase().includes("approved")
+                                    ? "bg-emerald-500"
+                                    : status.toLowerCase().includes("reject")
+                                    ? "bg-red-500"
+                                    : "bg-amber-500 animate-pulse"
+                                }`}
+                              />
                               {status}
                             </span>
                           </div>
@@ -1261,6 +1278,67 @@ function ClientPortalContent() {
                               </p>
                             </div>
                           </div>
+                        </div>
+
+                        {/* Meeting Link Room Card (When scheduled by admin) */}
+                        {(brief.meeting_link || brief.meetingLink) && (
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-[12px] bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
+                                <Video className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-emerald-950 dark:text-emerald-200">
+                                  Consultation Meeting Access
+                                </p>
+                                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-mono">
+                                  {(brief.meeting_link || brief.meetingLink).startsWith("http")
+                                    ? "Official Video Call Room Prepared"
+                                    : (brief.meeting_link || brief.meetingLink)}
+                                </p>
+                              </div>
+                            </div>
+                            {(brief.meeting_link || brief.meetingLink).startsWith("http") && (
+                              <a
+                                href={brief.meeting_link || brief.meetingLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold uppercase tracking-wider transition-colors shadow-xs"
+                              >
+                                <span>Join Consultation Call</span>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Consultation Itinerary Instructions & Notes */}
+                        {(brief.meeting_notes || brief.meetingNotes) && (
+                          <div className="p-3.5 rounded-[12px] bg-neutral-100/70 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/5 space-y-1">
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                              Architect Notes & Instructions
+                            </span>
+                            <p className="text-xs text-neutral-700 dark:text-neutral-300 whitespace-pre-line leading-relaxed">
+                              {brief.meeting_notes || brief.meetingNotes}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Dossier PDF Download Action */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-neutral-200/60 dark:border-white/5">
+                          <p className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
+                            Registered with MCPA Engineering & Design Office
+                          </p>
+                          <a
+                            href={`/api/briefs/${encodeURIComponent(brief.brief_id || id)}/pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[8px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold uppercase tracking-wider transition-colors shadow-2xs"
+                            title="Download Official Architectural Brief Dossier PDF"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Download Dossier PDF</span>
+                          </a>
                         </div>
                       </div>
                     );

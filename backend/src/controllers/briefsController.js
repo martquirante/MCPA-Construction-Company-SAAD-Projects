@@ -320,6 +320,9 @@ class BriefsController {
       );
 
       const updatedBrief = result.rows[0];
+      if (!updatedBrief) {
+        return res.status(404).json({ success: false, message: "Consultation brief not found." });
+      }
 
       // Dispatch appropriate email notification based on inquiry lifecycle event
       if (updatedBrief?.client_email) {

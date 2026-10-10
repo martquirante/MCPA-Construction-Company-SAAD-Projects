@@ -1142,7 +1142,8 @@ class AuthController {
    */
   async getClientInquiries(req, res) {
     try {
-      const email = req.user?.email || req.query.email;
+      const isAdmin = req.user?.role === "admin" || req.user?.role === "super_admin";
+      const email = (isAdmin && req.query.email) ? req.query.email : (req.user?.email || req.query.email);
       if (!email) {
         return res.status(400).json({ message: "Client email parameter or authenticated session is required." });
       }
