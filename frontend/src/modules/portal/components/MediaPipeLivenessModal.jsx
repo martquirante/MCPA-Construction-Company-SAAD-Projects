@@ -20,69 +20,180 @@ import {
 } from "lucide-react";
 
 /**
- * Web Audio API Sound Effects (Zero external audio file dependencies)
+ * FINTECH / KYC-GRADE BIOMETRIC AUDIO & HAPTIC ENGINE
+ * Designed to match modern banking & identity verification standards (e.g. Apple FaceID, GCash, Maya).
+ * Pure Web Audio API & Vibration API (Zero external mp3/wav dependencies, zero network latency).
  */
-function playStepChime() {
-  if (typeof window === "undefined") return;
+let globalAudioCtx = null;
+function getAudioContext() {
+  if (typeof window === "undefined") return null;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return null;
+  if (!globalAudioCtx || globalAudioCtx.state === "closed") {
+    globalAudioCtx = new AudioContext();
+  }
+  if (globalAudioCtx.state === "suspended") {
+    globalAudioCtx.resume().catch(() => {});
+  }
+  return globalAudioCtx;
+}
+
+function triggerHaptic(pattern) {
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    try {
+      navigator.vibrate(pattern);
+    } catch (e) {}
+  }
+}
+
+/**
+ * 1. Step Transition Chime (Fintech Biometric Pose Verified)
+ * Subtle, silky dual-tone chime: A5 (880 Hz) -> E6 (1318.5 Hz)
+ */
+function playKycStepChime() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+
+    // Note 1: 880 Hz (A5)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(880, t);
+    gain1.gain.setValueAtTime(0.06, t);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(t);
+    osc1.stop(t + 0.085);
+
+    // Note 2: 1318.5 Hz (E6) - slight 25ms delay for soft biometric tick
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(1318.5, t + 0.025);
+    gain2.gain.setValueAtTime(0.07, t + 0.025);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(t + 0.025);
+    osc2.stop(t + 0.125);
+  } catch (e) {}
+  triggerHaptic(28);
+}
+
+/**
+ * 2. Calibration & Alignment Tone (Step 0 Center Lock)
+ * Soft focus swell: D5 (587 Hz) gliding to A5 (880 Hz)
+ */
+function playKycCalibrateTone() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+    osc.frequency.setValueAtTime(587.33, t);
+    osc.frequency.exponentialRampToValueAtTime(880, t + 0.12);
+    gain.gain.setValueAtTime(0.06, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.16);
-  } catch (e) { }
+    osc.start(t);
+    osc.stop(t + 0.145);
+  } catch (e) {}
+  triggerHaptic([20, 25, 20]);
 }
 
-function playErrorBuzzer() {
-  if (typeof window === "undefined") return;
+/**
+ * 3. Blink Confirmation Tick (Step 5 Blink Verified)
+ * Immediate, subtle biometric shutter tick: C6 (1046.5 Hz)
+ */
+function playKycBlinkChime() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    const t = ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(220, ctx.currentTime);
-    osc.frequency.setValueAtTime(160, ctx.currentTime + 0.12);
-    gain.gain.setValueAtTime(0.18, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1046.5, t);
+    osc.frequency.exponentialRampToValueAtTime(1318.5, t + 0.05);
+    gain.gain.setValueAtTime(0.07, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.26);
-  } catch (e) { }
+    osc.start(t);
+    osc.stop(t + 0.065);
+  } catch (e) {}
+  triggerHaptic(22);
 }
 
-function playSuccessFanfare() {
-  if (typeof window === "undefined") return;
+/**
+ * 4. Warning & Obstruction Sound (Different Person, Glasses, Mask, Shake)
+ * Soft, low-frequency damped fintech alert (Tone 1: 220 Hz -> Tone 2: 175 Hz)
+ */
+function playKycWarningSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6 (Major Chord Arpeggio)
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(220, t);
+    osc.frequency.setValueAtTime(175, t + 0.08);
+
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(600, t);
+
+    gain.gain.setValueAtTime(0.08, t);
+    gain.gain.exponentialRampToValueAtTime(0.002, t + 0.18);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(t);
+    osc.stop(t + 0.19);
+  } catch (e) {}
+  triggerHaptic([45, 35, 45]);
+}
+
+/**
+ * 5. Final KYC Success Fanfare (Verification Complete & Biometric Verified)
+ * Elegant 4-note ascending fintech resolution: C5 -> E5 -> G5 -> C6
+ */
+function playKycSuccessChime() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5];
     notes.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.08);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime + idx * 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.005, ctx.currentTime + idx * 0.08 + 0.35);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, t + idx * 0.065);
+      gain.gain.setValueAtTime(0.08, t + idx * 0.065);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.065 + 0.28);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + idx * 0.08);
-      osc.stop(ctx.currentTime + idx * 0.08 + 0.36);
+      osc.start(t + idx * 0.065);
+      osc.stop(t + idx * 0.065 + 0.29);
     });
-  } catch (e) { }
+  } catch (e) {}
+  triggerHaptic([35, 40, 55, 40, 85]);
 }
+
+// Seamless aliases
+const playStepChime = playKycStepChime;
+const playErrorBuzzer = playKycWarningSound;
+const playSuccessFanfare = playKycSuccessChime;
 
 /**
  * Transforms any camera, permission, or network error into plain, friendly language
@@ -507,6 +618,9 @@ export default function MediaPipeLivenessModal({
 
   useEffect(() => {
     isOpenRef.current = isOpen;
+    if (isOpen) {
+      getAudioContext();
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -1034,9 +1148,10 @@ export default function MediaPipeLivenessModal({
 
   // Advance challenge step (resets pose hold counter and warnings)
   const advanceStep = useCallback((nextStep) => {
-    playStepChime();
-    if (typeof navigator !== "undefined" && navigator.vibrate) {
-      navigator.vibrate(50);
+    if (nextStep === 1) {
+      playKycCalibrateTone();
+    } else {
+      playKycStepChime();
     }
     setCurrentStepIndex(nextStep);
     currentStepIndexRef.current = nextStep;
@@ -1049,10 +1164,7 @@ export default function MediaPipeLivenessModal({
 
   // Security reset for anti-person-swap & face-lost handoff prevention
   const triggerSecurityReset = useCallback((filMessage, enMessage) => {
-    playErrorBuzzer();
-    if (typeof navigator !== "undefined" && navigator.vibrate) {
-      navigator.vibrate([150, 100, 150]);
-    }
+    playKycWarningSound();
     setCurrentStepIndex(0);
     currentStepIndexRef.current = 0;
     poseHoldCounterRef.current = 0;
@@ -1350,6 +1462,9 @@ export default function MediaPipeLivenessModal({
     if (frameCounterRef.current % 2 === 0) {
       const obs = evaluateRealtimeFrame(video, landmarks);
       if (obs) {
+        if (!activeObstructionRef.current) {
+          playKycWarningSound();
+        }
         activeObstructionRef.current = obs;
         poseHoldCounterRef.current = 0;
         setWarningMessage(activeLangRef.current === "fil" ? obs.fil : obs.en);
@@ -1837,6 +1952,7 @@ export default function MediaPipeLivenessModal({
 
       if (passedViaSequence || passedViaWindow || passedViaEyelidPx) {
         if (!isVerifyingRef.current && !isFinishedRef.current) {
+          playKycBlinkChime();
           isVerifyingRef.current = true;
           completeVerification();
         }
@@ -1953,7 +2069,11 @@ export default function MediaPipeLivenessModal({
   const ChallengeIcon = currentChallenge.icon;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-neutral-950/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div
+      onClick={() => getAudioContext()}
+      onTouchStart={() => getAudioContext()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-neutral-950/80 backdrop-blur-md animate-in fade-in duration-200"
+    >
       {/* Dynamic Keyframes for 3D Directional Arrow Floating */}
       <style
         dangerouslySetInnerHTML={{
