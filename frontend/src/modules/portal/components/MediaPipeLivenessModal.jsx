@@ -178,6 +178,81 @@ function loadMediaPipeScript() {
 }
 
 /**
+ * Anthropometric Facial Structure Extraction (Biometric Identity Continuity)
+ * Measures scale-invariant, rotation-compensated geometric skull proportions
+ * from 468 MediaPipe 3D face mesh landmarks.
+ */
+function extractFaceFingerprint(landmarks, videoWidth, videoHeight) {
+  if (!landmarks || landmarks.length < 468) return null;
+
+  const vW = videoWidth || 640;
+  const vH = videoHeight || 480;
+
+  const pRightEye = landmarks[33];
+  const pLeftEye = landmarks[263];
+  const pNose = landmarks[1];
+  const pForehead = landmarks[10];
+  const pChin = landmarks[152];
+  const pRightCheek = landmarks[234];
+  const pLeftCheek = landmarks[454];
+  const pRightMouth = landmarks[61];
+  const pLeftMouth = landmarks[291];
+
+  if (!pRightEye || !pLeftEye || !pNose || !pForehead || !pChin || !pRightCheek || !pLeftCheek) {
+    return null;
+  }
+
+  const eyeDist = Math.hypot((pLeftEye.x - pRightEye.x) * vW, (pLeftEye.y - pRightEye.y) * vH);
+  const faceHeight = Math.hypot((pChin.x - pForehead.x) * vW, (pChin.y - pForehead.y) * vH) || 1;
+  const noseToChin = Math.hypot((pChin.x - pNose.x) * vW, (pChin.y - pNose.y) * vH);
+  const foreheadToNose = Math.hypot((pNose.x - pForehead.x) * vW, (pNose.y - pForehead.y) * vH);
+  const mouthWidth = (pRightMouth && pLeftMouth)
+    ? Math.hypot((pLeftMouth.x - pRightMouth.x) * vW, (pLeftMouth.y - pRightMouth.y) * vH)
+    : eyeDist * 0.55;
+  const cheekWidth = Math.hypot((pLeftCheek.x - pRightCheek.x) * vW, (pLeftCheek.y - pRightCheek.y) * vH);
+
+  return {
+    rEyeFace: eyeDist / faceHeight,             // Inter-ocular span to facial height
+    rNoseChin: noseToChin / faceHeight,         // Lower facial ratio
+    rForeheadNose: foreheadToNose / faceHeight, // Upper-mid facial ratio
+    rMouthEye: mouthWidth / (eyeDist || 1),     // Mouth width to eye span
+    rFaceAspect: cheekWidth / faceHeight,       // Cheekbone width to facial height
+  };
+}
+
+/**
+ * Calculates anthropometric distance between current frame and locked baseline identity.
+ * Accounts for 3D yaw perspective foreshortening.
+ */
+function compareFaceFingerprints(current, baseline, yawDelta = 0) {
+  if (!current || !baseline) return 0;
+
+  // Yaw perspective correction for horizontal spans (eyes, cheeks, mouth)
+  const absYaw = Math.abs(yawDelta || 0);
+  const yawFactor = Math.max(0.68, Math.cos(absYaw * 1.8));
+
+  const compEyeFace = current.rEyeFace / yawFactor;
+  const compFaceAspect = current.rFaceAspect / yawFactor;
+  const compMouthEye = current.rMouthEye; // Both mouth and eyes foreshorten similarly with yaw
+
+  const devEyeFace = Math.abs(compEyeFace - baseline.rEyeFace) / baseline.rEyeFace;
+  const devNoseChin = Math.abs(current.rNoseChin - baseline.rNoseChin) / baseline.rNoseChin;
+  const devForeheadNose = Math.abs(current.rForeheadNose - baseline.rForeheadNose) / baseline.rForeheadNose;
+  const devMouthEye = Math.abs(compMouthEye - baseline.rMouthEye) / baseline.rMouthEye;
+  const devFaceAspect = Math.abs(compFaceAspect - baseline.rFaceAspect) / baseline.rFaceAspect;
+
+  const score = (
+    devEyeFace * 1.5 +
+    devNoseChin * 1.3 +
+    devForeheadNose * 1.0 +
+    devMouthEye * 0.8 +
+    devFaceAspect * 0.6
+  ) / 5.2;
+
+  return score;
+}
+
+/**
  * 6-STAGE LIVENESS VERIFICATION SEQUENCE
  */
 const CHALLENGES = [
@@ -414,6 +489,13 @@ export default function MediaPipeLivenessModal({
   const activeObstructionRef = useRef(null);
   const openEarSamplesRef = useRef([]);
   const earHistoryRef = useRef([]);
+  const eyelidHistoryRef = useRef([]);
+
+  // Biometric identity continuity & anti-person-swap security refs
+  const faceFingerprintRef = useRef(null);
+  const faceLostTimeRef = useRef(null);
+  const personMismatchCounterRef = useRef(0);
+  const multiFaceViolationCounterRef = useRef(0);
 
   useEffect(() => {
     currentStepIndexRef.current = currentStepIndex;
@@ -496,6 +578,11 @@ export default function MediaPipeLivenessModal({
     activeObstructionRef.current = null;
     openEarSamplesRef.current = [];
     earHistoryRef.current = [];
+    eyelidHistoryRef.current = [];
+    faceFingerprintRef.current = null;
+    faceLostTimeRef.current = null;
+    personMismatchCounterRef.current = 0;
+    multiFaceViolationCounterRef.current = 0;
     cleanupStream();
     setCurrentStepIndex(0);
     currentStepIndexRef.current = 0;
@@ -955,7 +1042,33 @@ export default function MediaPipeLivenessModal({
     currentStepIndexRef.current = nextStep;
     setDebouncedWarning("");
     poseHoldCounterRef.current = 0;
+    faceLostTimeRef.current = null;
+    personMismatchCounterRef.current = 0;
     blinkStateRef.current = { hasOpened: false, hasClosed: false };
+  }, [setDebouncedWarning]);
+
+  // Security reset for anti-person-swap & face-lost handoff prevention
+  const triggerSecurityReset = useCallback((filMessage, enMessage) => {
+    playErrorBuzzer();
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate([150, 100, 150]);
+    }
+    setCurrentStepIndex(0);
+    currentStepIndexRef.current = 0;
+    poseHoldCounterRef.current = 0;
+    firstTurnDirRef.current = null;
+    baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null, ear: null };
+    faceFingerprintRef.current = null;
+    faceLostTimeRef.current = null;
+    personMismatchCounterRef.current = 0;
+    multiFaceViolationCounterRef.current = 0;
+    openEarSamplesRef.current = [];
+    earHistoryRef.current = [];
+    eyelidHistoryRef.current = [];
+    blinkStateRef.current = { hasOpened: false, hasClosed: false };
+    const msg = activeLangRef.current === "fil" ? filMessage : enMessage;
+    setWarningMessage(msg);
+    setDebouncedWarning(msg);
   }, [setDebouncedWarning]);
 
   // Call face recognition verification endpoint
@@ -990,6 +1103,11 @@ export default function MediaPipeLivenessModal({
     activeObstructionRef.current = null;
     openEarSamplesRef.current = [];
     earHistoryRef.current = [];
+    eyelidHistoryRef.current = [];
+    faceFingerprintRef.current = null;
+    faceLostTimeRef.current = null;
+    personMismatchCounterRef.current = 0;
+    multiFaceViolationCounterRef.current = 0;
     setCurrentStepIndex(0);
     currentStepIndexRef.current = 0;
     isVerifyingRef.current = false;
@@ -1138,6 +1256,21 @@ export default function MediaPipeLivenessModal({
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       setFaceDetected(false);
       poseHoldCounterRef.current = 0;
+
+      // Anti-Handoff: If active verification has already started (Step 1 to 5) and the face disappears
+      if (stepIdx > 0) {
+        if (!faceLostTimeRef.current) {
+          faceLostTimeRef.current = now;
+        } else if (now - faceLostTimeRef.current > 1200) {
+          // Face was gone for > 1.2 seconds (camera passed to another person)
+          triggerSecurityReset(
+            "Nawala ang mukha sa camera. Ulitin ang pag-verify mula sa simula.",
+            "Face left the camera frame. Verification reset to start."
+          );
+          return;
+        }
+      }
+
       setDebouncedWarning(
         activeLangRef.current === "fil"
           ? "Walang mukhang nakikita. Tumingin nang diretso sa camera."
@@ -1146,12 +1279,28 @@ export default function MediaPipeLivenessModal({
       return;
     }
 
+    // Face is visible, reset face lost timer
+    faceLostTimeRef.current = null;
+
     // -------------------------------------------------------------
     // SCENARIO 3: MULTIPLE FACES DETECTED (>1 Face)
     // -------------------------------------------------------------
     if (results.multiFaceLandmarks.length > 1) {
       setFaceDetected(false);
       poseHoldCounterRef.current = 0;
+
+      // If in active scan (Steps 1 to 5) and multiple faces enter the frame
+      if (stepIdx > 0) {
+        multiFaceViolationCounterRef.current += 1;
+        if (multiFaceViolationCounterRef.current >= 4) {
+          triggerSecurityReset(
+            "May ibang tao na pumasok sa camera! Bawal ang higit sa isang tao.",
+            "Another person entered camera frame! Multi-person handoff is not allowed."
+          );
+          return;
+        }
+      }
+
       setDebouncedWarning(
         activeLangRef.current === "fil"
           ? "Higit sa isang tao ang nasa camera. Siguraduhing ikaw lamang mag-isa."
@@ -1159,6 +1308,8 @@ export default function MediaPipeLivenessModal({
       );
       return;
     }
+
+    multiFaceViolationCounterRef.current = 0;
 
     setFaceDetected(true);
     const landmarks = results.multiFaceLandmarks[0];
@@ -1308,7 +1459,7 @@ export default function MediaPipeLivenessModal({
     const eyeRoll = Math.abs(landmarks[33].y - landmarks[263].y);
 
     // -------------------------------------------------------------
-    // ISOTROPIC EYE ASPECT RATIO (EAR) FOR BLINKING & EYE OPENNESS
+    // ISOTROPIC EYE ASPECT RATIO (EAR) & EYELID DISTANCE
     // -------------------------------------------------------------
     const vW = video.videoWidth || 640;
     const vH = video.videoHeight || 480;
@@ -1329,22 +1480,35 @@ export default function MediaPipeLivenessModal({
 
     const avgEAR = (rEAR + lEAR) * 0.5;
 
+    // Direct eyelid vertical gap in pixels (Upper eyelid vs Lower eyelid)
+    // Right Eye: 159 (upper) to 145 (lower)
+    // Left Eye: 386 (upper) to 374 (lower)
+    const rEyelidPx = Math.abs(((landmarks[145]?.y || 0) - (landmarks[159]?.y || 0)) * vH);
+    const lEyelidPx = Math.abs(((landmarks[374]?.y || 0) - (landmarks[386]?.y || 0)) * vH);
+    const avgEyelidPx = (rEyelidPx + lEyelidPx) * 0.5;
+
     // Rolling window buffer (last 16 frames ~ 500ms)
     earHistoryRef.current.push(avgEAR);
     if (earHistoryRef.current.length > 16) {
       earHistoryRef.current.shift();
     }
 
+    eyelidHistoryRef.current.push(avgEyelidPx);
+    if (eyelidHistoryRef.current.length > 16) {
+      eyelidHistoryRef.current.shift();
+    }
+
     // Accumulate natural open eye baseline samples during steps 0 through 4
-    if (stepIdx < 5 && avgEAR >= 0.16) {
+    // Lower threshold to 0.08 so ALL eye shapes (including almond / Asian monolid) accumulate open samples!
+    if (stepIdx < 5 && avgEAR >= 0.08) {
       openEarSamplesRef.current.push(avgEAR);
-      if (openEarSamplesRef.current.length > 40) {
+      if (openEarSamplesRef.current.length > 50) {
         openEarSamplesRef.current.shift();
       }
     }
 
     // SCENARIO 7: EYES CLOSED DURING DIRECTIONAL STEPS (0 to 4)
-    if (stepIdx < 5 && avgEAR < 0.12) {
+    if (stepIdx < 5 && avgEAR < 0.08 && avgEyelidPx < 3.2) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
       setDebouncedWarning(
         activeLangRef.current === "fil"
@@ -1373,15 +1537,17 @@ export default function MediaPipeLivenessModal({
         setDebouncedWarning("");
         setFeedbackMessage(activeLangRef.current === "fil" ? "Magaling! Manatiling steady..." : "Great! Hold steady...");
 
-        // Hold steady for 3 frames (~90-100ms) to lock in natural baseline
+        // Hold steady for 3 frames (~90-100ms) to lock in natural baseline & identity fingerprint
         if (poseHoldCounterRef.current >= 3) {
           baselineRef.current = {
             yaw: yawRatio,
             pitch: pitchRatio,
             noseX: nose.x,
             noseY: nose.y,
-            ear: avgEAR > 0.12 ? avgEAR : 0.22,
+            ear: avgEAR > 0.08 ? avgEAR : 0.17,
           };
+          faceFingerprintRef.current = extractFaceFingerprint(landmarks, vW, vH);
+          personMismatchCounterRef.current = 0;
           firstTurnDirRef.current = null;
           advanceStep(1); // Proceed to Right
         }
@@ -1402,6 +1568,36 @@ export default function MediaPipeLivenessModal({
         }
       }
       return;
+    }
+
+    // -------------------------------------------------------------
+    // IDENTITY CONTINUITY & ANTI-PERSON-SWAP ENGINE
+    // Verify that the person in the camera is the SAME PERSON who calibrated in Step 0
+    // -------------------------------------------------------------
+    if (stepIdx > 0 && faceFingerprintRef.current) {
+      const currentFp = extractFaceFingerprint(landmarks, vW, vH);
+      if (currentFp) {
+        const mismatchScore = compareFaceFingerprints(
+          currentFp,
+          faceFingerprintRef.current,
+          yawDelta
+        );
+
+        // A different person has significantly different bone / feature ratios (> 0.22 score)
+        if (mismatchScore > 0.22) {
+          personMismatchCounterRef.current += 1;
+          if (personMismatchCounterRef.current >= 4) {
+            // Mismatch confirmed across 4 consecutive frames (~120ms)
+            triggerSecurityReset(
+              "Ibang tao ang nakita! Bawal ipasa ang camera sa ibang tao. Ulitin mula sa simula.",
+              "Different person detected! Passing the phone to another person is strictly prohibited."
+            );
+            return;
+          }
+        } else {
+          personMismatchCounterRef.current = Math.max(0, personMismatchCounterRef.current - 1);
+        }
+      }
     }
 
     // STEP 1: TURN HEAD (FIRST DIRECTION: RIGHT)
@@ -1577,7 +1773,7 @@ export default function MediaPipeLivenessModal({
             ? "Mag-relax at kumurap nang natural."
             : "Please relax your face and blink naturally."
         );
-      } else if (stepDuration > 8500) {
+      } else if (stepDuration > 8500 && !blinkStateRef.current.hasClosed) {
         setDebouncedWarning(
           activeLangRef.current === "fil"
             ? "Hindi ma-beripika ang pagkurap. Subukang kumurap muli."
@@ -1592,44 +1788,54 @@ export default function MediaPipeLivenessModal({
           : "Please relax your face and blink naturally."
       );
 
-      // Compute dynamic baseline from collected open samples, fallback to 0.24
-      let dynamicBaseEAR = 0.24;
+      // Compute dynamic baseline from collected open samples
+      let dynamicBaseEAR = 0.18; // realistic default open EAR for webcams
       if (openEarSamplesRef.current.length >= 5) {
         const sorted = [...openEarSamplesRef.current].sort((a, b) => a - b);
-        dynamicBaseEAR = sorted[Math.floor(sorted.length / 2)];
-      } else if (baselineRef.current.ear) {
+        // Use 70th percentile to represent resting open eye state
+        dynamicBaseEAR = sorted[Math.floor(sorted.length * 0.70)];
+      } else if (baselineRef.current.ear && baselineRef.current.ear > 0.09) {
         dynamicBaseEAR = baselineRef.current.ear;
       }
 
-      // Realistic human eyelid physics on webcams:
-      // When eyes are fully open: EAR >= 0.18 (or 80% baseline)
-      // When eyes dip during blink: EAR <= 0.165 (or 72% baseline)
-      // When eyes reopen: EAR >= 0.175 (or 78% baseline)
-      const openThreshold = Math.max(0.18, dynamicBaseEAR * 0.80);
-      const closeThreshold = Math.max(0.165, dynamicBaseEAR * 0.72);
-      const reopenThreshold = Math.max(0.175, dynamicBaseEAR * 0.78);
+      // Dynamic thresholds tailored to each user's eye physiology:
+      const openThreshold = Math.max(0.10, dynamicBaseEAR * 0.80);
+      const closeThreshold = Math.min(openThreshold - 0.015, Math.max(0.065, dynamicBaseEAR * 0.64));
+      const reopenThreshold = Math.max(0.095, dynamicBaseEAR * 0.76);
 
-      if (avgEAR >= openThreshold) {
+      // 1. State machine transition:
+      if (avgEAR >= openThreshold || avgEyelidPx >= 6.0) {
         blinkStateRef.current.hasOpened = true;
       }
-      if (blinkStateRef.current.hasOpened && avgEAR <= closeThreshold) {
+      if (blinkStateRef.current.hasOpened && (avgEAR <= closeThreshold || avgEyelidPx <= 4.2)) {
         blinkStateRef.current.hasClosed = true;
       }
 
-      // Method 1: Full sequential state machine (open -> close -> open)
+      // Method A: Full sequential state machine (open -> close -> reopen)
       const passedViaSequence =
         blinkStateRef.current.hasOpened &&
         blinkStateRef.current.hasClosed &&
-        avgEAR >= reopenThreshold;
+        (avgEAR >= reopenThreshold || avgEyelidPx >= 5.5);
 
-      // Method 2: Rolling 16-frame window dip (instant catch for fast/natural blinks)
+      // Method B: Rolling 16-frame window dip (catches rapid micro-blinks in 150-250ms)
       const recentMinEAR = earHistoryRef.current.length > 0 ? Math.min(...earHistoryRef.current) : 1.0;
+      const recentMaxEAR = earHistoryRef.current.length > 0 ? Math.max(...earHistoryRef.current) : 0.0;
+      const earDip = recentMaxEAR - recentMinEAR;
       const passedViaWindow =
         earHistoryRef.current.length >= 4 &&
-        recentMinEAR <= closeThreshold &&
-        avgEAR >= reopenThreshold;
+        (recentMinEAR <= closeThreshold || recentMinEAR <= recentMaxEAR * 0.70 || earDip >= 0.025) &&
+        (avgEAR >= reopenThreshold || avgEAR >= recentMaxEAR * 0.78);
 
-      if (passedViaSequence || passedViaWindow) {
+      // Method C: Direct eyelid pixel delta (invariant to EAR distortion)
+      const recentMinEyelid = eyelidHistoryRef.current.length > 0 ? Math.min(...eyelidHistoryRef.current) : 100;
+      const recentMaxEyelid = eyelidHistoryRef.current.length > 0 ? Math.max(...eyelidHistoryRef.current) : 0;
+      const passedViaEyelidPx =
+        eyelidHistoryRef.current.length >= 4 &&
+        recentMinEyelid <= 4.8 &&
+        avgEyelidPx >= 5.8 &&
+        (recentMaxEyelid - recentMinEyelid) >= 2.0;
+
+      if (passedViaSequence || passedViaWindow || passedViaEyelidPx) {
         if (!isVerifyingRef.current && !isFinishedRef.current) {
           isVerifyingRef.current = true;
           completeVerification();
@@ -1637,7 +1843,7 @@ export default function MediaPipeLivenessModal({
       }
       return;
     }
-  }, [advanceStep, completeVerification, evaluateRealtimeFrame, setDebouncedWarning]);
+  }, [advanceStep, completeVerification, evaluateRealtimeFrame, setDebouncedWarning, triggerSecurityReset]);
 
   // Keep onResults ref fresh without triggering camera re-initialization
   useEffect(() => {
