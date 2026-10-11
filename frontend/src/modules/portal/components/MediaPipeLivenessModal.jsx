@@ -1602,13 +1602,18 @@ export default function MediaPipeLivenessModal({
     const lEyelidPx = Math.abs(((landmarks[374]?.y || 0) - (landmarks[386]?.y || 0)) * vH);
     const avgEyelidPx = (rEyelidPx + lEyelidPx) * 0.5;
 
+    // Scale-invariant normalized eye openness ratio (independent of screen resolution or orientation)
+    const eyeSpanNorm = Math.abs((landmarks[133]?.x || 0) - (landmarks[33]?.x || 0)) || 0.05;
+    const avgNormEyelidGap = (Math.abs((landmarks[145]?.y || 0) - (landmarks[159]?.y || 0)) + Math.abs((landmarks[374]?.y || 0) - (landmarks[386]?.y || 0))) * 0.5;
+    const normEyeOpenness = avgNormEyelidGap / eyeSpanNorm;
+
     // Rolling window buffer (last 16 frames ~ 500ms)
     earHistoryRef.current.push(avgEAR);
     if (earHistoryRef.current.length > 16) {
       earHistoryRef.current.shift();
     }
 
-    eyelidHistoryRef.current.push(avgEyelidPx);
+    eyelidHistoryRef.current.push(normEyeOpenness);
     if (eyelidHistoryRef.current.length > 16) {
       eyelidHistoryRef.current.shift();
     }
@@ -1915,14 +1920,14 @@ export default function MediaPipeLivenessModal({
 
       // Dynamic thresholds tailored to each user's eye physiology:
       const openThreshold = Math.max(0.10, dynamicBaseEAR * 0.80);
-      const closeThreshold = Math.min(openThreshold - 0.015, Math.max(0.065, dynamicBaseEAR * 0.64));
+      const closeThreshold = Math.min(openThreshold - 0.015, Math.max(0.065, dynamicBaseEAR * 0.68));
       const reopenThreshold = Math.max(0.095, dynamicBaseEAR * 0.76);
 
       // 1. State machine transition:
-      if (avgEAR >= openThreshold || avgEyelidPx >= 6.0) {
+      if (avgEAR >= openThreshold || normEyeOpenness >= 0.14) {
         blinkStateRef.current.hasOpened = true;
       }
-      if (blinkStateRef.current.hasOpened && (avgEAR <= closeThreshold || avgEyelidPx <= 4.2)) {
+      if (blinkStateRef.current.hasOpened && (avgEAR <= closeThreshold || normEyeOpenness <= 0.11)) {
         blinkStateRef.current.hasClosed = true;
       }
 
@@ -1930,30 +1935,29 @@ export default function MediaPipeLivenessModal({
       const passedViaSequence =
         blinkStateRef.current.hasOpened &&
         blinkStateRef.current.hasClosed &&
-        (avgEAR >= reopenThreshold || avgEyelidPx >= 5.5);
+        (avgEAR >= reopenThreshold || normEyeOpenness >= 0.13);
 
-      // Method B: Rolling 16-frame window dip (catches rapid micro-blinks in 150-250ms)
+      // Method B: Rolling 16-frame window dip on EAR (catches rapid micro-blinks in 150-250ms)
       const recentMinEAR = earHistoryRef.current.length > 0 ? Math.min(...earHistoryRef.current) : 1.0;
       const recentMaxEAR = earHistoryRef.current.length > 0 ? Math.max(...earHistoryRef.current) : 0.0;
       const earDip = recentMaxEAR - recentMinEAR;
       const passedViaWindow =
         earHistoryRef.current.length >= 4 &&
-        (recentMinEAR <= closeThreshold || recentMinEAR <= recentMaxEAR * 0.70 || earDip >= 0.025) &&
-        (avgEAR >= reopenThreshold || avgEAR >= recentMaxEAR * 0.78);
+        (recentMinEAR <= closeThreshold || recentMinEAR <= recentMaxEAR * 0.75 || earDip >= 0.018) &&
+        (avgEAR >= reopenThreshold || avgEAR >= recentMaxEAR * 0.75);
 
-      // Method C: Direct eyelid pixel delta (invariant to EAR distortion)
-      const recentMinEyelid = eyelidHistoryRef.current.length > 0 ? Math.min(...eyelidHistoryRef.current) : 100;
-      const recentMaxEyelid = eyelidHistoryRef.current.length > 0 ? Math.max(...eyelidHistoryRef.current) : 0;
-      const passedViaEyelidPx =
+      // Method C: Scale-invariant normalized eyelid openness delta
+      const recentMinNorm = eyelidHistoryRef.current.length > 0 ? Math.min(...eyelidHistoryRef.current) : 1.0;
+      const recentMaxNorm = eyelidHistoryRef.current.length > 0 ? Math.max(...eyelidHistoryRef.current) : 0;
+      const normDip = recentMaxNorm - recentMinNorm;
+      const passedViaEyelidNorm =
         eyelidHistoryRef.current.length >= 4 &&
-        recentMinEyelid <= 4.8 &&
-        avgEyelidPx >= 5.8 &&
-        (recentMaxEyelid - recentMinEyelid) >= 2.0;
+        (recentMinNorm <= 0.115 || recentMinNorm <= recentMaxNorm * 0.75 || normDip >= 0.025) &&
+        (normEyeOpenness >= recentMaxNorm * 0.75 || normEyeOpenness >= 0.13);
 
-      if (passedViaSequence || passedViaWindow || passedViaEyelidPx) {
+      if (passedViaSequence || passedViaWindow || passedViaEyelidNorm) {
         if (!isVerifyingRef.current && !isFinishedRef.current) {
           playKycBlinkChime();
-          isVerifyingRef.current = true;
           completeVerification();
         }
       }
