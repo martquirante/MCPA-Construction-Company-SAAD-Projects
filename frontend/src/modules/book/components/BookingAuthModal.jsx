@@ -45,9 +45,9 @@ export default function BookingAuthModal({
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600" />
 
         {/* Header Icon & Close */}
-        <div className="flex items-start justify-between mb-5">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-sm">
-            <CalendarIcon className="w-6 h-6" />
+        <div className="flex items-start justify-between mb-4">
+          <div className="text-amber-500 dark:text-amber-400">
+            <CalendarIcon className="w-7 h-7" />
           </div>
 
           <Link
@@ -59,8 +59,8 @@ export default function BookingAuthModal({
           </Link>
         </div>
 
-        {/* Pill Badge */}
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold tracking-[0.14em] uppercase mb-2 border border-amber-500/25">
+        {/* Text Label (Pure Text, No Background Box) */}
+        <div className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400 text-[11px] font-mono font-bold tracking-[0.14em] uppercase mb-2">
           <ShieldCheckIcon className="w-3.5 h-3.5" />
           <span>
             {isFil ? "Kinakailangan ang Account • Konsultasyon" : "Account Required • Consultation"}

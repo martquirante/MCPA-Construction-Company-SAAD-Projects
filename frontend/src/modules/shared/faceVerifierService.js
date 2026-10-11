@@ -306,6 +306,55 @@ function detectObstructions(img, faceBox, landmarks) {
   }
   const cheekGrayMean = cheekCount > 0 ? cheekGraySum / cheekCount : 140.0;
 
+  // Lens specular reflection/glare in eye box
+  let eyeSpecularCount = 0;
+  let eyeSpecularTotal = 0;
+  for (let dy = -eyeRadius; dy <= eyeRadius; dy += 2) {
+    for (let dx = -eyeRadius; dx <= eyeRadius; dx += 2) {
+      const rVal = getPixelGray(re_x + dx, re_y + dy);
+      const lVal = getPixelGray(le_x + dx, le_y + dy);
+      if (rVal > 225) eyeSpecularCount++;
+      if (lVal > 225) eyeSpecularCount++;
+      eyeSpecularTotal += 2;
+    }
+  }
+  const eyeGlareRatio = eyeSpecularTotal > 0 ? eyeSpecularCount / eyeSpecularTotal : 0;
+
+  // Lower orbital rim check (catches wireframe / round / thin glasses on cheekbones)
+  const rim_y1 = Math.round(Math.max(re_y, le_y) + fh * 0.04);
+  const rim_y2 = Math.round(Math.max(re_y, le_y) + fh * 0.16);
+  const rRim_x1 = Math.round(re_x - fw * 0.14);
+  const rRim_x2 = Math.round(re_x + fw * 0.14);
+  const lRim_x1 = Math.round(le_x - fw * 0.14);
+  const lRim_x2 = Math.round(le_x + fw * 0.14);
+
+  let rimDarkCount = 0;
+  let rimTotal = 0;
+  let rimEdgeChanges = 0;
+  let lastRimVal = null;
+
+  for (let y = rim_y1; y < rim_y2; y++) {
+    for (let x = rRim_x1; x < rRim_x2; x++) {
+      const [r, g, b] = getPixelRgb(x, y);
+      const gVal = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (gVal < 60 || (!isSkinPixel(r, g, b) && gVal < 88)) rimDarkCount++;
+      if (lastRimVal !== null && Math.abs(gVal - lastRimVal) > 36) rimEdgeChanges++;
+      lastRimVal = gVal;
+      rimTotal++;
+    }
+    for (let x = lRim_x1; x < lRim_x2; x++) {
+      const [r, g, b] = getPixelRgb(x, y);
+      const gVal = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (gVal < 60 || (!isSkinPixel(r, g, b) && gVal < 88)) rimDarkCount++;
+      if (lastRimVal !== null && Math.abs(gVal - lastRimVal) > 36) rimEdgeChanges++;
+      lastRimVal = gVal;
+      rimTotal++;
+    }
+  }
+
+  const rimDarkRatio = rimTotal > 0 ? rimDarkCount / rimTotal : 0;
+  const rimEdgeDensity = rimTotal > 0 ? rimEdgeChanges / rimTotal : 0;
+
   if (
     (rEyeStats.darkRatio > 0.65 && lEyeStats.darkRatio > 0.65) ||
     (meanEyeGray < 45.0 && cheekGrayMean > 95.0)
@@ -314,7 +363,19 @@ function detectObstructions(img, faceBox, landmarks) {
     obstruction_issues.push({
       code: "SUNGLASSES_DETECTED",
       type: "sunglasses",
-      fil: "Naka-shades o sunglasses. Pakitanggal ang salamin sa mata upang makita ang mga mata.",
+      fil: "May suot na salamin o shades. Pakitanggal ang salamin sa mata bago magpatuloy.",
+      en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
+    });
+  } else if (
+    rimDarkRatio > 0.18 ||
+    (rimDarkRatio > 0.12 && rimEdgeDensity > 0.24) ||
+    (eyeGlareRatio > 0.045 && cheekGrayMean < 205)
+  ) {
+    eyeglasses_detected = true;
+    obstruction_issues.push({
+      code: "EYEGLASSES_DETECTED",
+      type: "eyeglasses",
+      fil: "May suot na salamin sa mata. Pakitanggal ang iyong salamin bago magpatuloy.",
       en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
     });
   } else {
@@ -340,12 +401,12 @@ function detectObstructions(img, faceBox, landmarks) {
       const bridgeSkin = bridgeTotal > 0 ? bridgeSkinCount / bridgeTotal : 1;
       const bridgeEdgeDensity = bridgeTotal > 0 ? edgeChanges / bridgeTotal : 0;
 
-      if (bridgeEdgeDensity > 0.38 && bridgeDarkRatio > 0.30 && bridgeSkin < 0.40) {
+      if ((bridgeEdgeDensity > 0.32 && bridgeDarkRatio > 0.22 && bridgeSkin < 0.50) || (bridgeDarkRatio > 0.50 && bridgeSkin < 0.35)) {
         eyeglasses_detected = true;
         obstruction_issues.push({
           code: "EYEGLASSES_DETECTED",
           type: "eyeglasses",
-          fil: "Naka-salamin sa mata na may makapal na frame. Pakitanggal ang salamin upang maging malinaw ang beripikasyon.",
+          fil: "May suot na salamin sa mata. Pakitanggal ang iyong salamin bago magpatuloy.",
           en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
         });
       }
@@ -390,13 +451,14 @@ function detectObstructions(img, faceBox, landmarks) {
     const clothRatio = foreheadTotal > 0 ? clothCount / foreheadTotal : 0;
     const foreheadSkin = foreheadTotal > 0 ? foreheadSkinCount / foreheadTotal : 1.0;
 
-    if (helmetRatio > 0.32 || (clothRatio > 0.35 && foreheadSkin < 0.25)) {
+    // Detects baseball caps, hats, beanies, helmets, and bandanas covering forehead
+    if (helmetRatio > 0.28 || foreheadSkin < 0.45 || (clothRatio > 0.25 && foreheadSkin < 0.55)) {
       hat_detected = true;
       obstruction_issues.push({
         code: "HAT_DETECTED",
         type: "hat",
-        fil: "Naka-sumbrero, cap, o safety helmet. Pakitanggal ang anumang panakip sa ulo bago magpatuloy.",
-        en: "Facial obstruction detected. Please remove any hats, masks, or headwear.",
+        fil: "May suot na sumbrero, cap, o panakip sa ulo. Pakitanggal bago magpatuloy.",
+        en: "Hat, cap, or headwear detected. Please remove your hat or cap to continue.",
       });
     }
   }
@@ -417,13 +479,45 @@ function detectObstructions(img, faceBox, landmarks) {
       }
     }
     const lowerSkin = lowerTotal > 0 ? lowerSkinCount / lowerTotal : 1.0;
-    if (lowerSkin < 0.18) {
+    // Surgical, cloth, N95 masks or coverings reduce lower face skin below 48%
+    if (lowerSkin < 0.48) {
       mask_detected = true;
       obstruction_issues.push({
         code: "MASK_DETECTED",
         type: "mask",
-        fil: "Naka-face mask o may takip ang bibig at ilong. Pakitanggal ang mask o panyo bago magpatuloy.",
-        en: "Facial obstruction detected. Please remove any hats, masks, or headwear.",
+        fil: "May face mask o takip sa mukha. Pakitanggal ang mask bago magpatuloy.",
+        en: "Face mask or lower face covering detected. Please remove your mask to continue.",
+      });
+    }
+  }
+
+  // General Object / Hand / Phone / Blocking Obstruction
+  const mid_y1 = Math.round(Math.max(re_y, le_y) + fh * 0.05);
+  const mid_y2 = Math.round(landmarks.nose[1] + fh * 0.15);
+  const mid_x1 = Math.round(fx + fw * 0.22);
+  const mid_x2 = Math.round(fx + fw * 0.78);
+
+  if (mid_y2 > mid_y1 && mid_x2 > mid_x1) {
+    let midSkinCount = 0, midTotal = 0, midEdgeCount = 0, lastMidGray = null;
+    for (let y = mid_y1; y < mid_y2; y += 2) {
+      for (let x = mid_x1; x < mid_x2; x += 2) {
+        const [r, g, b] = getPixelRgb(x, y);
+        const gVal = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (isSkinPixel(r, g, b)) midSkinCount++;
+        if (lastMidGray !== null && Math.abs(gVal - lastMidGray) > 38) midEdgeCount++;
+        lastMidGray = gVal;
+        midTotal++;
+      }
+    }
+    const midSkin = midTotal > 0 ? midSkinCount / midTotal : 1.0;
+    const midEdgeDensity = midTotal > 0 ? midEdgeCount / midTotal : 0;
+    if (midTotal >= 20 && (midSkin < 0.48 || (midEdgeDensity > 0.36 && midSkin < 0.65))) {
+      face_occluded = true;
+      obstruction_issues.push({
+        code: "OBSTRUCTION_DETECTED",
+        type: "obstruction",
+        fil: "May sagabal sa mukha. Pakitanggal ang kamay o anumang bagay na nakaharang sa mukha.",
+        en: "Facial obstruction detected. Please remove your hands or any objects blocking your face.",
       });
     }
   }

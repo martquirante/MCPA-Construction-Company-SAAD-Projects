@@ -410,6 +410,11 @@ export default function MediaPipeLivenessModal({
   const stepStartTimeRef = useRef(null);
   const lastStepIndexRef = useRef(null);
 
+  // Active environmental/facial obstruction lock & advanced blink buffer
+  const activeObstructionRef = useRef(null);
+  const openEarSamplesRef = useRef([]);
+  const earHistoryRef = useRef([]);
+
   useEffect(() => {
     currentStepIndexRef.current = currentStepIndex;
   }, [currentStepIndex]);
@@ -431,6 +436,10 @@ export default function MediaPipeLivenessModal({
 
   // Debounced warning handler to eliminate erratic 30fps flickering
   const setDebouncedWarning = useCallback((msg) => {
+    // If an environmental obstruction or facial obstruction is active, do not allow directional steps to clear it!
+    if (!msg && activeObstructionRef.current) {
+      return;
+    }
     if (!msg) {
       warningDebounceRef.current = { text: "", count: 0 };
       setWarningMessage("");
@@ -441,8 +450,8 @@ export default function MediaPipeLivenessModal({
     } else {
       warningDebounceRef.current = { text: msg, count: 1 };
     }
-    // Only display warning if condition persists for >= 4 consecutive frames (~130ms)
-    if (warningDebounceRef.current.count >= 4) {
+    // Only display warning if condition persists for >= 3 consecutive frames (~90ms), or immediately if obstruction active
+    if (activeObstructionRef.current || warningDebounceRef.current.count >= 3) {
       setWarningMessage(msg);
     }
   }, []);
@@ -484,6 +493,9 @@ export default function MediaPipeLivenessModal({
   const handleClose = useCallback(() => {
     isFinishedRef.current = false;
     isVerifyingRef.current = false;
+    activeObstructionRef.current = null;
+    openEarSamplesRef.current = [];
+    earHistoryRef.current = [];
     cleanupStream();
     setCurrentStepIndex(0);
     currentStepIndexRef.current = 0;
@@ -527,18 +539,26 @@ export default function MediaPipeLivenessModal({
   const evaluateRealtimeFrame = useCallback((video, landmarks) => {
     if (!video || !video.videoWidth || !landmarks) return null;
     try {
+      const vW = video.videoWidth || 640;
+      const vH = video.videoHeight || 480;
+      const targetW = 320;
+      const targetH = Math.max(180, Math.round(targetW * (vH / vW)));
+
       if (!offscreenCanvasRef.current) {
         offscreenCanvasRef.current = document.createElement("canvas");
-        offscreenCanvasRef.current.width = 160;
-        offscreenCanvasRef.current.height = 120;
       }
       const canvas = offscreenCanvasRef.current;
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return null;
-      ctx.drawImage(video, 0, 0, 160, 120);
-      const imgData = ctx.getImageData(0, 0, 160, 120).data;
-      const w = 160;
-      const h = 120;
+
+      ctx.drawImage(video, 0, 0, targetW, targetH);
+      const imgData = ctx.getImageData(0, 0, targetW, targetH).data;
+      const w = targetW;
+      const h = targetH;
 
       const getPixel = (x, y) => {
         const px = Math.max(0, Math.min(w - 1, Math.round(x)));
@@ -556,15 +576,8 @@ export default function MediaPipeLivenessModal({
         const y = 0.299 * r + 0.587 * g + 0.114 * b;
         const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
         const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
-        return y > 30 && cb >= 77 && cb <= 135 && cr >= 130 && cr <= 180;
+        return y > 28 && cb >= 77 && cb <= 135 && cr >= 130 && cr <= 180;
       };
-
-      // 1. Overall Environmental Lighting
-      let totalLum = 0;
-      for (let i = 0; i < imgData.length; i += 4) {
-        totalLum += 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
-      }
-      const avgLum = totalLum / (w * h);
 
       const rCheek = landmarks[234] || landmarks[1];
       const lCheek = landmarks[454] || landmarks[1];
@@ -572,25 +585,64 @@ export default function MediaPipeLivenessModal({
       const forehead = landmarks[10];
       const chin = landmarks[152];
 
-      const faceLum = (getLum(rCheek.x * w, rCheek.y * h) + getLum(lCheek.x * w, lCheek.y * h) + getLum(nose.x * w, nose.y * h)) / 3;
+      // 1. Environmental & Face Lighting Checks
+      // Sample circular camera guide viewport (central 60% of viewport)
+      let circleLumTotal = 0;
+      let circlePixelCount = 0;
+      const cx = w * 0.5;
+      const cy = h * 0.45;
+      const crRadius = Math.min(w, h) * 0.35;
+      const crSq = crRadius * crRadius;
 
-      if (avgLum < 38 || faceLum < 28) {
+      for (let sy = cy - crRadius; sy <= cy + crRadius; sy += 6) {
+        for (let sx = cx - crRadius; sx <= cx + crRadius; sx += 6) {
+          const dx = sx - cx;
+          const dy = sy - cy;
+          if (dx * dx + dy * dy <= crSq) {
+            circleLumTotal += getLum(sx, sy);
+            circlePixelCount++;
+          }
+        }
+      }
+      const avgCircleLum = circlePixelCount > 0 ? circleLumTotal / circlePixelCount : 100;
+
+      // Sample core face keypoints
+      const faceLum = (
+        getLum(rCheek.x * w, rCheek.y * h) +
+        getLum(lCheek.x * w, lCheek.y * h) +
+        getLum(nose.x * w, nose.y * h) +
+        getLum(forehead.x * w, forehead.y * h) +
+        getLum(chin.x * w, chin.y * h)
+      ) / 5;
+
+      // Sample upper background corners
+      const bgLum = (
+        getLum(w * 0.08, h * 0.08) +
+        getLum(w * 0.92, h * 0.08) +
+        getLum(w * 0.08, h * 0.25) +
+        getLum(w * 0.92, h * 0.25)
+      ) / 4;
+
+      // A. Too Dark: When environment inside circle is dark or face is underlit
+      if (avgCircleLum < 45 || faceLum < 38) {
         return {
           code: "TOO_DARK",
           en: "Environment is too dark. Please move to a well-lit area or turn on a light.",
-          fil: "Masyadong madilim. Lumipat sa mas maliwanag na lugar o buksan ang ilaw.",
+          fil: "Masyadong madilim ang paligid. Lumipat sa mas maliwanag na lugar o buksan ang ilaw.",
         };
       }
 
-      if (avgLum > 228 || faceLum > 232) {
+      // B. Too Bright / Direct Glare
+      if (avgCircleLum > 215 || faceLum > 210) {
         return {
           code: "TOO_BRIGHT",
           en: "Lighting is too bright. Please avoid direct sunlight or harsh glare.",
-          fil: "Masyadong maliwanag ang ilaw. Iwasan ang matinding araw o glare.",
+          fil: "Masyadong maliwanag ang ilaw. Iwasan ang matinding sikat ng araw o glare.",
         };
       }
 
-      if (avgLum > 165 && faceLum < 52) {
+      // C. Harsh Backlight (Background much brighter than face)
+      if (bgLum > 140 && faceLum < 55) {
         return {
           code: "BACKLIT",
           en: "Harsh backlighting detected. Your face is in shadow. Please face the light source.",
@@ -598,42 +650,132 @@ export default function MediaPipeLivenessModal({
         };
       }
 
-      // 2. Eyeglasses & Sunglasses Immediate Detection
-      const rEyeX = (landmarks[33] || nose).x * w;
-      const rEyeY = (landmarks[159] || nose).y * h;
-      const lEyeX = (landmarks[263] || nose).x * w;
-      const lEyeY = (landmarks[386] || nose).y * h;
-      const bridge = landmarks[168] || landmarks[6] || nose;
-      const bridgeX = bridge.x * w;
-      const bridgeY = bridge.y * h;
+      // 2. Eyeglasses & Sunglasses Immediate Detection (Multi-Zone)
+      const rEyeCorner = landmarks[33] || nose;
+      const rEyeInner = landmarks[133] || nose;
+      const lEyeInner = landmarks[362] || nose;
+      const lEyeCorner = landmarks[263] || nose;
 
+      const rEyeCenterX = ((rEyeCorner.x + rEyeInner.x) * 0.5) * w;
+      const rEyeCenterY = ((landmarks[159]?.y || rEyeCorner.y) + (landmarks[145]?.y || rEyeCorner.y)) * 0.5 * h;
+      const lEyeCenterX = ((lEyeCorner.x + lEyeInner.x) * 0.5) * w;
+      const lEyeCenterY = ((landmarks[386]?.y || lEyeCorner.y) + (landmarks[374]?.y || lEyeCorner.y)) * 0.5 * h;
+
+      const eyeWidth = Math.max(12, Math.abs(lEyeCorner.x - rEyeCorner.x) * w * 0.28);
+      const eyeRadius = Math.round(eyeWidth * 0.55);
+
+      // Zone A: Eye box luminance & specular glare reflection
       let eyeLumSum = 0;
       let eyePixelCount = 0;
-      const eyeBoxR = Math.max(3, Math.round(Math.abs(lEyeX - rEyeX) * 0.12));
+      let eyeSpecularCount = 0;
 
-      for (let dy = -eyeBoxR; dy <= eyeBoxR; dy++) {
-        for (let dx = -eyeBoxR; dx <= eyeBoxR; dx++) {
-          eyeLumSum += getLum(rEyeX + dx, rEyeY + dy);
-          eyeLumSum += getLum(lEyeX + dx, lEyeY + dy);
+      for (let dy = -eyeRadius; dy <= eyeRadius; dy += 2) {
+        for (let dx = -eyeRadius; dx <= eyeRadius; dx += 2) {
+          const rL = getLum(rEyeCenterX + dx, rEyeCenterY + dy);
+          const lL = getLum(lEyeCenterX + dx, lEyeCenterY + dy);
+          if (rL > 225) eyeSpecularCount++;
+          if (lL > 225) eyeSpecularCount++;
+          eyeLumSum += rL + lL;
           eyePixelCount += 2;
         }
       }
       const avgEyeLum = eyeLumSum / (eyePixelCount || 1);
+      const eyeGlareRatio = eyeSpecularCount / (eyePixelCount || 1);
 
-      // Deep dark eye tint = sunglasses
-      if (avgEyeLum < 38 && faceLum > 75) {
+      // Sunglasses Check: very dark lenses while face is lit
+      if (avgEyeLum < 40 && faceLum > 68) {
         return {
           code: "SUNGLASSES_DETECTED",
           en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
-          fil: "May suot na shades o salamin. Pakitanggal ang salamin bago magpatuloy.",
+          fil: "May suot na salamin. Pakitanggal ang iyong salamin sa mata bago magpatuloy.",
         };
       }
 
-      // Frame edge across nose bridge = prescription eyeglasses
-      const inREyeX = (landmarks[133] || landmarks[33]).x * w;
-      const inLEyeX = (landmarks[362] || landmarks[263]).x * w;
-      const bridgeStartX = Math.min(inREyeX, inLEyeX);
-      const bridgeEndX = Math.max(inREyeX, inLEyeX);
+      // Lens Glare / Reflection on Eyeglasses
+      if (eyeGlareRatio > 0.045 && faceLum < 205) {
+        return {
+          code: "EYEGLASSES_DETECTED",
+          en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
+          fil: "May suot na salamin. Pakitanggal ang iyong salamin sa mata bago magpatuloy.",
+        };
+      }
+
+      // Zone B: Lower Orbital Rim (Wireframe, Round, or Rectangular glasses rims under eyes)
+      // Directly underneath both eyes on upper cheek
+      const rimYStart = Math.round(Math.max(rEyeCenterY, lEyeCenterY) + eyeRadius * 0.7);
+      const rimYEnd = Math.round(Math.max(rEyeCenterY, lEyeCenterY) + eyeRadius * 1.55);
+      const rRimX1 = Math.round(rEyeCenterX - eyeWidth * 0.5);
+      const rRimX2 = Math.round(rEyeCenterX + eyeWidth * 0.5);
+      const lRimX1 = Math.round(lEyeCenterX - eyeWidth * 0.5);
+      const lRimX2 = Math.round(lEyeCenterX + eyeWidth * 0.5);
+
+      let rimDarkCount = 0;
+      let rimTotal = 0;
+      let rimEdges = 0;
+      let lastRimLum = null;
+
+      for (let ry = rimYStart; ry <= rimYEnd; ry++) {
+        // Right under-eye
+        for (let rx = rRimX1; rx <= rRimX2; rx++) {
+          const [r, g, b] = getPixel(rx, ry);
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          if (lum < 58 || (!isSkin(r, g, b) && lum < 85)) rimDarkCount++;
+          if (lastRimLum !== null && Math.abs(lum - lastRimLum) > 36) rimEdges++;
+          lastRimLum = lum;
+          rimTotal++;
+        }
+        // Left under-eye
+        for (let lx = lRimX1; lx <= lRimX2; lx++) {
+          const [r, g, b] = getPixel(lx, ry);
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          if (lum < 58 || (!isSkin(r, g, b) && lum < 85)) rimDarkCount++;
+          if (lastRimLum !== null && Math.abs(lum - lastRimLum) > 36) rimEdges++;
+          lastRimLum = lum;
+          rimTotal++;
+        }
+      }
+
+      const lowerRimDarkRatio = rimTotal > 0 ? rimDarkCount / rimTotal : 0;
+      const lowerRimEdgeDensity = rimTotal > 0 ? rimEdges / rimTotal : 0;
+
+      if (lowerRimDarkRatio > 0.18 || (lowerRimDarkRatio > 0.12 && lowerRimEdgeDensity > 0.24)) {
+        return {
+          code: "EYEGLASSES_DETECTED",
+          en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
+          fil: "May suot na salamin. Pakitanggal ang iyong salamin sa mata bago magpatuloy.",
+        };
+      }
+
+      // Zone C: Temple Arms (Outer eye corners 33/263 to ears/jaw 234/454)
+      const rTempleStartX = rEyeCorner.x * w;
+      const rTempleStartY = rEyeCorner.y * h;
+      const rTempleEndX = rCheek.x * w;
+      const rTempleEndY = rCheek.y * h;
+
+      let templeDarkCount = 0;
+      let templeTotal = 0;
+      for (let t = 0.15; t <= 0.85; t += 0.08) {
+        const tx = rTempleStartX + (rTempleEndX - rTempleStartX) * t;
+        const ty = rTempleStartY + (rTempleEndY - rTempleStartY) * t;
+        const [r, g, b] = getPixel(tx, ty);
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (lum < 55 || (!isSkin(r, g, b) && lum < 90)) templeDarkCount++;
+        templeTotal++;
+      }
+      const templeDarkRatio = templeTotal > 0 ? templeDarkCount / templeTotal : 0;
+      if (templeDarkRatio > 0.45) {
+        return {
+          code: "EYEGLASSES_DETECTED",
+          en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
+          fil: "May suot na salamin. Pakitanggal ang iyong salamin sa mata bago magpatuloy.",
+        };
+      }
+
+      // Zone D: Nose Bridge Frame Check (thick plastic / acetate glasses)
+      const bridge = landmarks[168] || landmarks[6] || nose;
+      const bridgeY = bridge.y * h;
+      const bridgeStartX = Math.min(rEyeInner.x, lEyeInner.x) * w;
+      const bridgeEndX = Math.max(rEyeInner.x, lEyeInner.x) * w;
       const bridgeSpan = bridgeEndX - bridgeStartX;
 
       if (bridgeSpan > 4) {
@@ -652,7 +794,7 @@ export default function MediaPipeLivenessModal({
             const lum = 0.299 * r + 0.587 * g + 0.114 * b;
             if (lum < 55) bridgeDarkCount++;
             if (isSkin(r, g, b)) bridgeSkinCount++;
-            if (prevVal !== null && Math.abs(lum - prevVal) > 42) edgeCount++;
+            if (prevVal !== null && Math.abs(lum - prevVal) > 40) edgeCount++;
             prevVal = lum;
             bridgeTotal++;
           }
@@ -662,24 +804,27 @@ export default function MediaPipeLivenessModal({
         const bridgeSkinRatio = bridgeTotal > 0 ? bridgeSkinCount / bridgeTotal : 1;
         const bridgeEdgeDensity = bridgeTotal > 0 ? edgeCount / bridgeTotal : 0;
 
-        if ((bridgeEdgeDensity > 0.35 && bridgeDarkRatio > 0.25 && bridgeSkinRatio < 0.45) || (bridgeDarkRatio > 0.55 && bridgeSkinRatio < 0.30)) {
+        if ((bridgeEdgeDensity > 0.32 && bridgeDarkRatio > 0.22 && bridgeSkinRatio < 0.50) || (bridgeDarkRatio > 0.50 && bridgeSkinRatio < 0.35)) {
           return {
             code: "EYEGLASSES_DETECTED",
             en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
-            fil: "May suot na salamin sa mata. Pakitanggal ang salamin upang maging malinaw ang beripikasyon.",
+            fil: "May suot na salamin. Pakitanggal ang iyong salamin sa mata bago magpatuloy.",
           };
         }
       }
 
-      // 3. Face Mask Immediate Detection
-      const mouthLeft = landmarks[61];
-      const mouthRight = landmarks[291];
-      if (mouthLeft && mouthRight && chin) {
-        const maskY1 = Math.round(Math.min(mouthLeft.y, mouthRight.y) * h - 2);
-        const maskY2 = Math.round(chin.y * h);
-        const maskX1 = Math.round(Math.min(mouthLeft.x, mouthRight.x) * w - 4);
-        const maskX2 = Math.round(Math.max(mouthLeft.x, mouthRight.x) * w + 4);
+      // 3. Face Mask, Bandana & Lower Face Covering Detection
+      // Zone covers from nose base (landmarks[2]) to chin (landmarks[152])
+      const noseBaseY = (landmarks[2]?.y || nose.y) * h;
+      const chinY = chin.y * h;
+      const rMouthX = (landmarks[61]?.x || rCheek.x) * w;
+      const lMouthX = (landmarks[291]?.x || lCheek.x) * w;
+      const maskX1 = Math.round(Math.min(rMouthX, lMouthX) - (w * 0.04));
+      const maskX2 = Math.round(Math.max(rMouthX, lMouthX) + (w * 0.04));
+      const maskY1 = Math.round(noseBaseY + 2);
+      const maskY2 = Math.round(chinY);
 
+      if (maskY2 > maskY1 && maskX2 > maskX1) {
         let maskSkin = 0;
         let maskTotal = 0;
         for (let my = maskY1; my < maskY2; my += 2) {
@@ -690,48 +835,107 @@ export default function MediaPipeLivenessModal({
           }
         }
         const lowerSkinRatio = maskTotal > 0 ? maskSkin / maskTotal : 1.0;
-        if (maskTotal >= 20 && lowerSkinRatio < 0.18) {
+        // In bare skin, lower face is 70%-95% skin. Any mask, cloth, hand, or object drops this below 48%!
+        if (maskTotal >= 20 && lowerSkinRatio < 0.48) {
           return {
             code: "MASK_DETECTED",
-            en: "Face mask detected. Please remove your mask or face covering.",
-            fil: "May face mask o takip sa bibig. Pakitanggal ang mask bago magpatuloy.",
+            en: "Face mask or lower face covering detected. Please remove your mask or mouth covering.",
+            fil: "May face mask o takip sa mukha. Pakitanggal ang mask bago magpatuloy.",
           };
         }
       }
 
-      // 4. Hat / Headwear Immediate Detection
-      if (forehead && rCheek && lCheek) {
-        const headY1 = Math.max(0, Math.round(forehead.y * h - 14));
-        const headY2 = Math.round(forehead.y * h - 2);
-        const headX1 = Math.round(rCheek.x * w + (lCheek.x - rCheek.x) * w * 0.2);
-        const headX2 = Math.round(rCheek.x * w + (lCheek.x - rCheek.x) * w * 0.8);
+      // 4. Hat, Baseball Cap, Beanie & Headwear Detection
+      // Check forehead zone between hairline (landmarks[10]) and eyebrows (107/336)
+      const browY = ((landmarks[107]?.y || landmarks[9]?.y || forehead.y) + (landmarks[336]?.y || landmarks[9]?.y || forehead.y)) * 0.5 * h;
+      const fHeadY1 = Math.round(forehead.y * h);
+      const fHeadY2 = Math.round(browY - 2);
+      const fHeadX1 = Math.round((landmarks[109]?.x || (rCheek.x * 0.7 + nose.x * 0.3)) * w);
+      const fHeadX2 = Math.round((landmarks[338]?.x || (lCheek.x * 0.7 + nose.x * 0.3)) * w);
 
-        if (headY2 > headY1 && Math.abs(headX2 - headX1) > 8) {
-          let skullSkin = 0;
-          let skullTotal = 0;
-          let brightColorCount = 0;
-          const minHX = Math.min(headX1, headX2);
-          const maxHX = Math.max(headX1, headX2);
+      if (fHeadY2 > fHeadY1 && Math.abs(fHeadX2 - fHeadX1) > 10) {
+        let fSkin = 0;
+        let fTotal = 0;
+        let fEdges = 0;
+        let lastFVal = null;
+        const minFX = Math.min(fHeadX1, fHeadX2);
+        const maxFX = Math.max(fHeadX1, fHeadX2);
 
-          for (let hy = headY1; hy < headY2; hy += 2) {
-            for (let hx = minHX; hx < maxHX; hx += 2) {
-              const [r, g, b] = getPixel(hx, hy);
-              if (isSkin(r, g, b)) skullSkin++;
-              if ((r > 180 && g > 140 && b < 80) || (r > 160 && g < 70 && b < 70)) {
-                brightColorCount++;
-              }
-              skullTotal++;
-            }
+        for (let fy = fHeadY1; fy < fHeadY2; fy += 2) {
+          for (let fx = minFX; fx < maxFX; fx += 2) {
+            const [r, g, b] = getPixel(fx, fy);
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            if (isSkin(r, g, b)) fSkin++;
+            if (lastFVal !== null && Math.abs(lum - lastFVal) > 34) fEdges++;
+            lastFVal = lum;
+            fTotal++;
           }
-          const skullSkinRatio = skullTotal > 0 ? skullSkin / skullTotal : 1.0;
-          const helmetRatio = skullTotal > 0 ? brightColorCount / skullTotal : 0;
-          if (skullTotal >= 15 && (helmetRatio > 0.35 || skullSkinRatio < 0.12)) {
-            return {
-              code: "HAT_DETECTED",
-              en: "Hat or headwear detected. Please remove your hat or cap.",
-              fil: "May suot na sumbrero o panakip sa ulo. Pakitanggal bago magpatuloy.",
-            };
+        }
+        const foreheadSkinRatio = fTotal > 0 ? fSkin / fTotal : 1.0;
+        const foreheadEdgeDensity = fTotal > 0 ? fEdges / fTotal : 0;
+
+        // Also check upper brim area above landmark 10 (from forehead.y * h - 24 to forehead.y * h)
+        const brimY1 = Math.max(0, Math.round(forehead.y * h - 24));
+        const brimY2 = Math.round(forehead.y * h - 2);
+        let brimNonSkinCount = 0;
+        let brimTotal = 0;
+        for (let by = brimY1; by < brimY2; by += 2) {
+          for (let bx = minFX; bx < maxFX; bx += 2) {
+            const [r, g, b] = getPixel(bx, by);
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            if (!isSkin(r, g, b) && lum > 15) brimNonSkinCount++;
+            brimTotal++;
           }
+        }
+        const brimRatio = brimTotal > 0 ? brimNonSkinCount / brimTotal : 0;
+
+        // If forehead is covered (skin < 45%), or sharp cap visor cuts across forehead, or solid cap brim above forehead
+        if (fTotal >= 20 && (foreheadSkinRatio < 0.45 || (foreheadEdgeDensity > 0.30 && foreheadSkinRatio < 0.60) || (brimRatio > 0.70 && foreheadSkinRatio < 0.58))) {
+          return {
+            code: "HAT_DETECTED",
+            en: "Hat, cap, or headwear detected. Please remove your hat or cap.",
+            fil: "May suot na sumbrero, cap, o panakip sa ulo. Pakitanggal bago magpatuloy.",
+          };
+        }
+      }
+
+      // 5. General Object, Hand, Phone, Paper, or Facial Obstruction Detection
+      // Check central face zone (nose and inner cheeks between eyes and mouth)
+      const midY1 = Math.round(((landmarks[159]?.y || rEyeCenterY / h) + (landmarks[386]?.y || lEyeCenterY / h)) * 0.5 * h + 4);
+      const midY2 = Math.round((landmarks[0]?.y || landmarks[1]?.y + 0.08) * h - 2);
+      const midX1 = Math.round((rCheek.x * 0.45 + nose.x * 0.55) * w);
+      const midX2 = Math.round((lCheek.x * 0.45 + nose.x * 0.55) * w);
+
+      if (midY2 > midY1 && Math.abs(midX2 - midX1) > 12) {
+        let midSkin = 0;
+        let midTotal = 0;
+        let midEdges = 0;
+        let lastMidVal = null;
+        const minMX = Math.min(midX1, midX2);
+        const maxMX = Math.max(midX1, midX2);
+
+        for (let my = midY1; my < midY2; my += 2) {
+          for (let mx = minMX; mx < maxMX; mx += 2) {
+            const [r, g, b] = getPixel(mx, my);
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            if (isSkin(r, g, b)) midSkin++;
+            if (lastMidVal !== null && Math.abs(lum - lastMidVal) > 38) midEdges++;
+            lastMidVal = lum;
+            midTotal++;
+          }
+        }
+
+        const midSkinRatio = midTotal > 0 ? midSkin / midTotal : 1.0;
+        const midEdgeDensity = midTotal > 0 ? midEdges / midTotal : 0;
+
+        // If an artificial object (phone, paper, ID, card, cup, cloth) blocks nose/cheeks, skin ratio < 50%
+        // If hand/fingers cover nose/cheeks, sharp finger edges create midEdgeDensity > 0.36
+        if (midTotal >= 20 && (midSkinRatio < 0.48 || (midEdgeDensity > 0.36 && midSkinRatio < 0.65))) {
+          return {
+            code: "OBSTRUCTION_DETECTED",
+            en: "Facial obstruction detected. Please remove your hands or any objects blocking your face.",
+            fil: "May sagabal sa mukha. Pakitanggal ang kamay o anumang bagay na nakaharang sa mukha.",
+          };
         }
       }
 
@@ -783,6 +987,9 @@ export default function MediaPipeLivenessModal({
   // Retry after obstruction or mismatch detected
   const handleRetryAfterObstruction = useCallback(() => {
     setObstructionAlert(null);
+    activeObstructionRef.current = null;
+    openEarSamplesRef.current = [];
+    earHistoryRef.current = [];
     setCurrentStepIndex(0);
     currentStepIndexRef.current = 0;
     isVerifyingRef.current = false;
@@ -986,16 +1193,23 @@ export default function MediaPipeLivenessModal({
 
     // -------------------------------------------------------------
     // SCENARIO 1: REALTIME LIGHTING & OBSTRUCTION (Glasses, Sunglasses, Mask, Hat)
-    // Checks every 6 frames (~4-5x/sec) and warns IMMEDIATELY outside the circle
+    // Run evaluation every 2 frames for ultra-fast response & zero lag
     // -------------------------------------------------------------
     frameCounterRef.current += 1;
-    if (frameCounterRef.current % 6 === 0) {
+    if (frameCounterRef.current % 2 === 0) {
       const obs = evaluateRealtimeFrame(video, landmarks);
       if (obs) {
+        activeObstructionRef.current = obs;
         poseHoldCounterRef.current = 0;
-        setDebouncedWarning(activeLangRef.current === "fil" ? obs.fil : obs.en);
+        setWarningMessage(activeLangRef.current === "fil" ? obs.fil : obs.en);
         return; // FREEZES PROGRESSION IMMEDIATELY UNTIL OBSTRUCTION REMOVED
+      } else {
+        activeObstructionRef.current = null;
       }
+    } else if (activeObstructionRef.current) {
+      poseHoldCounterRef.current = 0;
+      setWarningMessage(activeLangRef.current === "fil" ? activeObstructionRef.current.fil : activeObstructionRef.current.en);
+      return;
     }
 
     const lmRightEye = landmarks[33] || landmarks[133];
@@ -1094,19 +1308,43 @@ export default function MediaPipeLivenessModal({
     const eyeRoll = Math.abs(landmarks[33].y - landmarks[263].y);
 
     // -------------------------------------------------------------
-    // EYE ASPECT RATIO (EAR) FOR BLINKING & EYE OPENNESS
+    // ISOTROPIC EYE ASPECT RATIO (EAR) FOR BLINKING & EYE OPENNESS
     // -------------------------------------------------------------
-    const leftDistV = Math.hypot(landmarks[159].x - landmarks[145].x, landmarks[159].y - landmarks[145].y);
-    const leftDistH = Math.hypot(landmarks[133].x - landmarks[33].x, landmarks[133].y - landmarks[33].y) || 0.01;
-    const leftEAR = leftDistV / leftDistH;
+    const vW = video.videoWidth || 640;
+    const vH = video.videoHeight || 480;
 
-    const rightDistV = Math.hypot(landmarks[386].x - landmarks[374].x, landmarks[386].y - landmarks[374].y);
-    const rightDistH = Math.hypot(landmarks[362].x - landmarks[263].x, landmarks[362].y - landmarks[263].y) || 0.01;
-    const rightEAR = rightDistV / rightDistH;
-    const avgEAR = (leftEAR + rightEAR) / 2;
+    // Right Eye EAR (6-point landmarks: 160, 158, 144, 153, 33, 133)
+    const rTopY = ((landmarks[160]?.y || 0) + (landmarks[158]?.y || 0)) * 0.5 * vH;
+    const rBotY = ((landmarks[144]?.y || 0) + (landmarks[153]?.y || 0)) * 0.5 * vH;
+    const rDistV = Math.abs(rBotY - rTopY);
+    const rDistH = Math.abs(((landmarks[133]?.x || 0) - (landmarks[33]?.x || 0)) * vW) || 1;
+    const rEAR = rDistV / rDistH;
+
+    // Left Eye EAR (6-point landmarks: 385, 387, 380, 373, 263, 362)
+    const lTopY = ((landmarks[385]?.y || 0) + (landmarks[387]?.y || 0)) * 0.5 * vH;
+    const lBotY = ((landmarks[380]?.y || 0) + (landmarks[373]?.y || 0)) * 0.5 * vH;
+    const lDistV = Math.abs(lBotY - lTopY);
+    const lDistH = Math.abs(((landmarks[362]?.x || 0) - (landmarks[263]?.x || 0)) * vW) || 1;
+    const lEAR = lDistV / lDistH;
+
+    const avgEAR = (rEAR + lEAR) * 0.5;
+
+    // Rolling window buffer (last 16 frames ~ 500ms)
+    earHistoryRef.current.push(avgEAR);
+    if (earHistoryRef.current.length > 16) {
+      earHistoryRef.current.shift();
+    }
+
+    // Accumulate natural open eye baseline samples during steps 0 through 4
+    if (stepIdx < 5 && avgEAR >= 0.16) {
+      openEarSamplesRef.current.push(avgEAR);
+      if (openEarSamplesRef.current.length > 40) {
+        openEarSamplesRef.current.shift();
+      }
+    }
 
     // SCENARIO 7: EYES CLOSED DURING DIRECTIONAL STEPS (0 to 4)
-    if (stepIdx < 5 && avgEAR < 0.08) {
+    if (stepIdx < 5 && avgEAR < 0.12) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
       setDebouncedWarning(
         activeLangRef.current === "fil"
@@ -1354,9 +1592,22 @@ export default function MediaPipeLivenessModal({
           : "Please relax your face and blink naturally."
       );
 
-      const baseEAR = baselineRef.current.ear || 0.22;
-      const openThreshold = Math.max(0.14, baseEAR * 0.82);
-      const closeThreshold = Math.min(0.13, baseEAR * 0.58);
+      // Compute dynamic baseline from collected open samples, fallback to 0.24
+      let dynamicBaseEAR = 0.24;
+      if (openEarSamplesRef.current.length >= 5) {
+        const sorted = [...openEarSamplesRef.current].sort((a, b) => a - b);
+        dynamicBaseEAR = sorted[Math.floor(sorted.length / 2)];
+      } else if (baselineRef.current.ear) {
+        dynamicBaseEAR = baselineRef.current.ear;
+      }
+
+      // Realistic human eyelid physics on webcams:
+      // When eyes are fully open: EAR >= 0.18 (or 80% baseline)
+      // When eyes dip during blink: EAR <= 0.165 (or 72% baseline)
+      // When eyes reopen: EAR >= 0.175 (or 78% baseline)
+      const openThreshold = Math.max(0.18, dynamicBaseEAR * 0.80);
+      const closeThreshold = Math.max(0.165, dynamicBaseEAR * 0.72);
+      const reopenThreshold = Math.max(0.175, dynamicBaseEAR * 0.78);
 
       if (avgEAR >= openThreshold) {
         blinkStateRef.current.hasOpened = true;
@@ -1364,7 +1615,21 @@ export default function MediaPipeLivenessModal({
       if (blinkStateRef.current.hasOpened && avgEAR <= closeThreshold) {
         blinkStateRef.current.hasClosed = true;
       }
-      if (blinkStateRef.current.hasOpened && blinkStateRef.current.hasClosed && avgEAR >= openThreshold * 0.88) {
+
+      // Method 1: Full sequential state machine (open -> close -> open)
+      const passedViaSequence =
+        blinkStateRef.current.hasOpened &&
+        blinkStateRef.current.hasClosed &&
+        avgEAR >= reopenThreshold;
+
+      // Method 2: Rolling 16-frame window dip (instant catch for fast/natural blinks)
+      const recentMinEAR = earHistoryRef.current.length > 0 ? Math.min(...earHistoryRef.current) : 1.0;
+      const passedViaWindow =
+        earHistoryRef.current.length >= 4 &&
+        recentMinEAR <= closeThreshold &&
+        avgEAR >= reopenThreshold;
+
+      if (passedViaSequence || passedViaWindow) {
         if (!isVerifyingRef.current && !isFinishedRef.current) {
           isVerifyingRef.current = true;
           completeVerification();
@@ -1560,17 +1825,17 @@ export default function MediaPipeLivenessModal({
               cy="140"
               r={radius}
               fill="none"
-              stroke={obstructionAlert ? "#f43f5e" : isCompleted ? "#10b981" : "#f59e0b"}
+              stroke={obstructionAlert || warningMessage ? "#f43f5e" : isCompleted ? "#10b981" : "#f59e0b"}
               strokeWidth="5"
               strokeDasharray={circumference}
               strokeDashoffset={isCompleted ? 0 : strokeDashoffset}
               strokeLinecap="round"
-              className="transition-all duration-300 ease-out"
+              className={`transition-all duration-300 ease-out ${warningMessage ? "animate-pulse" : ""}`}
             />
           </svg>
 
           {/* PURE CIRCULAR CAMERA CONTAINER */}
-          <div className="relative w-60 h-60 rounded-full overflow-hidden bg-neutral-950 border-2 border-white/20 shadow-xl flex items-center justify-center">
+          <div className={`relative w-60 h-60 rounded-full overflow-hidden bg-neutral-950 border-2 transition-all duration-200 shadow-xl flex items-center justify-center ${warningMessage || obstructionAlert ? "border-rose-500 shadow-rose-500/30 ring-4 ring-rose-500/20" : "border-white/20"}`}>
             {/* Hidden canvas for MediaPipe calculations */}
             <canvas
               ref={canvasRef}
