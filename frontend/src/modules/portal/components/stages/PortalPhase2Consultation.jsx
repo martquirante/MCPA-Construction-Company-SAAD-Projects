@@ -20,6 +20,9 @@ import {
   Shield,
   Layers,
   Sparkles,
+  FolderKanban,
+  ArrowRight,
+  User,
 } from "lucide-react";
 import LordIcon from "@/modules/shared/LordIcon";
 import { authFetch } from "@/modules/shared/authFetch";
@@ -29,6 +32,9 @@ export default function PortalPhase2Consultation({
   currentUser,
   showToast,
   onRefreshState,
+  onSelectTab,
+  inquiries = [],
+  mode = "overview",
 }) {
   const projectId = activeProject?.client_project_id;
 
@@ -240,68 +246,183 @@ export default function PortalPhase2Consultation({
     }
   };
 
+  const primaryInquiry = inquiries?.[0];
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      {/* 1. STAGE PROGRESS & LIVE STATUS TIMELINE */}
-      <div className="p-6 rounded-[8px] border border-amber-500/20 bg-linear-to-b from-neutral-900 via-neutral-900/90 to-neutral-950 text-white shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
-          <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-[3px] bg-amber-500/20 text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider mb-1">
-              Phase 2 Active · Consultation & Estimation
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-tight">
-              {activeProject?.project_title || "Residential Build Inquiry"}
-            </h1>
-            <p className="text-xs text-neutral-400 font-sans mt-0.5">
-              Project Code: <span className="font-mono text-amber-400 font-bold">{activeProject?.project_code}</span>
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setQuotationRequested(true);
-                showToast("Quotation request submitted to MCPA Estimations Team!");
-              }}
-              disabled={quotationRequested}
-              className={`px-4 py-2 rounded-[4px] font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
-                quotationRequested
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-md"
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              {quotationRequested ? "Quotation Requested" : "Request Formal Quotation"}
-            </button>
-          </div>
-        </div>
-
-        {/* Linear Stepper Timeline */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { step: "1", title: "Inquiry Submitted", status: "Completed", date: "Verified" },
-            { step: "2", title: "Document & Lot Review", status: documents.length > 0 ? "Under Review" : "Action Needed", date: "TCT / Valid IDs" },
-            { step: "3", title: "Video Consultation", status: isInCall ? "In Session" : "Room Ready", date: meetingRoom?.room_code || "Scheduled" },
-            { step: "4", title: "Formal Quotation", status: quotationRequested ? "In Preparation" : "Pending Meeting", date: "Cost Index" },
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className="p-3 rounded-[6px] bg-white/[0.03] border border-white/5 space-y-1 font-mono"
-            >
-              <div className="flex items-center justify-between text-[11px] text-amber-500 font-bold">
-                <span>STEP 0{item.step}</span>
-                <span className="text-[10px] text-neutral-400">{item.status}</span>
+      {/* 1. STAGE PROGRESS & LIVE STATUS TIMELINE (SHOWN IN OVERVIEW & MEETING) */}
+      {mode !== "documents" && (
+        <div className="p-6 rounded-[8px] border border-amber-500/20 bg-linear-to-b from-neutral-900 via-neutral-900/90 to-neutral-950 text-white shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
+            <div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-[3px] bg-amber-500/20 text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider mb-1">
+                Phase 2 Active · Consultation &amp; Estimation
               </div>
-              <div className="text-xs font-bold text-white truncate">{item.title}</div>
-              <div className="text-[10px] text-neutral-400 font-sans">{item.date}</div>
+              <h1 className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-tight">
+                {activeProject?.project_title || "Residential Build Inquiry"}
+              </h1>
+              <p className="text-xs text-neutral-400 font-sans mt-0.5">
+                Project Code: <span className="font-mono text-amber-400 font-bold">{activeProject?.project_code}</span>
+              </p>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* 2. WEBRTC VIDEO CONFERENCING & LIVE CHAT SPLIT */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuotationRequested(true);
+                  showToast("Quotation request submitted to MCPA Estimations Team!");
+                }}
+                disabled={quotationRequested}
+                className={`px-4 py-2 rounded-[4px] font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                  quotationRequested
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-md"
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {quotationRequested ? "Quotation Requested" : "Request Formal Quotation"}
+              </button>
+            </div>
+          </div>
+
+          {/* Linear Stepper Timeline */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { step: "1", title: "Inquiry Submitted", status: "Completed", date: "Verified" },
+              { step: "2", title: "Document & Lot Review", status: documents.length > 0 ? "Under Review" : "Action Needed", date: "TCT / Valid IDs" },
+              { step: "3", title: "Video Consultation", status: isInCall ? "In Session" : "Room Ready", date: meetingRoom?.room_code || "Scheduled" },
+              { step: "4", title: "Formal Quotation", status: quotationRequested ? "In Preparation" : "Pending Meeting", date: "Cost Index" },
+            ].map((item, idx) => (
+              <div
+                key={idx}
+                className="p-3 rounded-[6px] bg-white/[0.03] border border-white/5 space-y-1 font-mono"
+              >
+                <div className="flex items-center justify-between text-[11px] text-amber-500 font-bold">
+                  <span>STEP 0{item.step}</span>
+                  <span className="text-[10px] text-neutral-400">{item.status}</span>
+                </div>
+                <div className="text-xs font-bold text-white truncate">{item.title}</div>
+                <div className="text-[10px] text-neutral-400 font-sans">{item.date}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 2. STAGE 2 EXECUTIVE DASHBOARD SUMMARY CARDS (SHOWN ONLY IN OVERVIEW MODE) */}
+      {mode === "overview" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-neutral-400 font-bold">
+              Stage 2 Consultation Executive Summary &amp; Tab Shortcuts
+            </span>
+            <span className="text-[10px] font-mono text-amber-500 font-semibold">
+              Phase 2 of 5
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Card 1: Video Consultation Tab Summary */}
+            <div
+              onClick={() => onSelectTab && onSelectTab("meeting")}
+              className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="text-sky-500">
+                  <Video className="w-6 h-6" />
+                </div>
+                <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-bold uppercase ${
+                  isInCall ? "bg-emerald-500/15 text-emerald-400 animate-pulse" : "bg-sky-500/15 text-sky-400"
+                }`}>
+                  {isInCall ? "Live Session" : "Room Ready"}
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs font-mono font-bold uppercase text-neutral-500">Video Consultation</div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                  Peer-to-Peer Conference
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                  Room: {meetingRoom?.room_code || "mcpa-consultation-room"} · Connect directly with lead architects.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+                <span>Join Video Room</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+
+            {/* Card 2: Document Vault Summary */}
+            <div
+              onClick={() => onSelectTab && onSelectTab("documents")}
+              className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="text-purple-500">
+                  <Shield className="w-6 h-6" />
+                </div>
+                <span className="text-purple-500 dark:text-purple-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                  {documents.length} Files Deposited
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs font-mono font-bold uppercase text-neutral-500">Document Vault</div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                  Lot Titles &amp; Permits
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                  Upload Transfer Certificate of Title (TCT), lot plans, and tax declarations for engineering validation.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+                <span>Open Document Vault</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+
+            {/* Card 3: Inquiries Brief Summary */}
+            <div
+              onClick={() => onSelectTab && onSelectTab("inquiries")}
+              className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="text-amber-500">
+                  <FolderKanban className="w-6 h-6" />
+                </div>
+                <span className="text-amber-500 dark:text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                  Brief Verified
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs font-mono font-bold uppercase text-neutral-500">Inquiry Brief</div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                  {primaryInquiry ? (primaryInquiry.project_type || "Residential Build") : "Active Project Scope"}
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                  {primaryInquiry
+                    ? `Style: ${primaryInquiry.preferred_style || "Contemporary"} · Budget: ${primaryInquiry.budget_range || "Flexible"}`
+                    : "Review submitted architectural specs, lot dimensions, and floor plans."}
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+                <span>View Full Inquiry Brief</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. WEBRTC VIDEO CONFERENCING & LIVE CHAT SPLIT (SHOWN IN OVERVIEW & MEETING MODES) */}
+      {(mode === "overview" || mode === "meeting") && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: In-App WebRTC Video Conference Room */}
         <div className="lg:col-span-7 flex flex-col rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-md overflow-hidden">
           <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-neutral-950">
@@ -489,8 +610,10 @@ export default function PortalPhase2Consultation({
           </form>
         </div>
       </div>
+      )}
 
-      {/* 3. DOCUMENT VAULT (TCT, TAX DEC, VALID IDS) */}
+      {/* 3. DOCUMENT VAULT (TCT, TAX DEC, VALID IDS) (SHOWN IN OVERVIEW & DOCUMENTS MODES) */}
+      {(mode === "overview" || mode === "documents") && (
       <div className="p-6 rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-md space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
           <div>
@@ -602,6 +725,7 @@ export default function PortalPhase2Consultation({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

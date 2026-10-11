@@ -18,6 +18,11 @@ import {
   PlusCircle,
   FileText,
   Compass,
+  Camera,
+  CreditCard,
+  FolderKanban,
+  ArrowRight,
+  User,
 } from "lucide-react";
 import LordIcon from "@/modules/shared/LordIcon";
 import { authFetch } from "@/modules/shared/authFetch";
@@ -27,6 +32,11 @@ export default function PortalPhase5Wrapped({
   currentUser,
   showToast,
   onStartInquiry,
+  onSelectTab,
+  inquiries = [],
+  billingLedger = [],
+  sitePhotos = [],
+  mode = "overview",
 }) {
   const projectId = activeProject?.client_project_id;
   const [wrapped, setWrapped] = useState(null);
@@ -141,7 +151,141 @@ export default function PortalPhase5Wrapped({
         </div>
       </div>
 
-      {/* 2. SPOTIFY-WRAPPED STYLE INTERACTIVE STORY RECAP CARDS */}
+      {/* 2. STAGE 5 EXECUTIVE DASHBOARD SUMMARY CARDS (SUMMARIZES OTHER ACTIVE NAV TABS) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-neutral-400 font-bold">
+            Stage 5 Completed Executive Summary &amp; Tab Shortcuts
+          </span>
+          <span className="text-[10px] font-mono text-amber-500 font-semibold">
+            Phase 5 of 5 · Handover Complete
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Summary Card 1: Project Photo Vault */}
+          <div
+            onClick={() => onSelectTab && onSelectTab("gallery")}
+            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+          >
+            <div className="flex items-start justify-between">
+              <div className="text-sky-500">
+                <Camera className="w-6 h-6" />
+              </div>
+              <span className="text-sky-500 dark:text-sky-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                {sitePhotos.length} Master Photos
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Project Archive</div>
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                Photo Vault &amp; Drone Clips
+              </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                Curated visual history from ground excavation to final turnover commissioning.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+              <span>Open Photo Vault</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* Summary Card 2: Billing & Warranty Settlement */}
+          <div
+            onClick={() => onSelectTab && onSelectTab("billing")}
+            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+          >
+            <div className="flex items-start justify-between">
+              <div className="text-emerald-500">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                100% Settled
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Billing Statement</div>
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                Zero Balance Confirmed
+              </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                Official receipts and milestone clearance certs logged in project ledger.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+              <span>View Billing Records</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* Summary Card 3: Inquiries / New Build */}
+          <div
+            onClick={() => onStartInquiry ? onStartInquiry() : (onSelectTab && onSelectTab("inquiries"))}
+            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+          >
+            <div className="flex items-start justify-between">
+              <div className="text-amber-500">
+                <FolderKanban className="w-6 h-6" />
+              </div>
+              <span className="text-amber-500 dark:text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                Start New Build
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Future Build</div>
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                New Project / Extension
+              </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                Planning a secondary home, pavilion expansion, or commercial structure?
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+              <span>Start New Inquiry</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* Summary Card 4: Homeowner Credentials */}
+          <div
+            onClick={() => onSelectTab && onSelectTab("profile")}
+            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+          >
+            <div className="flex items-start justify-between">
+              <div className="text-purple-500">
+                <User className="w-6 h-6" />
+              </div>
+              <span className="text-purple-500 dark:text-purple-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                Homeowner
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Client Profile</div>
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                {currentUser?.fullName || currentUser?.full_name || "Valued Client"}
+              </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                {currentUser?.email || "Account Active"} · Complete homeowner warranty records attached.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+              <span>View Profile</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. SPOTIFY-WRAPPED STYLE INTERACTIVE STORY RECAP CARDS */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800">
           <div>

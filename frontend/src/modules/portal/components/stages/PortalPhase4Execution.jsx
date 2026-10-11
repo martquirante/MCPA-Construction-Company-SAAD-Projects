@@ -19,6 +19,10 @@ import {
   ShieldCheck,
   CreditCard,
   Maximize2,
+  FolderKanban,
+  Building,
+  ArrowRight,
+  User,
 } from "lucide-react";
 import { authFetch } from "@/modules/shared/authFetch";
 
@@ -27,6 +31,12 @@ export default function PortalPhase4Execution({
   currentUser,
   showToast,
   onRefreshState,
+  onSelectTab,
+  inquiries = [],
+  billingLedger = [],
+  sitePhotos = [],
+  siteProject = null,
+  mode = "overview",
 }) {
   const projectId = activeProject?.client_project_id;
   const projectCode = activeProject?.site_project_code || activeProject?.project_code;
@@ -175,7 +185,141 @@ export default function PortalPhase4Execution({
         </div>
       </div>
 
-      {/* 2. FINANCIAL TRANSPARENCY & BNPL LOAN TRACKER */}
+      {/* 2. STAGE 4 EXECUTIVE DASHBOARD SUMMARY CARDS (SUMMARIZES OTHER ACTIVE NAV TABS) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-neutral-400 font-bold">
+            Stage 4 Execution Executive Summary &amp; Tab Shortcuts
+          </span>
+          <span className="text-[10px] font-mono text-amber-500 font-semibold">
+            Phase 4 of 5
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Summary Card 1: Site Execution Specs */}
+          <div
+            onClick={() => onSelectTab && onSelectTab("construction")}
+            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+          >
+            <div className="flex items-start justify-between">
+              <div className="text-amber-500">
+                <Building className="w-6 h-6" />
+              </div>
+              <span className="text-amber-500 dark:text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                {progressPct}% Progress
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Site Specs</div>
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                {siteDetails?.current_phase || "Structural Erection"}
+              </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                Lead: {siteDetails?.lead_engineer || "Engr. MCPA Lead"} · Target: {siteDetails?.revised_turnover || "On Schedule"}
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+              <span>View Site Specs</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* Summary Card 2: Milestone Billing */}
+          <div
+            onClick={() => onSelectTab && onSelectTab("billing")}
+            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+          >
+            <div className="flex items-start justify-between">
+              <div className="text-emerald-500">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                {formatPHP(totalPaid)} Settled
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Milestone Billing</div>
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                Balance: {formatPHP(remainingBalance)}
+              </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                Total Billed: {formatPHP(totalBilled)} · Live payment proofs and receipts.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+              <span>View Billing Ledger</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* Summary Card 3: Site Gallery & Drone */}
+          <div
+            onClick={() => onSelectTab && onSelectTab("gallery")}
+            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+          >
+            <div className="flex items-start justify-between">
+              <div className="text-sky-500">
+                <Camera className="w-6 h-6" />
+              </div>
+              <span className="text-sky-500 dark:text-sky-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                {photoLogs.length || sitePhotos.length} Photos Logged
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Drone &amp; Gallery</div>
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                Live Drone Telemetry
+              </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                Daily inspection stamps, concrete slump tests, and aerial site captures.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+              <span>Open Site Gallery</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* Summary Card 4: Inquiries Record */}
+          <div
+            onClick={() => onSelectTab && onSelectTab("inquiries")}
+            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+          >
+            <div className="flex items-start justify-between">
+              <div className="text-purple-500">
+                <FolderKanban className="w-6 h-6" />
+              </div>
+              <span className="text-purple-500 dark:text-purple-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                {activeProject?.project_code || "PRJ-ACTIVE"}
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Inquiry Brief</div>
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                {inquiries[0]?.project_type || "Residential Build"}
+              </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                Style: {inquiries[0]?.preferred_style || "Contemporary"} · Original contract parameters.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+              <span>View Inquiry Record</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. FINANCIAL TRANSPARENCY & BNPL LOAN TRACKER */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Financial Transparency Card */}
         <div className="lg:col-span-7 p-6 rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-md space-y-6">

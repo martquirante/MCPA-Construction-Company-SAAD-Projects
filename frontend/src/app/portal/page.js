@@ -46,6 +46,8 @@ import {
   FileText,
   Download,
   Lock,
+  Hammer,
+  ListChecks,
 } from "lucide-react";
 import PortalHeroFinancialCard from "@/modules/portal/components/PortalHeroFinancialCard";
 import PortalOverallProgressCard from "@/modules/portal/components/PortalOverallProgressCard";
@@ -57,6 +59,7 @@ import PortalSiteGallerySection from "@/modules/portal/components/PortalSiteGall
 import PortalBillingLedgerSection from "@/modules/portal/components/PortalBillingLedgerSection";
 import PortalMobileBottomNav from "@/modules/portal/components/PortalMobileBottomNav";
 import PortalEmptyState from "@/modules/portal/components/PortalEmptyState";
+import PortalSiteSupervisorCard from "@/modules/portal/components/PortalSiteSupervisorCard";
 import PortalPhase1PreInquiry from "@/modules/portal/components/stages/PortalPhase1PreInquiry";
 import PortalPhase2Consultation from "@/modules/portal/components/stages/PortalPhase2Consultation";
 import PortalPhase3Planning from "@/modules/portal/components/stages/PortalPhase3Planning";
@@ -495,7 +498,9 @@ function ClientPortalContent() {
       case "CONSULTATION":
         return {
           active: [
-            { id: "overview", label: "Consultation Hub", icon: Video },
+            { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+            { id: "meeting", label: "Video Consultation", icon: Video },
+            { id: "documents", label: "Document Vault", icon: FileText },
             { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [
@@ -509,8 +514,10 @@ function ClientPortalContent() {
       case "PRE_CONSTRUCTION":
         return {
           active: [
-            { id: "overview", label: "Planning Hub", icon: Layers },
+            { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+            { id: "blueprints", label: "Blueprints & Plans", icon: Layers },
             { id: "billing", label: "Contracts & Escrow", icon: CreditCard, badge: billingLedger.length > 0 ? billingLedger.length : undefined },
+            { id: "permits", label: "Permits & Legal", icon: ShieldCheck },
             { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [
@@ -523,11 +530,11 @@ function ClientPortalContent() {
       case "ACTIVE_BUILD":
         return {
           active: [
-            { id: "overview", label: "Live Build Progress", icon: LayoutDashboard },
+            { id: "overview", label: "Dashboard", icon: LayoutDashboard },
             { id: "construction", label: "Site Execution Specs", icon: Building, badge: siteProject ? `${siteProject.progress_pct}%` : undefined },
             { id: "gallery", label: "Site Gallery & Drone", icon: Camera, badge: sitePhotos.length > 0 ? sitePhotos.length : undefined },
             { id: "billing", label: "Milestone Billing", icon: CreditCard, badge: billingLedger.length > 0 ? billingLedger.length : undefined },
-            { id: "inquiries", label: "Inquiries", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
+            { id: "inquiries", label: "Inquiries Record", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [
             { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 5 (Completed)", unlockBadge: "Stage 5" },
@@ -537,7 +544,7 @@ function ClientPortalContent() {
       case "COMPLETED":
         return {
           active: [
-            { id: "overview", label: "Project Wrapped", icon: Sparkles },
+            { id: "overview", label: "Dashboard", icon: LayoutDashboard },
             { id: "gallery", label: "Project Photo Vault", icon: Camera, badge: sitePhotos.length > 0 ? sitePhotos.length : undefined },
             { id: "billing", label: "Billing & Warranty", icon: CreditCard, badge: billingLedger.length > 0 ? billingLedger.length : undefined },
             { id: "inquiries", label: "Inquiries / New Build", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
@@ -550,7 +557,10 @@ function ClientPortalContent() {
         return {
           active: [
             { id: "overview", label: "Dashboard", icon: LayoutDashboard },
-            { id: "inquiries", label: "Inquiries", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
+            { id: "inquiries", label: "Inquiries Pipeline", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
+            { id: "portfolio", label: "Projects", icon: Building, sectionHeader: "SHOWCASE" },
+            { id: "services", label: "Services", icon: Hammer },
+            { id: "process", label: "Process", icon: ListChecks },
           ],
           upcoming: [
             { id: "consultation", label: "Video Consultation", icon: Video, unlockStage: "Stage 2 (Inquiry Approved)", unlockBadge: "Stage 2" },
@@ -881,87 +891,109 @@ function ClientPortalContent() {
             const Icon = item.icon;
             const isActive = portalTab === item.id;
             return (
-              <div key={item.id} className="relative group flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPortalTab(item.id);
-                    setIsMobileSidebarOpen(false);
-                  }}
-                  title={item.label}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-[10px] text-xs font-mono tracking-wider transition-all duration-200 relative ${
-                    isSidebarCollapsed
-                      ? "lg:h-10 lg:justify-center lg:px-0"
-                      : "justify-between"
-                  } ${
-                    isActive
-                      ? "bg-amber-500 text-neutral-950 font-bold shadow-sm cursor-pointer"
-                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04] cursor-pointer"
-                  }`}
-                >
-                  <div
-                    className={`flex items-center min-w-0 gap-3 ${
-                      isSidebarCollapsed ? "lg:justify-center lg:gap-0" : ""
+              <div key={item.id} className="relative flex flex-col">
+                {item.sectionHeader && (
+                  <div className="pt-4 pb-2 px-1">
+                    {/* Expanded mode: Desktop expanded and always on mobile drawer */}
+                    <div
+                      className={`items-center gap-2.5 select-none ${
+                        isSidebarCollapsed ? "flex lg:hidden" : "flex"
+                      }`}
+                    >
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-500 whitespace-nowrap">
+                        {item.sectionHeader}
+                      </span>
+                      <div className="flex-1 h-px bg-neutral-200 dark:bg-white/10" />
+                    </div>
+
+                    {/* Collapsed mode: Hairline divider only when desktop sidebar is collapsed */}
+                    {isSidebarCollapsed && (
+                      <div className="hidden lg:block my-2 border-t border-neutral-200 dark:border-white/10" />
+                    )}
+                  </div>
+                )}
+                <div className="relative group flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPortalTab(item.id);
+                      setIsMobileSidebarOpen(false);
+                    }}
+                    title={item.label}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-[10px] text-xs font-mono tracking-wider transition-all duration-200 relative ${
+                      isSidebarCollapsed
+                        ? "lg:h-10 lg:justify-center lg:px-0"
+                        : "justify-between"
+                    } ${
+                      isActive
+                        ? "bg-amber-500 text-neutral-950 font-bold shadow-sm cursor-pointer"
+                        : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04] cursor-pointer"
                     }`}
                   >
-                    <div className="relative flex items-center justify-center shrink-0">
-                      <Icon
-                        className={`w-4 h-4 shrink-0 transition-colors ${
-                          isActive
-                            ? "text-neutral-950 stroke-[2.5]"
-                            : "text-neutral-500 dark:text-neutral-400 group-hover:text-amber-500"
-                        }`}
-                      />
-                      {/* Collapsed Mode Overlay Badge */}
-                      {isSidebarCollapsed && item.badge !== undefined && (
-                        <span
-                          className={`hidden lg:flex absolute -top-1.5 -right-2 min-w-[14px] h-[14px] px-1 rounded-full text-[9px] font-mono font-bold items-center justify-center shadow-sm leading-none pointer-events-none select-none ${
+                    <div
+                      className={`flex items-center min-w-0 gap-3 ${
+                        isSidebarCollapsed ? "lg:justify-center lg:gap-0" : ""
+                      }`}
+                    >
+                      <div className="relative flex items-center justify-center shrink-0">
+                        <Icon
+                          className={`w-4 h-4 shrink-0 transition-colors ${
                             isActive
-                              ? "bg-neutral-950 text-amber-400 border border-neutral-900"
-                              : "bg-amber-500 text-neutral-950 border border-white dark:border-[#101218]"
+                              ? "text-neutral-950 stroke-[2.5]"
+                              : "text-neutral-500 dark:text-neutral-400 group-hover:text-amber-500"
                           }`}
-                        >
+                        />
+                        {/* Collapsed Mode Overlay Badge */}
+                        {isSidebarCollapsed && item.badge !== undefined && (
+                          <span
+                            className={`hidden lg:flex absolute -top-1.5 -right-2 min-w-[14px] h-[14px] px-1 rounded-full text-[9px] font-mono font-bold items-center justify-center shadow-sm leading-none pointer-events-none select-none ${
+                              isActive
+                                ? "bg-neutral-950 text-amber-400 border border-neutral-900"
+                                : "bg-amber-500 text-neutral-950 border border-white dark:border-[#101218]"
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
+
+                      <span
+                        className={`truncate ${
+                          isSidebarCollapsed ? "block lg:hidden" : "block"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+
+                    {/* Expanded Mode Badge */}
+                    {item.badge !== undefined && (
+                      <span
+                        className={`${
+                          isSidebarCollapsed ? "block lg:hidden" : "block"
+                        } px-1.5 py-0.5 rounded-[4px] text-[10px] font-mono font-bold shrink-0 ${
+                          isActive
+                            ? "bg-neutral-950 text-white"
+                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Floating Tooltip in Collapsed Mode */}
+                  {isSidebarCollapsed && (
+                    <div className="hidden lg:flex absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1 rounded-[6px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-neutral-700 dark:border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 items-center gap-2">
+                      <span>{item.label}</span>
+                      {item.badge !== undefined && (
+                        <span className="px-1 py-0.2 rounded-[2px] bg-amber-500 text-neutral-950 font-bold text-[9px]">
                           {item.badge}
                         </span>
                       )}
                     </div>
-
-                    <span
-                      className={`truncate ${
-                        isSidebarCollapsed ? "block lg:hidden" : "block"
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                  </div>
-
-                  {/* Expanded Mode Badge */}
-                  {item.badge !== undefined && (
-                    <span
-                      className={`${
-                        isSidebarCollapsed ? "block lg:hidden" : "block"
-                      } px-1.5 py-0.5 rounded-[4px] text-[10px] font-mono font-bold shrink-0 ${
-                        isActive
-                          ? "bg-neutral-950 text-white"
-                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
                   )}
-                </button>
-
-                {/* Floating Tooltip in Collapsed Mode */}
-                {isSidebarCollapsed && (
-                  <div className="hidden lg:flex absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1 rounded-[6px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-neutral-700 dark:border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 items-center gap-2">
-                    <span>{item.label}</span>
-                    {item.badge !== undefined && (
-                      <span className="px-1 py-0.2 rounded-[2px] bg-amber-500 text-neutral-950 font-bold text-[9px]">
-                        {item.badge}
-                      </span>
-                    )}
-                  </div>
-                )}
+                </div>
               </div>
             );
           })}
@@ -1106,40 +1138,168 @@ function ClientPortalContent() {
             <div className="space-y-6">
               {dashboardState?.stage_id === "CONSULTATION" ? (
                 <PortalPhase2Consultation
+                  mode="overview"
                   activeProject={dashboardState.activeProject}
                   currentUser={currentUser}
                   showToast={showToast}
                   onRefreshState={() => fetchClientData(currentUser?.email)}
+                  onSelectTab={(tab) => setPortalTab(tab)}
+                  inquiries={inquiries}
                 />
               ) : dashboardState?.stage_id === "PRE_CONSTRUCTION" ? (
                 <PortalPhase3Planning
+                  mode="overview"
                   activeProject={dashboardState.activeProject}
                   currentUser={currentUser}
                   showToast={showToast}
                   onRefreshState={() => fetchClientData(currentUser?.email)}
+                  onSelectTab={(tab) => setPortalTab(tab)}
+                  inquiries={inquiries}
+                  billingLedger={billingLedger}
                 />
               ) : dashboardState?.stage_id === "ACTIVE_BUILD" ? (
                 <PortalPhase4Execution
+                  mode="overview"
                   activeProject={dashboardState.activeProject}
                   currentUser={currentUser}
                   showToast={showToast}
                   onRefreshState={() => fetchClientData(currentUser?.email)}
+                  onSelectTab={(tab) => setPortalTab(tab)}
+                  inquiries={inquiries}
+                  billingLedger={billingLedger}
+                  sitePhotos={sitePhotos}
+                  siteProject={siteProject}
                 />
               ) : dashboardState?.stage_id === "COMPLETED" ? (
                 <PortalPhase5Wrapped
+                  mode="overview"
                   activeProject={dashboardState.activeProject}
                   currentUser={currentUser}
                   showToast={showToast}
                   onStartInquiry={handleStartInquiryClick}
+                  onSelectTab={(tab) => setPortalTab(tab)}
+                  inquiries={inquiries}
+                  billingLedger={billingLedger}
+                  sitePhotos={sitePhotos}
                 />
               ) : (
                 <PortalPhase1PreInquiry
+                  mode="overview"
                   currentUser={currentUser}
                   onStartInquiry={handleStartInquiryClick}
                   onRequestMultiProject={() => setIsMultiProjectModalOpen(true)}
                   isMultiProjectBlocked={isMultiProjectBlocked}
+                  onSelectTab={(tab) => setPortalTab(tab)}
+                  inquiries={inquiries}
                 />
               )}
+            </div>
+          )}
+
+          {/* DEDICATED MEETING TAB (STAGE 2) */}
+          {portalTab === "meeting" && (
+            <div className="space-y-6">
+              <PortalPhase2Consultation
+                mode="meeting"
+                activeProject={dashboardState?.activeProject}
+                currentUser={currentUser}
+                showToast={showToast}
+                onRefreshState={() => fetchClientData(currentUser?.email)}
+                onSelectTab={(tab) => setPortalTab(tab)}
+                inquiries={inquiries}
+              />
+            </div>
+          )}
+
+          {/* DEDICATED DOCUMENT VAULT TAB (STAGE 2) */}
+          {portalTab === "documents" && (
+            <div className="space-y-6">
+              <PortalPhase2Consultation
+                mode="documents"
+                activeProject={dashboardState?.activeProject}
+                currentUser={currentUser}
+                showToast={showToast}
+                onRefreshState={() => fetchClientData(currentUser?.email)}
+                onSelectTab={(tab) => setPortalTab(tab)}
+                inquiries={inquiries}
+              />
+            </div>
+          )}
+
+          {/* DEDICATED BLUEPRINTS TAB (STAGE 3) */}
+          {portalTab === "blueprints" && (
+            <div className="space-y-6">
+              <PortalPhase3Planning
+                mode="blueprints"
+                activeProject={dashboardState?.activeProject}
+                currentUser={currentUser}
+                showToast={showToast}
+                onRefreshState={() => fetchClientData(currentUser?.email)}
+                onSelectTab={(tab) => setPortalTab(tab)}
+                inquiries={inquiries}
+                billingLedger={billingLedger}
+              />
+            </div>
+          )}
+
+          {/* DEDICATED PERMITS TAB (STAGE 3) */}
+          {portalTab === "permits" && (
+            <div className="space-y-6">
+              <PortalPhase3Planning
+                mode="permits"
+                activeProject={dashboardState?.activeProject}
+                currentUser={currentUser}
+                showToast={showToast}
+                onRefreshState={() => fetchClientData(currentUser?.email)}
+                onSelectTab={(tab) => setPortalTab(tab)}
+                inquiries={inquiries}
+                billingLedger={billingLedger}
+              />
+            </div>
+          )}
+
+          {/* DEDICATED PORTFOLIO TAB (STAGE 1) */}
+          {portalTab === "portfolio" && (
+            <div className="space-y-6">
+              <PortalPhase1PreInquiry
+                mode="portfolio"
+                currentUser={currentUser}
+                onStartInquiry={handleStartInquiryClick}
+                onRequestMultiProject={() => setIsMultiProjectModalOpen(true)}
+                isMultiProjectBlocked={isMultiProjectBlocked}
+                onSelectTab={(tab) => setPortalTab(tab)}
+                inquiries={inquiries}
+              />
+            </div>
+          )}
+
+          {/* DEDICATED SERVICES TAB (STAGE 1) */}
+          {portalTab === "services" && (
+            <div className="space-y-6">
+              <PortalPhase1PreInquiry
+                mode="services"
+                currentUser={currentUser}
+                onStartInquiry={handleStartInquiryClick}
+                onRequestMultiProject={() => setIsMultiProjectModalOpen(true)}
+                isMultiProjectBlocked={isMultiProjectBlocked}
+                onSelectTab={(tab) => setPortalTab(tab)}
+                inquiries={inquiries}
+              />
+            </div>
+          )}
+
+          {/* DEDICATED PROCESS TAB (STAGE 1) */}
+          {portalTab === "process" && (
+            <div className="space-y-6">
+              <PortalPhase1PreInquiry
+                mode="process"
+                currentUser={currentUser}
+                onStartInquiry={handleStartInquiryClick}
+                onRequestMultiProject={() => setIsMultiProjectModalOpen(true)}
+                isMultiProjectBlocked={isMultiProjectBlocked}
+                onSelectTab={(tab) => setPortalTab(tab)}
+                inquiries={inquiries}
+              />
             </div>
           )}
 

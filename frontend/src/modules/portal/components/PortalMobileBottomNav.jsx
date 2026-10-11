@@ -9,6 +9,12 @@ import {
   Image as GalleryIcon,
   FolderKanban,
   User,
+  Video,
+  Layers,
+  FileText,
+  ShieldCheck,
+  Hammer,
+  ListChecks,
 } from "lucide-react";
 
 /**
@@ -38,7 +44,67 @@ function AnimatedTabIcon({ tabId, isActive, isJustSwitched, className = "" }) {
     );
   }
 
-  // 2. Construction / Projects Tab Micro-Animation
+  // 2. Video Meeting Tab Micro-Animation
+  if (tabId === "meeting") {
+    return (
+      <div
+        className={`relative flex items-center justify-center ${
+          isJustSwitched ? "animate-tab-pop" : ""
+        }`}
+      >
+        <Video
+          className={`w-4 h-4 shrink-0 transition-all duration-300 ${className} ${
+            isJustSwitched ? "scale-110 rotate-6" : ""
+          }`}
+        />
+        {isJustSwitched && (
+          <span className="absolute inset-0 rounded-full bg-amber-400/40 animate-tab-ping pointer-events-none" />
+        )}
+      </div>
+    );
+  }
+
+  // 3. Blueprints Tab Micro-Animation
+  if (tabId === "blueprints") {
+    return (
+      <div
+        className={`relative flex items-center justify-center ${
+          isJustSwitched ? "animate-tab-lift origin-bottom" : ""
+        }`}
+      >
+        <Layers
+          className={`w-4 h-4 shrink-0 transition-all duration-300 ${className} ${
+            isJustSwitched ? "scale-110 -translate-y-0.5" : ""
+          }`}
+        />
+        {isJustSwitched && (
+          <span className="absolute inset-0 rounded-full bg-amber-400/40 animate-tab-ping pointer-events-none" />
+        )}
+      </div>
+    );
+  }
+
+  // 4. Documents Tab Micro-Animation
+  if (tabId === "documents") {
+    return (
+      <div
+        className={`relative flex items-center justify-center ${
+          isJustSwitched ? "animate-tab-snap" : ""
+        }`}
+      >
+        <FileText
+          className={`w-4 h-4 shrink-0 transition-all duration-300 ${className} ${
+            isJustSwitched ? "scale-110 rotate-6" : ""
+          }`}
+        />
+        {isJustSwitched && (
+          <span className="absolute inset-0 rounded-full bg-amber-400/40 animate-tab-ping pointer-events-none" />
+        )}
+      </div>
+    );
+  }
+
+  // 5. Construction / Projects Tab Micro-Animation
   if (tabId === "construction") {
     return (
       <div
@@ -58,7 +124,7 @@ function AnimatedTabIcon({ tabId, isActive, isJustSwitched, className = "" }) {
     );
   }
 
-  // 3. Billing Tab Micro-Animation
+  // 6. Billing Tab Micro-Animation
   if (tabId === "billing") {
     return (
       <div
@@ -78,7 +144,7 @@ function AnimatedTabIcon({ tabId, isActive, isJustSwitched, className = "" }) {
     );
   }
 
-  // 4. Gallery Tab Micro-Animation (when extended active)
+  // 7. Gallery Tab Micro-Animation (when extended active)
   if (tabId === "gallery") {
     return (
       <div
@@ -98,7 +164,7 @@ function AnimatedTabIcon({ tabId, isActive, isJustSwitched, className = "" }) {
     );
   }
 
-  // 5. Inquiries Tab Micro-Animation (when extended active)
+  // 8. Inquiries Tab Micro-Animation (when extended active)
   if (tabId === "inquiries") {
     return (
       <div
@@ -118,7 +184,7 @@ function AnimatedTabIcon({ tabId, isActive, isJustSwitched, className = "" }) {
     );
   }
 
-  // 6. Profile Tab Micro-Animation (when extended active)
+  // 9. Profile Tab Micro-Animation (when extended active)
   if (tabId === "profile") {
     return (
       <div
@@ -129,6 +195,66 @@ function AnimatedTabIcon({ tabId, isActive, isJustSwitched, className = "" }) {
         <User
           className={`w-4 h-4 shrink-0 transition-all duration-300 ${className} ${
             isJustSwitched ? "scale-110" : ""
+          }`}
+        />
+        {isJustSwitched && (
+          <span className="absolute inset-0 rounded-full bg-amber-400/40 animate-tab-ping pointer-events-none" />
+        )}
+      </div>
+    );
+  }
+
+  // 10. Portfolio / Projects Tab Micro-Animation
+  if (tabId === "portfolio") {
+    return (
+      <div
+        className={`relative flex items-center justify-center ${
+          isJustSwitched ? "animate-tab-lift origin-bottom" : ""
+        }`}
+      >
+        <Building
+          className={`w-4 h-4 shrink-0 transition-all duration-300 ${className} ${
+            isJustSwitched ? "scale-110 -translate-y-0.5" : ""
+          }`}
+        />
+        {isJustSwitched && (
+          <span className="absolute inset-0 rounded-full bg-amber-400/40 animate-tab-ping pointer-events-none" />
+        )}
+      </div>
+    );
+  }
+
+  // 11. Services Tab Micro-Animation
+  if (tabId === "services") {
+    return (
+      <div
+        className={`relative flex items-center justify-center ${
+          isJustSwitched ? "animate-tab-pop" : ""
+        }`}
+      >
+        <Hammer
+          className={`w-4 h-4 shrink-0 transition-all duration-300 ${className} ${
+            isJustSwitched ? "scale-110 rotate-12" : ""
+          }`}
+        />
+        {isJustSwitched && (
+          <span className="absolute inset-0 rounded-full bg-amber-400/40 animate-tab-ping pointer-events-none" />
+        )}
+      </div>
+    );
+  }
+
+  // 12. Process Tab Micro-Animation
+  if (tabId === "process") {
+    return (
+      <div
+        className={`relative flex items-center justify-center ${
+          isJustSwitched ? "animate-tab-snap" : ""
+        }`}
+      >
+        <ListChecks
+          className={`w-4 h-4 shrink-0 transition-all duration-300 ${className} ${
+            isJustSwitched ? "scale-110 -rotate-6" : ""
           }`}
         />
         {isJustSwitched && (
@@ -178,25 +304,25 @@ export default function PortalMobileBottomNav({
     switch (stageId) {
       case "CONSULTATION":
         return [
-          { id: "overview", label: "Consultation" },
+          { id: "overview", label: "Dashboard" },
+          { id: "meeting", label: "Meeting" },
           { id: "inquiries", label: "Inquiries" },
-          { id: "profile", label: "Profile" },
         ];
       case "PRE_CONSTRUCTION":
         return [
-          { id: "overview", label: "Planning" },
+          { id: "overview", label: "Dashboard" },
+          { id: "blueprints", label: "Blueprints" },
           { id: "billing", label: "Escrow" },
-          { id: "inquiries", label: "Inquiries" },
         ];
       case "ACTIVE_BUILD":
         return [
-          { id: "overview", label: "Progress" },
+          { id: "overview", label: "Dashboard" },
           { id: "construction", label: "Projects" },
           { id: "billing", label: "Billing" },
         ];
       case "COMPLETED":
         return [
-          { id: "overview", label: "Wrapped" },
+          { id: "overview", label: "Dashboard" },
           { id: "gallery", label: "Archive" },
           { id: "billing", label: "Billing" },
         ];
@@ -205,7 +331,7 @@ export default function PortalMobileBottomNav({
         return [
           { id: "overview", label: "Dashboard" },
           { id: "inquiries", label: "Inquiries" },
-          { id: "profile", label: "Profile" },
+          { id: "portfolio", label: "Projects", isShowcase: true },
         ];
     }
   };
@@ -214,9 +340,18 @@ export default function PortalMobileBottomNav({
 
   // Secondary tab config when accessed through the sidebar drawer
   const secondaryTabsConfig = {
+    portfolio: { label: "Projects", id: "portfolio" },
+    services: { label: "Services", id: "services" },
+    process: { label: "Process", id: "process" },
     gallery: { label: "Gallery", id: "gallery" },
     inquiries: { label: "Inquiries", id: "inquiries" },
     profile: { label: "Profile", id: "profile" },
+    meeting: { label: "Meeting", id: "meeting" },
+    documents: { label: "Documents", id: "documents" },
+    blueprints: { label: "Blueprints", id: "blueprints" },
+    permits: { label: "Permits", id: "permits" },
+    construction: { label: "Projects", id: "construction" },
+    billing: { label: "Billing", id: "billing" },
   };
 
   const isExtendedActive = !primaryTabs.some((t) => t.id === activeTab);
@@ -305,47 +440,58 @@ export default function PortalMobileBottomNav({
             const isJustSwitched = animatingTab === tab.id;
 
             return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleSelectTab(tab.id)}
-                className={`relative flex items-center justify-center transition-all duration-300 ease-out cursor-pointer active:scale-95 shrink-0 ${
-                  isActive
-                    ? "px-3 py-1.5 rounded-full overflow-hidden bg-amber-500/20 dark:bg-amber-500/25 border border-amber-500/50 dark:border-amber-400/60 shadow-[0_4px_18px_rgba(245,158,11,0.28),inset_0_1px_2px_rgba(255,255,255,0.5)]"
-                    : "w-9 h-9 rounded-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
-                }`}
-                title={tab.label}
-                aria-label={tab.label}
-                aria-current={isActive ? "page" : undefined}
-              >
-                {/* Convex Optical Lens Specular Reflection (Magnifying Glass effect) */}
-                {isActive && (
-                  <>
-                    <div className="absolute inset-x-2 top-0 h-[45%] rounded-t-full bg-gradient-to-b from-white/55 via-white/10 to-transparent pointer-events-none" />
-                    <div className="absolute inset-x-2 bottom-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
-                  </>
+              <div key={tab.id} className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                {/* Visual Separator Marker Above/Before Showcase on Mobile */}
+                {tab.isShowcase && (
+                  <div className="flex items-center gap-1.5 px-1 select-none" title="Showcase">
+                    <div className="h-4 w-px bg-neutral-300 dark:bg-white/15" />
+                    <span className="hidden sm:inline text-[8.5px] font-mono font-bold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500">
+                      SHOWCASE
+                    </span>
+                  </div>
                 )}
 
-                <div className="relative flex items-center gap-1.5">
-                  <AnimatedTabIcon
-                    tabId={tab.id}
-                    isActive={isActive}
-                    isJustSwitched={isJustSwitched}
-                    className={
-                      isActive
-                        ? "text-amber-600 dark:text-amber-400 stroke-[2.5]"
-                        : "stroke-[1.8]"
-                    }
-                  />
-
-                  {/* Text Label: ONLY shown when selected */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectTab(tab.id)}
+                  className={`relative flex items-center justify-center transition-all duration-300 ease-out cursor-pointer active:scale-95 shrink-0 ${
+                    isActive
+                      ? "px-3 py-1.5 rounded-full overflow-hidden bg-amber-500/20 dark:bg-amber-500/25 border border-amber-500/50 dark:border-amber-400/60 shadow-[0_4px_18px_rgba(245,158,11,0.28),inset_0_1px_2px_rgba(255,255,255,0.5)]"
+                      : "w-9 h-9 rounded-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                  }`}
+                  title={tab.label}
+                  aria-label={tab.label}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  {/* Convex Optical Lens Specular Reflection (Magnifying Glass effect) */}
                   {isActive && (
-                    <span className="text-xs font-mono font-bold tracking-tight text-amber-700 dark:text-amber-300 whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
-                      {tab.label}
-                    </span>
+                    <>
+                      <div className="absolute inset-x-2 top-0 h-[45%] rounded-t-full bg-gradient-to-b from-white/55 via-white/10 to-transparent pointer-events-none" />
+                      <div className="absolute inset-x-2 bottom-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
+                    </>
                   )}
-                </div>
-              </button>
+
+                  <div className="relative flex items-center gap-1.5">
+                    <AnimatedTabIcon
+                      tabId={tab.id}
+                      isActive={isActive}
+                      isJustSwitched={isJustSwitched}
+                      className={
+                        isActive
+                          ? "text-amber-600 dark:text-amber-400 stroke-[2.5]"
+                          : "stroke-[1.8]"
+                      }
+                    />
+
+                    {/* Text Label: ONLY shown when selected */}
+                    {isActive && (
+                      <span className="text-xs font-mono font-bold tracking-tight text-amber-700 dark:text-amber-300 whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
+                        {tab.label}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </div>
             );
           })}
 
@@ -373,7 +519,7 @@ export default function PortalMobileBottomNav({
 
             <div className="relative flex items-center gap-1.5">
               <AnimatedTabIcon
-                tabId={extendedTabId}
+                tabId="menu"
                 isActive={isExtendedActive}
                 isJustSwitched={animatingTab === activeTab && isExtendedActive}
                 className={

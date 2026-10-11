@@ -18,6 +18,10 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  FolderKanban,
+  CreditCard,
+  ArrowRight,
+  User,
 } from "lucide-react";
 import { authFetch } from "@/modules/shared/authFetch";
 
@@ -26,6 +30,10 @@ export default function PortalPhase3Planning({
   currentUser,
   showToast,
   onRefreshState,
+  onSelectTab,
+  inquiries = [],
+  billingLedger = [],
+  mode = "overview",
 }) {
   const projectId = activeProject?.client_project_id;
 
@@ -286,7 +294,116 @@ export default function PortalPhase3Planning({
         </div>
       </div>
 
-      {/* 2. ARCHITECTURAL & ENGINEERING BLUEPRINT VIEWER */}
+      {/* 2. STAGE 3 EXECUTIVE DASHBOARD SUMMARY CARDS (SHOWN IN OVERVIEW MODE) */}
+      {mode === "overview" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-neutral-400 font-bold">
+              Stage 3 Planning Executive Summary &amp; Tab Shortcuts
+            </span>
+            <span className="text-[10px] font-mono text-amber-500 font-semibold">
+              Phase 3 of 5
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Card 1: Blueprints & Plans */}
+            <div
+              onClick={() => onSelectTab && onSelectTab("blueprints")}
+              className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="text-amber-500">
+                  <Layers className="w-6 h-6" />
+                </div>
+                <span className="text-amber-500 dark:text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                  {blueprints.length} Sheets
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs font-mono font-bold uppercase text-neutral-500">Blueprints &amp; Plans</div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                  CAD Engineering Viewer
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                  Inspect architectural, structural, electrical, and plumbing plans with pinpoint revision markers.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+                <span>Open Blueprint Viewer</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+
+            {/* Card 2: Contracts & Escrow */}
+            <div
+              onClick={() => onSelectTab && onSelectTab("billing")}
+              className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="text-purple-500">
+                  <CreditCard className="w-6 h-6" />
+                </div>
+                <span className="text-purple-500 dark:text-purple-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                  {contract ? `₱${Number(contract.total_contract_amount || 0).toLocaleString()}` : "Escrow Ready"}
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs font-mono font-bold uppercase text-neutral-500">Escrow &amp; Contracts</div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                  Contracts &amp; Escrow Deposit
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                  {contract?.status === "FULLY_EXECUTED"
+                    ? "Turnkey contract fully signed with SHA-256 seal."
+                    : "Review milestone escrow requirements and schedule groundbreaking deposit."}
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+                <span>View Contracts &amp; Escrow</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+
+            {/* Card 3: Permits & Approvals */}
+            <div
+              onClick={() => onSelectTab && onSelectTab("permits")}
+              className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="text-emerald-500">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                  {permits.filter(p => p.status === "APPROVED" || p.status === "RELEASED").length} / {permits.length || 4} Clearances
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs font-mono font-bold uppercase text-neutral-500">LGU Permits</div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
+                  Permits &amp; Approvals
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
+                  Zoning, Barangay, Building, and Fire clearances tracking for official site groundbreaking.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
+                <span>Track Regulatory Permits</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. ARCHITECTURAL & ENGINEERING BLUEPRINT VIEWER (SHOWN IN OVERVIEW & BLUEPRINTS MODES) */}
+      {(mode === "overview" || mode === "blueprints") && (
       <div className="p-6 rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-md space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
           <div>
@@ -405,8 +522,10 @@ export default function PortalPhase3Planning({
           </div>
         )}
       </div>
+      )}
 
-      {/* 3. PERMITS & CLEARANCES TRACKER */}
+      {/* 4. PERMITS & CLEARANCES TRACKER (SHOWN IN OVERVIEW & PERMITS MODES) */}
+      {(mode === "overview" || mode === "permits") && (
       <div className="p-6 rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-md space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
           <div>
@@ -465,6 +584,7 @@ export default function PortalPhase3Planning({
           })}
         </div>
       </div>
+      )}
 
       {/* 4. E-SIGNATURE MODAL */}
       {isSignModalOpen && contract && (
