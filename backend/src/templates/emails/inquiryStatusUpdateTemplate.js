@@ -9,24 +9,21 @@ function getInquiryStatusUpdateTemplate(brief = {}, statusMeta = {}) {
   const submissionId = brief.submission_id || brief.submissionId || "MCPA-CPB-000000";
   const newStatus = statusMeta.status || brief.status || "Status Updated";
   const notes = statusMeta.notes || brief.meeting_notes || brief.meetingNotes || "";
-  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
+  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa.ph";
   const portalUrl = `${websiteUrl}/portal`;
-  const logoUrl = `${websiteUrl}/assets/email/email_logo_adaptive_v2.png`;
+
+  // Supabase High-Availability Public CDN Assets
+  const logoLightUrl = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png";
+  const logoDarkUrl = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_white_v1.png";
 
   let badgeColor = "#b45309";
-  let badgeBg = "#fef3c7";
-  let badgeBorder = "#fde68a";
   let accentColor = "#f59e0b";
 
   if (newStatus.toLowerCase().includes("quotation")) {
     badgeColor = "#4338ca";
-    badgeBg = "#e0e7ff";
-    badgeBorder = "#c7d2fe";
     accentColor = "#6366f1";
   } else if (newStatus.toLowerCase().includes("info")) {
     badgeColor = "#c2410c";
-    badgeBg = "#ffedd5";
-    badgeBorder = "#fed7aa";
     accentColor = "#f97316";
   }
 
@@ -45,11 +42,14 @@ function getInquiryStatusUpdateTemplate(brief = {}, statusMeta = {}) {
     img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
     body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
 
+    .logo-light { display: block !important; }
+    .logo-dark { display: none !important; }
+
     @media only screen and (max-width: 560px) {
-      .email-wrapper-cell { padding: 12px 6px !important; }
-      .card-body-cell { padding: 22px 16px !important; }
+      .email-wrapper-cell { padding: 14px 8px !important; }
+      .card-body-cell { padding: 24px 18px !important; }
       .header-logo { max-width: 125px !important; }
-      .h1-title { font-size: 19px !important; line-height: 1.3 !important; }
+      .h1-title { font-size: 20px !important; line-height: 1.3 !important; }
       .btn-cta { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; }
     }
 
@@ -57,15 +57,16 @@ function getInquiryStatusUpdateTemplate(brief = {}, statusMeta = {}) {
       body, .email-bg-table, .email-wrapper-cell { background-color: #0b0f17 !important; }
       .email-card, .card-body-cell { background-color: #111827 !important; border-color: #1f293d !important; }
       .text-title { color: #f8fafc !important; }
-      .text-sub { color: #94a3b8 !important; }
       .text-body { color: #cbd5e1 !important; }
       .info-card { background-color: #0a0e17 !important; border-color: #1e293b !important; }
       .info-label { color: #64748b !important; }
       .info-value { color: #e2e8f0 !important; }
       .divider-line { border-top-color: #1e293b !important; }
-      .badge-container { background: transparent !important; background-color: transparent !important; border: none !important; color: ${accentColor} !important; }
+      .badge-container { color: ${accentColor} !important; }
       .footer-text { color: #64748b !important; }
       .footer-link { color: #60a5fa !important; }
+      .logo-light { display: none !important; }
+      .logo-dark { display: block !important; }
     }
 
     [data-ogsc] .email-bg-table, [data-ogsc] .email-wrapper-cell { background-color: #0b0f17 !important; }
@@ -74,8 +75,10 @@ function getInquiryStatusUpdateTemplate(brief = {}, statusMeta = {}) {
     [data-ogsc] .text-body { color: #cbd5e1 !important; }
     [data-ogsc] .info-card { background-color: #0a0e17 !important; border-color: #1e293b !important; }
     [data-ogsc] .info-value { color: #e2e8f0 !important; }
-    [data-ogsc] .badge-container { background: transparent !important; background-color: transparent !important; border: none !important; color: ${accentColor} !important; }
+    [data-ogsc] .badge-container { color: ${accentColor} !important; }
     [data-ogsc] .footer-link { color: #60a5fa !important; }
+    [data-ogsc] .logo-light { display: none !important; }
+    [data-ogsc] .logo-dark { display: block !important; }
   </style>
 </head>
 <body bgcolor="#f1f5f9" style="margin: 0; padding: 0; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
@@ -92,10 +95,11 @@ function getInquiryStatusUpdateTemplate(brief = {}, statusMeta = {}) {
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 22px;">
                 <tr>
                   <td align="left" valign="middle">
-                    <img src="${logoUrl}" alt="MCPA Construction & Supply" width="140" class="header-logo" style="display: block; max-width: 140px; height: auto;" />
+                    <img src="${logoLightUrl}" alt="MCPA Construction & Supply" width="140" class="header-logo logo-light" style="display: block; max-width: 140px; height: auto;" />
+                    <img src="${logoDarkUrl}" alt="MCPA Construction & Supply" width="140" class="header-logo logo-dark" style="display: none; max-width: 140px; height: auto;" />
                   </td>
                   <td align="right" valign="middle">
-                    <div class="badge-container" style="display: inline-block; font-family: 'Courier New', Courier, monospace; font-size: 11px; font-weight: 800; color: ${accentColor}; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; padding: 2px 0; background: transparent; border: none;">
+                    <div class="badge-container" style="display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; font-weight: 800; color: ${accentColor}; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; padding: 2px 0; background: transparent; border: none;">
                       ${newStatus}
                     </div>
                   </td>
@@ -115,7 +119,7 @@ function getInquiryStatusUpdateTemplate(brief = {}, statusMeta = {}) {
                 Dear <strong>${clientName}</strong>,
               </p>
               <p class="text-body" style="margin: 0 0 20px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
-                The status of your architectural project inquiry <span style="font-family: 'Courier New', Courier, monospace; font-weight: 700; color: #d97706;">${submissionId}</span> has transitioned to <strong>${newStatus}</strong>.
+                The status of your architectural project inquiry <span style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-weight: 700; color: #d97706;">${submissionId}</span> has transitioned to <strong>${newStatus}</strong>.
               </p>
 
               <!-- Status Card -->
@@ -125,13 +129,13 @@ function getInquiryStatusUpdateTemplate(brief = {}, statusMeta = {}) {
                 </div>
 
                 <div style="margin-bottom: 8px;">
-                  <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Active Phase</span>
+                  <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Active Phase</span>
                   <strong class="info-value" style="display: block; font-size: 14px; color: #0f172a; margin-top: 2px;">${newStatus}</strong>
                 </div>
 
                 ${notes ? `
                 <div style="padding-top: 8px; border-top: 1px solid #e2e8f0;">
-                  <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Architectural Engineering Note</span>
+                  <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Architectural Engineering Note</span>
                   <p style="margin: 4px 0 0 0; font-size: 12.5px; line-height: 1.5; color: #334155;">${notes}</p>
                 </div>
                 ` : ""}
@@ -158,7 +162,7 @@ function getInquiryStatusUpdateTemplate(brief = {}, statusMeta = {}) {
                     <div class="footer-text" style="font-size: 11px; line-height: 1.5; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                       <strong>MCPA Construction &amp; Supply</strong><br />
                       2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines<br />
-                      Hotline: <a href="tel:+639497758239" class="footer-link" style="color: #2563eb; text-decoration: underline;">+63 949 775 8239</a> &bull; <a href="mailto:contact@mcpaconstruction.com" class="footer-link" style="color: #2563eb; text-decoration: underline;">contact@mcpaconstruction.com</a>
+                      Hotline: <a href="tel:+639497758239" class="footer-link" style="color: #2563eb; text-decoration: underline;">(0949) 775 8239</a> &bull; <a href="mailto:mcpa.construction@gmail.com" class="footer-link" style="color: #2563eb; text-decoration: underline;">mcpa.construction@gmail.com</a>
                     </div>
                   </td>
                 </tr>

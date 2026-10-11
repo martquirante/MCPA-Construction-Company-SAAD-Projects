@@ -13,9 +13,12 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
   const meetingNotes = brief.meeting_notes || brief.meetingNotes || "";
   const meetingLink = brief.meeting_link || brief.meetingLink || "https://meet.google.com/mcp-buil-tab";
   const meetingMode = brief.meeting_mode || brief.meetingMode || "Online Video Call";
-  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
+  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa.ph";
   const portalUrl = `${websiteUrl}/portal`;
-  const logoUrl = `${websiteUrl}/assets/email/email_logo_adaptive_v2.png`;
+
+  // Supabase High-Availability Public CDN Assets
+  const logoLightUrl = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png";
+  const logoDarkUrl = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_white_v1.png";
 
   const isF2F = (meetingMode || "").toLowerCase().includes("in-person");
   const venueType = brief.venue_type || brief.venueType;
@@ -56,11 +59,14 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
     img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
     body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
 
+    .logo-light { display: block !important; }
+    .logo-dark { display: none !important; }
+
     @media only screen and (max-width: 560px) {
-      .email-wrapper-cell { padding: 12px 6px !important; }
-      .card-body-cell { padding: 22px 16px !important; }
+      .email-wrapper-cell { padding: 14px 8px !important; }
+      .card-body-cell { padding: 24px 18px !important; }
       .header-logo { max-width: 125px !important; }
-      .h1-title { font-size: 19px !important; line-height: 1.3 !important; }
+      .h1-title { font-size: 20px !important; line-height: 1.3 !important; }
       .param-col { display: block !important; width: 100% !important; padding-right: 0 !important; padding-bottom: 8px !important; }
       .btn-cta { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; }
     }
@@ -69,16 +75,17 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
       body, .email-bg-table, .email-wrapper-cell { background-color: #0b0f17 !important; }
       .email-card, .card-body-cell { background-color: #111827 !important; border-color: #1f293d !important; }
       .text-title { color: #f8fafc !important; }
-      .text-sub { color: #94a3b8 !important; }
       .text-body { color: #cbd5e1 !important; }
       .info-card { background-color: #0a0e17 !important; border-color: #1e293b !important; }
       .info-label { color: #64748b !important; }
       .info-value { color: #e2e8f0 !important; }
       .highlight-value { color: #34d399 !important; }
       .divider-line { border-top-color: #1e293b !important; }
-      .badge-container { background: transparent !important; background-color: transparent !important; border: none !important; color: #34d399 !important; }
+      .badge-container { color: #34d399 !important; }
       .footer-text { color: #64748b !important; }
       .footer-link { color: #60a5fa !important; }
+      .logo-light { display: none !important; }
+      .logo-dark { display: block !important; }
     }
 
     [data-ogsc] .email-bg-table, [data-ogsc] .email-wrapper-cell { background-color: #0b0f17 !important; }
@@ -87,8 +94,10 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
     [data-ogsc] .text-body { color: #cbd5e1 !important; }
     [data-ogsc] .info-card { background-color: #0a0e17 !important; border-color: #1e293b !important; }
     [data-ogsc] .info-value { color: #e2e8f0 !important; }
-    [data-ogsc] .badge-container { background: transparent !important; background-color: transparent !important; border: none !important; color: #34d399 !important; }
+    [data-ogsc] .badge-container { color: #34d399 !important; }
     [data-ogsc] .footer-link { color: #60a5fa !important; }
+    [data-ogsc] .logo-light { display: none !important; }
+    [data-ogsc] .logo-dark { display: block !important; }
   </style>
 </head>
 <body bgcolor="#f1f5f9" style="margin: 0; padding: 0; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
@@ -105,10 +114,11 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 22px;">
                 <tr>
                   <td align="left" valign="middle">
-                    <img src="${logoUrl}" alt="MCPA Construction & Supply" width="140" class="header-logo" style="display: block; max-width: 140px; height: auto;" />
+                    <img src="${logoLightUrl}" alt="MCPA Construction & Supply" width="140" class="header-logo logo-light" style="display: block; max-width: 140px; height: auto;" />
+                    <img src="${logoDarkUrl}" alt="MCPA Construction & Supply" width="140" class="header-logo logo-dark" style="display: none; max-width: 140px; height: auto;" />
                   </td>
                   <td align="right" valign="middle">
-                    <div class="badge-container" style="display: inline-block; font-family: 'Courier New', Courier, monospace; font-size: 11px; font-weight: 800; color: #059669; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; padding: 2px 0; background: transparent; border: none;">
+                    <div class="badge-container" style="display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; font-weight: 800; color: #059669; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; padding: 2px 0; background: transparent; border: none;">
                       Confirmed
                     </div>
                   </td>
@@ -128,7 +138,7 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
                 Dear <strong>${clientName}</strong>,
               </p>
               <p class="text-body" style="margin: 0 0 20px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
-                Your consultation appointment for Project Brief <span style="font-family: 'Courier New', Courier, monospace; font-weight: 700; color: #059669;">${submissionId}</span> has been confirmed. Our engineering team is excited to meet with you and discuss your architectural vision.
+                Your consultation appointment for Project Brief <span style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-weight: 700; color: #059669;">${submissionId}</span> has been confirmed. Our engineering team is excited to meet with you and discuss your architectural vision.
               </p>
 
               <!-- Confirmed Schedule Card -->
@@ -140,17 +150,17 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                   <tr>
                     <td class="param-col" width="50%" valign="top" style="padding-bottom: 12px; padding-right: 8px;">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Confirmed Date</span>
+                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Confirmed Date</span>
                       <strong class="highlight-value" style="display: block; font-size: 14px; color: #059669; margin-top: 2px;">${meetingDate}</strong>
                     </td>
                     <td class="param-col" width="50%" valign="top" style="padding-bottom: 12px;">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Time Slot</span>
+                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Time Slot</span>
                       <strong class="info-value" style="display: block; font-size: 14px; color: #0f172a; margin-top: 2px;">${meetingTime}</strong>
                     </td>
                   </tr>
                   <tr>
                     <td colspan="2" valign="top" style="padding-bottom: 10px;">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Meeting Format</span>
+                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Meeting Format</span>
                       <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">
                         ${isF2F ? "Face-to-Face Physical Meeting" : "Virtual Video Consultation"}
                       </strong>
@@ -158,7 +168,7 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
                   </tr>
                   <tr>
                     <td colspan="2" valign="top">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">${isF2F ? "Venue Location" : "Video Conference"}</span>
+                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">${isF2F ? "Venue Location" : "Video Conference"}</span>
                       <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">${isF2F ? venueAddress : meetingLink}</strong>
                     </td>
                   </tr>
@@ -166,7 +176,7 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
 
                 ${meetingNotes ? `
                 <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
-                  <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Architectural Meeting Note</span>
+                  <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Architectural Meeting Note</span>
                   <p style="margin: 4px 0 0 0; font-size: 12px; font-style: italic; color: #475569;">"${meetingNotes}"</p>
                 </div>
                 ` : ""}
@@ -215,7 +225,7 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
                     <div class="footer-text" style="font-size: 11px; line-height: 1.5; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                       <strong>MCPA Construction &amp; Supply</strong><br />
                       2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines<br />
-                      Hotline: <a href="tel:+639497758239" class="footer-link" style="color: #2563eb; text-decoration: underline;">+63 949 775 8239</a> &bull; <a href="mailto:contact@mcpaconstruction.com" class="footer-link" style="color: #2563eb; text-decoration: underline;">contact@mcpaconstruction.com</a>
+                      Hotline: <a href="tel:+639497758239" class="footer-link" style="color: #2563eb; text-decoration: underline;">(0949) 775 8239</a> &bull; <a href="mailto:mcpa.construction@gmail.com" class="footer-link" style="color: #2563eb; text-decoration: underline;">mcpa.construction@gmail.com</a>
                     </div>
                   </td>
                 </tr>

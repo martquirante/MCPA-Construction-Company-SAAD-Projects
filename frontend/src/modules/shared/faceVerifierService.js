@@ -617,7 +617,7 @@ async function verifyFaceTelemetry(imageInput, referenceInput = null, clientMeta
       issues.push({
         code: "OFF_CENTER",
         fil: "Igitna ang iyong mukha sa bilog na gabay.",
-        en: "You are too close. Please step back slightly to fit your face inside the circle.",
+        en: "Please center your face inside the circle.",
       });
     }
 

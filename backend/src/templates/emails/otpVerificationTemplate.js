@@ -1,12 +1,11 @@
 /**
  * MCPA Construction & Supply - OTP & Password Reset Email Template
- * 100% exact copy of the responsive, dark/light adaptive OTP email UI
+ * Responsive, dark/light adaptive OTP email UI with Supabase CDN hosted assets (Zero CID file attachments)
+ * Pure typographic layout: No background boxes, rectangles, or ovals around the OTP code or security notice.
  */
 function getOtpVerificationTemplate({
   otpCode = "",
   portalType = "client",
-  hasDarkLogo = false,
-  hasWhiteLogo = false,
   subject = "MCPA Verification Code",
 }) {
   const isClient = portalType === "client";
@@ -25,6 +24,10 @@ function getOtpVerificationTemplate({
 
   const cleanOtp = (otpCode || "").toString().trim();
 
+  // Supabase High-Availability Public CDN Assets (Zero attachments, instant delivery)
+  const logoLightUrl = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png";
+  const logoDarkUrl = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_white_v1.png";
+
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
@@ -41,33 +44,32 @@ function getOtpVerificationTemplate({
     img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
     body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
 
+    .logo-light { display: block !important; }
+    .logo-dark { display: none !important; }
+
     /* Responsive adjustments for Mobile */
     @media only screen and (max-width: 540px) {
-      .email-wrapper-cell { padding: 16px 8px !important; }
-      .card-body-cell { padding: 26px 18px !important; }
+      .email-wrapper-cell { padding: 14px 8px !important; }
+      .card-body-cell { padding: 24px 18px !important; }
       .logo-img { max-width: 140px !important; }
-      .h1-title { font-size: 23px !important; }
-      .otp-code { font-size: 24px !important; letter-spacing: 6px !important; padding-left: 6px !important; }
-      .otp-box { padding: 14px 10px !important; }
+      .h1-title { font-size: 22px !important; }
+      .otp-code { font-size: 28px !important; letter-spacing: 7px !important; padding-left: 7px !important; }
       .body-text { font-size: 13.5px !important; line-height: 1.55 !important; }
-      .security-box { padding: 12px 14px !important; }
     }
 
-    /* Dark Mode Adaptive CSS for modern mail clients (Apple Mail, iOS, Outlook Mac) */
+    /* Dark Mode Adaptive CSS for modern mail clients */
     @media (prefers-color-scheme: dark) {
       body, .email-bg-table, .email-wrapper-cell { background-color: #080c14 !important; }
       .email-card, .card-body-cell { background-color: #0e1420 !important; border-color: #1e293b !important; }
       .text-title { color: #f8fafc !important; }
       .text-sub { color: #94a3b8 !important; }
       .text-meta { color: #64748b !important; }
-      .otp-box { background-color: #090e17 !important; border-color: #1e293b !important; }
       .otp-code { color: #ffffff !important; }
-      .security-box { background-color: #0d1524 !important; border-color: #1e293b !important; border-left-color: ${isClient ? "#f59e0b" : "#38bdf8"} !important; }
-      .security-title { color: #94a3b8 !important; }
+      .security-title { color: ${isClient ? "#fbbf24" : "#94a3b8"} !important; }
       .security-text { color: #94a3b8 !important; }
       .divider-line { border-top-color: #1e293b !important; }
       .text-footer { color: #475569 !important; }
-      .portal-badge { background-color: ${isClient ? "rgba(245, 158, 11, 0.15)" : "#1e293b"} !important; color: ${isClient ? "#fbbf24" : "#94a3b8"} !important; border-color: ${isClient ? "rgba(245, 158, 11, 0.3)" : "#334155"} !important; }
+      .portal-badge { background-color: transparent !important; color: ${isClient ? "#fbbf24" : "#94a3b8"} !important; border: none !important; }
       .logo-light { display: none !important; }
       .logo-dark { display: block !important; margin: 0 auto !important; }
     }
@@ -77,46 +79,40 @@ function getOtpVerificationTemplate({
     [data-ogsc] .email-card, [data-ogsc] .card-body-cell { background-color: #0e1420 !important; border-color: #1e293b !important; }
     [data-ogsc] .text-title { color: #f8fafc !important; }
     [data-ogsc] .text-sub { color: #94a3b8 !important; }
-    [data-ogsc] .otp-box { background-color: #090e17 !important; border-color: #1e293b !important; }
     [data-ogsc] .otp-code { color: #ffffff !important; }
-    [data-ogsc] .security-box { background-color: #0d1524 !important; border-left-color: ${isClient ? "#f59e0b" : "#38bdf8"} !important; }
-    [data-ogsc] .portal-badge { background-color: ${isClient ? "rgba(245, 158, 11, 0.15)" : "#1e293b"} !important; color: ${isClient ? "#fbbf24" : "#94a3b8"} !important; }
+    [data-ogsc] .security-title { color: ${isClient ? "#fbbf24" : "#94a3b8"} !important; }
+    [data-ogsc] .security-text { color: #94a3b8 !important; }
+    [data-ogsc] .portal-badge { background-color: transparent !important; color: ${isClient ? "#fbbf24" : "#94a3b8"} !important; }
+    [data-ogsc] .logo-light { display: none !important; }
+    [data-ogsc] .logo-dark { display: block !important; }
   </style>
 </head>
 <body bgcolor="#f1f5f9" style="margin: 0; padding: 0; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
   <!-- Full-Width Centering Outer Table -->
   <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#f1f5f9" class="email-bg-table" style="table-layout: fixed; width: 100% !important; min-width: 100%; background-color: #f1f5f9; margin: 0; padding: 0;">
     <tr>
-      <td align="center" valign="top" bgcolor="#f1f5f9" class="email-wrapper-cell" style="padding: 40px 16px; background-color: #f1f5f9;">
+      <td align="center" valign="top" bgcolor="#f1f5f9" class="email-wrapper-cell" style="padding: 36px 12px; background-color: #f1f5f9;">
 
-        <!-- Center Card (Strictly centered on Web, PC, and Mobile) -->
+        <!-- Center Card -->
         <table role="presentation" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-card" style="max-width: 520px; width: 100%; margin-left: auto !important; margin-right: auto !important; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); overflow: hidden;" bgcolor="#ffffff">
           <tr>
-            <td align="left" class="card-body-cell" style="padding: 38px 34px; background-color: #ffffff;" bgcolor="#ffffff">
+            <td align="left" class="card-body-cell" style="padding: 36px 30px; background-color: #ffffff;" bgcolor="#ffffff">
 
               <!-- Header: MCPA Logo (Centered) -->
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" align="center" style="margin-bottom: 22px;">
                 <tr>
                   <td align="center">
-                    ${
-                      hasDarkLogo
-                        ? `<img src="cid:mcpalogodark" alt="MCPA Construction and Supply" width="170" class="logo-img logo-light" style="max-width: 170px; width: 100%; height: auto; display: block; margin: 0 auto;" />`
-                        : `<h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.05em; color: #0f172a; text-align: center;">MCPA</h2>`
-                    }
-                    ${
-                      hasWhiteLogo
-                        ? `<img src="cid:mcpalogowhite" alt="MCPA Construction and Supply" width="170" class="logo-img logo-dark" style="max-width: 170px; width: 100%; height: auto; display: none; margin: 0 auto;" />`
-                        : ""
-                    }
+                    <img src="${logoLightUrl}" alt="MCPA Construction & Supply" width="160" class="logo-img logo-light" style="max-width: 160px; width: 100%; height: auto; display: block; margin: 0 auto;" />
+                    <img src="${logoDarkUrl}" alt="MCPA Construction & Supply" width="160" class="logo-img logo-dark" style="max-width: 160px; width: 100%; height: auto; display: none; margin: 0 auto;" />
                   </td>
                 </tr>
               </table>
 
-              <!-- Portal Eyebrow Badge -->
+              <!-- Portal Eyebrow Tag (Pure Typography, No Pill/Oval Background) -->
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" align="center" style="margin-bottom: 12px;">
                 <tr>
                   <td align="center">
-                    <span class="portal-badge" style="display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: ${isClient ? "#b45309" : "#475569"}; background-color: ${isClient ? "#fef3c7" : "#f1f5f9"}; border: 1px solid ${isClient ? "#fde68a" : "#e2e8f0"}; border-radius: 4px; padding: 4px 10px; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                    <span class="portal-badge" style="display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: ${isClient ? "#b45309" : "#475569"}; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
                       ${portalEyebrow}
                     </span>
                   </td>
@@ -124,20 +120,20 @@ function getOtpVerificationTemplate({
               </table>
 
               <!-- Headline -->
-              <h1 class="h1-title text-title" style="margin: 0 0 14px 0; font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: -0.025em; line-height: 1.2; text-align: center;">
+              <h1 class="h1-title text-title" style="margin: 0 0 14px 0; font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.025em; line-height: 1.2; text-align: center;">
                 Verification Code
               </h1>
 
               <!-- Intro Paragraph -->
-              <p class="body-text text-sub" style="margin: 0 0 22px 0; font-size: 14px; color: #475569; line-height: 1.6; text-align: center;">
+              <p class="body-text text-sub" style="margin: 0 0 20px 0; font-size: 14px; color: #475569; line-height: 1.6; text-align: center;">
                 ${introText}
               </p>
 
-              <!-- Verification Code Box (Unbreakable single line on all mobile screens) -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" align="center" style="margin: 20px auto 22px auto;">
+              <!-- Verification Code (Pure Typographic Text, NO Background Box, NO Rectangle, NO Oval) -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" align="center" style="margin: 20px auto 10px auto;">
                 <tr>
-                  <td align="center" class="otp-box" bgcolor="#f8fafc" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 12px; text-align: center;">
-                    <span class="otp-code" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 30px; font-weight: 800; letter-spacing: 8px; color: #0f172a; line-height: 1.2; text-align: center; white-space: nowrap !important; word-break: keep-all !important; display: inline-block; padding-left: 8px;">
+                  <td align="center" style="text-align: center; padding: 6px 0; background-color: transparent;">
+                    <span class="otp-code text-title" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 38px; font-weight: 800; letter-spacing: 12px; color: #0f172a; line-height: 1.1; text-align: center; white-space: nowrap !important; word-break: keep-all !important; display: inline-block; padding-left: 12px;">
                       ${cleanOtp}
                     </span>
                   </td>
@@ -145,18 +141,18 @@ function getOtpVerificationTemplate({
               </table>
 
               <!-- Micro Caption -->
-              <div align="center" class="text-meta" style="font-size: 11.5px; color: #64748b; margin-top: -10px; margin-bottom: 24px; text-align: center;">
+              <div align="center" class="text-meta" style="font-size: 12px; color: #64748b; margin-top: 0; margin-bottom: 24px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                 Valid for 120 seconds. Never share this code.
               </div>
 
-              <!-- Security Notice Box -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+              <!-- Security Notice (Pure Text, NO Container Box / Rectangle) -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" align="center" style="margin-top: 10px;">
                 <tr>
-                  <td class="security-box" bgcolor="#f8fafc" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid ${isClient ? "#f59e0b" : "#475569"}; border-radius: 6px; padding: 14px 16px;">
-                    <div class="security-title" style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: ${isClient ? "#b45309" : "#475569"}; text-transform: uppercase; margin-bottom: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                  <td align="center" style="text-align: center; padding: 0; background-color: transparent;">
+                    <div class="security-title" style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: ${isClient ? "#b45309" : "#64748b"}; text-transform: uppercase; margin-bottom: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
                       SECURITY NOTICE
                     </div>
-                    <div class="security-text" style="font-size: 12px; color: #475569; line-height: 1.55;">
+                    <div class="security-text" style="font-size: 12.5px; color: #64748b; line-height: 1.6; max-width: 440px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                       ${securityNotice}
                     </div>
                   </td>
@@ -164,7 +160,7 @@ function getOtpVerificationTemplate({
               </table>
 
               <!-- Hairline Divider -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 30px; margin-bottom: 20px;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 28px; margin-bottom: 20px;">
                 <tr>
                   <td class="divider-line" style="border-top: 1px solid #e2e8f0; height: 1px; line-height: 1px; font-size: 1px;">&nbsp;</td>
                 </tr>
@@ -173,9 +169,9 @@ function getOtpVerificationTemplate({
               <!-- Minimalist Footer -->
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                  <td align="center" class="text-footer" style="font-size: 10px; color: #94a3b8; text-align: center; letter-spacing: 0.08em; line-height: 1.6; text-transform: uppercase;">
+                  <td align="center" class="text-footer" style="font-size: 10px; color: #94a3b8; text-align: center; letter-spacing: 0.08em; line-height: 1.6; text-transform: uppercase; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                     MCPA CONSTRUCTION AND SUPPLY &middot; PLARIDEL, BULACAN, PHILIPPINES<br />
-                    LICENSED ARCHITECTURAL &amp; ENGINEERING SERVICES
+                    OFFICIAL HOTLINE: (0949) 775 8239 &bull; MCPA.CONSTRUCTION@GMAIL.COM
                   </td>
                 </tr>
               </table>

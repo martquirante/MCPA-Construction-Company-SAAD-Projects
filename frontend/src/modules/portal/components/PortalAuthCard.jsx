@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -270,7 +270,12 @@ function PhLocationAutocompleteInput({
   );
 }
 
-export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }) {
+export default function PortalAuthCard({
+  onLoginSuccess,
+  initialMode = "login",
+  verifyEmailToken = null,
+  verifyEmailAddress = null,
+}) {
   const { language } = useLanguage();
   const activeLang = language === "fil" ? "fil" : "en";
   const t = PORTAL_TRANSLATIONS[activeLang];
@@ -283,6 +288,16 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
       setAuthMode(initialMode);
     }
   }, [initialMode]);
+
+  // --- EMAIL VERIFICATION ACTION LINK ("MAGIC BUTTON") STATES ---
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [verificationTargetEmail, setVerificationTargetEmail] = useState("");
+  const [verificationCountdown, setVerificationCountdown] = useState(0);
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [verificationStatusMessage, setVerificationStatusMessage] = useState("");
+  const [verificationError, setVerificationError] = useState("");
+  const [tokenVerificationSuccess, setTokenVerificationSuccess] = useState(false);
 
   // Signup Multi-Step Wizard: 1 | 2 | 3 | 4
   const [signupStep, setSignupStep] = useState(1);
@@ -332,6 +347,223 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
   // Computed live validations
   const passwordEval = useMemo(() => evaluatePassword(registerPassword, activeLang), [registerPassword, activeLang]);
   const isEmailValid = useMemo(() => isValidEmail(registerEmail), [registerEmail]);
+
+  // Real-time Email Availability & Duplicate Pre-flight Checking
+  const [emailCheckStatus, setEmailCheckStatus] = useState("idle"); // "idle" | "checking" | "available" | "unavailable"
+  const [emailCheckMessage, setEmailCheckMessage] = useState("");
+  const [emailCheckReason, setEmailCheckReason] = useState("");
+  const emailAbortRef = useRef(null);
+
+  useEffect(() => {
+    if (emailAbortRef.current) {
+      emailAbortRef.current.abort();
+    }
+
+    if (!registerEmail || !isEmailValid) {
+      const resetTimer = setTimeout(() => {
+        setEmailCheckStatus("idle");
+        setEmailCheckMessage("");
+        setEmailCheckReason("");
+      }, 0);
+      return () => clearTimeout(resetTimer);
+    }
+
+    const controller = new AbortController();
+    emailAbortRef.current = controller;
+
+    const timer = setTimeout(async () => {
+      setEmailCheckStatus("checking");
+      try {
+        const res = await fetch("/api/auth/check-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: registerEmail }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          setEmailCheckStatus("available");
+          return;
+        }
+
+        const data = await res.json();
+        if (data.available) {
+          setEmailCheckStatus("available");
+          setEmailCheckMessage("");
+          setEmailCheckReason("");
+        } else {
+          setEmailCheckStatus("unavailable");
+          const msg = activeLang === "fil"
+            ? (data.message || "Hindi available ang email address na ito.")
+            : (data.messageEn || data.message || "This email address is not available.");
+          setEmailCheckMessage(msg);
+          setEmailCheckReason(data.reason || "already_registered");
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          setEmailCheckStatus("available");
+        }
+      }
+    }, 450);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [registerEmail, isEmailValid, activeLang]);
+
+  // --- RESEND COOLDOWN TIMER EFFECT ---
+  useEffect(() => {
+    if (verificationCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setVerificationCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [verificationCountdown]);
+
+  // --- AUTO-VERIFY UPON EMAIL LINK CLICK (verify_email_token IN URL) ---
+  useEffect(() => {
+    if (!verifyEmailToken) return;
+
+    let isMounted = true;
+    const executeTokenVerification = async () => {
+      setAuthMode("signup");
+      const targetEmail = (verifyEmailAddress || registerEmail || "").trim();
+      if (targetEmail) {
+        setRegisterEmail(targetEmail);
+        setVerificationTargetEmail(targetEmail);
+      }
+
+      try {
+        const res = await fetch("/api/auth/verify-registration-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: verifyEmailToken,
+            email: targetEmail,
+          }),
+        });
+
+        const data = await res.json();
+        if (!isMounted) return;
+
+        if (res.ok && data.verified) {
+          setIsEmailVerified(true);
+          setTokenVerificationSuccess(true);
+          setIsVerificationModalOpen(false);
+          setErrorMessage("");
+          setSignupStep(2);
+        } else {
+          setVerificationError(
+            data.message ||
+              (activeLang === "fil"
+                ? "Hindi tanggap o nag-expire na ang verification link."
+                : "Invalid or expired verification link.")
+          );
+        }
+      } catch (err) {
+        if (isMounted) {
+          setVerificationError(
+            activeLang === "fil"
+              ? "Nabigo ang network habang sinusuri ang verification link."
+              : "Network error while checking verification link."
+          );
+        }
+      }
+    };
+
+    executeTokenVerification();
+    return () => {
+      isMounted = false;
+    };
+  }, [verifyEmailToken, verifyEmailAddress, activeLang]);
+
+  // --- LIVE POLLING: DETECT VERIFICATION CLICK FROM PHONE / OTHER TAB ---
+  useEffect(() => {
+    if (!isVerificationModalOpen || !verificationTargetEmail || isEmailVerified) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `/api/auth/registration-email-status?email=${encodeURIComponent(verificationTargetEmail)}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.verified) {
+          setIsEmailVerified(true);
+          setVerificationStatusMessage(
+            activeLang === "fil"
+              ? "Beripikado na ang email! Pagpapatuloy sa Profile..."
+              : "Email verified successfully! Proceeding to Profile..."
+          );
+          setTimeout(() => {
+            setIsVerificationModalOpen(false);
+            setSignupStep(2);
+          }, 1200);
+        }
+      } catch (err) {
+        // Background polling silent error
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isVerificationModalOpen, verificationTargetEmail, isEmailVerified, activeLang]);
+
+  // --- DISPATCH EMAIL VERIFICATION ACTION LINK ---
+  const handleSendRegistrationVerification = async (targetEmail = registerEmail) => {
+    const emailToSend = (targetEmail || "").trim();
+    if (!emailToSend || !isValidEmail(emailToSend)) {
+      setErrorMessage(t.errEmail || "Please enter a valid email address.");
+      scrollToField("field-registerEmail");
+      return false;
+    }
+
+    setIsSendingVerification(true);
+    setVerificationError("");
+    setVerificationStatusMessage("");
+
+    try {
+      const candidateName = [firstName, lastName].filter(Boolean).join(" ").trim();
+      const res = await fetch("/api/auth/send-registration-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailToSend,
+          fullName: candidateName || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setVerificationTargetEmail(emailToSend);
+        setIsVerificationModalOpen(true);
+        setVerificationCountdown(60);
+        setVerificationStatusMessage(
+          activeLang === "fil"
+            ? `Naipadala ang verification link sa ${emailToSend}.`
+            : `Verification link dispatched to ${emailToSend}.`
+        );
+        return true;
+      } else {
+        setVerificationError(
+          data.message ||
+            (activeLang === "fil"
+              ? "Hindi maipadala ang verification email."
+              : "Failed to send verification email.")
+        );
+        return false;
+      }
+    } catch (err) {
+      setVerificationError(
+        activeLang === "fil"
+          ? "Nabigo ang koneksyon sa pagpapadala ng verification email."
+          : "Network connection error sending verification email."
+      );
+      return false;
+    } finally {
+      setIsSendingVerification(false);
+    }
+  };
 
   const fullName = [firstName.trim(), middleName.trim(), lastName.trim(), suffix.trim()]
     .filter(Boolean)
@@ -431,6 +663,7 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
   const [faceCheckFeedback, setFaceCheckFeedback] = useState("");
   const [faceObstructionError, setFaceObstructionError] = useState("");
   const [faceErrorType, setFaceErrorType] = useState(""); // "obstruction" | "quality"
+  const [kycMeta, setKycMeta] = useState(null);
 
   // Step 4: Lot & Project Profile & Privacy - Hierarchical (Province -> City -> Barangay)
   const [projectType, setProjectType] = useState("");
@@ -1027,6 +1260,7 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
           locationAddress: fullLocation,
           avatarUrl: socialConnected?.avatarUrl || "",
           kycPhotoUrl: capturedSelfie || "",
+          kycMeta: kycMeta || undefined,
           authProvider: socialConnected?.provider || "local",
           providerId: socialConnected?.providerId || "",
         }),
@@ -1041,6 +1275,15 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
         return;
       }
 
+      if (data.kyc_error) {
+        setSignupStep(3);
+        setFaceObstructionError(data.message || (activeLang === "fil" ? "Pakikumpleto muli ang face verification." : "Please retake your face verification."));
+        setFaceErrorType("obstruction");
+        setIsLivenessVerified(false);
+        setErrorMessage(data.message);
+        return;
+      }
+
       if (res.status === 409) {
         setLoginEmail(registerEmail.trim());
       }
@@ -1052,6 +1295,16 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
       setSubmissionProgressText("");
     }
   };
+
+  const handleEntranceComplete = useCallback(() => {
+    setIsSuccessAnimation(false);
+    if (onLoginSuccess) {
+      onLoginSuccess(
+        registeredUserData || { fullName: fullName || "Valued Client", email: registerEmail },
+        registeredUserToken
+      );
+    }
+  }, [onLoginSuccess, registeredUserData, fullName, registerEmail, registeredUserToken]);
 
   return (
     <>
@@ -1082,15 +1335,7 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
             email={registeredUserData?.email || registerEmail || ""}
             projectType={projectType || "Modern Residence"}
             activeLang={activeLang}
-            onComplete={() => {
-              setIsSuccessAnimation(false);
-              if (onLoginSuccess) {
-                onLoginSuccess(
-                  registeredUserData || { fullName: fullName || "Valued Client", email: registerEmail },
-                  registeredUserToken
-                );
-              }
-            }}
+            onComplete={handleEntranceComplete}
           />
         )}
 
@@ -1592,7 +1837,7 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
               {/* Email Address */}
               <div>
                 <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                  <span>{t.emailFieldLabel}</span>
+                  <span>{t.emailFieldLabel.replace(/\s*\*+$/, "")}</span>
                   <span className="text-red-500 font-bold ml-1">*</span>
                 </label>
                 <div className="relative">
@@ -1606,7 +1851,12 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
                     value={registerEmail}
                     onChange={(e) => {
                       if (!socialConnected) {
-                        setRegisterEmail(e.target.value.trim());
+                        const val = e.target.value.trim();
+                        setRegisterEmail(val);
+                        if (isEmailVerified && val.toLowerCase() !== verificationTargetEmail.toLowerCase()) {
+                          setIsEmailVerified(false);
+                        }
+                        if (errorMessage) setErrorMessage("");
                       }
                     }}
                     className={`w-full h-10 pl-10 pr-9 rounded-xl border ${
@@ -1614,22 +1864,82 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
                         ? "bg-red-50 dark:bg-red-950/60 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
                         : registerEmail && !isEmailValid
                         ? "border-2 border-red-500/70 focus:border-red-500 bg-red-50 dark:bg-red-950/20 text-neutral-900 dark:text-white"
-                        : registerEmail && isEmailValid
+                        : emailCheckStatus === "unavailable"
+                        ? "border-2 border-red-500 bg-red-50 dark:bg-red-950/30 ring-2 ring-red-500/20 text-neutral-900 dark:text-white"
+                        : isEmailVerified
+                        ? "bg-neutral-50 dark:bg-[#161a23] border-emerald-500/80 ring-2 ring-emerald-500/15 focus:border-emerald-500"
+                        : emailCheckStatus === "available"
                         ? "bg-neutral-50 dark:bg-[#161a23] border-emerald-500/60 focus:border-emerald-500"
                         : "bg-neutral-50 dark:bg-[#161a23] border-neutral-300 dark:border-neutral-700 focus:border-amber-500"
                     } text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-all ${
                       socialConnected ? "cursor-not-allowed opacity-90 font-medium" : ""
                     }`}
                   />
-                  {registerEmail && isEmailValid && (
+                  {emailCheckStatus === "checking" && (
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 animate-spin">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                    </span>
+                  )}
+                  {isEmailVerified ? (
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-500">
+                      <CheckIcon className="w-4 h-4 stroke-[3]" />
+                    </span>
+                  ) : emailCheckStatus === "available" ? (
                     <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-500">
                       <CheckIcon className="w-4 h-4 stroke-[2.5]" />
                     </span>
+                  ) : null}
+                  {emailCheckStatus === "unavailable" && (
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-red-500 font-bold text-sm">
+                      ✕
+                    </span>
                   )}
                 </div>
+
                 {attemptedStep1 && !isEmailValid && (
                   <span className="text-[11px] text-red-500 font-medium mt-1 block pl-0.5">
                     {t.errEmail}
+                  </span>
+                )}
+
+                {emailCheckStatus === "checking" && (
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 block pl-0.5">
+                    {activeLang === "fil" ? "Sinisuri kung available ang email..." : "Checking email availability..."}
+                  </span>
+                )}
+
+                {emailCheckStatus === "unavailable" && (
+                  <div className="mt-1 text-[11px] text-red-500 font-medium pl-0.5 space-y-0.5 leading-snug animate-fadeIn">
+                    <p>• {emailCheckMessage}</p>
+                    {emailCheckReason === "already_registered" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode("login");
+                          setLoginEmail(registerEmail);
+                          setErrorMessage("");
+                        }}
+                        className="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                      >
+                        <span>{activeLang === "fil" ? "→ Mag-log in gamit ang account na ito" : "→ Sign in to this account instead"}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {isEmailVerified && !socialConnected && (
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1 pl-0.5">
+                    <CheckIcon className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>{activeLang === "fil" ? "Beripikado na ang email address" : "Email address verified"}</span>
+                  </span>
+                )}
+
+                {!isEmailVerified && emailCheckStatus === "available" && (
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1 block pl-0.5">
+                    ✓ {activeLang === "fil" ? "Available ang email address" : "Email is available"}
                   </span>
                 )}
               </div>
@@ -1637,10 +1947,17 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
               {/* Password */}
               <div>
                 <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1">
-                    <span>{t.passwordFieldLabel}</span>
+                  <div className="flex items-center gap-0.5">
+                    <span>{t.passwordFieldLabel.replace(/\s*\*+$/, "")}</span>
                     <span className="text-red-500 font-bold">*</span>
                   </div>
+                  {emailCheckStatus === "unavailable" && (
+                    <span className="text-[11px] font-normal text-red-500">
+                      {activeLang === "fil"
+                        ? "(Palitan muna ang email)"
+                        : "(Change email first)"}
+                    </span>
+                  )}
                   {socialConnected && (
                     <span className="text-[11px] font-normal text-amber-600 dark:text-amber-400">
                       {activeLang === "fil"
@@ -1655,14 +1972,21 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
                     id="field-registerPassword"
                     type={showPassword ? "text" : "password"}
                     required
-                    placeholder={t.passwordFieldPlaceholder}
+                    disabled={emailCheckStatus === "unavailable"}
+                    placeholder={
+                      emailCheckStatus === "unavailable"
+                        ? (activeLang === "fil" ? "Maglagay ng available na email muna..." : "Enter available email first...")
+                        : t.passwordFieldPlaceholder
+                    }
                     value={registerPassword}
                     onChange={(e) => {
                       setRegisterPassword(e.target.value);
                       if (errorMessage) setErrorMessage("");
                     }}
                     className={`w-full h-10 pl-10 pr-9 rounded-xl border ${
-                      attemptedStep1 && !passwordEval.isValid
+                      emailCheckStatus === "unavailable"
+                        ? "bg-neutral-100 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 opacity-60 cursor-not-allowed text-neutral-400"
+                        : attemptedStep1 && !passwordEval.isValid
                         ? "bg-red-50/50 dark:bg-red-950/30 border-2 border-red-500 ring-2 ring-red-500/20 text-neutral-900 dark:text-white placeholder-red-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/30"
                         : registerPassword && passwordEval.isValid
                         ? "bg-neutral-50 dark:bg-[#161a23] border-emerald-500/60 focus:border-emerald-500 text-neutral-900 dark:text-neutral-100"
@@ -1671,8 +1995,9 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
                   />
                   <button
                     type="button"
+                    disabled={emailCheckStatus === "unavailable"}
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1 cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                   </button>
@@ -1753,6 +2078,15 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
                     scrollToField("field-registerEmail");
                     return;
                   }
+                  if (emailCheckStatus === "unavailable") {
+                    setErrorMessage(emailCheckMessage || (activeLang === "fil" ? "Mayroon nang account ang email na ito. Mag-sign in na lamang." : "An account with this email already exists. Please sign in instead."));
+                    scrollToField("field-registerEmail");
+                    return;
+                  }
+                  if (emailCheckStatus === "checking") {
+                    setErrorMessage(activeLang === "fil" ? "Sinisuri pa ang availability ng email. Pakihintay sandali..." : "Verifying email availability. Please wait a moment...");
+                    return;
+                  }
                   // Password check: Mandatory for all registrations
                   if (!passwordEval.isValid) {
                     const missingText = registerPassword
@@ -1764,13 +2098,41 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
                     scrollToField("field-registerPassword");
                     return;
                   }
+
+                  // 1. Google/Facebook OAuth registrations bypass email verification
+                  if (socialConnected) {
+                    setErrorMessage("");
+                    setSignupStep(2);
+                    return;
+                  }
+
+                  // 2. Already verified manual email proceeds directly to Step 2
+                  if (
+                    isEmailVerified &&
+                    verificationTargetEmail.toLowerCase() === registerEmail.trim().toLowerCase()
+                  ) {
+                    setErrorMessage("");
+                    setSignupStep(2);
+                    return;
+                  }
+
+                  // 3. Manual registration: dispatch action link and show waiting card
                   setErrorMessage("");
-                  setSignupStep(2);
+                  handleSendRegistrationVerification(registerEmail.trim());
                 }}
-                className="w-full h-11 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-neutral-950 font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+                disabled={isSendingVerification}
+                className={`w-full h-11 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 mt-2 ${
+                  emailCheckStatus === "unavailable" || isSendingVerification
+                    ? "bg-amber-500/60 text-neutral-800 cursor-not-allowed opacity-80"
+                    : "bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-neutral-950 cursor-pointer"
+                }`}
               >
                 <span>{t.continueToProfile}</span>
-                <ChevronRightIcon className="w-4 h-4" />
+                {isSendingVerification ? (
+                  <RefreshCwIcon className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ChevronRightIcon className="w-4 h-4" />
+                )}
               </button>
             </div>
           )}
@@ -1780,6 +2142,26 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
               ----------------------------------------------------------------- */}
           {signupStep === 2 && (
             <div className="space-y-2.5 animate-in fade-in duration-200">
+              {/* Email Verification Banner */}
+              {tokenVerificationSuccess && (
+                <div className="py-2.5 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <CheckIcon className="w-4 h-4 text-emerald-500 shrink-0 stroke-[2.5]" />
+                    <span className="font-semibold">
+                      {activeLang === "fil"
+                        ? "Matagumpay na naberipika ang iyong email address! Pakikumpleto ang iyong profile."
+                        : "Email address verified successfully! Please complete your profile details."}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTokenVerificationSuccess(false)}
+                    className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 text-xs cursor-pointer ml-2"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               <div className="space-y-3 pb-2">
                 {/* 1. Client Residency */}
                 <div>
@@ -2652,6 +3034,7 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
                         type="button"
                         onClick={() => {
                           setCapturedSelfie(null);
+                          setKycMeta(null);
                           setIsLivenessVerified(false);
                           setFaceCheckFeedback("");
                           setFaceObstructionError("");
@@ -3418,12 +3801,15 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
         activeLang={activeLang}
         purpose="kyc"
         referenceAvatar={socialConnected?.avatarUrl || null}
-        onVerified={async (verifiedImage, pyResult) => {
+        onVerified={async (verifiedImage, pyResult, meshMeta) => {
           setIsLivenessModalOpen(false);
 
           // KYC Biometric Verification Mode in Sign-up Step 3
           setCapturedSelfie(verifiedImage);
           setIsLivenessVerified(true);
+          if (meshMeta || (pyResult?.face_box && pyResult?.landmarks)) {
+            setKycMeta(meshMeta || { faceBox: pyResult.face_box, landmarks: pyResult.landmarks });
+          }
           setFaceObstructionError("");
           setFaceErrorType("");
           setErrorMessage("");
@@ -3441,6 +3827,146 @@ export default function PortalAuthCard({ onLoginSuccess, initialMode = "login" }
           );
         }}
       />
+
+      {/* ========================================================================= */}
+      {/* EMAIL VERIFICATION ACTION LINK WAITING MODAL ("MAGIC BUTTON" FLOW)       */}
+      {/* ========================================================================= */}
+      {isVerificationModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div className="relative w-full max-w-md bg-white dark:bg-[#121622] border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-2xl p-6 sm:p-7 text-neutral-900 dark:text-neutral-100 animate-in zoom-in-95 duration-200">
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsVerificationModalOpen(false)}
+              className="absolute right-4 top-4 p-1 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <CloseIcon className="w-4 h-4" />
+            </button>
+
+            {/* Clean Bare Icon (No Background Container) */}
+            <div className="flex flex-col items-center text-center">
+              <MailIcon className="w-8 h-8 text-amber-500 mb-2" />
+
+              {/* Eyebrow - Pure Text (No Oval Pill / No Background) */}
+              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1 flex items-center justify-center gap-1.5">
+                <ShieldCheckIcon className="w-3.5 h-3.5" />
+                <span>{activeLang === "fil" ? "Kumpirmasyon ng Email" : "Account Verification"}</span>
+              </p>
+
+              {/* Title */}
+              <h3 className="text-lg sm:text-xl font-bold tracking-tight text-neutral-900 dark:text-white mb-1">
+                {activeLang === "fil" ? "Tingnan ang Iyong Inbox" : "Check Your Email Inbox"}
+              </h3>
+
+              {/* Target Email - Pure Text (No Background Box / No Border) */}
+              <p className="text-xs sm:text-sm font-semibold text-neutral-900 dark:text-neutral-100 font-mono mb-2 truncate max-w-full">
+                {verificationTargetEmail || registerEmail}
+              </p>
+
+              {/* Body Instructions */}
+              <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-sm mb-3">
+                {activeLang === "fil" ? (
+                  <>
+                    Nagpadala kami ng verification email. Buksan ang iyong inbox at i-click ang{" "}
+                    <strong className="text-amber-600 dark:text-amber-400 font-semibold">"Verify Email &amp; Continue"</strong>{" "}
+                    upang magpatuloy.
+                  </>
+                ) : (
+                  <>
+                    We sent a secure verification email. Open your inbox and click the{" "}
+                    <strong className="text-amber-600 dark:text-amber-400 font-semibold">"Verify Email &amp; Continue"</strong>{" "}
+                    button to proceed.
+                  </>
+                )}
+              </p>
+
+              {/* Live Listening Status - Pure Text (No Oval Box / No Background) */}
+              <div className="mb-3 text-xs flex items-center justify-center gap-2">
+                {isEmailVerified ? (
+                  <p className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5 animate-fadeIn">
+                    <CheckIcon className="w-4 h-4 stroke-[3]" />
+                    <span>{activeLang === "fil" ? "Beripikado na! Nagpapatuloy..." : "Verified! Continuing to Profile..."}</span>
+                  </p>
+                ) : (
+                  <p className="text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                    <span>
+                      {activeLang === "fil"
+                        ? "Awtomatikong magpapatuloy ang window na ito pagka-click sa email..."
+                        : "Waiting for confirmation... this tab auto-advances once clicked."}
+                    </span>
+                  </p>
+                )}
+              </div>
+
+              {/* Status or Error Notice - Pure Text (No Background Box) */}
+              {verificationStatusMessage && !verificationError && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-3">
+                  ✓ {verificationStatusMessage}
+                </p>
+              )}
+
+              {verificationError && (
+                <p className="text-xs text-red-500 font-medium mb-3">
+                  • {verificationError}
+                </p>
+              )}
+
+              {/* Action Buttons */}
+              <div className="w-full space-y-2">
+                <button
+                  type="button"
+                  disabled={verificationCountdown > 0 || isSendingVerification}
+                  onClick={() => handleSendRegistrationVerification(verificationTargetEmail || registerEmail)}
+                  className={`w-full h-10 px-4 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    verificationCountdown > 0 || isSendingVerification
+                      ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed border border-neutral-200 dark:border-neutral-700"
+                      : "bg-amber-500 hover:bg-amber-600 text-neutral-950 shadow-xs active:scale-[0.99]"
+                  }`}
+                >
+                  <RefreshCwIcon className={`w-3.5 h-3.5 ${isSendingVerification ? "animate-spin" : ""}`} />
+                  <span>
+                    {isSendingVerification
+                      ? activeLang === "fil"
+                        ? "Ipinapadala..."
+                        : "Sending..."
+                      : verificationCountdown > 0
+                      ? activeLang === "fil"
+                        ? `Muling ipadala (${verificationCountdown}s)`
+                        : `Resend link (${verificationCountdown}s)`
+                      : activeLang === "fil"
+                      ? "Muling ipadala ang verification link"
+                      : "Resend verification link"}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsVerificationModalOpen(false);
+                    scrollToField("field-registerEmail");
+                  }}
+                  className="w-full h-9 rounded-xl text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors cursor-pointer"
+                >
+                  {activeLang === "fil" ? "Palitan ang email address" : "Change email address"}
+                </button>
+              </div>
+
+              {/* Safe Notice */}
+              <p className="mt-3 text-[10px] text-neutral-400 dark:text-neutral-500">
+                {activeLang === "fil"
+                  ? "Mag-eexpire ang link sa loob ng 15 minuto. Paki-check din ang Spam folder kung wala sa Inbox."
+                  : "Link expires in 15 minutes. Check your Spam or Promotions folder if not in Inbox."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

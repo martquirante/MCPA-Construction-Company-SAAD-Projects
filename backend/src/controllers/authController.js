@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const dns = require("dns").promises;
 const { spawn } = require("child_process");
 const path = require("path");
 const db = require("../services/dbFailoverEngine");
@@ -9,6 +10,30 @@ const socialAuthService = require("../services/socialAuthService");
 const faceVerifierService = require("../services/faceVerifierService");
 
 const { JWT_SECRET, JWT_EXPIRES_IN } = require("../config/authConfig");
+
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  "mailinator.com",
+  "tempmail.com",
+  "temp-mail.org",
+  "10minutemail.com",
+  "guerrillamail.com",
+  "yopmail.com",
+  "trashmail.com",
+  "sharklasers.com",
+  "dispostable.com",
+  "fakeinbox.com",
+  "getnada.com",
+  "mohmal.com",
+  "throwawaymail.com",
+  "burnermail.io",
+  "crazymailing.com",
+  "maildrop.cc",
+  "inboxkitten.com",
+  "temp-mail.io",
+  "fakemailgenerator.com",
+  "tempail.com",
+  "generator.email",
+]);
 
 class AuthController {
   /**
@@ -578,6 +603,7 @@ class AuthController {
         providerId = "",
         avatarUrl = "",
         kycPhotoUrl = "",
+        kycMeta = null,
       } = req.body;
 
       if (!email) {
@@ -627,7 +653,7 @@ class AuthController {
 
       let kycTelemetry = null;
       try {
-        kycTelemetry = await faceVerifierService.verifyFaceTelemetry(kycPhotoUrl, avatarUrl || null);
+        kycTelemetry = await faceVerifierService.verifyFaceTelemetry(kycPhotoUrl, avatarUrl || null, kycMeta);
       } catch (kErr) {
         console.warn("[AuthController] KYC telemetry processing error:", kErr.message);
         return res.status(400).json({
@@ -657,6 +683,22 @@ class AuthController {
         : computedFullName.split(" ").length > 1
         ? computedFullName.split(" ").slice(1).join(" ")
         : "";
+
+      // Check if email was verified via magic link or social OAuth
+      let isEmailVerified = Boolean(isSocialRegistration);
+      if (!isEmailVerified) {
+        try {
+          const verifCheck = await db.query(
+            "SELECT is_verified FROM email_verifications WHERE LOWER(email) = LOWER($1) AND is_verified = TRUE LIMIT 1",
+            [normalizedEmail]
+          );
+          if (verifCheck.rows && verifCheck.rows.length > 0) {
+            isEmailVerified = true;
+          }
+        } catch (vErr) {
+          console.warn("[AuthController] Verification lookup warning:", vErr.message);
+        }
+      }
 
       // Insert new client with both Profile Picture (avatar_url) and Official Biometric KYC Capture (kyc_photo_url)
       const insertRes = await db.query(
@@ -717,7 +759,7 @@ class AuthController {
           phRepName ? phRepName.trim() : "",
           phRepRelationship ? phRepRelationship.trim() : "",
           phRepPhone ? phRepPhone.trim() : "",
-          isSocialRegistration,
+          isEmailVerified,
         ]
       );
 
@@ -1526,6 +1568,295 @@ class AuthController {
     } catch (err) {
       console.error("[AuthController.updateClientProfile] Error:", err);
       return res.status(500).json({ success: false, message: "Failed to update profile: " + err.message });
+    }
+  }
+
+  /**
+   * POST /api/auth/check-email
+   * Real-time pre-flight email validator:
+   * 1. Syntax check
+   * 2. Disposable / temporary email check
+   * 3. DNS MX mail-exchange verification (checks if domain exists and has mail servers)
+   * 4. Database collision check (checks if email already belongs to a client, admin, or staff)
+   */
+  async checkEmailAvailability(req, res) {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({
+          available: false,
+          validFormat: false,
+          reason: "missing_email",
+          message: "Mangyaring magbigay ng email address / Email address is required.",
+        });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
+      if (!emailRegex.test(normalizedEmail)) {
+        return res.json({
+          available: false,
+          validFormat: false,
+          reason: "invalid_format",
+          message: "Hindi wasto ang format ng email address / Invalid email address format.",
+        });
+      }
+
+      const parts = normalizedEmail.split("@");
+      const domain = parts[1];
+
+      // 1. Database check for existing accounts (Client or Staff/Admin)
+      const existing = await db.query(
+        "SELECT user_id, email, role, auth_provider FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
+        [normalizedEmail]
+      );
+
+      if (existing.rows && existing.rows.length > 0) {
+        const user = existing.rows[0];
+        const isStaff = ["admin", "super_admin", "project_manager"].includes(user.role);
+
+        return res.json({
+          available: false,
+          exists: true,
+          validFormat: true,
+          validDomain: true,
+          role: user.role,
+          authProvider: user.auth_provider,
+          reason: isStaff ? "staff_email" : "already_registered",
+          message: isStaff
+            ? "Ang email na ito ay nakalaan para sa kawani/admin ng MCPA. Mangyaring mag-log in sa Staff Portal."
+            : "Mayroon nang nakarehistrong account gamit ang email na ito. Mangyaring mag-sign in na lamang.",
+          messageEn: isStaff
+            ? "This email is registered to an MCPA staff/admin account. Please sign in via the Staff Portal."
+            : "An account with this email address already exists. Please sign in instead.",
+        });
+      }
+
+      // 2. Check disposable / throwaway email domains
+      if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
+        return res.json({
+          available: false,
+          validFormat: true,
+          validDomain: false,
+          isDisposable: true,
+          reason: "disposable_email",
+          message: "Hindi pinapayagan ang disposable o pansamantalang email address / Disposable email addresses are not permitted.",
+        });
+      }
+
+      // 3. Fast DNS MX record check (checks if domain actually exists and accepts mail)
+      let domainHasMx = true;
+      try {
+        const mxLookupPromise = dns.resolveMx(domain);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("DNS_TIMEOUT")), 1500)
+        );
+        const mxRecords = await Promise.race([mxLookupPromise, timeoutPromise]);
+        if (!Array.isArray(mxRecords) || mxRecords.length === 0) {
+          domainHasMx = false;
+        }
+      } catch (dnsErr) {
+        if (dnsErr.code === "ENOTFOUND" || dnsErr.code === "ENODATA") {
+          domainHasMx = false;
+        }
+      }
+
+      if (!domainHasMx) {
+        return res.json({
+          available: false,
+          validFormat: true,
+          validDomain: false,
+          reason: "invalid_domain",
+          message: `Hindi umiiral o walang mail server ang domain na @${domain} / The domain @${domain} does not have valid mail servers.`,
+        });
+      }
+
+      return res.json({
+        available: true,
+        exists: false,
+        validFormat: true,
+        validDomain: true,
+        message: "Available ang email address para sa rehistrasyon.",
+        messageEn: "Email is available for registration.",
+      });
+    } catch (err) {
+      console.error("[AuthController] checkEmailAvailability error:", err);
+      return res.status(500).json({
+        available: true, // Fail permissive if internal DB glitch
+        message: "Hindi masuri ang email sa ngayon / Could not check email availability at this time.",
+      });
+    }
+  }
+
+  /**
+   * POST /api/auth/send-registration-verification
+   * Dispatches architectural registration verification email with 15-minute token
+   */
+  async sendRegistrationVerification(req, res) {
+    try {
+      const { email, fullName } = req.body;
+      if (!email || typeof email !== "string" || !email.trim()) {
+        return res.status(400).json({ success: false, message: "Valid email address is required." });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // Check if email already registered in users table
+      const checkUser = await db.query(
+        "SELECT user_id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
+        [normalizedEmail]
+      );
+
+      if (checkUser.rows && checkUser.rows.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: "An account with this email already exists. Please log in instead.",
+        });
+      }
+
+      // Generate secure 32-byte hexadecimal token
+      const token = crypto.randomBytes(32).toString("hex");
+
+      // Invalidate existing unverified tokens for this email
+      await db.query(
+        "DELETE FROM email_verifications WHERE LOWER(email) = LOWER($1) AND is_verified = FALSE",
+        [normalizedEmail]
+      );
+
+      // Insert new token with 15-minute expiry
+      await db.query(
+        `INSERT INTO email_verifications (email, token, expires_at)
+         VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
+        [normalizedEmail, token]
+      );
+
+      // Send branded verification email
+      const result = await emailService.sendRegistrationVerificationEmail(normalizedEmail, token, {
+        fullName: fullName || "Valued Client",
+      });
+
+      return res.json({
+        success: true,
+        message: "Email verification link has been dispatched to your inbox.",
+        email: normalizedEmail,
+        devVerificationUrl: process.env.NODE_ENV !== "production" ? result.verificationUrl : undefined,
+      });
+    } catch (err) {
+      console.error("[AuthController.sendRegistrationVerification] Error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to dispatch verification email: " + err.message,
+      });
+    }
+  }
+
+  /**
+   * GET /api/auth/registration-email-status
+   * Real-time polling endpoint to check if an email has been verified via action link
+   */
+  async checkRegistrationEmailStatus(req, res) {
+    try {
+      const email = req.query.email || req.body?.email;
+      if (!email || typeof email !== "string" || !email.trim()) {
+        return res.status(400).json({ verified: false, message: "Email is required." });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const result = await db.query(
+        `SELECT is_verified, verified_at 
+         FROM email_verifications 
+         WHERE LOWER(email) = LOWER($1) AND is_verified = TRUE AND expires_at > NOW()
+         ORDER BY verification_id DESC LIMIT 1`,
+        [normalizedEmail]
+      );
+
+      if (result.rows && result.rows.length > 0) {
+        return res.json({
+          verified: true,
+          email: normalizedEmail,
+          verifiedAt: result.rows[0].verified_at,
+        });
+      }
+
+      return res.json({
+        verified: false,
+        email: normalizedEmail,
+      });
+    } catch (err) {
+      console.error("[AuthController.checkRegistrationEmailStatus] Error:", err);
+      return res.status(500).json({ verified: false, message: err.message });
+    }
+  }
+
+  /**
+   * POST /api/auth/verify-registration-token
+   * Validates the token clicked by the client in their email
+   */
+  async verifyRegistrationToken(req, res) {
+    try {
+      const { token, email } = req.body;
+      if (!token || !email) {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          message: "Token and email are required for verification.",
+        });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // Look up token
+      const result = await db.query(
+        `SELECT verification_id, email, is_verified, expires_at 
+         FROM email_verifications 
+         WHERE token = $1 AND LOWER(email) = LOWER($2)
+         LIMIT 1`,
+        [token.trim(), normalizedEmail]
+      );
+
+      if (!result.rows || result.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          message: "Invalid or expired verification link. Please request a new one.",
+        });
+      }
+
+      const record = result.rows[0];
+
+      // Check if already expired
+      if (new Date(record.expires_at) < new Date()) {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          expired: true,
+          message: "This verification link has expired (15-minute limit). Please request a new link.",
+        });
+      }
+
+      // Mark as verified
+      await db.query(
+        `UPDATE email_verifications 
+         SET is_verified = TRUE, verified_at = NOW() 
+         WHERE verification_id = $1`,
+        [record.verification_id]
+      );
+
+      return res.json({
+        success: true,
+        verified: true,
+        email: normalizedEmail,
+        message: "Email verified successfully! You may now proceed with your registration.",
+      });
+    } catch (err) {
+      console.error("[AuthController.verifyRegistrationToken] Error:", err);
+      return res.status(500).json({
+        success: false,
+        verified: false,
+        message: "Verification processing error: " + err.message,
+      });
     }
   }
 

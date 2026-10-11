@@ -14,10 +14,12 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
   const reason = rescheduleMeta.rescheduleReason || "Architectural Schedule Alignment";
   const notes = rescheduleMeta.rescheduleNotes || "";
   const meetingMode = rescheduleMeta.meetingMode || brief.meeting_mode || brief.meetingMode || "Online Video Call";
-  const meetingLink = rescheduleMeta.meetingLink || brief.meeting_link || brief.meetingLink || "https://meet.google.com/mcp-buil-tab";
-  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
+  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa.ph";
   const portalUrl = `${websiteUrl}/portal`;
-  const logoUrl = `${websiteUrl}/assets/email/email_logo_adaptive_v2.png`;
+
+  // Supabase High-Availability Public CDN Assets
+  const logoLightUrl = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png";
+  const logoDarkUrl = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_white_v1.png";
 
   const isF2F = (meetingMode || "").toLowerCase().includes("in-person");
   const venueType = brief.venue_type || brief.venueType;
@@ -42,11 +44,14 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
     img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
     body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
 
+    .logo-light { display: block !important; }
+    .logo-dark { display: none !important; }
+
     @media only screen and (max-width: 560px) {
-      .email-wrapper-cell { padding: 12px 6px !important; }
-      .card-body-cell { padding: 22px 16px !important; }
+      .email-wrapper-cell { padding: 14px 8px !important; }
+      .card-body-cell { padding: 24px 18px !important; }
       .header-logo { max-width: 125px !important; }
-      .h1-title { font-size: 19px !important; line-height: 1.3 !important; }
+      .h1-title { font-size: 20px !important; line-height: 1.3 !important; }
       .schedule-col { display: block !important; width: 100% !important; padding-right: 0 !important; padding-bottom: 10px !important; }
       .btn-cta { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; }
     }
@@ -55,7 +60,6 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
       body, .email-bg-table, .email-wrapper-cell { background-color: #0b0f17 !important; }
       .email-card, .card-body-cell { background-color: #111827 !important; border-color: #1f293d !important; }
       .text-title { color: #f8fafc !important; }
-      .text-sub { color: #94a3b8 !important; }
       .text-body { color: #cbd5e1 !important; }
       .info-card { background-color: #0a0e17 !important; border-color: #1e293b !important; }
       .info-label { color: #64748b !important; }
@@ -63,9 +67,11 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
       .highlight-value { color: #38bdf8 !important; }
       .strike-text { color: #64748b !important; }
       .divider-line { border-top-color: #1e293b !important; }
-      .badge-container { background: transparent !important; background-color: transparent !important; border: none !important; color: #38bdf8 !important; }
+      .badge-container { color: #38bdf8 !important; }
       .footer-text { color: #64748b !important; }
       .footer-link { color: #60a5fa !important; }
+      .logo-light { display: none !important; }
+      .logo-dark { display: block !important; }
     }
 
     [data-ogsc] .email-bg-table, [data-ogsc] .email-wrapper-cell { background-color: #0b0f17 !important; }
@@ -74,8 +80,10 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
     [data-ogsc] .text-body { color: #cbd5e1 !important; }
     [data-ogsc] .info-card { background-color: #0a0e17 !important; border-color: #1e293b !important; }
     [data-ogsc] .info-value { color: #e2e8f0 !important; }
-    [data-ogsc] .badge-container { background: transparent !important; background-color: transparent !important; border: none !important; color: #38bdf8 !important; }
+    [data-ogsc] .badge-container { color: #38bdf8 !important; }
     [data-ogsc] .footer-link { color: #60a5fa !important; }
+    [data-ogsc] .logo-light { display: none !important; }
+    [data-ogsc] .logo-dark { display: block !important; }
   </style>
 </head>
 <body bgcolor="#f1f5f9" style="margin: 0; padding: 0; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
@@ -92,10 +100,11 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 22px;">
                 <tr>
                   <td align="left" valign="middle">
-                    <img src="${logoUrl}" alt="MCPA Construction & Supply" width="140" class="header-logo" style="display: block; max-width: 140px; height: auto;" />
+                    <img src="${logoLightUrl}" alt="MCPA Construction & Supply" width="140" class="header-logo logo-light" style="display: block; max-width: 140px; height: auto;" />
+                    <img src="${logoDarkUrl}" alt="MCPA Construction & Supply" width="140" class="header-logo logo-dark" style="display: none; max-width: 140px; height: auto;" />
                   </td>
                   <td align="right" valign="middle">
-                    <div class="badge-container" style="display: inline-block; font-family: 'Courier New', Courier, monospace; font-size: 11px; font-weight: 800; color: #0284c7; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; padding: 2px 0; background: transparent; border: none;">
+                    <div class="badge-container" style="display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; font-weight: 800; color: #0284c7; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; padding: 2px 0; background: transparent; border: none;">
                       Rescheduled
                     </div>
                   </td>
@@ -115,7 +124,7 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
                 Dear <strong>${clientName}</strong>,
               </p>
               <p class="text-body" style="margin: 0 0 20px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
-                Please be advised that your consultation appointment for Project Brief <span style="font-family: 'Courier New', Courier, monospace; font-weight: 700; color: #0284c7;">${submissionId}</span> has been updated to a new confirmed schedule.
+                Please be advised that your consultation appointment for Project Brief <span style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-weight: 700; color: #0284c7;">${submissionId}</span> has been updated to a new confirmed schedule.
               </p>
 
               <!-- Comparison Card -->
@@ -127,13 +136,13 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                   <tr>
                     <td class="schedule-col" width="50%" valign="top" style="padding-bottom: 12px; padding-right: 8px;">
-                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Previous Slot</span>
+                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Previous Slot</span>
                       <strong class="strike-text" style="display: block; font-size: 13px; color: #94a3b8; text-decoration: line-through; margin-top: 2px;">
                         ${previousMeetingDate} ${previousMeetingTime ? `(${previousMeetingTime})` : ""}
                       </strong>
                     </td>
                     <td class="schedule-col" width="50%" valign="top" style="padding-bottom: 12px;">
-                      <span class="info-label" style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">New Confirmed Slot</span>
+                      <span class="info-label" style="display: block; font-size: 10px; color: #0284c7; font-weight: 700; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">New Confirmed Slot</span>
                       <strong class="highlight-value" style="display: block; font-size: 14px; color: #0284c7; margin-top: 2px;">
                         ${newMeetingDate} (${newMeetingTime})
                       </strong>
@@ -141,7 +150,7 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
                   </tr>
                   <tr>
                     <td colspan="2" valign="top" style="padding-bottom: 10px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Format &amp; Venue</span>
+                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Format &amp; Venue</span>
                       <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">
                         ${meetingMode} &bull; ${venueDisplay}
                       </strong>
@@ -149,7 +158,7 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
                   </tr>
                   <tr>
                     <td colspan="2" valign="top">
-                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: 'Courier New', Courier, monospace;">Reason for Rescheduling</span>
+                      <span class="info-label" style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Reason for Rescheduling</span>
                       <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">
                         ${reason}
                       </strong>
@@ -185,7 +194,7 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
                     <div class="footer-text" style="font-size: 11px; line-height: 1.5; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                       <strong>MCPA Construction &amp; Supply</strong><br />
                       2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines<br />
-                      Hotline: <a href="tel:+639497758239" class="footer-link" style="color: #2563eb; text-decoration: underline;">+63 949 775 8239</a> &bull; <a href="mailto:contact@mcpaconstruction.com" class="footer-link" style="color: #2563eb; text-decoration: underline;">contact@mcpaconstruction.com</a>
+                      Hotline: <a href="tel:+639497758239" class="footer-link" style="color: #2563eb; text-decoration: underline;">(0949) 775 8239</a> &bull; <a href="mailto:mcpa.construction@gmail.com" class="footer-link" style="color: #2563eb; text-decoration: underline;">mcpa.construction@gmail.com</a>
                     </div>
                   </td>
                 </tr>

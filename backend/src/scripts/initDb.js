@@ -94,6 +94,21 @@ async function initializeDatabase() {
     `);
     console.log("[OK] Table 'otp_codes' verified/created.");
 
+    // 2b. Create EMAIL_VERIFICATIONS table (For Registration Action Links)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS email_verifications (
+        verification_id SERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        token VARCHAR(255) UNIQUE NOT NULL,
+        is_verified BOOLEAN DEFAULT FALSE,
+        verified_at TIMESTAMP WITH TIME ZONE NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_email_verif_lookup ON email_verifications(LOWER(email), token);
+    `);
+    console.log("[OK] Table 'email_verifications' verified/created.");
+
     // 3. Create PROJECTS table
     await db.query(`
       CREATE TABLE IF NOT EXISTS projects (

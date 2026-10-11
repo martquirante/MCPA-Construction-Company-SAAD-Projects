@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -75,7 +75,12 @@ function ClientPortalContent() {
   const [authToken, setAuthToken] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
-  const initialAuthMode = searchParams?.get("mode") === "signup" ? "signup" : "login";
+  const verifyEmailTokenParam = searchParams?.get("verify_email_token");
+  const verifyEmailParam = searchParams?.get("email");
+  const initialAuthMode =
+    searchParams?.get("mode") === "signup" || Boolean(verifyEmailTokenParam)
+      ? "signup"
+      : "login";
   const redirectParam = searchParams?.get("redirect");
   const tabParam = searchParams?.get("tab");
 
@@ -370,7 +375,7 @@ function ClientPortalContent() {
     }
   }, [currentUser]);
 
-  const handleLoginSuccess = (user, token) => {
+  const handleLoginSuccess = useCallback((user, token) => {
     setCurrentUser(user);
     setAuthToken(token);
     if (typeof window !== "undefined") {
@@ -392,7 +397,7 @@ function ClientPortalContent() {
       }
     }
     showToast(`Welcome to your Client Portal, ${user.fullName || "Valued Client"}!`);
-  };
+  }, [language, redirectParam, router]);
 
   const handleLogout = () => {
     setIsLogoutConfirmOpen(true);
@@ -627,7 +632,12 @@ function ClientPortalContent() {
               id="portal-auth"
               className="w-full min-[920px]:w-1/2 flex flex-col justify-center items-center order-1 min-[920px]:order-2 min-h-[calc(100vh-4.5rem)] min-h-[calc(100dvh-4.5rem)] min-[920px]:min-h-0 py-1 min-[920px]:py-0 min-[920px]:mb-1"
             >
-              <PortalAuthCard onLoginSuccess={handleLoginSuccess} initialMode={initialAuthMode} />
+              <PortalAuthCard
+                onLoginSuccess={handleLoginSuccess}
+                initialMode={initialAuthMode}
+                verifyEmailToken={verifyEmailTokenParam}
+                verifyEmailAddress={verifyEmailParam}
+              />
             </div>
           </main>
 

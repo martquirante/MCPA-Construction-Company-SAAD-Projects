@@ -39,7 +39,7 @@ function playStepChime() {
     gain.connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + 0.16);
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function playErrorBuzzer() {
@@ -59,7 +59,7 @@ function playErrorBuzzer() {
     gain.connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + 0.26);
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function playSuccessFanfare() {
@@ -81,7 +81,7 @@ function playSuccessFanfare() {
       osc.start(ctx.currentTime + idx * 0.08);
       osc.stop(ctx.currentTime + idx * 0.08 + 0.36);
     });
-  } catch (e) {}
+  } catch (e) { }
 }
 
 /**
@@ -391,7 +391,7 @@ export default function MediaPipeLivenessModal({
   const [obstructionAlert, setObstructionAlert] = useState(null);
 
   // Calibration and strict stability hold counters
-  const baselineRef = useRef({ yaw: null, pitch: null, noseX: null, noseY: null });
+  const baselineRef = useRef({ yaw: null, pitch: null, noseX: null, noseY: null, ear: null });
   const firstTurnDirRef = useRef(null);
   const poseHoldCounterRef = useRef(0);
   const prevNoseRef = useRef(null);
@@ -400,8 +400,31 @@ export default function MediaPipeLivenessModal({
   const latestMeshRef = useRef(null);
   const warningDebounceRef = useRef({ text: "", count: 0 });
   const isFinishedRef = useRef(false);
+  const isVerifyingRef = useRef(false);
+  const offscreenCanvasRef = useRef(null);
+  const onResultsRef = useRef(null);
+  const currentStepIndexRef = useRef(0);
+  const isCompletedRef = useRef(false);
+  const isOpenRef = useRef(isOpen);
+  const activeLangRef = useRef(activeLang);
   const stepStartTimeRef = useRef(null);
   const lastStepIndexRef = useRef(null);
+
+  useEffect(() => {
+    currentStepIndexRef.current = currentStepIndex;
+  }, [currentStepIndex]);
+
+  useEffect(() => {
+    isCompletedRef.current = isCompleted;
+  }, [isCompleted]);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  useEffect(() => {
+    activeLangRef.current = activeLang;
+  }, [activeLang]);
 
   // Responsive hold requirement: 3 consecutive frames (~90-100ms) with 0 active warnings
   const REQUIRED_HOLD_FRAMES = 3;
@@ -434,28 +457,53 @@ export default function MediaPipeLivenessModal({
       streamRef.current.getTracks().forEach((track) => {
         try {
           track.stop();
-        } catch (e) {}
+        } catch (e) { }
       });
       streamRef.current = null;
     }
     if (videoRef.current) {
       try {
         videoRef.current.srcObject = null;
-      } catch (e) {}
+      } catch (e) { }
     }
     if (faceMeshInstanceRef.current && typeof faceMeshInstanceRef.current.close === "function") {
       try {
         faceMeshInstanceRef.current.close();
-      } catch (e) {}
+      } catch (e) { }
       faceMeshInstanceRef.current = null;
     }
     if (canvasRef.current) {
       try {
         const ctx = canvasRef.current.getContext("2d");
         if (ctx) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      } catch (e) {}
+      } catch (e) { }
     }
   }, []);
+
+  // Safe close handler that completely cleans up camera and resets UI state
+  const handleClose = useCallback(() => {
+    isFinishedRef.current = false;
+    isVerifyingRef.current = false;
+    cleanupStream();
+    setCurrentStepIndex(0);
+    currentStepIndexRef.current = 0;
+    setIsCompleted(false);
+    setCapturedDataUrl("");
+    setDebouncedWarning("");
+    setWarningMessage("");
+    setFeedbackMessage("");
+    setCameraError("");
+    setObstructionAlert(null);
+    setFaceDetected(false);
+    firstTurnDirRef.current = null;
+    baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null, ear: null };
+    stepStartTimeRef.current = null;
+    lastStepIndexRef.current = null;
+    poseHoldCounterRef.current = 0;
+    prevNoseRef.current = null;
+    blinkStateRef.current = { hasOpened: false, hasClosed: false };
+    if (onClose) onClose();
+  }, [cleanupStream, onClose, setDebouncedWarning]);
 
   // Capture final high-res frame from video
   const captureFrame = useCallback(() => {
@@ -475,57 +523,222 @@ export default function MediaPipeLivenessModal({
     return tempCanvas.toDataURL("image/jpeg", 0.92);
   }, []);
 
-  // Real-time canvas check for environmental lighting (Dark / Glare / Face Silhouette)
-  const checkEnvironment = useCallback((video) => {
-    if (!video || !video.videoWidth) return null;
+  // Real-time canvas check for environmental lighting & immediate facial obstructions (Glasses, Mask, Hat)
+  const evaluateRealtimeFrame = useCallback((video, landmarks) => {
+    if (!video || !video.videoWidth || !landmarks) return null;
     try {
-      const testCanvas = document.createElement("canvas");
-      testCanvas.width = 64;
-      testCanvas.height = 48;
-      const ctx = testCanvas.getContext("2d", { willReadFrequently: true });
+      if (!offscreenCanvasRef.current) {
+        offscreenCanvasRef.current = document.createElement("canvas");
+        offscreenCanvasRef.current.width = 160;
+        offscreenCanvasRef.current.height = 120;
+      }
+      const canvas = offscreenCanvasRef.current;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return null;
-      ctx.drawImage(video, 0, 0, 64, 48);
-      const imgData = ctx.getImageData(0, 0, 64, 48).data;
+      ctx.drawImage(video, 0, 0, 160, 120);
+      const imgData = ctx.getImageData(0, 0, 160, 120).data;
+      const w = 160;
+      const h = 120;
 
+      const getPixel = (x, y) => {
+        const px = Math.max(0, Math.min(w - 1, Math.round(x)));
+        const py = Math.max(0, Math.min(h - 1, Math.round(y)));
+        const idx = (py * w + px) * 4;
+        return [imgData[idx], imgData[idx + 1], imgData[idx + 2]];
+      };
+
+      const getLum = (x, y) => {
+        const [r, g, b] = getPixel(x, y);
+        return 0.299 * r + 0.587 * g + 0.114 * b;
+      };
+
+      const isSkin = (r, g, b) => {
+        const y = 0.299 * r + 0.587 * g + 0.114 * b;
+        const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+        const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+        return y > 30 && cb >= 77 && cb <= 135 && cr >= 130 && cr <= 180;
+      };
+
+      // 1. Overall Environmental Lighting
       let totalLum = 0;
-      let centerLum = 0;
-      let centerCount = 0;
-      const count = imgData.length / 4;
+      for (let i = 0; i < imgData.length; i += 4) {
+        totalLum += 0.299 * imgData[i] + 0.587 * imgData[i + 1] + 0.114 * imgData[i + 2];
+      }
+      const avgLum = totalLum / (w * h);
 
-      // Central facial region bounds (approx center 50% width and height)
-      const minX = 16, maxX = 48;
-      const minY = 12, maxY = 36;
+      const rCheek = landmarks[234] || landmarks[1];
+      const lCheek = landmarks[454] || landmarks[1];
+      const nose = landmarks[1];
+      const forehead = landmarks[10];
+      const chin = landmarks[152];
 
-      for (let y = 0; y < 48; y++) {
-        for (let x = 0; x < 64; x++) {
-          const idx = (y * 64 + x) * 4;
-          const lum = 0.299 * imgData[idx] + 0.587 * imgData[idx + 1] + 0.114 * imgData[idx + 2];
-          totalLum += lum;
-          if (x >= minX && x < maxX && y >= minY && y < maxY) {
-            centerLum += lum;
-            centerCount++;
+      const faceLum = (getLum(rCheek.x * w, rCheek.y * h) + getLum(lCheek.x * w, lCheek.y * h) + getLum(nose.x * w, nose.y * h)) / 3;
+
+      if (avgLum < 38 || faceLum < 28) {
+        return {
+          code: "TOO_DARK",
+          en: "Environment is too dark. Please move to a well-lit area or turn on a light.",
+          fil: "Masyadong madilim. Lumipat sa mas maliwanag na lugar o buksan ang ilaw.",
+        };
+      }
+
+      if (avgLum > 228 || faceLum > 232) {
+        return {
+          code: "TOO_BRIGHT",
+          en: "Lighting is too bright. Please avoid direct sunlight or harsh glare.",
+          fil: "Masyadong maliwanag ang ilaw. Iwasan ang matinding araw o glare.",
+        };
+      }
+
+      if (avgLum > 165 && faceLum < 52) {
+        return {
+          code: "BACKLIT",
+          en: "Harsh backlighting detected. Your face is in shadow. Please face the light source.",
+          fil: "Nakasukob sa anino ang mukha dahil sa backlighting. Humaharap sa ilaw.",
+        };
+      }
+
+      // 2. Eyeglasses & Sunglasses Immediate Detection
+      const rEyeX = (landmarks[33] || nose).x * w;
+      const rEyeY = (landmarks[159] || nose).y * h;
+      const lEyeX = (landmarks[263] || nose).x * w;
+      const lEyeY = (landmarks[386] || nose).y * h;
+      const bridge = landmarks[168] || landmarks[6] || nose;
+      const bridgeX = bridge.x * w;
+      const bridgeY = bridge.y * h;
+
+      let eyeLumSum = 0;
+      let eyePixelCount = 0;
+      const eyeBoxR = Math.max(3, Math.round(Math.abs(lEyeX - rEyeX) * 0.12));
+
+      for (let dy = -eyeBoxR; dy <= eyeBoxR; dy++) {
+        for (let dx = -eyeBoxR; dx <= eyeBoxR; dx++) {
+          eyeLumSum += getLum(rEyeX + dx, rEyeY + dy);
+          eyeLumSum += getLum(lEyeX + dx, lEyeY + dy);
+          eyePixelCount += 2;
+        }
+      }
+      const avgEyeLum = eyeLumSum / (eyePixelCount || 1);
+
+      // Deep dark eye tint = sunglasses
+      if (avgEyeLum < 38 && faceLum > 75) {
+        return {
+          code: "SUNGLASSES_DETECTED",
+          en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
+          fil: "May suot na shades o salamin. Pakitanggal ang salamin bago magpatuloy.",
+        };
+      }
+
+      // Frame edge across nose bridge = prescription eyeglasses
+      const inREyeX = (landmarks[133] || landmarks[33]).x * w;
+      const inLEyeX = (landmarks[362] || landmarks[263]).x * w;
+      const bridgeStartX = Math.min(inREyeX, inLEyeX);
+      const bridgeEndX = Math.max(inREyeX, inLEyeX);
+      const bridgeSpan = bridgeEndX - bridgeStartX;
+
+      if (bridgeSpan > 4) {
+        let bridgeDarkCount = 0;
+        let bridgeSkinCount = 0;
+        let bridgeTotal = 0;
+        let edgeCount = 0;
+        let prevVal = null;
+
+        const bridgeMinY = Math.round(bridgeY - 2);
+        const bridgeMaxY = Math.round(bridgeY + 3);
+
+        for (let by = bridgeMinY; by <= bridgeMaxY; by++) {
+          for (let bx = Math.round(bridgeStartX + bridgeSpan * 0.15); bx <= Math.round(bridgeEndX - bridgeSpan * 0.15); bx++) {
+            const [r, g, b] = getPixel(bx, by);
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            if (lum < 55) bridgeDarkCount++;
+            if (isSkin(r, g, b)) bridgeSkinCount++;
+            if (prevVal !== null && Math.abs(lum - prevVal) > 42) edgeCount++;
+            prevVal = lum;
+            bridgeTotal++;
+          }
+        }
+
+        const bridgeDarkRatio = bridgeTotal > 0 ? bridgeDarkCount / bridgeTotal : 0;
+        const bridgeSkinRatio = bridgeTotal > 0 ? bridgeSkinCount / bridgeTotal : 1;
+        const bridgeEdgeDensity = bridgeTotal > 0 ? edgeCount / bridgeTotal : 0;
+
+        if ((bridgeEdgeDensity > 0.35 && bridgeDarkRatio > 0.25 && bridgeSkinRatio < 0.45) || (bridgeDarkRatio > 0.55 && bridgeSkinRatio < 0.30)) {
+          return {
+            code: "EYEGLASSES_DETECTED",
+            en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
+            fil: "May suot na salamin sa mata. Pakitanggal ang salamin upang maging malinaw ang beripikasyon.",
+          };
+        }
+      }
+
+      // 3. Face Mask Immediate Detection
+      const mouthLeft = landmarks[61];
+      const mouthRight = landmarks[291];
+      if (mouthLeft && mouthRight && chin) {
+        const maskY1 = Math.round(Math.min(mouthLeft.y, mouthRight.y) * h - 2);
+        const maskY2 = Math.round(chin.y * h);
+        const maskX1 = Math.round(Math.min(mouthLeft.x, mouthRight.x) * w - 4);
+        const maskX2 = Math.round(Math.max(mouthLeft.x, mouthRight.x) * w + 4);
+
+        let maskSkin = 0;
+        let maskTotal = 0;
+        for (let my = maskY1; my < maskY2; my += 2) {
+          for (let mx = maskX1; mx < maskX2; mx += 2) {
+            const [r, g, b] = getPixel(mx, my);
+            if (isSkin(r, g, b)) maskSkin++;
+            maskTotal++;
+          }
+        }
+        const lowerSkinRatio = maskTotal > 0 ? maskSkin / maskTotal : 1.0;
+        if (maskTotal >= 20 && lowerSkinRatio < 0.18) {
+          return {
+            code: "MASK_DETECTED",
+            en: "Face mask detected. Please remove your mask or face covering.",
+            fil: "May face mask o takip sa bibig. Pakitanggal ang mask bago magpatuloy.",
+          };
+        }
+      }
+
+      // 4. Hat / Headwear Immediate Detection
+      if (forehead && rCheek && lCheek) {
+        const headY1 = Math.max(0, Math.round(forehead.y * h - 14));
+        const headY2 = Math.round(forehead.y * h - 2);
+        const headX1 = Math.round(rCheek.x * w + (lCheek.x - rCheek.x) * w * 0.2);
+        const headX2 = Math.round(rCheek.x * w + (lCheek.x - rCheek.x) * w * 0.8);
+
+        if (headY2 > headY1 && Math.abs(headX2 - headX1) > 8) {
+          let skullSkin = 0;
+          let skullTotal = 0;
+          let brightColorCount = 0;
+          const minHX = Math.min(headX1, headX2);
+          const maxHX = Math.max(headX1, headX2);
+
+          for (let hy = headY1; hy < headY2; hy += 2) {
+            for (let hx = minHX; hx < maxHX; hx += 2) {
+              const [r, g, b] = getPixel(hx, hy);
+              if (isSkin(r, g, b)) skullSkin++;
+              if ((r > 180 && g > 140 && b < 80) || (r > 160 && g < 70 && b < 70)) {
+                brightColorCount++;
+              }
+              skullTotal++;
+            }
+          }
+          const skullSkinRatio = skullTotal > 0 ? skullSkin / skullTotal : 1.0;
+          const helmetRatio = skullTotal > 0 ? brightColorCount / skullTotal : 0;
+          if (skullTotal >= 15 && (helmetRatio > 0.35 || skullSkinRatio < 0.12)) {
+            return {
+              code: "HAT_DETECTED",
+              en: "Hat or headwear detected. Please remove your hat or cap.",
+              fil: "May suot na sumbrero o panakip sa ulo. Pakitanggal bago magpatuloy.",
+            };
           }
         }
       }
 
-      const avgLum = totalLum / count;
-      const avgCenterLum = centerCount > 0 ? centerLum / centerCount : avgLum;
-
-      // Check for dark room OR face silhouette caused by backlighting (forgiving for evening ambient rooms)
-      if (avgLum < 24 || avgCenterLum < 20) {
-        return {
-          type: "dark",
-          text: "Environment is too dark. Please move to a well-lit area or turn on a light.",
-        };
-      }
-      if (avgLum > 235 || avgCenterLum > 240) {
-        return {
-          type: "bright",
-          text: "Lighting is too bright. Please avoid direct sunlight or harsh backlighting.",
-        };
-      }
-    } catch (e) {}
-    return null;
+      return null;
+    } catch (e) {
+      return null;
+    }
   }, []);
 
   // Advance challenge step (resets pose hold counter and warnings)
@@ -535,6 +748,7 @@ export default function MediaPipeLivenessModal({
       navigator.vibrate(50);
     }
     setCurrentStepIndex(nextStep);
+    currentStepIndexRef.current = nextStep;
     setDebouncedWarning("");
     poseHoldCounterRef.current = 0;
     blinkStateRef.current = { hasOpened: false, hasClosed: false };
@@ -570,25 +784,39 @@ export default function MediaPipeLivenessModal({
   const handleRetryAfterObstruction = useCallback(() => {
     setObstructionAlert(null);
     setCurrentStepIndex(0);
+    currentStepIndexRef.current = 0;
+    isVerifyingRef.current = false;
+    isFinishedRef.current = false;
     poseHoldCounterRef.current = 0;
     firstTurnDirRef.current = null;
-    baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null };
+    baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null, ear: null };
     setDebouncedWarning("");
     blinkStateRef.current = { hasOpened: false, hasClosed: false };
-    setFeedbackMessage("Center face clearly with no hat, glasses, or mask");
+    setFeedbackMessage(
+      activeLangRef.current === "fil"
+        ? "Igitna ang mukha nang walang salamin, sumbrero, o mask."
+        : "Center face clearly with no hat, glasses, or mask"
+    );
   }, [setDebouncedWarning]);
 
-  // Complete entire verification with STRICT Python zero-obstruction check & PFP matching
+  // Complete entire verification with STRICT zero-obstruction check & PFP matching
   const completeVerification = useCallback(async () => {
+    if (isVerifyingRef.current) return;
+    isVerifyingRef.current = true;
     setObstructionAlert(null);
     setIsVerifyingWithPython(true);
-    setFeedbackMessage("Analyzing face biometric & security diagnostics...");
+    setFeedbackMessage(
+      activeLangRef.current === "fil"
+        ? "Sinusuri ang biometric at diagnostics..."
+        : "Analyzing face biometric & security diagnostics..."
+    );
 
     const snapshot = captureFrame();
     setCapturedDataUrl(snapshot);
 
     if (!snapshot) {
       setIsVerifyingWithPython(false);
+      isVerifyingRef.current = false;
       return;
     }
 
@@ -603,8 +831,11 @@ export default function MediaPipeLivenessModal({
       }
       const obs = pyResult?.obstructions?.issues?.[0] || pyResult?.issues?.[0];
       let alertEn = obs?.en || "Facial obstruction detected. Please remove any hats, masks, or headwear.";
+      let alertFil = obs?.fil || "May nakaharang sa mukha. Pakitanggal ang sumbrero, mask, o salamin.";
+
       if (obs?.code === "SUNGLASSES_DETECTED" || obs?.code === "EYEGLASSES_DETECTED") {
         alertEn = "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.";
+        alertFil = "May suot na salamin. Pakitanggal ang iyong salamin bago magpatuloy.";
       } else if (
         obs?.code === "HAT_DETECTED" ||
         obs?.code === "MASK_DETECTED" ||
@@ -612,29 +843,40 @@ export default function MediaPipeLivenessModal({
         obs?.code === "OBSTRUCTION_DETECTED"
       ) {
         alertEn = "Facial obstruction detected. Please remove any hats, masks, or headwear.";
+        alertFil = "May sagabal sa mukha. Pakitanggal ang anumang sumbrero, mask, o takip.";
       } else if (obs?.code === "TOO_CLOSE") {
         alertEn = "You are too close. Please step back slightly to fit your face inside the circle.";
+        alertFil = "Masyado kang malapit. Umatras nang bahagya sa bilog.";
+      } else if (obs?.code === "OFF_CENTER") {
+        alertEn = "Please center your face inside the circle.";
+        alertFil = "Igitna ang iyong mukha sa bilog na gabay.";
       } else if (obs?.code === "TOO_FAR") {
         alertEn = "You are too far. Please move closer to the camera.";
+        alertFil = "Masyado kang malayo. Lumapit nang bahagya sa camera.";
       } else if (obs?.code === "TOO_DARK" || obs?.code === "FACE_TOO_DARK") {
         alertEn = "Environment is too dark. Please move to a well-lit area or turn on a light.";
+        alertFil = "Masyadong madilim. Lumipat sa mas maliwanag na lugar.";
       } else if (obs?.code === "TOO_BRIGHT" || obs?.code === "FACE_TOO_BRIGHT") {
         alertEn = "Lighting is too bright. Please avoid direct sunlight or harsh backlighting.";
+        alertFil = "Masyadong maliwanag. Iwasan ang matinding sikat ng araw.";
       } else if (obs?.code === "MULTIPLE_FACES") {
         alertEn = "Multiple faces detected. Please ensure you are the only person in the frame.";
+        alertFil = "Higit sa isang tao ang nakikita sa camera. Siguraduhing ikaw lamang mag-isa.";
       } else if (obs?.code === "SPOOF_DETECTED") {
         alertEn = "Security alert: Liveness check failed. Please ensure you are scanning your actual face. Printed photos or screens are strictly prohibited.";
+        alertFil = "Security alert: Hindi pumasa ang liveness. Bawal ang litrato o screen sa camera.";
       }
 
       const alertData = {
         code: obs?.code || "OBSTRUCTION_DETECTED",
         type: obs?.type || "obstruction",
-        fil: obs?.fil || alertEn,
+        fil: alertFil,
         en: alertEn,
       };
       setObstructionAlert(alertData);
-      setFeedbackMessage(alertData.en);
+      setFeedbackMessage(activeLangRef.current === "fil" ? alertData.fil : alertData.en);
       setIsVerifyingWithPython(false);
+      isVerifyingRef.current = false;
       return; // STRICTLY BLOCKS COMPLETION!
     }
 
@@ -644,23 +886,30 @@ export default function MediaPipeLivenessModal({
       navigator.vibrate([70, 50, 120]);
     }
     isFinishedRef.current = true;
+    isVerifyingRef.current = false;
     setIsCompleted(true);
     setCurrentStepIndex(CHALLENGES.length);
+    currentStepIndexRef.current = CHALLENGES.length;
     setDebouncedWarning("");
     setWarningMessage("");
     setFeedbackMessage("");
     setObstructionAlert(null);
     cleanupStream(); // COMPLETELY STOP CAMERA, TRACKS, AND ANIMATION FRAME IMMEDIATELY
 
+    const meshMeta = latestMeshRef.current ? {
+      landmarks: latestMeshRef.current.landmarks,
+      faceBox: latestMeshRef.current.faceBox,
+    } : null;
+
     setTimeout(() => {
       if (onVerified && snapshot) {
-        onVerified(snapshot, pyResult);
+        onVerified(snapshot, pyResult, meshMeta);
       }
     }, 800);
   }, [captureFrame, onVerified, verifyWithPythonBackend, cleanupStream, setDebouncedWarning]);
 
   const onResults = useCallback((results) => {
-    if (isFinishedRef.current || isCompleted || !isOpen) return;
+    if (isFinishedRef.current || isCompletedRef.current || !isOpenRef.current) return;
 
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -669,23 +918,11 @@ export default function MediaPipeLivenessModal({
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    const stepIdx = currentStepIndexRef.current;
     const now = Date.now();
-    if (lastStepIndexRef.current !== currentStepIndex) {
-      lastStepIndexRef.current = currentStepIndex;
+    if (lastStepIndexRef.current !== stepIdx) {
+      lastStepIndexRef.current = stepIdx;
       stepStartTimeRef.current = now;
-    }
-
-    // -------------------------------------------------------------
-    // SCENARIO 1: LIGHTING & ENVIRONMENT (Run every 6 frames)
-    // -------------------------------------------------------------
-    frameCounterRef.current += 1;
-    if (frameCounterRef.current % 6 === 0) {
-      const warn = checkEnvironment(video);
-      if (warn) {
-        setDebouncedWarning(warn.text);
-        poseHoldCounterRef.current = 0;
-        return;
-      }
     }
 
     // -------------------------------------------------------------
@@ -695,7 +932,7 @@ export default function MediaPipeLivenessModal({
       setFaceDetected(false);
       poseHoldCounterRef.current = 0;
       setDebouncedWarning(
-        activeLang === "fil"
+        activeLangRef.current === "fil"
           ? "Walang mukhang nakikita. Tumingin nang diretso sa camera."
           : "No face detected. Look directly at camera."
       );
@@ -703,12 +940,16 @@ export default function MediaPipeLivenessModal({
     }
 
     // -------------------------------------------------------------
-    // SCENARIO 3: MULTIPLE FACES DETECTED
+    // SCENARIO 3: MULTIPLE FACES DETECTED (>1 Face)
     // -------------------------------------------------------------
     if (results.multiFaceLandmarks.length > 1) {
       setFaceDetected(false);
       poseHoldCounterRef.current = 0;
-      setDebouncedWarning("Multiple faces detected. Please ensure you are the only person in the frame.");
+      setDebouncedWarning(
+        activeLangRef.current === "fil"
+          ? "Higit sa isang tao ang nasa camera. Siguraduhing ikaw lamang mag-isa."
+          : "Multiple faces detected. Please ensure you are the only person in the frame."
+      );
       return;
     }
 
@@ -736,11 +977,25 @@ export default function MediaPipeLivenessModal({
     if (!nose || !chin || !forehead || !leftCheek || !rightCheek) {
       poseHoldCounterRef.current = 0;
       setDebouncedWarning(
-        activeLang === "fil"
+        activeLangRef.current === "fil"
           ? "Hindi buo ang mukha. Iharap ang buong mukha sa camera."
           : "Facial landmarks incomplete. Face the camera directly."
       );
       return;
+    }
+
+    // -------------------------------------------------------------
+    // SCENARIO 1: REALTIME LIGHTING & OBSTRUCTION (Glasses, Sunglasses, Mask, Hat)
+    // Checks every 6 frames (~4-5x/sec) and warns IMMEDIATELY outside the circle
+    // -------------------------------------------------------------
+    frameCounterRef.current += 1;
+    if (frameCounterRef.current % 6 === 0) {
+      const obs = evaluateRealtimeFrame(video, landmarks);
+      if (obs) {
+        poseHoldCounterRef.current = 0;
+        setDebouncedWarning(activeLangRef.current === "fil" ? obs.fil : obs.en);
+        return; // FREEZES PROGRESSION IMMEDIATELY UNTIL OBSTRUCTION REMOVED
+      }
     }
 
     const lmRightEye = landmarks[33] || landmarks[133];
@@ -772,23 +1027,29 @@ export default function MediaPipeLivenessModal({
 
     // -------------------------------------------------------------
     // SCENARIO 4: FACE DISTANCE (TOO FAR OR TOO CLOSE)
-    // Forgiving thresholds: accommodates normal seated laptop distance (50-75cm)
     // -------------------------------------------------------------
     if (faceHeight < 0.09 || cheekWidth < 0.07) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setDebouncedWarning("You are too far. Please move closer to the camera.");
+      setDebouncedWarning(
+        activeLangRef.current === "fil"
+          ? "Masyado kang malayo. Lumapit nang bahagya sa camera."
+          : "You are too far. Please move closer to the camera."
+      );
       return;
     }
 
     if (faceHeight > 0.90 || cheekWidth > 0.84) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setDebouncedWarning("You are too close. Please step back slightly to fit your face inside the circle.");
+      setDebouncedWarning(
+        activeLangRef.current === "fil"
+          ? "Masyado kang malapit. Umatras nang bahagya sa bilog."
+          : "You are too close. Please step back slightly to fit your face inside the circle."
+      );
       return;
     }
 
     // -------------------------------------------------------------
     // SCENARIO 5: CENTERING & BOUNDS
-    // Generous bounding margins to support natural seating & angled laptop cams
     // -------------------------------------------------------------
     const isCentered =
       nose.x >= 0.10 &&
@@ -798,7 +1059,11 @@ export default function MediaPipeLivenessModal({
 
     if (!isCentered) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setDebouncedWarning("You are too close. Please step back slightly to fit your face inside the circle.");
+      setDebouncedWarning(
+        activeLangRef.current === "fil"
+          ? "Igitna ang iyong mukha sa bilog na gabay."
+          : "Please center your face inside the circle."
+      );
       return;
     }
 
@@ -809,7 +1074,11 @@ export default function MediaPipeLivenessModal({
       const moveDelta = Math.hypot(nose.x - prevNoseRef.current.x, nose.y - prevNoseRef.current.y);
       if (moveDelta > 0.22) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setDebouncedWarning("Camera is too shaky. Please hold your phone still or place it on a stable surface.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Masyadong magalaw. Hawakan nang maayos ang camera."
+            : "Camera is too shaky. Please hold your phone still or place it on a stable surface."
+        );
         prevNoseRef.current = { x: nose.x, y: nose.y };
         return;
       }
@@ -837,9 +1106,13 @@ export default function MediaPipeLivenessModal({
     const avgEAR = (leftEAR + rightEAR) / 2;
 
     // SCENARIO 7: EYES CLOSED DURING DIRECTIONAL STEPS (0 to 4)
-    if (currentStepIndex < 5 && avgEAR < 0.08) {
+    if (stepIdx < 5 && avgEAR < 0.08) {
       poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-      setDebouncedWarning("Keep eyes open and look at the screen.");
+      setDebouncedWarning(
+        activeLangRef.current === "fil"
+          ? "Panatilihing dilat ang mga mata at tumingin sa screen."
+          : "Keep eyes open and look at the screen."
+      );
       return;
     }
 
@@ -853,15 +1126,14 @@ export default function MediaPipeLivenessModal({
     const baseNoseY = baselineRef.current.noseY ?? nose.y;
 
     // STEP 0: CENTER FACE & CALIBRATE BASELINE
-    if (currentStepIndex === 0) {
+    if (stepIdx === 0) {
       const isLevel = eyeRoll < 0.18;
-      // Accommodate tilted laptop webcams where user naturally looks slightly downward at screen
       const isFacingForward = Math.abs(yawRatio) < 0.32 && pitchRatio >= 0.15 && pitchRatio <= 0.92;
 
       if (isLevel && isFacingForward) {
         poseHoldCounterRef.current += 1;
-        setDebouncedWarning(""); // Clear warning
-        setFeedbackMessage("Great! Hold steady...");
+        setDebouncedWarning("");
+        setFeedbackMessage(activeLangRef.current === "fil" ? "Magaling! Manatiling steady..." : "Great! Hold steady...");
 
         // Hold steady for 3 frames (~90-100ms) to lock in natural baseline
         if (poseHoldCounterRef.current >= 3) {
@@ -870,6 +1142,7 @@ export default function MediaPipeLivenessModal({
             pitch: pitchRatio,
             noseX: nose.x,
             noseY: nose.y,
+            ear: avgEAR > 0.12 ? avgEAR : 0.22,
           };
           firstTurnDirRef.current = null;
           advanceStep(1); // Proceed to Right
@@ -877,21 +1150,37 @@ export default function MediaPipeLivenessModal({
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         if (!isLevel) {
-          setDebouncedWarning("Keep head level without tilting to shoulder.");
+          setDebouncedWarning(
+            activeLangRef.current === "fil"
+              ? "Ideretso ang ulo, huwag itagilid sa balikat."
+              : "Keep head level without tilting to shoulder."
+          );
         } else {
-          setDebouncedWarning("Look straight into center of the camera.");
+          setDebouncedWarning(
+            activeLangRef.current === "fil"
+              ? "Tumingin nang diretso sa gitna ng camera."
+              : "Look straight into center of the camera."
+          );
         }
       }
       return;
     }
 
     // STEP 1: TURN HEAD (FIRST DIRECTION: RIGHT)
-    if (currentStepIndex === 1) {
+    if (stepIdx === 1) {
       const stepDuration = now - (stepStartTimeRef.current || now);
       if (stepDuration > 4500 && Math.abs(yawDelta) < 0.015) {
-        setDebouncedWarning("No movement detected. Please hold the camera steady and perform the requested action naturally.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Walang galaw. Ipihit nang marahan ang ulo pakanan."
+            : "No movement detected. Please slowly turn head to the right."
+        );
       } else if (stepDuration > 8500) {
-        setDebouncedWarning("Action not verified. Please relax and try again, ensuring you follow the exact movement on screen.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Hindi ma-beripika. Sundin ang gabay sa screen."
+            : "Action not verified. Please follow the movement on screen."
+        );
       }
 
       const isTurned = Math.abs(yawDelta) >= 0.04;
@@ -901,7 +1190,7 @@ export default function MediaPipeLivenessModal({
           firstTurnDirRef.current = yawDelta > 0 ? 1 : -1;
         }
         setDebouncedWarning("");
-        setFeedbackMessage("Good! Hold for a moment...");
+        setFeedbackMessage(activeLangRef.current === "fil" ? "Mahusay! I-hold sandali..." : "Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(2); // Proceed to Left (opposite direction)
@@ -909,18 +1198,26 @@ export default function MediaPipeLivenessModal({
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         if (stepDuration <= 4500) setDebouncedWarning("");
-        setFeedbackMessage("Slowly turn head to the right...");
+        setFeedbackMessage(activeLangRef.current === "fil" ? "Ipihit nang marahan ang ulo pakanan..." : "Slowly turn head to the right...");
       }
       return;
     }
 
     // STEP 2: TURN HEAD (OPPOSITE DIRECTION: LEFT)
-    if (currentStepIndex === 2) {
+    if (stepIdx === 2) {
       const stepDuration = now - (stepStartTimeRef.current || now);
       if (stepDuration > 4500 && Math.abs(yawDelta) < 0.015) {
-        setDebouncedWarning("No movement detected. Please hold the camera steady and perform the requested action naturally.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Walang galaw. Ipihit nang marahan ang ulo pakaliwa."
+            : "No movement detected. Please slowly turn head to the left."
+        );
       } else if (stepDuration > 8500) {
-        setDebouncedWarning("Action not verified. Please relax and try again, ensuring you follow the exact movement on screen.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Hindi ma-beripika. Sundin ang gabay sa screen."
+            : "Action not verified. Please follow the movement on screen."
+        );
       }
 
       const firstDir = firstTurnDirRef.current || 1;
@@ -929,29 +1226,41 @@ export default function MediaPipeLivenessModal({
 
       if (isOppositeTurn) {
         setDebouncedWarning("");
-        setFeedbackMessage("Good! Hold for a moment...");
+        setFeedbackMessage(activeLangRef.current === "fil" ? "Mahusay! I-hold sandali..." : "Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(3); // Proceed to Up
         }
       } else if (isWrongDir) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setDebouncedWarning("Wrong direction! Turn your head to the opposite side (Left).");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Maling direksyon! Ipihit sa kabilang panig (pakaliwa)."
+            : "Wrong direction! Turn your head to the opposite side (Left)."
+        );
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         if (stepDuration <= 4500) setDebouncedWarning("");
-        setFeedbackMessage("Slowly turn head to the left...");
+        setFeedbackMessage(activeLangRef.current === "fil" ? "Ipihit nang marahan ang ulo pakaliwa..." : "Slowly turn head to the left...");
       }
       return;
     }
 
     // STEP 3: TILT HEAD UPWARD
-    if (currentStepIndex === 3) {
+    if (stepIdx === 3) {
       const stepDuration = now - (stepStartTimeRef.current || now);
       if (stepDuration > 4500 && Math.abs(pitchDelta) < 0.015) {
-        setDebouncedWarning("No movement detected. Please hold the camera steady and perform the requested action naturally.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Walang galaw. Tumingala nang bahagya."
+            : "No movement detected. Please tilt head upward."
+        );
       } else if (stepDuration > 8500) {
-        setDebouncedWarning("Action not verified. Please relax and try again, ensuring you follow the exact movement on screen.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Hindi ma-beripika. Sundin ang gabay sa screen."
+            : "Action not verified. Please follow the movement on screen."
+        );
       }
 
       const isTiltedUp = pitchDelta < -0.025 || (nose.y - baseNoseY) < -0.020;
@@ -959,29 +1268,41 @@ export default function MediaPipeLivenessModal({
 
       if (isTiltedUp) {
         setDebouncedWarning("");
-        setFeedbackMessage("Good! Hold for a moment...");
+        setFeedbackMessage(activeLangRef.current === "fil" ? "Mahusay! I-hold sandali..." : "Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(4); // Proceed to Down
         }
       } else if (isWrongDown) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setDebouncedWarning("Wrong direction! Tilt your head Upward.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Maling direksyon! Tumingala (itaas ang ulo)."
+            : "Wrong direction! Tilt your head Upward."
+        );
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         if (stepDuration <= 4500) setDebouncedWarning("");
-        setFeedbackMessage("Tilt your head slightly upward...");
+        setFeedbackMessage(activeLangRef.current === "fil" ? "Itagilid o itaas nang bahagya ang ulo pataas..." : "Tilt your head slightly upward...");
       }
       return;
     }
 
     // STEP 4: TILT HEAD DOWNWARD
-    if (currentStepIndex === 4) {
+    if (stepIdx === 4) {
       const stepDuration = now - (stepStartTimeRef.current || now);
       if (stepDuration > 4500 && Math.abs(pitchDelta) < 0.015) {
-        setDebouncedWarning("No movement detected. Please hold the camera steady and perform the requested action naturally.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Walang galaw. Iyuko nang bahagya ang ulo."
+            : "No movement detected. Please tilt head downward."
+        );
       } else if (stepDuration > 8500) {
-        setDebouncedWarning("Action not verified. Please relax and try again, ensuring you follow the exact movement on screen.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Hindi ma-beripika. Sundin ang gabay sa screen."
+            : "Action not verified. Please follow the movement on screen."
+        );
       }
 
       const isTiltedDown = pitchDelta > 0.025 || (nose.y - baseNoseY) > 0.020;
@@ -989,75 +1310,87 @@ export default function MediaPipeLivenessModal({
 
       if (isTiltedDown) {
         setDebouncedWarning("");
-        setFeedbackMessage("Good! Hold for a moment...");
+        setFeedbackMessage(activeLangRef.current === "fil" ? "Mahusay! I-hold sandali..." : "Good! Hold for a moment...");
         poseHoldCounterRef.current += 1;
         if (poseHoldCounterRef.current >= REQUIRED_HOLD_FRAMES) {
           advanceStep(5); // Proceed to Blink
         }
       } else if (isWrongUp) {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
-        setDebouncedWarning("Wrong direction! Tilt your head Downward.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Maling direksyon! Iyuko ang ulo pababa."
+            : "Wrong direction! Tilt your head Downward."
+        );
       } else {
         poseHoldCounterRef.current = Math.max(0, poseHoldCounterRef.current - 1);
         if (stepDuration <= 4500) setDebouncedWarning("");
-        setFeedbackMessage("Tilt your head slightly downward...");
+        setFeedbackMessage(activeLangRef.current === "fil" ? "Iyuko nang bahagya ang ulo pababa..." : "Tilt your head slightly downward...");
       }
       return;
     }
 
     // STEP 5: BLINK EYES NATURALLY
-    if (currentStepIndex === 5) {
+    if (stepIdx === 5) {
       const stepDuration = now - (stepStartTimeRef.current || now);
       if (stepDuration > 3500 && !blinkStateRef.current.hasClosed) {
-        setDebouncedWarning("Please relax your face and blink naturally.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Mag-relax at kumurap nang natural."
+            : "Please relax your face and blink naturally."
+        );
       } else if (stepDuration > 8500) {
-        setDebouncedWarning("Action not verified. Please relax and try again, ensuring you follow the exact movement on screen.");
+        setDebouncedWarning(
+          activeLangRef.current === "fil"
+            ? "Hindi ma-beripika ang pagkurap. Subukang kumurap muli."
+            : "Blink not verified. Please blink naturally again."
+        );
       } else {
         setDebouncedWarning("");
       }
-      setFeedbackMessage("Please relax your face and blink naturally.");
-      if (avgEAR > 0.16) {
+      setFeedbackMessage(
+        activeLangRef.current === "fil"
+          ? "Kumurap nang natural sa camera..."
+          : "Please relax your face and blink naturally."
+      );
+
+      const baseEAR = baselineRef.current.ear || 0.22;
+      const openThreshold = Math.max(0.14, baseEAR * 0.82);
+      const closeThreshold = Math.min(0.13, baseEAR * 0.58);
+
+      if (avgEAR >= openThreshold) {
         blinkStateRef.current.hasOpened = true;
       }
-      if (blinkStateRef.current.hasOpened && avgEAR < 0.13) {
+      if (blinkStateRef.current.hasOpened && avgEAR <= closeThreshold) {
         blinkStateRef.current.hasClosed = true;
       }
-      if (blinkStateRef.current.hasOpened && blinkStateRef.current.hasClosed && avgEAR > 0.15) {
-        completeVerification();
+      if (blinkStateRef.current.hasOpened && blinkStateRef.current.hasClosed && avgEAR >= openThreshold * 0.88) {
+        if (!isVerifyingRef.current && !isFinishedRef.current) {
+          isVerifyingRef.current = true;
+          completeVerification();
+        }
       }
       return;
     }
-  }, [currentStepIndex, advanceStep, checkEnvironment, completeVerification, setDebouncedWarning, activeLang, isCompleted, isOpen]);
+  }, [advanceStep, completeVerification, evaluateRealtimeFrame, setDebouncedWarning]);
 
-  // Initialize Camera & MediaPipe
+  // Keep onResults ref fresh without triggering camera re-initialization
+  useEffect(() => {
+    onResultsRef.current = onResults;
+  }, [onResults]);
+
+  // Initialize Camera & MediaPipe ONCE per modal session (DO NOT tear down on step changes)
   useEffect(() => {
     if (!isOpen) {
-      isFinishedRef.current = false;
       cleanupStream();
-      setCurrentStepIndex(0);
-      setIsCompleted(false);
-      setCapturedDataUrl("");
-      setDebouncedWarning("");
-      setWarningMessage("");
-      setFeedbackMessage("");
-      setCameraError("");
-      setObstructionAlert(null);
-      setFaceDetected(false);
-      firstTurnDirRef.current = null;
-      baselineRef.current = { yaw: null, pitch: null, noseX: null, noseY: null };
-      stepStartTimeRef.current = null;
-      lastStepIndexRef.current = null;
-      poseHoldCounterRef.current = 0;
-      prevNoseRef.current = null;
-      blinkStateRef.current = { hasOpened: false, hasClosed: false };
       return;
     }
 
     let isSubscribed = true;
-    setIsLoadingEngine(true);
-    setCameraError("");
 
     async function init() {
+      setIsLoadingEngine(true);
+      setCameraError("");
       try {
         if (!navigator?.mediaDevices?.getUserMedia) {
           throw new Error("HTTP_INSECURE_OR_UNSUPPORTED");
@@ -1090,15 +1423,18 @@ export default function MediaPipeLivenessModal({
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
         });
 
+        // maxNumFaces: 3 allows real-time detection of multiple people in frame
         faceMesh.setOptions({
-          maxNumFaces: 1,
+          maxNumFaces: 3,
           refineLandmarks: true,
           minDetectionConfidence: 0.5,
           minTrackingConfidence: 0.5,
         });
 
         faceMesh.onResults((results) => {
-          if (isSubscribed) onResults(results);
+          if (isSubscribed && onResultsRef.current) {
+            onResultsRef.current(results);
+          }
         });
 
         faceMeshInstanceRef.current = faceMesh;
@@ -1108,7 +1444,7 @@ export default function MediaPipeLivenessModal({
           if (videoRef.current && videoRef.current.readyState >= 2 && faceMeshInstanceRef.current) {
             try {
               await faceMeshInstanceRef.current.send({ image: videoRef.current });
-            } catch (err) {}
+            } catch (err) { }
           }
           if (isSubscribed) {
             animFrameIdRef.current = requestAnimationFrame(renderLoop);
@@ -1120,7 +1456,7 @@ export default function MediaPipeLivenessModal({
         console.warn("[MediaPipeLivenessModal] Camera Initialization Notice:", err);
         if (isSubscribed) {
           setIsLoadingEngine(false);
-          setCameraError(getHumanFriendlyCameraMessage(err, activeLang));
+          setCameraError(getHumanFriendlyCameraMessage(err, activeLangRef.current));
         }
       }
     }
@@ -1131,7 +1467,7 @@ export default function MediaPipeLivenessModal({
       isSubscribed = false;
       cleanupStream();
     };
-  }, [isOpen, cleanupStream, onResults, activeLang, retryTrigger]);
+  }, [isOpen, retryTrigger, cleanupStream]);
 
 
   if (!isOpen) return null;
@@ -1197,7 +1533,7 @@ export default function MediaPipeLivenessModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />

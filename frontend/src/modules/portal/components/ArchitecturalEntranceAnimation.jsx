@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { CheckIcon, MailIcon, ShieldCheckIcon } from "@/modules/shared/Icons";
 
 /**
@@ -26,6 +26,21 @@ export default function ArchitecturalEntranceAnimation({
 }) {
   const [phase, setPhase] = useState(1); // 1: Blueprint, 2: Structure, 3: Unlocked
   const [progress, setProgress] = useState(0);
+  const onCompleteRef = useRef(onComplete);
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  const handleFinish = useCallback(() => {
+    if (!completedRef.current) {
+      completedRef.current = true;
+      if (onCompleteRef.current) {
+        onCompleteRef.current();
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const startTime = Date.now();
@@ -46,16 +61,25 @@ export default function ArchitecturalEntranceAnimation({
 
       if (elapsed >= duration) {
         clearInterval(interval);
-        if (onComplete) onComplete();
+        handleFinish();
       }
     }, 25);
 
-    return () => clearInterval(interval);
-  }, [onComplete]);
+    // Hard fallback timeout: guarantees user enters portal within 1.8s even if intervals throttle
+    const fallbackTimer = setTimeout(() => {
+      clearInterval(interval);
+      handleFinish();
+    }, 1800);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(fallbackTimer);
+    };
+  }, [handleFinish]);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-neutral-950/60 dark:bg-black/85 backdrop-blur-md select-none animate-in fade-in duration-200">
-      <div className="relative w-full max-w-[500px] bg-white dark:bg-[#0a0d14] border border-neutral-200/90 dark:border-amber-500/30 rounded-[28px] shadow-2xl shadow-black/10 dark:shadow-amber-500/10 p-6 sm:p-7.5 overflow-hidden text-neutral-900 dark:text-white flex flex-col justify-between min-h-[470px] transition-colors duration-300">
+      <div className="relative w-full max-w-[480px] bg-white dark:bg-[#0a0d14] border border-neutral-200/90 dark:border-amber-500/30 rounded-[28px] shadow-2xl shadow-black/10 dark:shadow-amber-500/10 p-6 sm:p-8 overflow-hidden text-neutral-900 dark:text-white flex flex-col justify-between min-h-[380px] transition-colors duration-300">
         {/* 1. Architectural CAD Technical Drafting Grid (Hairline 1px) */}
         <div
           className="absolute inset-0 pointer-events-none opacity-20"
@@ -67,33 +91,6 @@ export default function ArchitecturalEntranceAnimation({
             backgroundSize: "24px 24px",
           }}
         />
-
-        {/* Crosshair Corner Registration Marks (Cadastral Survey Notation) */}
-        <div className="absolute top-3 left-4 font-mono text-[9px] text-amber-600/70 dark:text-amber-500/50 pointer-events-none">
-          + 120.9842° E
-        </div>
-        <div className="absolute top-3 right-4 font-mono text-[9px] text-amber-600/70 dark:text-amber-500/50 pointer-events-none">
-          + 14.5995° N
-        </div>
-        <div className="absolute bottom-3 left-4 font-mono text-[9px] text-amber-600/70 dark:text-amber-500/50 pointer-events-none">
-          SEC. NSCP-2015
-        </div>
-        <div className="absolute bottom-3 right-4 font-mono text-[9px] text-amber-600/70 dark:text-amber-500/50 pointer-events-none">
-          ELEV. +0.00m
-        </div>
-
-        {/* TOP HEADER: Architectural Lab Brand & Live Telemetry */}
-        <div className="relative z-10 flex items-center justify-between border-b border-neutral-200 dark:border-white/10 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-xs bg-amber-500 animate-pulse" />
-            <span className="font-mono text-[10.5px] uppercase tracking-widest text-neutral-700 dark:text-neutral-300 font-semibold">
-              MCPA Architecture & Construction
-            </span>
-          </div>
-          <div className="font-mono text-[10px] text-amber-700 dark:text-amber-400 font-bold bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 rounded-sm">
-            {progress}% INITIALIZED
-          </div>
-        </div>
 
         {/* CENTER: Morphing Technical Architectural Vector Construction Sequence */}
         <div className="relative z-10 my-auto flex flex-col items-center justify-center text-center py-2">
@@ -282,13 +279,8 @@ export default function ArchitecturalEntranceAnimation({
             )}
           </div>
 
-          {/* Phase Indicator & Title */}
+          {/* Phase Title & Subtitle */}
           <div className="space-y-1.5 max-w-sm">
-            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/10 dark:bg-white/5 border border-amber-500/25 dark:border-white/10 text-[10px] font-mono tracking-wider text-amber-700 dark:text-amber-400 uppercase">
-              {phase === 1 && (activeLang === "fil" ? "YUGTO 1: CAD DRAFTING & BLUEPRINT" : "PHASE 01: ARCHITECTURAL DRAFTING")}
-              {phase === 2 && (activeLang === "fil" ? "YUGTO 2: STRUCTURAL ENGINEERING & LEVELING" : "PHASE 02: STRUCTURAL ENGINEERING")}
-              {phase === 3 && (activeLang === "fil" ? "YUGTO 3: PORTAL ACCESS NAIPAGKALOOB" : "PHASE 03: CLIENT ACCESS AUTHORIZED")}
-            </div>
 
             <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white tracking-tight">
               {phase === 3
@@ -318,9 +310,9 @@ export default function ArchitecturalEntranceAnimation({
 
           {/* Email Dispatched Confirmation Notice */}
           {email && (
-            <div className="mt-3.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-900/90 border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 text-[11px] font-mono max-w-[360px] truncate">
+            <div className="mt-3.5 inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-900/90 border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 text-[11px] font-mono max-w-full">
               <MailIcon className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
-              <span className="truncate">
+              <span className="break-all">
                 {activeLang === "fil" ? "Welcome brief naipadala sa: " : "Welcome brief dispatched to: "}
                 <strong className="text-neutral-900 dark:text-white font-semibold">{email}</strong>
               </span>
@@ -328,21 +320,14 @@ export default function ArchitecturalEntranceAnimation({
           )}
         </div>
 
-        {/* BOTTOM: High-Precision Progress Bar & Technical Telemetry */}
-        <div className="relative z-10 space-y-2 border-t border-neutral-200 dark:border-white/10 pt-3.5">
+        {/* BOTTOM: High-Precision Progress Bar */}
+        <div className="relative z-10 w-full pt-4">
           {/* Dual-track hairline progress line */}
           <div className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden relative">
             <div
               className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 rounded-full transition-all duration-75"
               style={{ width: `${progress}%` }}
             />
-          </div>
-
-          {/* Technical Footer Telemetry */}
-          <div className="flex items-center justify-between text-[9.5px] font-mono text-neutral-500 dark:text-neutral-400">
-            <span>NSCP 2015 · PHILIPPINES</span>
-            <span className="text-amber-600 dark:text-amber-500 font-medium">BUILDING CODE COMPLIANT</span>
-            <span className="text-neutral-400 dark:text-neutral-500">ENTERING PORTAL...</span>
           </div>
         </div>
       </div>
