@@ -718,7 +718,7 @@ export default function MediaPipeLivenessModal({
     if (onClose) onClose();
   }, [cleanupStream, onClose, setDebouncedWarning]);
 
-  // Capture final high-res frame from video
+  // Capture final high-res frame from video (1:1 matching raw video & landmarks)
   const captureFrame = useCallback(() => {
     const video = videoRef.current;
     if (!video || !video.videoWidth) return null;
@@ -728,9 +728,7 @@ export default function MediaPipeLivenessModal({
     tempCanvas.height = video.videoHeight;
     const ctx = tempCanvas.getContext("2d");
 
-    // Mirror horizontally to match webcam display
-    ctx.translate(tempCanvas.width, 0);
-    ctx.scale(-1, 1);
+    // Standard raw camera capture ensuring pixel-perfect alignment with MediaPipe landmarks
     ctx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
 
     return tempCanvas.toDataURL("image/jpeg", 0.92);
@@ -884,7 +882,7 @@ export default function MediaPipeLivenessModal({
       const eyeGlareRatio = eyeSpecularCount / (eyePixelCount || 1);
 
       // Sunglasses Check: very dark lenses while face is lit
-      if (avgEyeLum < 40 && faceLum > 68) {
+      if (avgEyeLum < 36 && faceLum > 75) {
         return {
           code: "SUNGLASSES_DETECTED",
           en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
@@ -892,8 +890,8 @@ export default function MediaPipeLivenessModal({
         };
       }
 
-      // Lens Glare / Reflection on Eyeglasses
-      if (eyeGlareRatio > 0.045 && faceLum < 205) {
+      // Lens Glare / Reflection on Eyeglasses (distinguish from natural corneal catchlight)
+      if (eyeGlareRatio > 0.28 && faceLum < 205) {
         return {
           code: "EYEGLASSES_DETECTED",
           en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
@@ -920,8 +918,8 @@ export default function MediaPipeLivenessModal({
         for (let rx = rRimX1; rx <= rRimX2; rx++) {
           const [r, g, b] = getPixel(rx, ry);
           const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-          if (lum < 58 || (!isSkin(r, g, b) && lum < 85)) rimDarkCount++;
-          if (lastRimLum !== null && Math.abs(lum - lastRimLum) > 36) rimEdges++;
+          if (lum < 50 || (!isSkin(r, g, b) && lum < 75)) rimDarkCount++;
+          if (lastRimLum !== null && Math.abs(lum - lastRimLum) > 42) rimEdges++;
           lastRimLum = lum;
           rimTotal++;
         }
@@ -929,8 +927,8 @@ export default function MediaPipeLivenessModal({
         for (let lx = lRimX1; lx <= lRimX2; lx++) {
           const [r, g, b] = getPixel(lx, ry);
           const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-          if (lum < 58 || (!isSkin(r, g, b) && lum < 85)) rimDarkCount++;
-          if (lastRimLum !== null && Math.abs(lum - lastRimLum) > 36) rimEdges++;
+          if (lum < 50 || (!isSkin(r, g, b) && lum < 75)) rimDarkCount++;
+          if (lastRimLum !== null && Math.abs(lum - lastRimLum) > 42) rimEdges++;
           lastRimLum = lum;
           rimTotal++;
         }
@@ -939,7 +937,7 @@ export default function MediaPipeLivenessModal({
       const lowerRimDarkRatio = rimTotal > 0 ? rimDarkCount / rimTotal : 0;
       const lowerRimEdgeDensity = rimTotal > 0 ? rimEdges / rimTotal : 0;
 
-      if (lowerRimDarkRatio > 0.18 || (lowerRimDarkRatio > 0.12 && lowerRimEdgeDensity > 0.24)) {
+      if (lowerRimDarkRatio > 0.48 || (lowerRimDarkRatio > 0.36 && lowerRimEdgeDensity > 0.36)) {
         return {
           code: "EYEGLASSES_DETECTED",
           en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
@@ -960,11 +958,11 @@ export default function MediaPipeLivenessModal({
         const ty = rTempleStartY + (rTempleEndY - rTempleStartY) * t;
         const [r, g, b] = getPixel(tx, ty);
         const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-        if (lum < 55 || (!isSkin(r, g, b) && lum < 90)) templeDarkCount++;
+        if (lum < 48 || (!isSkin(r, g, b) && lum < 75)) templeDarkCount++;
         templeTotal++;
       }
       const templeDarkRatio = templeTotal > 0 ? templeDarkCount / templeTotal : 0;
-      if (templeDarkRatio > 0.45) {
+      if (templeDarkRatio > 0.70) {
         return {
           code: "EYEGLASSES_DETECTED",
           en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
@@ -993,9 +991,9 @@ export default function MediaPipeLivenessModal({
           for (let bx = Math.round(bridgeStartX + bridgeSpan * 0.15); bx <= Math.round(bridgeEndX - bridgeSpan * 0.15); bx++) {
             const [r, g, b] = getPixel(bx, by);
             const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-            if (lum < 55) bridgeDarkCount++;
+            if (lum < 50) bridgeDarkCount++;
             if (isSkin(r, g, b)) bridgeSkinCount++;
-            if (prevVal !== null && Math.abs(lum - prevVal) > 40) edgeCount++;
+            if (prevVal !== null && Math.abs(lum - prevVal) > 42) edgeCount++;
             prevVal = lum;
             bridgeTotal++;
           }
@@ -1005,7 +1003,7 @@ export default function MediaPipeLivenessModal({
         const bridgeSkinRatio = bridgeTotal > 0 ? bridgeSkinCount / bridgeTotal : 1;
         const bridgeEdgeDensity = bridgeTotal > 0 ? edgeCount / bridgeTotal : 0;
 
-        if ((bridgeEdgeDensity > 0.32 && bridgeDarkRatio > 0.22 && bridgeSkinRatio < 0.50) || (bridgeDarkRatio > 0.50 && bridgeSkinRatio < 0.35)) {
+        if ((bridgeEdgeDensity > 0.42 && bridgeDarkRatio > 0.52 && bridgeSkinRatio < 0.25) || (bridgeDarkRatio > 0.68 && bridgeSkinRatio < 0.18)) {
           return {
             code: "EYEGLASSES_DETECTED",
             en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
@@ -1483,21 +1481,24 @@ export default function MediaPipeLivenessModal({
     const lmRightMouth = landmarks[61];
     const lmLeftMouth = landmarks[291];
 
-    if (canvas && lmRightEye && lmLeftEye) {
+    const vW = video.videoWidth || 640;
+    const vH = video.videoHeight || 480;
+
+    if (lmRightEye && lmLeftEye) {
       latestMeshRef.current = {
         landmarks: {
-          right_eye: [lmRightEye.x * canvas.width, lmRightEye.y * canvas.height],
-          left_eye: [lmLeftEye.x * canvas.width, lmLeftEye.y * canvas.height],
-          nose: [nose.x * canvas.width, nose.y * canvas.height],
-          right_mouth: lmRightMouth ? [lmRightMouth.x * canvas.width, lmRightMouth.y * canvas.height] : undefined,
-          left_mouth: lmLeftMouth ? [lmLeftMouth.x * canvas.width, lmLeftMouth.y * canvas.height] : undefined,
+          right_eye: [lmRightEye.x * vW, lmRightEye.y * vH],
+          left_eye: [lmLeftEye.x * vW, lmLeftEye.y * vH],
+          nose: [nose.x * vW, nose.y * vH],
+          right_mouth: lmRightMouth ? [lmRightMouth.x * vW, lmRightMouth.y * vH] : undefined,
+          left_mouth: lmLeftMouth ? [lmLeftMouth.x * vW, lmLeftMouth.y * vH] : undefined,
           confidence: 0.98,
         },
         faceBox: {
-          x: Math.min(leftCheek.x, rightCheek.x) * canvas.width,
-          y: forehead.y * canvas.height,
-          width: Math.abs(rightCheek.x - leftCheek.x) * canvas.width,
-          height: Math.abs(chin.y - forehead.y) * canvas.height,
+          x: Math.min(leftCheek.x, rightCheek.x) * vW,
+          y: forehead.y * vH,
+          width: Math.abs(rightCheek.x - leftCheek.x) * vW,
+          height: Math.abs(chin.y - forehead.y) * vH,
         },
       };
     }
@@ -1576,9 +1577,6 @@ export default function MediaPipeLivenessModal({
     // -------------------------------------------------------------
     // ISOTROPIC EYE ASPECT RATIO (EAR) & EYELID DISTANCE
     // -------------------------------------------------------------
-    const vW = video.videoWidth || 640;
-    const vH = video.videoHeight || 480;
-
     // Right Eye EAR (6-point landmarks: 160, 158, 144, 153, 33, 133)
     const rTopY = ((landmarks[160]?.y || 0) + (landmarks[158]?.y || 0)) * 0.5 * vH;
     const rBotY = ((landmarks[144]?.y || 0) + (landmarks[153]?.y || 0)) * 0.5 * vH;

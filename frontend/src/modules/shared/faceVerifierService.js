@@ -160,15 +160,27 @@ function estimateFaceAndLandmarks(img, clientMeta = null) {
 
     const toPt = (pt, fallbackX, fallbackY) => {
       if (!pt) return [fallbackX, fallbackY];
-      if (Array.isArray(pt)) return [Number(pt[0]) || fallbackX, Number(pt[1]) || fallbackY];
-      if (typeof pt === "object") return [Number(pt.x ?? pt[0] ?? fallbackX), Number(pt.y ?? pt[1] ?? fallbackY)];
-      return [fallbackX, fallbackY];
+      let px = Number(Array.isArray(pt) ? pt[0] : (pt.x ?? fallbackX));
+      let py = Number(Array.isArray(pt) ? pt[1] : (pt.y ?? fallbackY));
+      if (px <= 1.0 && width > 1) px = px * width;
+      if (py <= 1.0 && height > 1) py = py * height;
+      return [Math.round(px), Math.round(py)];
     };
 
-    const fx = Math.max(0, Math.round(fb.x || 0));
-    const fy = Math.max(0, Math.round(fb.y || 0));
-    const fw = Math.min(width - fx, Math.round(fb.width || width * 0.5));
-    const fh = Math.min(height - fy, Math.round(fb.height || height * 0.5));
+    let fx = Number(fb.x || 0);
+    let fy = Number(fb.y || 0);
+    let fw = Number(fb.width || width * 0.5);
+    let fh = Number(fb.height || height * 0.5);
+    if (fw <= 1.0 && width > 1) {
+      fx = fx * width;
+      fy = fy * height;
+      fw = fw * width;
+      fh = fh * height;
+    }
+    fx = Math.max(0, Math.round(fx));
+    fy = Math.max(0, Math.round(fy));
+    fw = Math.min(width - fx, Math.round(fw));
+    fh = Math.min(height - fy, Math.round(fh));
 
     const defaultNoseX = fx + fw * 0.5;
     const defaultNoseY = fy + fh * 0.55;
@@ -306,7 +318,7 @@ function detectObstructions(img, faceBox, landmarks) {
   }
   const cheekGrayMean = cheekCount > 0 ? cheekGraySum / cheekCount : 140.0;
 
-  // Lens specular reflection/glare in eye box
+  // Lens specular reflection/glare in eye box (distinguish from natural corneal catchlight)
   let eyeSpecularCount = 0;
   let eyeSpecularTotal = 0;
   for (let dy = -eyeRadius; dy <= eyeRadius; dy += 2) {
@@ -320,7 +332,7 @@ function detectObstructions(img, faceBox, landmarks) {
   }
   const eyeGlareRatio = eyeSpecularTotal > 0 ? eyeSpecularCount / eyeSpecularTotal : 0;
 
-  // Lower orbital rim check (catches wireframe / round / thin glasses on cheekbones)
+  // Lower orbital rim check (catches thick glasses frames on cheekbones, invariant to natural under-eye shadows)
   const rim_y1 = Math.round(Math.max(re_y, le_y) + fh * 0.04);
   const rim_y2 = Math.round(Math.max(re_y, le_y) + fh * 0.16);
   const rRim_x1 = Math.round(re_x - fw * 0.14);
@@ -337,16 +349,16 @@ function detectObstructions(img, faceBox, landmarks) {
     for (let x = rRim_x1; x < rRim_x2; x++) {
       const [r, g, b] = getPixelRgb(x, y);
       const gVal = 0.299 * r + 0.587 * g + 0.114 * b;
-      if (gVal < 60 || (!isSkinPixel(r, g, b) && gVal < 88)) rimDarkCount++;
-      if (lastRimVal !== null && Math.abs(gVal - lastRimVal) > 36) rimEdgeChanges++;
+      if (gVal < 50 || (!isSkinPixel(r, g, b) && gVal < 75)) rimDarkCount++;
+      if (lastRimVal !== null && Math.abs(gVal - lastRimVal) > 42) rimEdgeChanges++;
       lastRimVal = gVal;
       rimTotal++;
     }
     for (let x = lRim_x1; x < lRim_x2; x++) {
       const [r, g, b] = getPixelRgb(x, y);
       const gVal = 0.299 * r + 0.587 * g + 0.114 * b;
-      if (gVal < 60 || (!isSkinPixel(r, g, b) && gVal < 88)) rimDarkCount++;
-      if (lastRimVal !== null && Math.abs(gVal - lastRimVal) > 36) rimEdgeChanges++;
+      if (gVal < 50 || (!isSkinPixel(r, g, b) && gVal < 75)) rimDarkCount++;
+      if (lastRimVal !== null && Math.abs(gVal - lastRimVal) > 42) rimEdgeChanges++;
       lastRimVal = gVal;
       rimTotal++;
     }
@@ -356,8 +368,8 @@ function detectObstructions(img, faceBox, landmarks) {
   const rimEdgeDensity = rimTotal > 0 ? rimEdgeChanges / rimTotal : 0;
 
   if (
-    (rEyeStats.darkRatio > 0.65 && lEyeStats.darkRatio > 0.65) ||
-    (meanEyeGray < 45.0 && cheekGrayMean > 95.0)
+    (rEyeStats.darkRatio > 0.76 && lEyeStats.darkRatio > 0.76) ||
+    (meanEyeGray < 36.0 && cheekGrayMean > 88.0)
   ) {
     sunglasses_detected = true;
     obstruction_issues.push({
@@ -367,9 +379,9 @@ function detectObstructions(img, faceBox, landmarks) {
       en: "Glasses detected. Please remove your glasses or sunglasses to verify your eyes.",
     });
   } else if (
-    rimDarkRatio > 0.18 ||
-    (rimDarkRatio > 0.12 && rimEdgeDensity > 0.24) ||
-    (eyeGlareRatio > 0.045 && cheekGrayMean < 205)
+    rimDarkRatio > 0.48 ||
+    (rimDarkRatio > 0.36 && rimEdgeDensity > 0.36) ||
+    (eyeGlareRatio > 0.28 && cheekGrayMean < 205)
   ) {
     eyeglasses_detected = true;
     obstruction_issues.push({
@@ -390,9 +402,9 @@ function detectObstructions(img, faceBox, landmarks) {
         for (let x = bx1; x < bx2; x++) {
           const [r, g, b] = getPixelRgb(x, y);
           const gVal = 0.299 * r + 0.587 * g + 0.114 * b;
-          if (gVal < 55) bridgeDarkCount++;
+          if (gVal < 50) bridgeDarkCount++;
           if (isSkinPixel(r, g, b)) bridgeSkinCount++;
-          if (lastVal !== null && Math.abs(gVal - lastVal) > 40) edgeChanges++;
+          if (lastVal !== null && Math.abs(gVal - lastVal) > 42) edgeChanges++;
           lastVal = gVal;
           bridgeTotal++;
         }
@@ -401,7 +413,7 @@ function detectObstructions(img, faceBox, landmarks) {
       const bridgeSkin = bridgeTotal > 0 ? bridgeSkinCount / bridgeTotal : 1;
       const bridgeEdgeDensity = bridgeTotal > 0 ? edgeChanges / bridgeTotal : 0;
 
-      if ((bridgeEdgeDensity > 0.32 && bridgeDarkRatio > 0.22 && bridgeSkin < 0.50) || (bridgeDarkRatio > 0.50 && bridgeSkin < 0.35)) {
+      if ((bridgeEdgeDensity > 0.42 && bridgeDarkRatio > 0.52 && bridgeSkin < 0.25) || (bridgeDarkRatio > 0.68 && bridgeSkin < 0.18)) {
         eyeglasses_detected = true;
         obstruction_issues.push({
           code: "EYEGLASSES_DETECTED",
