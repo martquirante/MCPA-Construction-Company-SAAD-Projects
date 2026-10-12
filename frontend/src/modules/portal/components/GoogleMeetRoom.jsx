@@ -1056,8 +1056,13 @@ export default function GoogleMeetRoom({
               </div>
             )}
 
-            {/* User Avatar (NO CLUNKY PILL BOX) */}
-            <div className="flex items-center gap-2 text-white/90">
+            {/* User Avatar (Toggles Participants drawer) */}
+            <button
+              type="button"
+              onClick={() => setActiveSidePanel(activeSidePanel === "people" ? null : "people")}
+              className="flex items-center gap-2 text-white/90 hover:text-white active:scale-95 transition-all cursor-pointer"
+              title="View participants"
+            >
               <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden bg-amber-500/20 border border-amber-500/40 flex items-center justify-center font-bold text-[10px] text-amber-300">
                 {userAvatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -1069,7 +1074,7 @@ export default function GoogleMeetRoom({
               <span className="hidden sm:inline text-xs font-medium text-white/90 truncate max-w-[120px]">
                 {displayName.split(" ")[0]}
               </span>
-            </div>
+            </button>
           </div>
         </div>
       )}
@@ -1570,77 +1575,60 @@ export default function GoogleMeetRoom({
           </div>
         </div>
       ) : (
-        <div className="h-auto min-h-[64px] sm:h-20 px-3 sm:px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,12px))] flex items-center justify-between z-30 shrink-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent sm:bg-neutral-950/95 sm:backdrop-blur-md transition-colors text-white">
-          {/* Left: Meeting Details Shortcut (Desktop only) */}
-          <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-white/50">
-            <span className="text-white font-bold">{roomCode}</span>
-          </div>
-
-          {/* Center: Primary Call Controls (NO HEAVY BOX BACKGROUNDS!) */}
-          <div className="flex items-center justify-center gap-1.5 sm:gap-3 flex-1 sm:flex-initial">
-            {/* Microphone Button */}
+        <div className="h-auto min-h-[64px] sm:h-20 px-2 sm:px-6 pt-2 pb-[max(1rem,env(safe-area-inset-bottom,16px))] flex items-center justify-center sm:justify-between z-30 shrink-0 bg-gradient-to-t from-black/95 via-black/80 to-black/30 sm:bg-neutral-950/95 sm:backdrop-blur-md transition-colors text-white">
+          {/* MOBILE CONTROLS BAR (sm:hidden) - Ergonomic 7-Button Dock: Mic, Cam, Screen, Smile, Hand, Chat, Leave */}
+          <div className="flex sm:hidden items-center justify-between w-full max-w-md mx-auto px-1 py-1">
+            {/* 1. Microphone */}
             <button
               type="button"
               onClick={toggleAudio}
-              className={`p-3 rounded-full transition-all cursor-pointer ${
+              className={`w-10 h-10 min-[380px]:w-11 min-[380px]:h-11 rounded-full flex items-center justify-center transition-all cursor-pointer ${
                 isMicOn
-                  ? "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
-                  : "bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-950/40 ring-1 ring-white/20 active:scale-90"
+                  ? "text-white/90 hover:text-white bg-white/10 hover:bg-white/20 active:scale-90"
+                  : "bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-950/40 active:scale-90"
               }`}
-              title={isMicOn ? "Turn off microphone (Ctrl + d)" : "Turn on microphone (Ctrl + d)"}
+              title={isMicOn ? "Turn off microphone" : "Turn on microphone"}
             >
-              {isMicOn ? <Mic className="w-5 h-5 sm:w-5 sm:h-5" /> : <MicOff className="w-5 h-5 sm:w-5 sm:h-5" />}
+              {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
             </button>
 
-            {/* Camera Button */}
+            {/* 2. Camera */}
             <button
               type="button"
               onClick={toggleVideo}
-              className={`p-3 rounded-full transition-all cursor-pointer ${
+              className={`w-10 h-10 min-[380px]:w-11 min-[380px]:h-11 rounded-full flex items-center justify-center transition-all cursor-pointer ${
                 isVideoOn
-                  ? "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
-                  : "bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-950/40 ring-1 ring-white/20 active:scale-90"
+                  ? "text-white/90 hover:text-white bg-white/10 hover:bg-white/20 active:scale-90"
+                  : "bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-950/40 active:scale-90"
               }`}
-              title={isVideoOn ? "Turn off camera (Ctrl + e)" : "Turn on camera (Ctrl + e)"}
+              title={isVideoOn ? "Turn off camera" : "Turn on camera"}
             >
-              {isVideoOn ? <Video className="w-5 h-5 sm:w-5 sm:h-5" /> : <VideoOff className="w-5 h-5 sm:w-5 sm:h-5" />}
+              {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
             </button>
 
-            {/* Flip Camera (Mobile Only) */}
-            {isVideoOn && (
-              <button
-                type="button"
-                onClick={flipCamera}
-                className="p-3 rounded-full text-white/90 hover:text-white hover:bg-white/10 active:scale-90 transition-all cursor-pointer flex sm:hidden"
-                title="Switch front/rear camera"
-              >
-                <SwitchCamera className="w-5 h-5" />
-              </button>
-            )}
-
-            {/* Screen Share Button (Available for Both Client & Host, Mobile & Desktop) */}
+            {/* 3. Screen Share */}
             <button
               type="button"
               onClick={handleToggleScreenShare}
-              className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer ${
+              className={`w-10 h-10 min-[380px]:w-11 min-[380px]:h-11 rounded-full flex items-center justify-center transition-all cursor-pointer ${
                 isScreenSharing
-                  ? "bg-amber-500 text-neutral-950 font-bold ring-2 ring-amber-400"
-                  : "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
+                  ? "bg-amber-500 text-neutral-950 font-bold ring-2 ring-amber-400 active:scale-90"
+                  : "text-white/90 hover:text-white bg-white/10 hover:bg-white/20 active:scale-90"
               }`}
-              title={isScreenSharing ? "Stop presenting" : "Present now (Share screen)"}
+              title={isScreenSharing ? "Stop presenting" : "Share screen"}
             >
-              <Monitor className="w-5 h-5 sm:w-5 sm:h-5" />
+              <Monitor className="w-5 h-5" />
             </button>
 
-            {/* Reactions Button with Popup */}
+            {/* 4. Reactions with Centered Emoji Popup */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsReactionsOpen(!isReactionsOpen)}
-                className={`p-3 rounded-full transition-all cursor-pointer ${
+                className={`w-10 h-10 min-[380px]:w-11 min-[380px]:h-11 rounded-full flex items-center justify-center transition-all cursor-pointer ${
                   isReactionsOpen
-                    ? "text-amber-400 bg-white/10"
-                    : "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
+                    ? "text-amber-400 bg-white/20 active:scale-90"
+                    : "text-white/90 hover:text-white bg-white/10 hover:bg-white/20 active:scale-90"
                 }`}
                 title="Send a reaction"
               >
@@ -1648,106 +1636,259 @@ export default function GoogleMeetRoom({
               </button>
 
               {isReactionsOpen && (
-                <div className="absolute bottom-16 left-1/2 -translate-x-1/2 p-2 rounded-full bg-neutral-900/95 border border-white/10 backdrop-blur-md shadow-2xl flex items-center gap-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
-                  {["💖", "👍", "🎉", "👏", "😂", "😮"].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => triggerReaction(emoji)}
-                      className="p-2 rounded-full hover:bg-white/10 text-xl transition-transform hover:scale-125 cursor-pointer"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setIsReactionsOpen(false)}
+                  />
+                  <div className="absolute bottom-14 left-1/2 -translate-x-1/2 px-2.5 py-1.5 rounded-full bg-neutral-900/95 border border-white/10 backdrop-blur-md shadow-2xl flex items-center gap-1 z-40 animate-in fade-in zoom-in-95 duration-150">
+                    {["💖", "👍", "🎉", "👏", "😂", "😮"].map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => triggerReaction(emoji)}
+                        className="p-1.5 rounded-full hover:bg-white/10 text-xl transition-transform hover:scale-125 cursor-pointer"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
 
-            {/* Raise Hand Button */}
+            {/* 5. Raise Hand */}
             <button
               type="button"
               onClick={toggleHandRaise}
-              className={`p-3 rounded-full transition-all cursor-pointer ${
+              className={`w-10 h-10 min-[380px]:w-11 min-[380px]:h-11 rounded-full flex items-center justify-center transition-all cursor-pointer ${
                 isHandRaised
-                  ? "text-amber-400 bg-amber-500/20 scale-110 ring-1 ring-amber-400/40"
-                  : "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
+                  ? "text-amber-400 bg-amber-500/25 ring-1 ring-amber-400/50 scale-105 active:scale-90"
+                  : "text-white/90 hover:text-white bg-white/10 hover:bg-white/20 active:scale-90"
               }`}
               title={isHandRaised ? "Lower hand" : "Raise hand"}
             >
               <Hand className="w-5 h-5" />
             </button>
 
-            {/* Float / Picture-in-Picture Button (Desktop only) */}
-            <button
-              type="button"
-              onClick={() => setIsFloatingPiP(true)}
-              className="hidden sm:inline-flex p-3 rounded-full text-white/90 hover:text-white hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
-              title="Float mini window (Picture-in-picture)"
-            >
-              <Minimize2 className="w-5 h-5" />
-            </button>
-
-            {/* End Call Button (Red Accent) */}
-            <button
-              type="button"
-              onClick={handleLeaveCall}
-              className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white transition-all cursor-pointer shadow-lg shadow-rose-950/40 flex items-center gap-2"
-              title="Leave call"
-            >
-              <PhoneOff className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline text-xs font-bold font-sans uppercase tracking-wider">Leave</span>
-            </button>
-          </div>
-
-          {/* Right: Drawer Toggles (Info, People, Chat) */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            {/* Chat Button with Unread Badge */}
+            {/* 6. Chat with Unread Badge */}
             <button
               type="button"
               onClick={() => {
                 setActiveSidePanel(activeSidePanel === "chat" ? null : "chat");
                 setUnreadCount(0);
               }}
-              className={`relative p-2.5 sm:p-3 rounded-full transition-colors cursor-pointer ${
+              className={`relative w-10 h-10 min-[380px]:w-11 min-[380px]:h-11 rounded-full flex items-center justify-center transition-all cursor-pointer ${
                 activeSidePanel === "chat"
-                  ? "text-amber-400 bg-white/10"
-                  : "text-white/80 hover:text-white hover:bg-white/10"
+                  ? "text-amber-400 bg-amber-500/20 ring-1 ring-amber-400/50 active:scale-90"
+                  : "text-white/90 hover:text-white bg-white/10 hover:bg-white/20 active:scale-90"
               }`}
-              title="Chat with everyone"
+              title="In-call messages"
             >
               <MessageSquare className="w-5 h-5" />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse ring-2 ring-neutral-900" />
               )}
             </button>
 
-            {/* People Button (Desktop) */}
+            {/* 7. Leave Call (Red Hang Up) */}
             <button
               type="button"
-              onClick={() => setActiveSidePanel(activeSidePanel === "people" ? null : "people")}
-              className={`hidden sm:inline-flex p-2.5 sm:p-3 rounded-full transition-colors cursor-pointer ${
-                activeSidePanel === "people"
-                  ? "text-amber-400 bg-white/10"
-                  : "text-white/80 hover:text-white hover:bg-white/10"
-              }`}
-              title="People"
+              onClick={handleLeaveCall}
+              className="w-10 h-10 min-[380px]:w-11 min-[380px]:h-11 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-90 text-white shadow-lg shadow-rose-950/50 flex items-center justify-center transition-all cursor-pointer"
+              title="Leave call"
             >
-              <Users className="w-5 h-5" />
+              <PhoneOff className="w-4.5 h-4.5" />
             </button>
+          </div>
 
-            {/* Info Details Button (Desktop) */}
-            <button
-              type="button"
-              onClick={() => setActiveSidePanel(activeSidePanel === "info" ? null : "info")}
-              className={`hidden sm:inline-flex p-2.5 sm:p-3 rounded-full transition-colors cursor-pointer ${
-                activeSidePanel === "info"
-                  ? "text-amber-400 bg-white/10"
-                  : "text-white/80 hover:text-white hover:bg-white/10"
-              }`}
-              title="Meeting details"
-            >
-              <Info className="w-5 h-5" />
-            </button>
+          {/* DESKTOP CONTROLS BAR (hidden sm:flex) - Spacious 3-Section Google Meet Dock */}
+          <div className="hidden sm:flex items-center justify-between w-full">
+            {/* Left: Meeting Details Shortcut */}
+            <div className="flex items-center gap-3 text-xs font-mono text-white/50 min-w-[200px]">
+              <span className="text-white font-bold">{roomCode}</span>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
+                title="Copy meeting code"
+              >
+                {hasCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+              {activeProject?.project_title && (
+                <span className="hidden lg:inline text-white/40 truncate max-w-[180px]">
+                  · {activeProject.project_title}
+                </span>
+              )}
+            </div>
+
+            {/* Center: Primary Call Controls */}
+            <div className="flex items-center justify-center gap-3">
+              {/* Microphone */}
+              <button
+                type="button"
+                onClick={toggleAudio}
+                className={`p-3 rounded-full transition-all cursor-pointer ${
+                  isMicOn
+                    ? "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
+                    : "bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-950/40 ring-1 ring-white/20 active:scale-90"
+                }`}
+                title={isMicOn ? "Turn off microphone (Ctrl + d)" : "Turn on microphone (Ctrl + d)"}
+              >
+                {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+              </button>
+
+              {/* Camera */}
+              <button
+                type="button"
+                onClick={toggleVideo}
+                className={`p-3 rounded-full transition-all cursor-pointer ${
+                  isVideoOn
+                    ? "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
+                    : "bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-950/40 ring-1 ring-white/20 active:scale-90"
+                }`}
+                title={isVideoOn ? "Turn off camera (Ctrl + e)" : "Turn on camera (Ctrl + e)"}
+              >
+                {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+              </button>
+
+              {/* Screen Share */}
+              <button
+                type="button"
+                onClick={handleToggleScreenShare}
+                className={`p-3 rounded-full transition-all cursor-pointer ${
+                  isScreenSharing
+                    ? "bg-amber-500 text-neutral-950 font-bold ring-2 ring-amber-400"
+                    : "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
+                }`}
+                title={isScreenSharing ? "Stop presenting" : "Present now (Share screen)"}
+              >
+                <Monitor className="w-5 h-5" />
+              </button>
+
+              {/* Reactions */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsReactionsOpen(!isReactionsOpen)}
+                  className={`p-3 rounded-full transition-all cursor-pointer ${
+                    isReactionsOpen
+                      ? "text-amber-400 bg-white/10"
+                      : "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
+                  }`}
+                  title="Send a reaction"
+                >
+                  <Smile className="w-5 h-5" />
+                </button>
+
+                {isReactionsOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setIsReactionsOpen(false)}
+                    />
+                    <div className="absolute bottom-16 left-1/2 -translate-x-1/2 p-2 rounded-full bg-neutral-900/95 border border-white/10 backdrop-blur-md shadow-2xl flex items-center gap-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
+                      {["💖", "👍", "🎉", "👏", "😂", "😮"].map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => triggerReaction(emoji)}
+                          className="p-2 rounded-full hover:bg-white/10 text-xl transition-transform hover:scale-125 cursor-pointer"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Raise Hand */}
+              <button
+                type="button"
+                onClick={toggleHandRaise}
+                className={`p-3 rounded-full transition-all cursor-pointer ${
+                  isHandRaised
+                    ? "text-amber-400 bg-amber-500/20 scale-110 ring-1 ring-amber-400/40"
+                    : "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
+                }`}
+                title={isHandRaised ? "Lower hand" : "Raise hand"}
+              >
+                <Hand className="w-5 h-5" />
+              </button>
+
+              {/* Float / Picture-in-Picture */}
+              <button
+                type="button"
+                onClick={() => setIsFloatingPiP(true)}
+                className="p-3 rounded-full text-white/90 hover:text-white hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
+                title="Float mini window (Picture-in-picture)"
+              >
+                <Minimize2 className="w-5 h-5" />
+              </button>
+
+              {/* End Call Button */}
+              <button
+                type="button"
+                onClick={handleLeaveCall}
+                className="px-6 py-3 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white transition-all cursor-pointer shadow-lg shadow-rose-950/40 flex items-center gap-2"
+                title="Leave call"
+              >
+                <PhoneOff className="w-5 h-5" />
+                <span className="text-xs font-bold font-sans uppercase tracking-wider">Leave</span>
+              </button>
+            </div>
+
+            {/* Right: Drawer Toggles */}
+            <div className="flex items-center justify-end gap-2 min-w-[200px]">
+              {/* Chat Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSidePanel(activeSidePanel === "chat" ? null : "chat");
+                  setUnreadCount(0);
+                }}
+                className={`relative p-3 rounded-full transition-colors cursor-pointer ${
+                  activeSidePanel === "chat"
+                    ? "text-amber-400 bg-white/10"
+                    : "text-white/80 hover:text-white hover:bg-white/10"
+                }`}
+                title="Chat with everyone"
+              >
+                <MessageSquare className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                )}
+              </button>
+
+              {/* People Button */}
+              <button
+                type="button"
+                onClick={() => setActiveSidePanel(activeSidePanel === "people" ? null : "people")}
+                className={`p-3 rounded-full transition-colors cursor-pointer ${
+                  activeSidePanel === "people"
+                    ? "text-amber-400 bg-white/10"
+                    : "text-white/80 hover:text-white hover:bg-white/10"
+                }`}
+                title="People"
+              >
+                <Users className="w-5 h-5" />
+              </button>
+
+              {/* Info Details Button */}
+              <button
+                type="button"
+                onClick={() => setActiveSidePanel(activeSidePanel === "info" ? null : "info")}
+                className={`p-3 rounded-full transition-colors cursor-pointer ${
+                  activeSidePanel === "info"
+                    ? "text-amber-400 bg-white/10"
+                    : "text-white/80 hover:text-white hover:bg-white/10"
+                }`}
+                title="Meeting details"
+              >
+                <Info className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
