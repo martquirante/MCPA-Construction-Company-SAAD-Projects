@@ -137,6 +137,8 @@ class WebRTCSignalingService {
         const msgPayload = {
           id: message.id || Date.now().toString(),
           sender: message.sender || socket.userData?.name || "Participant",
+          senderSocketId: message.senderSocketId || socket.id,
+          senderId: message.senderId || socket.userData?.id || null,
           role: message.role || socket.userData?.role || "Client",
           time: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
           text: message.text,

@@ -12,10 +12,24 @@ export const ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
   { urls: "stun:stun2.l.google.com:19302" },
-  { urls: "stun:stun3.l.google.com:19302" },
-  { urls: "stun:stun4.l.google.com:19302" },
   { urls: "stun:stun.cloudflare.com:3478" },
   { urls: "stun:global.stun.twilio.com:3478" },
+  { urls: "stun:relay.metered.ca:80" },
+  {
+    urls: "turn:relay.metered.ca:80",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  {
+    urls: "turn:relay.metered.ca:443",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  {
+    urls: "turn:relay.metered.ca:443?transport=tcp",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
 ];
 
 export class WebRTCPeerManager {
@@ -59,17 +73,22 @@ export class WebRTCPeerManager {
 
     this.peerConnection = new RTCPeerConnection({
       iceServers: ICE_SERVERS,
-      iceCandidatePoolSize: 10,
     });
 
-    // 1. Add local audio and video tracks if available
+    // 1. Ensure transceivers exist for both audio and video reception
+    try {
+      this.peerConnection.addTransceiver("audio", { direction: "sendrecv" });
+      this.peerConnection.addTransceiver("video", { direction: "sendrecv" });
+    } catch (e) {}
+
+    // 2. Add local audio and video tracks if available
     if (this.localStream) {
       this.attachLocalTracks(this.localStream);
     }
 
-    // 2. Handle incoming remote audio and video tracks
+    // 3. Handle incoming remote audio and video tracks
     this.peerConnection.ontrack = (event) => {
-      console.log(`[WEBRTC] Incoming remote ${event.track.kind} track received.`);
+      console.log(`[WEBRTC] Incoming remote ${event.track.kind} track received:`, event.track.id);
       
       if (event.streams && event.streams[0]) {
         event.streams[0].getTracks().forEach((track) => {
@@ -83,7 +102,9 @@ export class WebRTCPeerManager {
         }
       }
 
-      this.onRemoteStream(this.remoteStream);
+      // Fresh MediaStream instance guarantees React re-render detection
+      const freshStream = new MediaStream(this.remoteStream.getTracks());
+      this.onRemoteStream(freshStream);
     };
 
     // 3. Send locally discovered ICE candidates to remote peer via Socket.IO
@@ -97,7 +118,15 @@ export class WebRTCPeerManager {
       }
     };
 
-    // 4. Track connection lifecycle
+    // 4. Track renegotiation when tracks change dynamically
+    this.peerConnection.onnegotiationneeded = async () => {
+      if (this.remoteSocketId && this.peerConnection && this.peerConnection.signalingState === "stable") {
+        console.log("[WEBRTC] Negotiation needed, sending updated SDP offer...");
+        await this.createAndSendOffer(this.remoteSocketId);
+      }
+    };
+
+    // 5. Track connection lifecycle
     this.peerConnection.onconnectionstatechange = () => {
       if (!this.peerConnection) return;
       const state = this.peerConnection.connectionState;
@@ -120,17 +149,37 @@ export class WebRTCPeerManager {
   attachLocalTracks(stream) {
     if (!this.peerConnection || !stream) return;
     this.localStream = stream;
-    const senders = this.peerConnection.getSenders();
+
+    const transceivers = typeof this.peerConnection.getTransceivers === "function"
+      ? this.peerConnection.getTransceivers()
+      : [];
+    const senders = typeof this.peerConnection.getSenders === "function"
+      ? this.peerConnection.getSenders()
+      : [];
 
     stream.getTracks().forEach((track) => {
-      const existingSender = senders.find((s) => s.track && s.track.kind === track.kind);
-      if (existingSender) {
-        existingSender.replaceTrack(track).catch(() => {});
+      // Find transceiver matching this track kind
+      const transceiver = transceivers.find(
+        (t) => (t.receiver?.track?.kind === track.kind) || (t.sender?.track?.kind === track.kind)
+      );
+
+      if (transceiver && transceiver.sender) {
+        transceiver.direction = "sendrecv";
+        transceiver.sender.replaceTrack(track).then(() => {
+          console.log(`[WEBRTC] Attached ${track.kind} track to transceiver successfully.`);
+        }).catch((err) => {
+          console.warn(`[WEBRTC] replaceTrack failed for ${track.kind}:`, err);
+        });
       } else {
-        try {
-          this.peerConnection.addTrack(track, stream);
-        } catch (e) {
-          console.warn("[WEBRTC] Error adding track to peer connection:", e);
+        const sender = senders.find((s) => s.track && s.track.kind === track.kind);
+        if (sender) {
+          sender.replaceTrack(track).catch(() => {});
+        } else {
+          try {
+            this.peerConnection.addTrack(track, stream);
+          } catch (e) {
+            console.warn("[WEBRTC] Error adding track:", e);
+          }
         }
       }
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import {
@@ -94,7 +94,7 @@ export default function GoogleMeetRoom({
   const remotePeerAvatar =
     remotePeer?.avatarUrl || remotePeer?.avatar_url || null;
 
-  const hasRemotePeer = Boolean(remoteStream && isCallAnswered);
+  const hasRemotePeer = Boolean(remotePeer || (remoteStream && isCallAnswered));
 
   // AUTOMATIC FULLSCREEN BY DEFAULT & FLOATING PIP MODE
   const [isFullscreen, setIsFullscreen] = useState(true);
@@ -225,14 +225,16 @@ export default function GoogleMeetRoom({
         avatarUrl: userInfoRef.current.userAvatar,
       },
       onRemoteStream: (stream) => {
-        console.log("[WEBRTC] Remote media stream received:", stream.id);
+        console.log("[WEBRTC] Remote media stream received:", stream.id, stream.getTracks().map((t) => `${t.kind}:${t.enabled}`));
         setRemoteStream(stream);
         setIsCallAnswered(true);
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
+          remoteVideoRef.current.play().catch(() => {});
         }
         if (remoteAudioRef.current) {
           remoteAudioRef.current.srcObject = stream;
+          remoteAudioRef.current.play().catch(() => {});
         }
       },
       onConnectionStateChange: (state) => {
@@ -337,11 +339,25 @@ export default function GoogleMeetRoom({
     });
 
     socket.on("chat-message-received", (msg) => {
+      const u = userInfoRef.current;
+      const isMyMessage = Boolean(
+        (msg.senderSocketId && socket.id && msg.senderSocketId === socket.id) ||
+        (msg.senderId && u.currentUser?.id && String(msg.senderId) === String(u.currentUser.id)) ||
+        (msg.sender && u.displayName && msg.sender.toLowerCase().trim() === u.displayName.toLowerCase().trim())
+      );
+
+      const enhancedMsg = {
+        ...msg,
+        isMe: isMyMessage,
+      };
+
       setMessages((prev) => {
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
+        if (prev.some((m) => m.id === enhancedMsg.id)) {
+          return prev.map((m) => (m.id === enhancedMsg.id ? { ...m, isMe: isMyMessage } : m));
+        }
+        return [...prev, enhancedMsg];
       });
-      if (msg.sender !== userInfoRef.current.displayName) {
+      if (!isMyMessage) {
         setUnreadCount((c) => c + 1);
       }
       setTimeout(() => {
@@ -503,7 +519,7 @@ export default function GoogleMeetRoom({
     return () => clearInterval(interval);
   }, []);
 
-  // Initialize Camera & Mic
+  // Initialize Camera & Mic with robust hardware fallback
   useEffect(() => {
     let active = true;
     async function startMedia() {
@@ -516,28 +532,65 @@ export default function GoogleMeetRoom({
               : "Camera and microphone access is not supported in this browser."
           );
         }
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
+
+        let stream = null;
+        try {
+          // Attempt Video + Audio
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "user",
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+        } catch (videoError) {
+          console.warn("[WEBRTC] Video camera capture failed or unavailable, trying audio-only:", videoError);
+          try {
+            // Fallback to Audio-Only
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: false,
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+            });
+            setIsVideoOn(false);
+          } catch (audioError) {
+            console.error("[WEBRTC] Microphone capture failed as well:", audioError);
+            setIsVideoOn(false);
+            setIsMicOn(false);
+          }
+        }
+
         if (!active) {
-          stream.getTracks().forEach((track) => track.stop());
+          if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+          }
           return;
         }
-        localStreamRef.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-        if (peerManagerRef.current) {
-          peerManagerRef.current.attachLocalTracks(stream);
-          const targetPeerId = remotePeerRef.current?.socketId;
-          if (
-            targetPeerId &&
-            !peerManagerRef.current.isInitiator &&
-            !peerManagerRef.current.peerConnection?.remoteDescription
-          ) {
-            console.log("[WEBRTC] Media ready, sending offer to remote peer:", targetPeerId);
-            peerManagerRef.current.createAndSendOffer(targetPeerId);
+
+        if (stream) {
+          localStreamRef.current = stream;
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+          }
+          if (peerManagerRef.current) {
+            peerManagerRef.current.attachLocalTracks(stream);
+            const targetPeerId = remotePeerRef.current?.socketId;
+            if (
+              targetPeerId &&
+              !peerManagerRef.current.isInitiator &&
+              !peerManagerRef.current.peerConnection?.remoteDescription
+            ) {
+              console.log("[WEBRTC] Media ready, sending offer to remote peer:", targetPeerId);
+              peerManagerRef.current.createAndSendOffer(targetPeerId);
+            }
           }
         }
       } catch (err) {
@@ -558,26 +611,56 @@ export default function GoogleMeetRoom({
     };
   }, []);
 
-  // Ensure local video element gets local stream assigned when view switches
-  useEffect(() => {
-    if (localStreamRef.current && localVideoRef.current) {
-      if (localVideoRef.current.srcObject !== localStreamRef.current) {
-        localVideoRef.current.srcObject = localStreamRef.current;
+  // Callback ref for reliable local video stream binding across layout switches
+  const setLocalVideoRef = useCallback((element) => {
+    localVideoRef.current = element;
+    if (element && localStreamRef.current) {
+      if (element.srcObject !== localStreamRef.current) {
+        element.srcObject = localStreamRef.current;
       }
+      element.play().catch(() => {});
     }
-  }, [isVideoOn, isCallAnswered, remoteStream]);
+  }, []);
 
-  // Ensure remote video and audio elements get remote stream assigned
+  // Callback ref for reliable remote video stream binding across layout switches
+  const setRemoteVideoRef = useCallback((element) => {
+    remoteVideoRef.current = element;
+    if (element && remoteStream) {
+      if (element.srcObject !== remoteStream) {
+        element.srcObject = remoteStream;
+      }
+      element.play().catch(() => {});
+    }
+  }, [remoteStream]);
+
+  // Ensure remote audio and video play reliably
   useEffect(() => {
     if (remoteStream) {
       if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStream) {
         remoteVideoRef.current.srcObject = remoteStream;
+        remoteVideoRef.current.play().catch(() => {});
       }
       if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStream) {
         remoteAudioRef.current.srcObject = remoteStream;
+        remoteAudioRef.current.play().catch(() => {});
       }
     }
   }, [remoteStream, remoteMediaState.isVideoOn, remoteMediaState.isScreenSharing, isCallAnswered]);
+
+  // Audio gesture unblocker (Chrome/Safari autoplay policy)
+  useEffect(() => {
+    const unblockAudio = () => {
+      if (remoteAudioRef.current && remoteStream && remoteAudioRef.current.paused) {
+        remoteAudioRef.current.play().catch(() => {});
+      }
+    };
+    window.addEventListener("click", unblockAudio);
+    window.addEventListener("touchstart", unblockAudio);
+    return () => {
+      window.removeEventListener("click", unblockAudio);
+      window.removeEventListener("touchstart", unblockAudio);
+    };
+  }, [remoteStream]);
 
   // Toggle Video Track
   const toggleVideo = () => {
@@ -775,12 +858,15 @@ export default function GoogleMeetRoom({
     if (!chatInput.trim()) return;
 
     const newMsg = {
-      id: Date.now().toString(),
+      id: Date.now().toString() + "-" + Math.random().toString(36).slice(2, 7),
       sender: displayName,
+      senderSocketId: socketRef.current?.id,
+      senderId: currentUser?.id || null,
       role: isUserAdmin ? "Lead Engineer (Host)" : "Client / Owner",
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      time: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
       text: chatInput.trim(),
       isHost: isUserAdmin,
+      isMe: true,
     };
 
     if (socketRef.current?.connected) {
@@ -930,16 +1016,13 @@ export default function GoogleMeetRoom({
             </div>
           )}
 
-          {/* Dedicated Remote Audio Player (ALWAYS active to output peer audio through speaker) */}
-          <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-
           {/* ACTIVE MEDIA RENDERING */}
           {hasRemotePeer ? (
             /* DUAL CALL MODE: REMOTE PARTICIPANT ON MAIN STAGE */
             remoteMediaState.isScreenSharing ? (
               <div className="relative w-full h-full flex flex-col items-center justify-center bg-black">
                 <video
-                  ref={remoteVideoRef}
+                  ref={setRemoteVideoRef}
                   autoPlay
                   playsInline
                   className="w-full h-full object-contain"
@@ -962,10 +1045,10 @@ export default function GoogleMeetRoom({
                   <span>You are presenting your screen</span>
                 </div>
               </div>
-            ) : remoteMediaState.isVideoOn !== false ? (
+            ) : (remoteStream && remoteMediaState.isVideoOn !== false && remoteStream.getVideoTracks().length > 0) ? (
               <div className="relative w-full h-full flex items-center justify-center bg-black">
                 <video
-                  ref={remoteVideoRef}
+                  ref={setRemoteVideoRef}
                   autoPlay
                   playsInline
                   className="w-full h-full object-cover"
@@ -973,7 +1056,7 @@ export default function GoogleMeetRoom({
               </div>
             ) : (
               /* REMOTE AVATAR FALLBACK */
-              <div className="relative w-full h-full flex flex-col items-center justify-center space-y-4 bg-gradient-to-b from-neutral-900 to-neutral-950 transition-colors">
+              <div className="relative w-full h-full flex flex-col items-center justify-center space-y-4 bg-gradient-to-b from-[#14151a] to-[#0d0e12] transition-colors p-4">
                 <div className={`relative flex items-center justify-center ${remoteMediaState.isMicOn !== false ? "animate-pulse" : ""}`}>
                   <div className="absolute w-36 h-36 rounded-full bg-amber-500/10 blur-xl" />
                   <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden bg-neutral-800 border-2 border-neutral-700 shadow-xl flex items-center justify-center ring-4 ring-white/5 transition-all">
@@ -987,9 +1070,11 @@ export default function GoogleMeetRoom({
                     )}
                   </div>
                 </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-white/90">{remotePeerName}</p>
-                  <p className="text-xs font-mono text-white/50">Camera turned off</p>
+                <div className="text-center space-y-1">
+                  <p className="text-sm sm:text-base font-bold text-white/90">{remotePeerName}</p>
+                  <p className="text-xs font-mono text-amber-400/90">
+                    {remoteMediaState.isVideoOn === false ? "Camera turned off (Audio active)" : "Connected via encrypted P2P audio & video"}
+                  </p>
                 </div>
               </div>
             )
@@ -1008,10 +1093,10 @@ export default function GoogleMeetRoom({
                   <span>You are presenting your screen</span>
                 </div>
               </div>
-            ) : isVideoOn ? (
+            ) : isVideoOn && localStreamRef.current?.getVideoTracks()?.length > 0 ? (
               <div className="relative w-full h-full flex items-center justify-center bg-black">
                 <video
-                  ref={localVideoRef}
+                  ref={setLocalVideoRef}
                   autoPlay
                   playsInline
                   muted
@@ -1072,11 +1157,11 @@ export default function GoogleMeetRoom({
 
           {/* Floating Picture-in-Picture Tile (ONLY IN-CALL FOR LOCAL SELF-VIEW) */}
           {!isFloatingPiP && hasRemotePeer && (
-            <div className="absolute bottom-20 sm:bottom-4 right-3 sm:right-4 z-10 w-24 h-32 sm:w-56 sm:h-36 rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-neutral-900 transition-all">
+            <div className="absolute bottom-20 sm:bottom-4 right-3 sm:right-4 z-20 w-28 h-40 sm:w-56 sm:h-36 rounded-2xl overflow-hidden shadow-2xl border-2 border-amber-500/30 bg-neutral-900 transition-all">
               <div className="relative w-full h-full flex items-center justify-center">
-                {isVideoOn ? (
+                {isVideoOn && localStreamRef.current?.getVideoTracks()?.length > 0 ? (
                   <video
-                    ref={localVideoRef}
+                    ref={setLocalVideoRef}
                     autoPlay
                     playsInline
                     muted
@@ -1084,14 +1169,16 @@ export default function GoogleMeetRoom({
                   />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-800 text-neutral-300">
-                    <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-xs">
+                    <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-xs">
                       {displayName.charAt(0).toUpperCase()}
                     </div>
                   </div>
                 )}
                 {/* Self name overlay */}
-                <div className="absolute bottom-1 left-1.5 text-[9px] font-mono text-white/80 drop-shadow-xs">
-                  You {!isMicOn && <span className="text-rose-400">🔇</span>}
+                <div className="absolute bottom-1.5 left-2 text-[10px] font-mono text-white/90 drop-shadow-md flex items-center gap-1">
+                  <span>You</span>
+                  {!isMicOn && <span className="text-rose-400">🔇</span>}
+                  {isHandRaised && <span>✋</span>}
                 </div>
               </div>
             </div>
@@ -1140,28 +1227,42 @@ export default function GoogleMeetRoom({
                   ref={chatScrollRef}
                   className="flex-1 p-4 overflow-y-auto space-y-3.5 min-h-0 text-xs"
                 >
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex flex-col space-y-1 ${
-                        msg.isMe ? "items-end" : "items-start"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
-                        <span className="font-bold text-neutral-700 dark:text-neutral-300">{msg.sender}</span>
-                        <span>{msg.time}</span>
-                      </div>
+                  {messages.map((msg) => {
+                    const isMe = Boolean(
+                      msg.isMe ||
+                      (msg.senderSocketId && socketRef.current?.id && msg.senderSocketId === socketRef.current.id) ||
+                      (msg.senderId && currentUser?.id && String(msg.senderId) === String(currentUser.id)) ||
+                      (msg.sender && displayName && msg.sender.toLowerCase().trim() === displayName.toLowerCase().trim())
+                    );
+
+                    return (
                       <div
-                        className={`p-3 rounded-[12px] max-w-[85%] font-sans text-xs break-words leading-relaxed ${
-                          msg.isMe
-                            ? "bg-amber-500 text-neutral-950 font-medium rounded-tr-none shadow-xs"
-                            : "bg-neutral-100 dark:bg-white/[0.08] text-neutral-900 dark:text-neutral-100 rounded-tl-none border border-neutral-200 dark:border-white/5"
+                        key={msg.id}
+                        className={`flex flex-col space-y-1 ${
+                          isMe ? "items-end" : "items-start"
                         }`}
                       >
-                        {msg.text}
+                        <div
+                          className={`flex items-center gap-1.5 text-[10px] font-mono ${
+                            isMe ? "justify-end text-amber-400" : "justify-start text-neutral-400"
+                          }`}
+                        >
+                          <span className="font-bold">{isMe ? "You" : msg.sender}</span>
+                          <span className="text-white/40">·</span>
+                          <span className="text-white/50">{msg.time}</span>
+                        </div>
+                        <div
+                          className={`px-3.5 py-2.5 rounded-2xl max-w-[85%] font-sans text-xs break-words leading-relaxed shadow-sm ${
+                            isMe
+                              ? "bg-amber-500 text-neutral-950 font-semibold rounded-tr-xs shadow-amber-500/20"
+                              : "bg-neutral-800 text-neutral-100 rounded-tl-xs border border-white/10"
+                          }`}
+                        >
+                          {msg.text}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Message Input */}
