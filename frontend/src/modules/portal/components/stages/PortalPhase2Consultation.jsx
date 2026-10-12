@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
+  CalendarCheck,
   Video,
   Mic,
   MicOff,
@@ -22,10 +23,13 @@ import {
   Sparkles,
   FolderKanban,
   ArrowRight,
-  User,
+  X,
+  XCircle,
+  Zap,
 } from "lucide-react";
 import LordIcon from "@/modules/shared/LordIcon";
 import { authFetch } from "@/modules/shared/authFetch";
+import PortalMeetingHub from "../PortalMeetingHub";
 
 export default function PortalPhase2Consultation({
   activeProject,
@@ -59,6 +63,12 @@ export default function PortalPhase2Consultation({
 
   // 4. Quotation Request state
   const [quotationRequested, setQuotationRequested] = useState(false);
+
+  // 5. Client Withdrawal / Discontinue state
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [withdrawReason, setWithdrawReason] = useState("Budget / Financial Alignment Mismatch");
+  const [withdrawNotes, setWithdrawNotes] = useState("");
+  const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
 
   // Fetch meeting room & messages & documents from DB
   const loadConsultationData = async () => {
@@ -246,27 +256,121 @@ export default function PortalPhase2Consultation({
     }
   };
 
+  const handleConfirmWithdraw = async (e) => {
+    e.preventDefault();
+    setIsSubmittingWithdraw(true);
+
+    try {
+      const payload = {
+        outcome: "DISCONTINUED_REJECTED",
+        status: "Withdrawn by Client",
+        isRejected: true,
+        rejectionReason: withdrawReason,
+        rejectionNotes: withdrawNotes,
+        updatedAt: new Date().toISOString(),
+        updatedBy: "client",
+        clientEmail: currentUser?.email || activeProject?.client_email || "martquirante@gmail.com",
+      };
+
+      // 1. Shared localStorage update
+      localStorage.setItem("mcpa_shared_meeting_schedule", JSON.stringify(payload));
+
+      // 2. Client briefs & dashboard state update in localStorage
+      try {
+        const storedBriefs = JSON.parse(localStorage.getItem("mcpa_client_briefs") || "[]");
+        const updatedBriefs = storedBriefs.map((b) => {
+          const isMatch =
+            (b.clientEmail && currentUser?.email && b.clientEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+            b.id === projectId ||
+            b.trackingId === activeProject?.project_code;
+          if (isMatch) {
+            return {
+              ...b,
+              status: "Rejected / Declined",
+              is_rejected: true,
+              rejection_reason: withdrawReason,
+              rejection_notes: withdrawNotes,
+            };
+          }
+          return b;
+        });
+        localStorage.setItem("mcpa_client_briefs", JSON.stringify(updatedBriefs));
+
+        // Set dashboard state to Phase 1 PRE_INQUIRY
+        localStorage.setItem(
+          "mcpa_client_dashboard_state",
+          JSON.stringify({
+            success: true,
+            hasActiveProject: false,
+            hasRejectedInquiry: true,
+            stage_id: "PRE_INQUIRY",
+            stageLevel: 1,
+            stageName: "Pre-Inquiry",
+            rejectedBrief: {
+              status: "Withdrawn by Client",
+              rejectionReason: withdrawReason,
+              rejectionNotes: withdrawNotes,
+              projectType: activeProject?.project_title || "Residential Construction",
+            },
+          })
+        );
+      } catch (e) {}
+
+      // 3. Dispatch live event
+      window.dispatchEvent(new CustomEvent("mcpa-meeting-updated", { detail: payload }));
+
+      // 4. Backend sync call
+      const targetId = activeProject?.brief_id || activeProject?.brief_submission_id || projectId || "1";
+      await fetch(`/api/portal/consultation/${encodeURIComponent(targetId)}/withdraw`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: withdrawReason,
+          notes: withdrawNotes,
+        }),
+      }).catch(() => {});
+
+      showToast("Consultation withdrawn. Your project stage has been reset to Phase 1.");
+      setIsWithdrawModalOpen(false);
+
+      if (onRefreshState) {
+        onRefreshState();
+      }
+    } catch (err) {
+      showToast("Withdraw notice: " + err.message);
+    } finally {
+      setIsSubmittingWithdraw(false);
+    }
+  };
+
   const primaryInquiry = inquiries?.[0];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      {/* 1. STAGE PROGRESS & LIVE STATUS TIMELINE (SHOWN IN OVERVIEW & MEETING) */}
-      {mode !== "documents" && (
-        <div className="p-6 rounded-[8px] border border-amber-500/20 bg-linear-to-b from-neutral-900 via-neutral-900/90 to-neutral-950 text-white shadow-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
+      {/* 1. STAGE PROGRESS & LIVE STATUS TIMELINE (SHOWN ONLY IN OVERVIEW MODE) */}
+      {mode === "overview" && (
+        <div className="p-6 rounded-[8px] border border-neutral-200 dark:border-amber-500/20 bg-white dark:bg-linear-to-b dark:from-neutral-900 dark:via-neutral-900/90 dark:to-neutral-950 text-neutral-900 dark:text-white shadow-sm dark:shadow-xl transition-colors">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-neutral-200 dark:border-white/10">
             <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-[3px] bg-amber-500/20 text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider mb-1">
-                Phase 2 Active · Consultation &amp; Estimation
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-tight text-neutral-900 dark:text-white">
                 {activeProject?.project_title || "Residential Build Inquiry"}
               </h1>
-              <p className="text-xs text-neutral-400 font-sans mt-0.5">
-                Project Code: <span className="font-mono text-amber-400 font-bold">{activeProject?.project_code}</span>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+                Project Code: <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">{activeProject?.project_code}</span>
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsWithdrawModalOpen(true)}
+                className="px-3.5 py-2 rounded-[4px] font-mono text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 transition-all cursor-pointer flex items-center gap-2"
+                title="Cancel or discontinue this consultation"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Withdraw Consultation</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -276,7 +380,7 @@ export default function PortalPhase2Consultation({
                 disabled={quotationRequested}
                 className={`px-4 py-2 rounded-[4px] font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
                   quotationRequested
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
                     : "bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-md"
                 }`}
               >
@@ -289,21 +393,20 @@ export default function PortalPhase2Consultation({
           {/* Linear Stepper Timeline */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { step: "1", title: "Inquiry Submitted", status: "Completed", date: "Verified" },
-              { step: "2", title: "Document & Lot Review", status: documents.length > 0 ? "Under Review" : "Action Needed", date: "TCT / Valid IDs" },
-              { step: "3", title: "Video Consultation", status: isInCall ? "In Session" : "Room Ready", date: meetingRoom?.room_code || "Scheduled" },
-              { step: "4", title: "Formal Quotation", status: quotationRequested ? "In Preparation" : "Pending Meeting", date: "Cost Index" },
+              { title: "Inquiry Submitted", status: "Completed", date: "Verified" },
+              { title: "Document & Lot Review", status: documents.length > 0 ? "Under Review" : "Action Needed", date: "TCT / Valid IDs" },
+              { title: "Video Consultation", status: isInCall ? "In Session" : "Room Ready", date: meetingRoom?.room_code || "Scheduled" },
+              { title: "Formal Quotation", status: quotationRequested ? "In Preparation" : "Pending Meeting", date: "Cost Index" },
             ].map((item, idx) => (
               <div
                 key={idx}
-                className="p-3 rounded-[6px] bg-white/[0.03] border border-white/5 space-y-1 font-mono"
+                className="p-3 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-1 font-mono transition-colors"
               >
-                <div className="flex items-center justify-between text-[11px] text-amber-500 font-bold">
-                  <span>STEP 0{item.step}</span>
-                  <span className="text-[10px] text-neutral-400">{item.status}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500">{item.status}</span>
                 </div>
-                <div className="text-xs font-bold text-white truncate">{item.title}</div>
-                <div className="text-[10px] text-neutral-400 font-sans">{item.date}</div>
+                <div className="text-xs font-bold text-neutral-900 dark:text-white truncate">{item.title}</div>
+                <div className="text-[10px] text-neutral-500 dark:text-neutral-400 font-sans">{item.date}</div>
               </div>
             ))}
           </div>
@@ -323,34 +426,33 @@ export default function PortalPhase2Consultation({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Card 1: Video Consultation Tab Summary */}
+            {/* Card 1: Meeting Hub Tab Summary */}
             <div
               onClick={() => onSelectTab && onSelectTab("meeting")}
               className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
             >
               <div className="flex items-start justify-between">
-                <div className="text-sky-500">
-                  <Video className="w-6 h-6" />
+                <div className="text-amber-500">
+                  <CalendarCheck className="w-6 h-6" />
                 </div>
-                <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-bold uppercase ${
-                  isInCall ? "bg-emerald-500/15 text-emerald-400 animate-pulse" : "bg-sky-500/15 text-sky-400"
-                }`}>
-                  {isInCall ? "Live Session" : "Room Ready"}
+                <span className="text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Zap className="w-3 h-3 fill-current" />
+                  <span>Instant &amp; Scheduled</span>
                 </span>
               </div>
 
               <div className="space-y-1">
-                <div className="text-xs font-mono font-bold uppercase text-neutral-500">Video Consultation</div>
+                <div className="text-xs font-mono font-bold uppercase text-neutral-500">Appointments</div>
                 <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
-                  Peer-to-Peer Conference
+                  Meeting Schedule &amp; Instant Video
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                  Room: {meetingRoom?.room_code || "mcpa-consultation-room"} · Connect directly with lead architects.
+                  Request an on-demand instant consultation, join virtual Google Meet sessions, or coordinate face-to-face visits.
                 </p>
               </div>
 
               <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
-                <span>Join Video Room</span>
+                <span>Open Consultation Hub</span>
                 <ArrowRight className="w-4 h-4" />
               </div>
             </div>
@@ -420,196 +522,15 @@ export default function PortalPhase2Consultation({
         </div>
       )}
 
-      {/* 3. WEBRTC VIDEO CONFERENCING & LIVE CHAT SPLIT (SHOWN IN OVERVIEW & MEETING MODES) */}
-      {(mode === "overview" || mode === "meeting") && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: In-App WebRTC Video Conference Room */}
-        <div className="lg:col-span-7 flex flex-col rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-md overflow-hidden">
-          <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-neutral-950">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 flex items-center justify-center text-amber-500">
-                <Video className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-xs font-bold font-mono uppercase text-neutral-900 dark:text-white tracking-tight">
-                  In-App Consultation Conference
-                </h2>
-                <span className="text-[10px] text-neutral-500 font-mono">
-                  Room Code: {meetingRoom?.room_code || "mcpa-consultation-room"}
-                </span>
-              </div>
-            </div>
-
-            <span className={`px-2.5 py-1 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider ${
-              isInCall ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 animate-pulse" : "bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400"
-            }`}>
-              {isInCall ? "● LIVE MEETING" : "READY TO CONNECT"}
-            </span>
-          </div>
-
-          {/* Video Screen Canvas */}
-          <div className="relative h-80 sm:h-96 w-full bg-neutral-950 flex flex-col items-center justify-center overflow-hidden">
-            {isInCall ? (
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="text-center p-6 space-y-3">
-                <LordIcon
-                  src="https://cdn.lordicon.com/msoeawqm.json"
-                  size={64}
-                  trigger="loop"
-                  colors="primary:#f59e0b,secondary:#64748b"
-                />
-                <div className="text-sm font-mono font-bold text-white uppercase">
-                  MCPA Virtual Consultation Portal
-                </div>
-                <p className="text-xs text-neutral-400 max-w-sm font-sans">
-                  Direct peer-to-peer engineering consultation with MCPA Architects & Lead Project Managers.
-                </p>
-                <button
-                  type="button"
-                  onClick={startCall}
-                  className="px-6 py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer shadow-lg transition-transform hover:scale-105"
-                >
-                  Join Video Consultation
-                </button>
-              </div>
-            )}
-
-            {/* Video Controls Overlay */}
-            {isInCall && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-neutral-950/80 backdrop-blur-md border border-white/10 flex items-center gap-3 z-20">
-                <button
-                  type="button"
-                  onClick={toggleMic}
-                  className={`p-2.5 rounded-full cursor-pointer transition-colors ${
-                    isMicMuted ? "bg-rose-500 text-white" : "bg-white/10 hover:bg-white/20 text-white"
-                  }`}
-                  title={isMicMuted ? "Unmute Mic" : "Mute Mic"}
-                >
-                  {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={toggleVideo}
-                  className={`p-2.5 rounded-full cursor-pointer transition-colors ${
-                    isVideoMuted ? "bg-rose-500 text-white" : "bg-white/10 hover:bg-white/20 text-white"
-                  }`}
-                  title={isVideoMuted ? "Turn Video On" : "Turn Video Off"}
-                >
-                  {isVideoMuted ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsScreenSharing(!isScreenSharing)}
-                  className={`p-2.5 rounded-full cursor-pointer transition-colors ${
-                    isScreenSharing ? "bg-amber-500 text-neutral-950" : "bg-white/10 hover:bg-white/20 text-white"
-                  }`}
-                  title="Share Screen"
-                >
-                  <Monitor className="w-4 h-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={endCall}
-                  className="p-2.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white cursor-pointer transition-colors"
-                  title="Leave Call"
-                >
-                  <PhoneOff className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: In-App Live Chat Beside Meeting */}
-        <div className="lg:col-span-5 flex flex-col h-[460px] rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-md overflow-hidden">
-          <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-neutral-950">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-amber-500" />
-              <h3 className="text-xs font-mono font-bold uppercase text-neutral-900 dark:text-white">
-                Consultation Thread
-              </h3>
-            </div>
-            <span className="text-[10px] font-mono text-neutral-400">
-              {messages.length} notes logged
-            </span>
-          </div>
-
-          {/* Messages Feed */}
-          <div
-            ref={chatScrollRef}
-            className="flex-1 p-4 overflow-y-auto space-y-3 bg-neutral-50/50 dark:bg-neutral-900/50"
-          >
-            {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-neutral-400 space-y-2">
-                <MessageSquare className="w-8 h-8 stroke-[1.5] text-neutral-300 dark:text-neutral-700" />
-                <p className="text-xs font-mono">No consultation notes yet.</p>
-                <span className="text-[10px] text-neutral-500 font-sans">
-                  Type questions or lot requirements below.
-                </span>
-              </div>
-            ) : (
-              messages.map((msg) => {
-                const isMe = msg.sender_user_id === currentUser?.userId || msg.sender_user_id === currentUser?.user_id;
-                return (
-                  <div
-                    key={msg.message_id}
-                    className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
-                  >
-                    <div className="flex items-center gap-1.5 mb-1 text-[10px] font-mono text-neutral-400">
-                      <span className="font-bold text-neutral-600 dark:text-neutral-300">
-                        {msg.sender_name || (isMe ? "You" : "MCPA Engineer")}
-                      </span>
-                      <span>·</span>
-                      <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                    </div>
-
-                    <div
-                      className={`p-3 rounded-[6px] text-xs max-w-[85%] font-sans leading-relaxed ${
-                        isMe
-                          ? "bg-amber-500 text-neutral-950 font-medium"
-                          : "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 shadow-xs"
-                      }`}
-                    >
-                      {msg.message_text}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Chat Input Bar */}
-          <form
-            onSubmit={handleSendMessage}
-            className="p-3 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 flex gap-2"
-          >
-            <input
-              type="text"
-              placeholder="Send message to MCPA team..."
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-[4px] bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 font-sans"
-            />
-            <button
-              type="submit"
-              disabled={isSendingMsg || !chatInput.trim()}
-              className="px-3.5 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 cursor-pointer transition-colors"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
-      </div>
+      {/* 3. MEETING HUB & APPOINTMENT SCHEDULE (SHOWN IN MEETING MODE) */}
+      {mode === "meeting" && (
+        <PortalMeetingHub
+          activeProject={activeProject}
+          currentUser={currentUser}
+          meetingRoom={meetingRoom}
+          inquiries={inquiries}
+          showToast={showToast}
+        />
       )}
 
       {/* 3. DOCUMENT VAULT (TCT, TAX DEC, VALID IDS) (SHOWN IN OVERVIEW & DOCUMENTS MODES) */}
@@ -725,6 +646,91 @@ export default function PortalPhase2Consultation({
           </div>
         )}
       </div>
+      )}
+
+      {/* CLIENT WITHDRAW / DISCONTINUE CONSULTATION MODAL */}
+      {isWithdrawModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-lg max-h-[88vh] flex flex-col rounded-[12px] bg-white dark:bg-[#14161f] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-neutral-200 dark:border-white/10 shrink-0">
+              <div>
+                <h3 className="text-sm font-mono font-bold uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-rose-500" />
+                  <span>Withdraw / Discontinue Consultation</span>
+                </h3>
+                <p className="text-xs text-neutral-500 font-sans mt-0.5">
+                  Project: <strong className="text-neutral-800 dark:text-neutral-200">{activeProject?.project_title || "Residential Inquiry"}</strong> ({activeProject?.project_code})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWithdrawModalOpen(false)}
+                className="p-1 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmWithdraw} className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
+              <div className="p-3.5 rounded-[8px] bg-rose-500/10 border border-rose-500/20 space-y-1.5">
+                <span className="text-[11px] font-mono font-bold uppercase text-rose-600 dark:text-rose-400">
+                  Notice Regarding Consultation Withdrawal
+                </span>
+                <p className="text-xs text-neutral-700 dark:text-neutral-300 font-sans leading-relaxed">
+                  Withdrawing will close your current consultation and return your portal to <strong>Phase 1 (Pre-Inquiry)</strong>. If your circumstances change or you wish to resume later, you can submit a new inquiry anytime.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold">
+                  Primary Reason for Withdrawal *
+                </label>
+                <select
+                  value={withdrawReason}
+                  onChange={(e) => setWithdrawReason(e.target.value)}
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-rose-500"
+                >
+                  <option value="Budget / Financial Alignment Mismatch">Budget / Financial Alignment Mismatch</option>
+                  <option value="Decided Not to Proceed / Umayaw">Decided Not to Proceed at this Time</option>
+                  <option value="Disagreement on Scope & Specifications">Scope &amp; Specifications Did Not Align</option>
+                  <option value="Project Deferred / Indefinitely Postponed">Project Postponed to a Future Date</option>
+                  <option value="Hired Another Contractor">Chosen Another Contractor / Firm</option>
+                  <option value="Personal / Family Decision">Personal / Family Circumstances</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold">
+                  Optional Notes or Feedback for MCPA Engineering
+                </label>
+                <textarea
+                  rows={3}
+                  value={withdrawNotes}
+                  onChange={(e) => setWithdrawNotes(e.target.value)}
+                  placeholder="Share any comments or reasons for our team's continuous improvement..."
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-sans text-neutral-900 dark:text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="sticky bottom-0 bg-white/95 dark:bg-[#14161f]/95 backdrop-blur-sm -mx-5 -mb-5 px-5 py-3 border-t border-neutral-200 dark:border-white/10 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsWithdrawModalOpen(false)}
+                  className="px-4 py-2 rounded-[4px] text-xs font-mono font-bold uppercase text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  Keep Consultation Active
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingWithdraw}
+                  className="px-5 py-2 rounded-[4px] bg-rose-500 hover:bg-rose-400 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  {isSubmittingWithdraw ? "Processing..." : "Confirm & Revert to Phase 1"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

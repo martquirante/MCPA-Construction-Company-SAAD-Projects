@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   Compass,
@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  AlertCircle,
   Home,
   BadgePercent,
   FileSignature,
@@ -29,6 +30,7 @@ import { deduplicateProjects } from "@/modules/shared/projectsHelper";
 
 export default function PortalPhase1PreInquiry({
   currentUser,
+  dashboardState,
   onStartInquiry,
   onRequestMultiProject,
   isMultiProjectBlocked = false,
@@ -40,6 +42,25 @@ export default function PortalPhase1PreInquiry({
   const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(true);
   const [selectedProjectForModal, setSelectedProjectForModal] = useState(null);
   const [activeCategory, setActiveCategory] = useState("All");
+
+  const rejectedInfo = useMemo(() => {
+    if (dashboardState?.hasRejectedInquiry && dashboardState?.rejectedBrief) {
+      return dashboardState.rejectedBrief;
+    }
+    const rejectedInq = (inquiries || []).find((inq) => {
+      const s = (inq.status || "").toLowerCase();
+      return inq.is_rejected || s.includes("reject") || s.includes("decline") || s.includes("discontinue") || s.includes("withdrawn");
+    });
+    if (rejectedInq) {
+      return {
+        projectType: rejectedInq.project_type || rejectedInq.projectType || "Residential Construction",
+        rejectionReason: rejectedInq.rejection_reason || rejectedInq.rejectionReason || "Consultation concluded without proceeding",
+        rejectionNotes: rejectedInq.rejection_notes || rejectedInq.rejectionNotes || null,
+        status: rejectedInq.status,
+      };
+    }
+    return null;
+  }, [dashboardState, inquiries]);
 
   // Fetch real portfolio from DB (No dummy data!)
   useEffect(() => {
@@ -659,6 +680,48 @@ export default function PortalPhase1PreInquiry({
   // ---------------------------------------------------------------------------
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
+      {/* 0. DISCONTINUED / REJECTED CONSULTATION NOTICE BANNER */}
+      {rejectedInfo && (
+        <div className="p-5 sm:p-6 rounded-[16px] bg-rose-500/[0.08] dark:bg-rose-500/[0.12] border border-rose-500/30 space-y-3 animate-in fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-[10px] bg-rose-500/15 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="text-xs font-mono font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                  <span>Previous Consultation Concluded</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-700 dark:text-rose-300 font-mono">
+                    Phase 1 (Pre-Inquiry) Active
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 font-sans leading-relaxed">
+                  Your previous consultation for <strong>{rejectedInfo.projectType || "Residential Construction"}</strong> was closed.
+                  {rejectedInfo.rejectionReason && (
+                    <span className="block text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+                      Reason: <strong className="text-neutral-900 dark:text-white">{rejectedInfo.rejectionReason}</strong>
+                      {rejectedInfo.rejectionNotes ? ` — ${rejectedInfo.rejectionNotes}` : ""}
+                    </span>
+                  )}
+                </p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans">
+                  You are always welcome to start a new project consultation whenever your timeline or requirements are ready.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onStartInquiry}
+              className="px-5 py-2.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+            >
+              <Compass className="w-4 h-4" />
+              <span>Submit New Inquiry</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. HERO ONBOARDING SECTION */}
       <div className="relative overflow-hidden rounded-[20px] sm:rounded-[24px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-6 sm:p-10 shadow-xs dark:shadow-none space-y-6 transition-colors">
         {/* Subtle decorative architectural glow */}
@@ -688,11 +751,6 @@ export default function PortalPhase1PreInquiry({
 
         {/* Heading & Welcome Copy */}
         <div className="relative z-10 max-w-3xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[4px] bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Stage 1 Onboarding · Pre-Inquiry Executive Hub</span>
-          </div>
-
           <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white font-mono uppercase leading-tight">
             Ready to Build Your Architectural Vision?
           </h1>

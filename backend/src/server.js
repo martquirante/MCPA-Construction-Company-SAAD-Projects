@@ -22,6 +22,7 @@ const { rateLimit } = require("express-rate-limit");
 const { requireAuth, requireRole, optionalAuth } = require("./middleware/auth");
 const http = require("http");
 const realtimeService = require("./services/realtimeService");
+const webrtcSignalingService = require("./services/webrtcSignalingService");
 
 const app = express();
 const server = http.createServer(app);
@@ -29,6 +30,9 @@ const PORT = process.env.PORT || 5000;
 
 // Initialize native WebSocket server on the HTTP server instance (/ws/accounts)
 realtimeService.initWebSocket(server);
+
+// Initialize Socket.IO WebRTC signaling engine for video calls
+webrtcSignalingService.init(server);
 
 // Trust reverse proxies (Azure App Service / Vercel Edge / Cloudflare)
 app.set("trust proxy", 1);
@@ -233,6 +237,11 @@ app.post("/api/briefs/:id/reject", (req, res) => briefsController.reject(req, re
 app.post("/api/briefs/:id/archive", (req, res) => briefsController.archive(req, res));
 app.post("/api/briefs/:id/provision", (req, res) => briefsController.provisionAccess(req, res));
 app.delete("/api/briefs/:id", (req, res) => briefsController.delete(req, res));
+app.post("/api/meetings/:id/confirm-attendance", (req, res) => briefsController.confirmAttendance(req, res));
+app.post("/api/meetings/:id/send-reminder", (req, res) => briefsController.sendMeetingReminder(req, res));
+app.post("/api/meetings/:id/record-outcome", requireAuth, requireRole("admin", "super_admin"), (req, res) => briefsController.recordMeetingOutcome(req, res));
+app.post("/api/portal/consultation/:id/withdraw", requireAuth, (req, res) => briefsController.withdrawConsultation(req, res));
+app.post("/api/portal/consultation/withdraw", requireAuth, (req, res) => briefsController.withdrawConsultation(req, res));
 
 // -----------------------------------------------------------------------------
 // CONSTRUCTION SITE EXECUTION ROUTES (SAAD FLOWCHART PHASE 5)

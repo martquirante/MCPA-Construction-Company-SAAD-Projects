@@ -25,6 +25,7 @@ import {
   Coffee,
   ExternalLink,
   Calendar,
+  CalendarCheck,
   Clock,
   Download,
   ShieldAlert,
@@ -45,12 +46,17 @@ import {
   Layers,
   ArrowRight,
   ShieldCheck,
+  LayoutGrid,
+  List,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { authFetch } from "@/modules/shared/authFetch";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 import StageCombobox from "@/modules/admin/components/StageCombobox";
 import { InquiryTableSkeleton } from "@/modules/shared/Skeleton";
 import { EstablishmentLogo } from "@/modules/book/components/VenueSearchModal";
+import VenueCombobox from "@/modules/book/components/VenueCombobox";
 import { isMeetingPast } from "@/modules/shared/meetingHelper";
 
 const STAGES = [
@@ -190,6 +196,7 @@ export function resolveClientAvatar(brief) {
   if (
     email === "rayquirante@gmail.com" ||
     email === "martquirante04@gmail.com" ||
+    email === "martquirante@gmail.com" ||
     email === "dbprojectmartquirante@gmail.com"
   ) {
     return "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
@@ -293,6 +300,7 @@ export default function InquiryPipelineTab({
 }) {
   const [filterStage, setFilterStage] = useState("ALL");
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState("table"); // 'table' | 'grid'
   const [selectedBrief, setSelectedBrief] = useState(null);
 
   // Review Modal Editable state
@@ -302,6 +310,7 @@ export default function InquiryPipelineTab({
   const [meetingMode, setMeetingMode] = useState("Online Video Call");
   const [meetingNotes, setMeetingNotes] = useState("");
   const [isApproving, setIsApproving] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
   // Reschedule Modal state
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
@@ -310,6 +319,8 @@ export default function InquiryPipelineTab({
   const [rescheduleReason, setRescheduleReason] = useState("Architectural Schedule Conflict");
   const [rescheduleNotes, setRescheduleNotes] = useState("");
   const [rescheduleMode, setRescheduleMode] = useState("Online Video Call");
+  const [rescheduleVenueType, setRescheduleVenueType] = useState("office"); // "office" | "site" | "cafe"
+  const [rescheduleCafeVenue, setRescheduleCafeVenue] = useState("");
   const [rescheduleLink, setRescheduleLink] = useState("");
   const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
 
@@ -346,7 +357,24 @@ export default function InquiryPipelineTab({
     return matchStage && matchSearch;
   });
 
+  const markBriefAsRead = (brief) => {
+    if (!brief || typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("mcpa_read_inquiry_ids");
+      const currentList = stored ? JSON.parse(stored) : [];
+      const idToMark = brief.id || brief.submissionId || brief.trackingId;
+      const trackingToMark = brief.trackingId || brief.project_tracking_id;
+      const idsToAdd = [idToMark, trackingToMark, brief.submissionId].filter(Boolean);
+      const updatedList = Array.from(new Set([...currentList, ...idsToAdd]));
+      if (updatedList.length !== currentList.length) {
+        localStorage.setItem("mcpa_read_inquiry_ids", JSON.stringify(updatedList));
+        window.dispatchEvent(new CustomEvent("mcpa-inquiries-read-sync", { detail: { readIds: updatedList } }));
+      }
+    } catch (e) {}
+  };
+
   const openReviewModal = (brief) => {
+    markBriefAsRead(brief);
     setSelectedBrief(brief);
     setTargetLifecycleStage(brief.current_project_stage || brief.currentProjectStage || "CONSULTATION");
     setStageAdvanceReason("");
@@ -431,18 +459,51 @@ export default function InquiryPipelineTab({
           }
         : null
     );
+
+    // Sync to shared schedule for client portal immediate real-time update
+    try {
+      const payload = {
+        mode: meetingMode,
+        date: meetingDate,
+        time: meetingTime,
+        link: meetingLink,
+        status: "Confirmed",
+        agenda: meetingNotes || selectedBrief.message,
+        updatedAt: new Date().toISOString(),
+        updatedBy: "admin",
+      };
+      localStorage.setItem("mcpa_shared_meeting_schedule", JSON.stringify(payload));
+      window.dispatchEvent(new CustomEvent("mcpa-meeting-updated", { detail: payload }));
+    } catch (e) {}
+
     setIsApproving(false);
+    setIsConfirmModalOpen(false);
     showToast(`Meeting confirmed for ${selectedBrief.clientName}! Approval email dispatched.`);
-    closeReviewModal();
   };
 
   // Open Reschedule Dialog
   const openRescheduleModal = () => {
     if (!selectedBrief) return;
+    const initialMode = selectedBrief.meetingMode || meetingMode || "Online Video Call";
     setRescheduleDate(selectedBrief.meetingDate || meetingDate || "");
     setRescheduleTime(selectedBrief.meetingTime || meetingTime || "09:00 AM - 10:30 AM");
-    setRescheduleMode(selectedBrief.meetingMode || meetingMode || "Online Video Call");
-    setRescheduleLink(selectedBrief.meetingLink || meetingLink || "");
+    setRescheduleMode(initialMode);
+
+    const existingVenue = selectedBrief.venueDetails || selectedBrief.venue_details || selectedBrief.meetingLink || "";
+    const existingType = selectedBrief.venueType || selectedBrief.venue_type || "";
+    let initialType = "office";
+    if (existingType === "site" || (!existingType && (existingVenue.toLowerCase().includes("site") || existingVenue.toLowerCase().includes("lot") || existingVenue.toLowerCase().includes("ocular")))) {
+      initialType = "site";
+      setRescheduleCafeVenue("");
+    } else if (existingType === "cafe" || (!existingType && (existingVenue.toLowerCase().includes("starbucks") || existingVenue.toLowerCase().includes("cafe") || existingVenue.toLowerCase().includes("coffee") || existingVenue.toLowerCase().includes("mall") || existingVenue.toLowerCase().includes("jollibee")))) {
+      initialType = "cafe";
+      setRescheduleCafeVenue(existingVenue);
+    } else {
+      initialType = "office";
+      setRescheduleCafeVenue("");
+    }
+    setRescheduleVenueType(initialType);
+    setRescheduleLink(selectedBrief.meetingLink || meetingLink || "MCPA Video Conference Room");
     setRescheduleReason("Architectural Schedule Conflict");
     setRescheduleNotes("");
     setIsRescheduleOpen(true);
@@ -456,12 +517,31 @@ export default function InquiryPipelineTab({
     }
     setIsSubmittingReschedule(true);
     try {
+      const isOnline = rescheduleMode.toLowerCase().includes("online");
+      let finalVenue = "MCPA Construction & Supply Head Office, 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan";
+      if (!isOnline) {
+        if (rescheduleVenueType === "office") {
+          finalVenue = "MCPA Construction & Supply Head Office, 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan";
+        } else if (rescheduleVenueType === "site") {
+          finalVenue = selectedBrief.location
+            ? `Proposed Project Site (${selectedBrief.location})`
+            : "Proposed Project Site (On-Site Ocular)";
+        } else if (rescheduleVenueType === "cafe") {
+          finalVenue = rescheduleCafeVenue.trim() || "Starbucks / Coffee Shop Venue";
+        }
+      } else {
+        finalVenue = rescheduleLink || "MCPA Video Conference Room";
+      }
+
       const combinedNotes = `[Rescheduled by Admin]: ${rescheduleReason}${rescheduleNotes ? ` — ${rescheduleNotes}` : ""}`;
       await onUpdateStatus(selectedBrief.id, "Meeting Scheduled", {
         meetingDate: rescheduleDate,
         meetingTime: rescheduleTime,
         meetingMode: rescheduleMode,
-        meetingLink: rescheduleLink,
+        meetingLink: finalVenue,
+        venueType: rescheduleVenueType,
+        venueDetails: finalVenue,
+        venue: finalVenue,
         meetingNotes: selectedBrief.meetingNotes ? `${selectedBrief.meetingNotes}\n${combinedNotes}` : combinedNotes,
         isRescheduled: true,
         rescheduleReason,
@@ -474,17 +554,38 @@ export default function InquiryPipelineTab({
       setMeetingDate(rescheduleDate);
       setMeetingTime(rescheduleTime);
       setMeetingMode(rescheduleMode);
-      setMeetingLink(rescheduleLink);
+      setMeetingLink(finalVenue);
       setSelectedBrief((prev) => ({
         ...prev,
         meetingDate: rescheduleDate,
         meetingTime: rescheduleTime,
         meetingMode: rescheduleMode,
-        meetingLink: rescheduleLink,
+        meetingLink: finalVenue,
+        venueType: rescheduleVenueType,
+        venueDetails: finalVenue,
+        venue: finalVenue,
         status: "Meeting Scheduled",
       }));
 
-      showToast(`Consultation for ${selectedBrief.clientName} successfully rescheduled to ${rescheduleDate} (${rescheduleTime})!`);
+      // Broadcast and persist shared schedule for client portal immediate real-time sync
+      try {
+        const payload = {
+          mode: rescheduleMode,
+          date: rescheduleDate,
+          time: rescheduleTime,
+          link: finalVenue,
+          venue: finalVenue,
+          venueType: rescheduleVenueType,
+          status: "Confirmed",
+          agenda: combinedNotes,
+          updatedAt: new Date().toISOString(),
+          updatedBy: "admin",
+        };
+        localStorage.setItem("mcpa_shared_meeting_schedule", JSON.stringify(payload));
+        window.dispatchEvent(new CustomEvent("mcpa-meeting-updated", { detail: payload }));
+      } catch (e) {}
+
+      showToast(`Consultation setup updated! Automated notification email dispatched to ${selectedBrief.clientEmail || "client"}.`);
       setIsRescheduleOpen(false);
     } catch (err) {
       showToast("Reschedule failed: " + err.message);
@@ -717,41 +818,56 @@ export default function InquiryPipelineTab({
           </div>
         </div>
 
-        {/* Stat Cards Row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label: "Pending Review", value: pendingCount, color: "text-amber-600 dark:text-amber-400", bar: "bg-amber-500" },
-            { label: "Meetings Scheduled", value: scheduledCount, color: "text-sky-600 dark:text-sky-400", bar: "bg-sky-500" },
-            { label: "Approved", value: approvedCount, color: "text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500" },
-            { label: "Rejected", value: rejectedCount, color: "text-rose-600 dark:text-rose-400", bar: "bg-rose-500" },
-          ].map(({ label, value, color, bar }) => (
-            <div
-              key={label}
-              className="p-4 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] hover:border-neutral-300 dark:hover:border-white/[0.14] transition-colors shadow-xs"
-            >
-              <p className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">{label}</p>
-              <div className="mt-2 flex items-baseline gap-1.5">
-                <span className={`text-2xl sm:text-3xl font-mono font-bold tabular-nums tracking-tight ${color}`}>{value}</span>
-              </div>
-              <div className="mt-2.5 h-1 w-full rounded-[2px] bg-neutral-100 dark:bg-white/[0.06] overflow-hidden">
-                <div className={`h-full rounded-[2px] ${bar} transition-all duration-500`} style={{ width: clientBriefs.length > 0 ? `${Math.min(100, (value / clientBriefs.length) * 100)}%` : "0%" }} />
-              </div>
+        {/* 1. TOP STATS BAR - BENTO METRICS (Matching Meetings tab) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="p-4 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1 hover:border-amber-500/30 transition-colors">
+            <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 text-[11px] font-mono font-semibold uppercase tracking-wider">
+              <span>Pending Review</span>
+              <Clock className="w-4 h-4 text-amber-500" />
             </div>
-          ))}
+            <div className="text-2xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white">
+              {pendingCount}
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans">Awaiting architectural evaluation</div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1 hover:border-sky-500/30 transition-colors">
+            <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 text-[11px] font-mono font-semibold uppercase tracking-wider">
+              <span>Meetings Scheduled</span>
+              <CalendarCheck className="w-4 h-4 text-sky-500" />
+            </div>
+            <div className="text-2xl font-bold font-mono tracking-tight text-sky-600 dark:text-sky-400">
+              {scheduledCount}
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans">Active pre-construction agenda</div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1 hover:border-emerald-500/30 transition-colors">
+            <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 text-[11px] font-mono font-semibold uppercase tracking-wider">
+              <span>Approved</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            </div>
+            <div className="text-2xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white">
+              {approvedCount}
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans">Ready for proposal / contract</div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1 hover:border-rose-500/30 transition-colors">
+            <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 text-[11px] font-mono font-semibold uppercase tracking-wider">
+              <span>Rejected</span>
+              <XCircle className="w-4 h-4 text-rose-500" />
+            </div>
+            <div className="text-2xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white">
+              {rejectedCount}
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans">Declined or service out-of-scope</div>
+          </div>
         </div>
 
-        {/* Filters + Search Row */}
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-          <div className="relative flex-1">
-            <SearchIcon className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-            <input
-              type="text"
-              placeholder="Search client name, email, project type, location..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 h-[40px] rounded-[4px] text-xs font-mono bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors shadow-xs"
-            />
-          </div>
+        {/* 2. FILTER BAR & SEGMENTED CONTROLS (Matching Meetings tab) */}
+        <div className="p-2 sm:p-2.5 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+          {/* Stage Combobox Filter */}
           <StageCombobox
             stages={STAGES}
             selectedStage={filterStage}
@@ -759,9 +875,62 @@ export default function InquiryPipelineTab({
             stageCounts={stageCounts}
             totalCount={clientBriefs.length}
           />
+
+          {/* Search Input & View Toggle Group */}
+          <div className="flex items-center gap-2.5">
+            <div className="relative flex-1 sm:min-w-[260px]">
+              <SearchIcon className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search client, email, project, location..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-8.5 pr-8 py-1.5 rounded-lg bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all font-sans"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Grid / Table toggle - matching Accounts tab */}
+            <div className="inline-flex items-center bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200/80 dark:border-white/10 rounded-lg p-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-all cursor-pointer ${
+                  viewMode === "table"
+                    ? "bg-white dark:bg-[#1c1f2b] text-neutral-900 dark:text-white shadow-xs border border-neutral-200/60 dark:border-white/10"
+                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                }`}
+                title="Table List View"
+              >
+                <List className="w-3.5 h-3.5" />
+                <span>Table</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-all cursor-pointer ${
+                  viewMode === "grid"
+                    ? "bg-white dark:bg-[#1c1f2b] text-neutral-900 dark:text-white shadow-xs border border-neutral-200/60 dark:border-white/10"
+                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                }`}
+                title="Card Grid View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Grid</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Table */}
+        {/* 3. INQUIRIES CONTENT: LOADING / EMPTY / GRID / TABLE */}
         {isLoading && (!clientBriefs || clientBriefs.length === 0) ? (
           <InquiryTableSkeleton rows={5} />
         ) : filteredBriefs.length === 0 ? (
@@ -788,177 +957,338 @@ export default function InquiryPipelineTab({
               description="New pre-consultation requests from the booking sheet will appear here for architectural evaluation, scheduling, and portal provisioning."
             />
           )
-        ) : (
-          <div className="rounded-[6px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0f1117] overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono">
-                <thead>
-                  <tr className="border-b border-neutral-200 dark:border-white/[0.08] bg-neutral-50 dark:bg-white/[0.02] text-neutral-500 uppercase text-[10px] tracking-wider whitespace-nowrap">
-                    <th className="py-3 px-4 font-bold">Inquiry ID</th>
-                    <th className="py-3 px-4 font-bold min-w-[200px]">Client</th>
-                    <th className="py-3 px-4 font-bold min-w-[180px]">Project / Service</th>
-                    <th className="py-3 px-4 font-bold">Meeting Type</th>
-                    <th className="py-3 px-4 font-bold">Schedule</th>
-                    <th className="py-3 px-4 font-bold">Status</th>
-                    <th className="py-3 px-4 font-bold text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100 dark:divide-white/[0.04]">
-                  {filteredBriefs.map((brief, idx) => {
-                    const currentStatus = brief.status || "Pending Review";
-                    const isRejected = currentStatus.toLowerCase().includes("reject");
-                    const stageConfig =
-                      STAGES.find((s) => s.id.toLowerCase() === currentStatus.toLowerCase()) || {
-                        dot: "bg-amber-500",
-                        textColor: "text-amber-600 dark:text-amber-400",
-                      };
-                    const isSelected = selectedBrief?.id === brief.id;
-                    const rowKey = brief?.id ? `brief-${brief.id}-${idx}` : `brief-row-${idx}`;
+        ) : viewMode === "grid" ? (
+          /* GRID VIEW: Responsive Cards */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            {filteredBriefs.map((brief, idx) => {
+              const currentStatus = brief.status || "Pending Review";
+              const isRejected = currentStatus.toLowerCase().includes("reject");
+              const stageConfig =
+                STAGES.find((s) => s.id.toLowerCase() === currentStatus.toLowerCase()) || {
+                  dot: "bg-amber-500",
+                  textColor: "text-amber-600 dark:text-amber-400",
+                };
+              const rowKey = brief?.id ? `brief-grid-${brief.id}-${idx}` : `brief-grid-${idx}`;
+              const clientAvatar = resolveClientAvatar(brief);
+              const isGoogle =
+                brief.authProvider === "google" ||
+                brief.auth_provider === "google" ||
+                brief.clientEmail?.toLowerCase().endsWith("@gmail.com") ||
+                (clientAvatar && clientAvatar.includes("googleusercontent"));
 
-                    const clientAvatar = resolveClientAvatar(brief);
-                    const isGoogle =
-                      brief.authProvider === "google" ||
-                      brief.auth_provider === "google" ||
-                      brief.clientEmail?.toLowerCase().endsWith("@gmail.com") ||
-                      (clientAvatar && clientAvatar.includes("googleusercontent"));
+              return (
+                <div
+                  key={rowKey}
+                  onClick={() => openReviewModal(brief)}
+                  className="rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] hover:border-amber-500/40 hover:shadow-md transition-all duration-150 p-4.5 flex flex-col justify-between space-y-4 cursor-pointer group"
+                >
+                  {/* Top: Client Identity & Inquiry ID */}
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="relative shrink-0">
+                          {clientAvatar ? (
+                            <img
+                              src={clientAvatar}
+                              alt={brief.clientName || "Client"}
+                              referrerPolicy="no-referrer"
+                              crossOrigin="anonymous"
+                              className="w-10 h-10 rounded-xl object-cover border border-amber-500/40 shadow-xs"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const fallback = e.currentTarget.parentElement?.querySelector(".client-avatar-fallback");
+                                if (fallback) fallback.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            style={{ display: clientAvatar ? "none" : "flex" }}
+                            className="client-avatar-fallback w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-white/[0.08] dark:to-white/[0.02] border border-neutral-200/80 dark:border-white/10 text-neutral-800 dark:text-neutral-200 font-bold text-xs items-center justify-center font-mono uppercase shadow-xs"
+                          >
+                            {brief.clientName?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
+                          </div>
+                          {isGoogle && (
+                            <span
+                              className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
+                              title="Google Account Verified"
+                            >
+                              <GoogleIcon className="w-2.5 h-2.5" />
+                            </span>
+                          )}
+                        </div>
 
-                    return (
-                      <tr
-                        key={rowKey}
-                        onClick={() => openReviewModal(brief)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected
-                            ? "bg-amber-500/5 dark:bg-amber-500/10 border-l-2 border-l-amber-500"
-                            : "hover:bg-neutral-50 dark:hover:bg-white/[0.02]"
-                        }`}
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-semibold text-neutral-900 dark:text-white truncate tracking-tight group-hover:text-amber-500 transition-colors">
+                            {brief.clientName}
+                          </h4>
+                          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono truncate">
+                            {brief.clientPhone || brief.clientEmail}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                          {brief.submissionId || brief.id}
+                        </span>
+                        {brief.locationType === "OFW" && (
+                          <span className="px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-[9px] font-mono font-bold">
+                            OFW
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Project & Service Spec */}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                          {brief.projectType || "Residential Design & Build"}
+                        </span>
+                        {brief.storeys && (
+                          <span className="text-[10px] font-mono text-amber-700 dark:text-amber-400">
+                            • {brief.storeys}
+                          </span>
+                        )}
+                      </div>
+                      {brief.location && (
+                        <div className="flex items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+                          <MapPin className="w-3 h-3 text-neutral-400 shrink-0" />
+                          <span className="truncate">{brief.location}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Schedule & Format Box */}
+                    <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/[0.04] space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <MeetingTypeBadge brief={brief} mode={brief.meetingMode} />
+                        {brief.meetingDate ? (
+                          <span className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300 font-medium">
+                            {brief.meetingDate}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 italic">
+                            Not scheduled
+                          </span>
+                        )}
+                      </div>
+                      {brief.meetingTime && (
+                        <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500 dark:text-neutral-400 pt-1 border-t border-neutral-200/40 dark:border-white/[0.04]">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-neutral-400" />
+                            <span>Time</span>
+                          </span>
+                          <span>{brief.meetingTime}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card Footer: Status & Action Button */}
+                  <div className="pt-3 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between gap-2">
+                    <span className={`text-[11px] font-mono font-bold tracking-wide ${stageConfig.textColor || "text-neutral-900 dark:text-white"}`}>
+                      {currentStatus}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openReviewModal(brief); }}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-500/40 hover:border-amber-500 text-amber-700 dark:text-amber-400 hover:text-neutral-950 dark:hover:text-neutral-950 hover:bg-amber-500 transition-all text-xs font-mono font-bold uppercase tracking-wider cursor-pointer shadow-xs"
                       >
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-[11px]">
+                        <span>Review</span>
+                        <ChevronRightIcon className="w-3.5 h-3.5" />
+                      </button>
+                      {isRejected && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onDeleteBrief(brief.id); }}
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                          title="Remove rejected inquiry"
+                        >
+                          <TrashIcon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* TABLE LIST VIEW: 12-Column Precision Master Rows */
+          <div className="space-y-2.5">
+            {/* Desktop Table Column Alignment Header */}
+            <div className="hidden xl:grid grid-cols-12 gap-4 px-5 py-2 text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold border-b border-neutral-200/70 dark:border-white/[0.06]">
+              <div className="col-span-4">Client &amp; Inquiry</div>
+              <div className="col-span-3">Project &amp; Location</div>
+              <div className="col-span-3">Consultation Schedule</div>
+              <div className="col-span-2 text-right">Status &amp; Actions</div>
+            </div>
+
+            {filteredBriefs.map((brief, idx) => {
+              const currentStatus = brief.status || "Pending Review";
+              const isRejected = currentStatus.toLowerCase().includes("reject");
+              const stageConfig =
+                STAGES.find((s) => s.id.toLowerCase() === currentStatus.toLowerCase()) || {
+                  dot: "bg-amber-500",
+                  textColor: "text-amber-600 dark:text-amber-400",
+                };
+              const isSelected = selectedBrief?.id === brief.id;
+              const rowKey = brief?.id ? `brief-${brief.id}-${idx}` : `brief-row-${idx}`;
+
+              const clientAvatar = resolveClientAvatar(brief);
+              const isGoogle =
+                brief.authProvider === "google" ||
+                brief.auth_provider === "google" ||
+                brief.clientEmail?.toLowerCase().endsWith("@gmail.com") ||
+                (clientAvatar && clientAvatar.includes("googleusercontent"));
+
+              return (
+                <div
+                  key={rowKey}
+                  onClick={() => openReviewModal(brief)}
+                  className={`rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] hover:border-amber-500/40 hover:shadow-md transition-all duration-150 p-4 sm:p-4.5 cursor-pointer ${
+                    isSelected ? "ring-2 ring-amber-500/50 bg-amber-500/5 dark:bg-amber-500/10" : ""
+                  }`}
+                >
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-center">
+                    {/* Col 1 (xl:col-span-4): Client & Inquiry Code */}
+                    <div className="xl:col-span-4 flex items-center gap-3.5 min-w-0">
+                      <div className="relative shrink-0">
+                        {clientAvatar ? (
+                          <img
+                            src={clientAvatar}
+                            alt={brief.clientName || "Client"}
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
+                            className="w-10 h-10 rounded-xl object-cover border border-amber-500/40 shadow-xs"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              const fallback = e.currentTarget.parentElement?.querySelector(".client-avatar-fallback");
+                              if (fallback) fallback.style.display = "flex";
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          style={{ display: clientAvatar ? "none" : "flex" }}
+                          className="client-avatar-fallback w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-white/[0.08] dark:to-white/[0.02] border border-neutral-200/80 dark:border-white/10 text-neutral-800 dark:text-neutral-200 font-bold items-center justify-center font-mono text-sm shrink-0 shadow-xs uppercase"
+                        >
+                          {brief.clientName?.charAt(0) || "?"}
+                        </div>
+
+                        {/* Google Account Verified Indicator Overlay */}
+                        {isGoogle && (
+                          <span
+                            className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
+                            title="Google Account Verified"
+                          >
+                            <GoogleIcon className="w-2.5 h-2.5" />
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-neutral-900 dark:text-white truncate tracking-tight">
+                            {brief.clientName}
+                          </h4>
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 shrink-0">
                             {brief.submissionId || brief.id}
                           </span>
                           {brief.locationType === "OFW" && (
-                            <span className="ml-1.5 px-1.5 py-0.5 rounded-[4px] bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-[9px] font-mono font-bold">
+                            <span className="px-1.5 py-0.2 rounded-[4px] bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-[9px] font-mono font-bold shrink-0">
                               OFW
                             </span>
                           )}
-                        </td>
+                        </div>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono truncate">
+                          {brief.clientPhone || brief.clientEmail}
+                        </p>
+                      </div>
+                    </div>
 
-                        {/* Client Column with Avatar & Google Indicator */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2.5">
-                            <div className="relative shrink-0">
-                              {clientAvatar ? (
-                                <img
-                                  src={clientAvatar}
-                                  alt={brief.clientName || "Client"}
-                                  referrerPolicy="no-referrer"
-                                  crossOrigin="anonymous"
-                                  className="w-8 h-8 rounded-full object-cover border border-amber-500/40 shadow-xs"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = "none";
-                                    const fallback = e.currentTarget.parentElement?.querySelector(".client-avatar-fallback");
-                                    if (fallback) fallback.style.display = "flex";
-                                  }}
-                                />
-                              ) : null}
-                              <div
-                                style={{ display: clientAvatar ? "none" : "flex" }}
-                                className="client-avatar-fallback w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 font-bold text-[11px] items-center justify-center uppercase"
-                              >
-                                {brief.clientName?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
-                              </div>
+                    {/* Col 2 (xl:col-span-3): Project Type & Location */}
+                    <div className="xl:col-span-3 space-y-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 truncate">
+                          {brief.projectType || "Residential Design & Build"}
+                        </span>
+                        {brief.storeys && (
+                          <span className="text-[10px] font-mono text-amber-700 dark:text-amber-400 font-medium">
+                            • {brief.storeys}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
+                        <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <span className="truncate">{brief.location || "Bulacan, Philippines"}</span>
+                      </div>
+                    </div>
 
-                              {/* Google Account Verified Indicator Overlay */}
-                              {isGoogle && (
-                                <span
-                                  className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
-                                  title="Google Account Verified"
-                                >
-                                  <GoogleIcon className="w-2.5 h-2.5" />
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="min-w-0">
-                              <p className="font-semibold text-neutral-900 dark:text-white truncate">
-                                {brief.clientName}
-                              </p>
-                              <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono truncate">
-                                {brief.clientPhone || brief.clientEmail}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-medium text-neutral-900 dark:text-white">{brief.projectType || "Residential"}</span>
-                            {brief.storeys && (
-                              <span className="text-[9.5px] font-mono text-amber-700 dark:text-amber-400 font-medium">
-                                • {brief.storeys}
+                    {/* Col 3 (xl:col-span-3): Consultation Schedule & Format */}
+                    <div className="xl:col-span-3 space-y-1.5 min-w-0">
+                      {brief.meetingDate ? (
+                        <>
+                          <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                            <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span>{brief.meetingDate}</span>
+                            {isMeetingPast(brief.meetingDate, brief.meetingTime) && (
+                              <span className="text-[9.5px] font-mono text-neutral-400 dark:text-neutral-500 font-medium">
+                                (Concluded)
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-neutral-500 font-mono truncate max-w-[220px]">{brief.location || "—"}</p>
-                        </td>
-
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <MeetingTypeBadge brief={brief} mode={brief.meetingMode} />
-                        </td>
-
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          {brief.meetingDate ? (
-                            <div>
-                              <p className="font-mono text-neutral-900 dark:text-white flex items-center gap-1.5">
-                                <span>{brief.meetingDate}</span>
-                                {isMeetingPast(brief.meetingDate, brief.meetingTime) && (
-                                  <span className="text-[9.5px] font-mono text-neutral-400 dark:text-neutral-500 font-medium">
-                                    (Concluded)
-                                  </span>
-                                )}
-                              </p>
-                              {brief.meetingTime && <p className="text-[10px] text-neutral-500 font-mono">{brief.meetingTime}</p>}
-                            </div>
-                          ) : (
-                            <span className="text-neutral-400 dark:text-neutral-600 font-mono italic">Not scheduled</span>
-                          )}
-                        </td>
-
-                        {/* Status Column: Clean text without background or dot */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className={`text-[11px] font-mono font-bold tracking-wide ${stageConfig.textColor || "text-neutral-900 dark:text-white"}`}>
-                            {currentStatus}
-                          </span>
-                        </td>
-
-                        {/* Action Column: Clean border button without awkward solid/pill background */}
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); openReviewModal(brief); }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border border-amber-500/40 hover:border-amber-500 text-amber-700 dark:text-amber-400 hover:text-neutral-950 dark:hover:text-neutral-950 hover:bg-amber-500 transition-all text-[11px] font-mono font-bold uppercase tracking-wider cursor-pointer group shadow-2xs"
-                            >
-                              <span>Review</span>
-                              <ChevronRightIcon className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                            </button>
-
-                            {isRejected && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); onDeleteBrief(brief.id); }}
-                                className="p-1.5 rounded-[4px] text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                title="Remove rejected inquiry"
-                              >
-                                <TrashIcon className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                          <div>
+                            <MeetingTypeBadge brief={brief} mode={brief.meetingMode} />
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          {brief.meetingTime && (
+                            <div className="flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
+                              <Clock className="w-3 h-3 text-neutral-400 shrink-0" />
+                              <span>{brief.meetingTime}</span>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-neutral-400 dark:text-neutral-600 font-mono text-xs italic">
+                          Not scheduled
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Col 4 (xl:col-span-2): Status & Action Toolbar */}
+                    <div className="xl:col-span-2 flex items-center justify-between xl:justify-end gap-2.5 border-t xl:border-t-0 pt-3 xl:pt-0 border-neutral-100 dark:border-white/5">
+                      <span className={`text-[11px] font-mono font-bold tracking-wide shrink-0 ${stageConfig.textColor || "text-neutral-900 dark:text-white"}`}>
+                        {currentStatus}
+                      </span>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openReviewModal(brief); }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/40 hover:border-amber-500 text-amber-700 dark:text-amber-400 hover:text-neutral-950 dark:hover:text-neutral-950 hover:bg-amber-500 transition-all text-[11px] font-mono font-bold uppercase tracking-wider cursor-pointer group shadow-2xs"
+                        >
+                          <span>Review</span>
+                          <ChevronRightIcon className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                        </button>
+
+                        {isRejected && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onDeleteBrief(brief.id); }}
+                            className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Remove rejected inquiry"
+                          >
+                            <TrashIcon className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -975,9 +1305,7 @@ export default function InquiryPipelineTab({
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4.5 border-b border-neutral-200/80 dark:border-white/10 shrink-0 bg-white dark:bg-[#0e1017]">
               <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
-                  <FileText className="w-5 h-5" />
-                </div>
+                <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0" />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <h3 className="text-base font-bold text-neutral-900 dark:text-white tracking-tight">
@@ -1369,90 +1697,7 @@ export default function InquiryPipelineTab({
                       </div>
                     )}
 
-                    {/* SECTION 5: CONSULTATION LOGISTICS PREFERENCE */}
-                    <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 overflow-hidden shadow-xs">
-                      <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02] flex items-center justify-between flex-wrap gap-2">
-                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center gap-2">
-                          <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                          Consultation Logistics Preference
-                        </span>
-                        <span className="text-xs font-mono font-semibold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
-                          {isOnline ? <Video className="w-3.5 h-3.5 text-sky-500" /> : <MapPin className="w-3.5 h-3.5 text-amber-500" />}
-                          {isOnline ? "Virtual Video Call" : "In-Person Consultation"}
-                        </span>
-                      </div>
-
-                      <div className="p-5 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Requested Date</p>
-                            <p className="text-sm font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
-                              <span>{selectedBrief.meetingDate || selectedBrief.meeting_date || "Earliest Available"}</span>
-                              {isMeetingPast(selectedBrief.meetingDate || selectedBrief.meeting_date, selectedBrief.meetingTime || selectedBrief.meeting_time) && (
-                                <span className="text-[10px] font-mono text-neutral-400 font-normal">
-                                  (Concluded)
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Requested Time Window</p>
-                            <p className="text-sm font-semibold text-neutral-900 dark:text-white">
-                              {selectedBrief.meetingTime || selectedBrief.meeting_time || "Any Available Slot"}
-                            </p>
-                          </div>
-                        </div>
-
-                        {!isOnline && (
-                          <div className="pt-3 border-t border-neutral-100 dark:border-white/5 flex items-start gap-3">
-                            {brandName ? (
-                              <div className="w-9 h-9 rounded-lg overflow-hidden bg-white shadow-xs shrink-0 flex items-center justify-center p-1 border border-neutral-200 dark:border-white/10">
-                                <EstablishmentLogo name={brandName} brand={brandName} className="w-6 h-6" iconClassName="w-4 h-4" />
-                              </div>
-                            ) : (
-                              <div className="w-9 h-9 rounded-lg bg-neutral-100 dark:bg-white/5 text-neutral-700 dark:text-neutral-300 shrink-0 flex items-center justify-center text-sm">
-                                {venueType === "Office" ? "🏢" : "📍"}
-                              </div>
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold text-neutral-900 dark:text-white">
-                                {venueDetails || (venueType === "Office" ? "MCPA Head Office, Tabang, Plaridel, Bulacan" : "Project Site / Physical Venue")}
-                              </p>
-                              {venueDetails && (
-                                <a
-                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueDetails)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="mt-1 inline-flex items-center gap-1 text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:underline"
-                                >
-                                  <span>View Venue Location on Google Maps</span>
-                                  <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {isOnline && (
-                          <div className="pt-3 border-t border-neutral-100 dark:border-white/5 flex items-center gap-2.5 text-xs text-neutral-600 dark:text-neutral-400">
-                            <Video className="w-4 h-4 text-sky-500 shrink-0" />
-                            <span>Client requested an online consultation. Dedicated video link will be attached upon approval.</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* SECTION 6: CLIENT SPECIAL REMARKS */}
-                    {selectedBrief.message && (
-                      <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 p-5 space-y-2 shadow-xs">
-                        <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">Client Remarks &amp; Design Notes</p>
-                        <p className="text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed italic border-l-2 border-amber-500 pl-3">
-                          "{selectedBrief.message}"
-                        </p>
-                      </div>
-                    )}
-
-                    {/* SECTION 7: ADMIN DETERMINATION RECORD OR CONFIRMATION CONTROLS */}
+                    {/* SECTION 5 & 7 (UNIFIED): CONSULTATION LOGISTICS & MEETING SETUP */}
                     {isBriefRejected ? (
                       <div className="rounded-xl bg-rose-50/70 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/40 p-5 space-y-3 shadow-xs">
                         <div className="flex items-center justify-between">
@@ -1491,112 +1736,154 @@ export default function InquiryPipelineTab({
                         </div>
                       </div>
                     ) : (
-                      /* ACTIVE CONTROLS: CONFIRMATION & SCHEDULE EDIT */
                       <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 overflow-hidden shadow-xs">
-                        <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02] flex items-center justify-between">
-                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
-                            Consultation Confirmation Setup
-                          </span>
-                          <span className="text-xs font-mono text-neutral-500">
-                            Status: <strong className="text-amber-600 dark:text-amber-400">{selectedBrief.status || "Pending Review"}</strong>
-                          </span>
+                        {/* Header */}
+                        <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02] flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                              Consultation Logistics &amp; Meeting Setup
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-mono font-semibold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
+                              {meetingMode === "Online Video Call" ? <Video className="w-3.5 h-3.5 text-sky-500" /> : <MapPin className="w-3.5 h-3.5 text-amber-500" />}
+                              <span>{meetingMode}</span>
+                            </span>
+                            <span className="text-[11px] font-mono text-neutral-500 border-l border-neutral-200 dark:border-white/10 pl-3">
+                              Status: <strong className="text-amber-600 dark:text-amber-400">{selectedBrief.status || "Pending Review"}</strong>
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="p-5 space-y-4">
-                          {/* Segmented Mode Control */}
-                          <div>
-                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-2">
-                              Meeting Mode
-                            </label>
-                            <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-neutral-100 dark:bg-white/5 border border-neutral-200/80 dark:border-white/5">
-                              {["Online Video Call", "Face-to-Face"].map((mode) => (
+                        <div className="p-5 space-y-5">
+                          {/* Part 1: Client Initial Logistics Request & Remarks */}
+                          <div className="p-4 rounded-lg bg-neutral-50/80 dark:bg-white/[0.02] border border-neutral-200/70 dark:border-white/5 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500">
+                                Client Requested Preference
+                              </span>
+                              <span className="text-[11px] font-mono font-semibold text-amber-600 dark:text-amber-400">
+                                {isOnline ? "Virtual Video Call Requested" : "In-Person Consultation Requested"}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-sans">
+                              <div>
+                                <span className="text-[10px] font-mono uppercase text-neutral-400 block">Requested Date</span>
+                                <span className="font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
+                                  <span>{selectedBrief.meetingDate || selectedBrief.meeting_date || "Earliest Available"}</span>
+                                  {isMeetingPast(selectedBrief.meetingDate || selectedBrief.meeting_date, selectedBrief.meetingTime || selectedBrief.meeting_time) && (
+                                    <span className="text-[10px] font-mono text-neutral-400 font-normal">
+                                      (Concluded)
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-mono uppercase text-neutral-400 block">Requested Time</span>
+                                <span className="font-semibold text-neutral-900 dark:text-white">
+                                  {selectedBrief.meetingTime || selectedBrief.meeting_time || "Any Available Slot"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {!isOnline && (venueDetails || venueType) && (
+                              <div className="pt-2 border-t border-neutral-200/60 dark:border-white/5 flex items-center gap-2 text-xs">
+                                <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span className="text-neutral-700 dark:text-neutral-300">
+                                  {venueDetails || (venueType === "Office" ? "MCPA Head Office, Tabang, Plaridel, Bulacan" : "Project Site Venue")}
+                                </span>
+                                {venueDetails && (
+                                  <a
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueDetails)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="ml-auto inline-flex items-center gap-1 text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:underline"
+                                  >
+                                    <span>Maps</span>
+                                    <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {selectedBrief.message && (
+                              <div className="pt-2 border-t border-neutral-200/60 dark:border-white/5">
+                                <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">Client Remarks &amp; Notes</span>
+                                <p className="text-xs text-neutral-700 dark:text-neutral-300 italic">
+                                  "{selectedBrief.message}"
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Part 2: Active Confirmation & Meeting Setup Controls */}
+                          <div className="space-y-4">
+                            {/* Date & Time Row */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                                  Confirmed Date *
+                                </label>
+                                <input
+                                  type="date"
+                                  value={meetingDate}
+                                  onChange={(e) => setMeetingDate(e.target.value)}
+                                  className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                                  Confirmed Time Slot *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={meetingTime}
+                                  onChange={(e) => setMeetingTime(e.target.value)}
+                                  placeholder="09:00 AM - 10:30 AM"
+                                  className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Link / Address with Copy */}
+                            <div>
+                              <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                                {meetingMode === "Online Video Call" ? "Video Conference Link / Room" : "Physical Consultation Venue"}
+                              </label>
+                              <div className="flex gap-2">
+                                <input
+                                  type={meetingMode === "Online Video Call" ? "url" : "text"}
+                                  value={meetingLink}
+                                  onChange={(e) => setMeetingLink(e.target.value)}
+                                  placeholder={meetingMode === "Online Video Call" ? "MCPA Video Conference Room" : "MCPA Head Office / Venue"}
+                                  className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                                />
                                 <button
-                                  key={mode}
                                   type="button"
-                                  onClick={() => {
-                                    setMeetingMode(mode);
-                                    if (mode === "Face-to-Face" && selectedBrief) {
-                                      setMeetingLink(selectedBrief.venueDetails || selectedBrief.venue_details || "MCPA Head Office, Tabang, Plaridel, Bulacan");
-                                    } else if (mode === "Online Video Call" && selectedBrief) {
-                                      setMeetingLink(selectedBrief.meetingLink || selectedBrief.meeting_link || "https://meet.google.com/mcp-buil-tab");
-                                    }
-                                  }}
-                                  className={`py-2 px-3 rounded-md text-xs font-medium transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                                    meetingMode === mode
-                                      ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold shadow-xs"
-                                      : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
-                                  }`}
+                                  onClick={handleCopyLink}
+                                  className="px-3 py-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-300 transition-colors cursor-pointer shrink-0"
+                                  title="Copy link"
                                 >
-                                  {mode === "Online Video Call" ? <Video className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
-                                  <span>{mode}</span>
+                                  <CopyIcon className="w-3.5 h-3.5" />
                                 </button>
-                              ))}
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Date & Time Row */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* Internal Notes */}
                             <div>
                               <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
-                                Confirmed Date *
+                                Engineering &amp; Architectural Internal Notes
                               </label>
-                              <input
-                                type="date"
-                                value={meetingDate}
-                                onChange={(e) => setMeetingDate(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                              <textarea
+                                value={meetingNotes}
+                                onChange={(e) => setMeetingNotes(e.target.value)}
+                                placeholder="Add internal notes, engineering parameters, or client preferences..."
+                                rows={2}
+                                className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none"
                               />
                             </div>
-                            <div>
-                              <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
-                                Confirmed Time Slot *
-                              </label>
-                              <input
-                                type="text"
-                                value={meetingTime}
-                                onChange={(e) => setMeetingTime(e.target.value)}
-                                placeholder="09:00 AM - 10:30 AM"
-                                className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Link / Address with Copy */}
-                          <div>
-                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
-                              {meetingMode === "Online Video Call" ? "Google Meet / Video Link" : "Physical Consultation Venue"}
-                            </label>
-                            <div className="flex gap-2">
-                              <input
-                                type={meetingMode === "Online Video Call" ? "url" : "text"}
-                                value={meetingLink}
-                                onChange={(e) => setMeetingLink(e.target.value)}
-                                placeholder={meetingMode === "Online Video Call" ? "https://meet.google.com/..." : "MCPA Head Office / Venue"}
-                                className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
-                              />
-                              <button
-                                type="button"
-                                onClick={handleCopyLink}
-                                className="px-3 py-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-300 transition-colors cursor-pointer shrink-0"
-                                title="Copy link"
-                              >
-                                <CopyIcon className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Internal Notes */}
-                          <div>
-                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
-                              Engineering &amp; Architectural Internal Notes
-                            </label>
-                            <textarea
-                              value={meetingNotes}
-                              onChange={(e) => setMeetingNotes(e.target.value)}
-                              placeholder="Add internal notes, engineering parameters, or client preferences..."
-                              rows={2}
-                              className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none"
-                            />
                           </div>
                         </div>
                       </div>
@@ -1716,7 +2003,7 @@ export default function InquiryPipelineTab({
             </div>
 
             {/* Modal Sticky Footer Action Bar */}
-            <div className="px-6 py-4 border-t border-neutral-200/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-3 shrink-0 bg-white dark:bg-[#0e1017]">
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-neutral-200/80 dark:border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 shrink-0 bg-white dark:bg-[#0e1017]">
               {(() => {
                 const currentStatus = (selectedBrief?.status || "Pending Review").trim();
                 const isBriefRejected =
@@ -1759,53 +2046,77 @@ export default function InquiryPipelineTab({
                 // CASE 3: STANDARD STATE (PENDING, APPROVED)
                 return (
                   <>
+                    {/* Left: Destructive / Reject Action */}
                     <div className="flex items-center gap-2.5">
                       <button
                         type="button"
-                        onClick={openRescheduleModal}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-neutral-300 dark:border-white/10 hover:border-neutral-400 bg-white dark:bg-white/[0.04] text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors cursor-pointer"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5 text-neutral-500" />
-                        <span>Reschedule</span>
-                      </button>
-
-                      <button
-                        type="button"
                         onClick={openRejectModal}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-xs font-medium transition-colors cursor-pointer"
+                        className="group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-white/10 hover:border-rose-300 dark:hover:border-rose-500/30 bg-white dark:bg-[#12151e] hover:bg-rose-50/50 dark:hover:bg-rose-950/20 text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-sans font-medium transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs active:scale-[0.98]"
                       >
-                        <XCircleIcon className="w-3.5 h-3.5" />
+                        <XCircleIcon className="w-3.5 h-3.5 text-neutral-400 group-hover:text-rose-500 transition-colors" />
                         <span>Decline Request</span>
                       </button>
                     </div>
 
-                    <div className="flex items-center gap-2.5">
+                    {/* Right: Meeting Actions */}
+                    <div className="flex items-center gap-2.5 flex-wrap">
                       {selectedBrief.status === "Meeting Scheduled" || selectedBrief.status === "Approved / Accepted" ? (
                         <>
-                          <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
-                            <CheckIcon className="w-3.5 h-3.5" />
+                          {/* Confirmed Status Indicator */}
+                          <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/[0.08] dark:bg-emerald-500/[0.12] border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-mono font-medium shadow-2xs select-none">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             <span>Confirmed &amp; Scheduled</span>
                           </div>
+
+                          {/* Send Attendance Reminder Email */}
                           <button
                             type="button"
-                            onClick={handleApprove}
-                            disabled={isApproving}
-                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500 hover:text-neutral-950 text-amber-700 dark:text-amber-400 font-semibold text-xs tracking-wide transition-all cursor-pointer disabled:opacity-50"
-                            title="Update details and re-send confirmation email"
+                            onClick={async () => {
+                              try {
+                                const targetId = selectedBrief.submission_id || selectedBrief.id;
+                                const isF2F = !String(selectedBrief.meetingMode || selectedBrief.meeting_mode || "").toLowerCase().includes("online");
+                                const res = await fetch(`/api/meetings/${encodeURIComponent(targetId)}/send-reminder`, {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ roundTitle: selectedBrief.meetingNotes || "1st Technical & Architectural Alignment" }),
+                                });
+                                const data = await res.json();
+                                if (res.ok && data.success) {
+                                  showToast(`Attendance reminder email dispatched to ${selectedBrief.clientEmail} (${isF2F ? "12h F2F" : "6h Online"}).`);
+                                } else {
+                                  showToast(data.message || "Failed to dispatch reminder.");
+                                }
+                              } catch (e) {
+                                showToast("Reminder notice: " + e.message);
+                              }
+                            }}
+                            className="group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-white/10 hover:border-sky-500/30 bg-white dark:bg-[#12151e] hover:bg-sky-50/50 dark:hover:bg-sky-950/20 text-neutral-700 dark:text-neutral-200 hover:text-sky-600 dark:hover:text-sky-400 text-xs font-sans font-medium transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs active:scale-[0.98]"
+                            title="Send 12h F2F or 6h Online attendance confirmation reminder email to client"
                           >
-                            <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
-                            <span>{isApproving ? "Updating..." : "Update / Resend"}</span>
+                            <Mail className="w-3.5 h-3.5 text-neutral-400 group-hover:text-sky-500 transition-colors" />
+                            <span>Send Reminder Email</span>
+                          </button>
+
+                          {/* Reschedule Consultation */}
+                          <button
+                            type="button"
+                            onClick={openRescheduleModal}
+                            className="group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-white/10 hover:border-amber-500/40 bg-white dark:bg-[#12151e] hover:bg-amber-50/50 dark:hover:bg-amber-950/20 text-neutral-700 dark:text-neutral-200 hover:text-amber-700 dark:hover:text-amber-400 text-xs font-sans font-medium transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs active:scale-[0.98]"
+                            title="Change schedule, venue, or format"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 transition-colors" />
+                            <span>Reschedule</span>
                           </button>
                         </>
                       ) : (
+                        /* When Pending Review: Single Master Confirm Consultation Button */
                         <button
                           type="button"
-                          onClick={handleApprove}
-                          disabled={isApproving}
-                          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-[0.99]"
+                          onClick={() => setIsConfirmModalOpen(true)}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-neutral-950 font-sans font-semibold text-xs transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
                         >
-                          <CheckIcon className="w-4 h-4" />
-                          <span>{isApproving ? "Confirming..." : "Approve & Send Email"}</span>
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                          <span>Confirm Consultation</span>
                         </button>
                       )}
                     </div>
@@ -1818,23 +2129,203 @@ export default function InquiryPipelineTab({
       )}
 
       {/* =========================================================================
-          RESCHEDULE MODAL (BEAUTIFUL HIGH-END UI/UX)
+          CONFIRMATION REVIEW MODAL (SHOWS MEETING INFO BEFORE CONFIRMING / RESCHEDULE)
           ========================================================================= */}
-      {isRescheduleOpen && selectedBrief && (
+      {isConfirmModalOpen && selectedBrief && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
           <div
-            className="w-full max-w-lg bg-white dark:bg-[#111319] rounded-2xl border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            className="w-full max-w-xl bg-white dark:bg-[#111319] rounded-2xl border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="p-5 border-b border-neutral-200 dark:border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500">
-                  <RotateCcw className="w-4 h-4" />
-                </div>
+                <CalendarCheck className="w-5 h-5 text-amber-500 shrink-0" />
                 <div>
                   <h4 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-tight">
-                    Reschedule Consultation
+                    Confirm Consultation Schedule
+                  </h4>
+                  <p className="text-[11px] font-mono text-neutral-500">
+                    {selectedBrief.clientName} • {selectedBrief.submissionId || selectedBrief.id}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsConfirmModalOpen(false)}
+                className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+              >
+                <CloseIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content: Meeting Parameters Review */}
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Client & Project Overview */}
+              <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-neutral-200/60 dark:bg-white/10 flex items-center justify-center text-neutral-700 dark:text-neutral-300 font-semibold text-xs">
+                    {(selectedBrief.clientName || "C").charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-neutral-900 dark:text-white">
+                      {selectedBrief.clientName}
+                    </div>
+                    <div className="text-[11px] font-mono text-neutral-500 flex items-center gap-1.5">
+                      <Mail className="w-3 h-3" />
+                      <span>{selectedBrief.clientEmail}</span>
+                    </div>
+                  </div>
+                </div>
+                {selectedBrief.clientPhone && (
+                  <div className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-neutral-400" />
+                    <span>{selectedBrief.clientPhone}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Consultation Technical Matrix */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Meeting Format */}
+                <div className="p-3.5 rounded-xl bg-white dark:bg-[#141721] border border-neutral-200 dark:border-white/5 space-y-1">
+                  <span className="text-[10px] font-mono font-medium text-neutral-400 uppercase tracking-wider block">
+                    Format / Mode
+                  </span>
+                  <div className="flex items-center gap-2 text-xs font-medium text-neutral-800 dark:text-neutral-200">
+                    {String(meetingMode || selectedBrief.meetingMode || "").toLowerCase().includes("online") ? (
+                      <>
+                        <Video className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                        <span>Online Video Call</span>
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>Face-to-Face Consultation</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Confirmed Date */}
+                <div className="p-3.5 rounded-xl bg-white dark:bg-[#141721] border border-neutral-200 dark:border-white/5 space-y-1">
+                  <span className="text-[10px] font-mono font-medium text-neutral-400 uppercase tracking-wider block">
+                    Confirmed Date
+                  </span>
+                  <div className="flex items-center gap-2 text-xs font-medium text-neutral-800 dark:text-neutral-200">
+                    <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="font-mono">
+                      {meetingDate || selectedBrief.meetingDate || selectedBrief.date || "To be confirmed"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Time Slot */}
+                <div className="p-3.5 rounded-xl bg-white dark:bg-[#141721] border border-neutral-200 dark:border-white/5 space-y-1">
+                  <span className="text-[10px] font-mono font-medium text-neutral-400 uppercase tracking-wider block">
+                    Time Window
+                  </span>
+                  <div className="flex items-center gap-2 text-xs font-medium text-neutral-800 dark:text-neutral-200">
+                    <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="font-mono">
+                      {meetingTime || selectedBrief.meetingTime || selectedBrief.time || "09:00 AM - 10:30 AM"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Venue / Link */}
+                <div className="p-3.5 rounded-xl bg-white dark:bg-[#141721] border border-neutral-200 dark:border-white/5 space-y-1">
+                  <span className="text-[10px] font-mono font-medium text-neutral-400 uppercase tracking-wider block">
+                    Venue / Meeting Room
+                  </span>
+                  <div className="text-xs font-medium text-neutral-800 dark:text-neutral-200 line-clamp-2" title={meetingLink || selectedBrief.venueDetails || selectedBrief.meetingLink || selectedBrief.venue || selectedBrief.address || "MCPA Engineering Office"}>
+                    {meetingLink || selectedBrief.venueDetails || selectedBrief.meetingLink || selectedBrief.venue || selectedBrief.address || "MCPA Engineering Office"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Internal Notes / Agenda */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-[#141721] border border-neutral-200 dark:border-white/5 space-y-1">
+                <span className="text-[10px] font-mono font-medium text-neutral-400 uppercase tracking-wider block">
+                  Engineering &amp; Architectural Agenda
+                </span>
+                <p className="text-xs text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap font-sans">
+                  {meetingNotes || selectedBrief.meetingNotes || "1st Technical & Architectural Alignment"}
+                </p>
+              </div>
+
+              {/* Informational Callout */}
+              <div className="p-3 rounded-xl bg-amber-500/[0.08] border border-amber-500/20 flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-800 dark:text-amber-300/90 leading-relaxed font-sans">
+                  Approving this consultation locks the schedule into the MCPA timeline and dispatches an official confirmation docket and calendar invite to <strong className="font-semibold text-neutral-900 dark:text-white">{selectedBrief.clientEmail}</strong>.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-3.5 sm:p-4 border-t border-neutral-200 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+              {/* Option to Reschedule instead */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfirmModalOpen(false);
+                  openRescheduleModal();
+                }}
+                className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-neutral-200 dark:border-white/10 hover:border-amber-500/40 bg-white dark:bg-[#12151e] hover:bg-amber-50/50 dark:hover:bg-amber-950/20 text-neutral-700 dark:text-neutral-300 hover:text-amber-700 dark:hover:text-amber-400 text-xs font-sans font-medium transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs active:scale-[0.98]"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 transition-colors" />
+                <span>Reschedule Instead</span>
+              </button>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmModalOpen(false)}
+                  className="px-3.5 py-2 rounded-xl border border-neutral-200 dark:border-white/10 hover:bg-neutral-100 dark:hover:bg-white/5 text-neutral-600 dark:text-neutral-400 text-xs font-sans font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isApproving}
+                  onClick={handleApprove}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-neutral-950 font-sans font-semibold text-xs transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isApproving ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin" />
+                      <span>Dispatching...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                      <span>Confirm &amp; Dispatch Invite</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          RESCHEDULE & CHANGE MEETING SETUP MODAL
+          ========================================================================= */}
+      {isRescheduleOpen && selectedBrief && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div
+            className="w-full max-w-xl bg-white dark:bg-[#111319] rounded-2xl border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-5 border-b border-neutral-200 dark:border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <RotateCcw className="w-5 h-5 text-amber-500 shrink-0" />
+                <div>
+                  <h4 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-tight">
+                    Reschedule &amp; Change Meeting Setup
                   </h4>
                   <p className="text-[11px] font-mono text-neutral-500">
                     {selectedBrief.clientName} • {selectedBrief.submissionId || selectedBrief.id}
@@ -1851,18 +2342,230 @@ export default function InquiryPipelineTab({
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               {/* Current Schedule Indicator */}
               <div className="p-3 rounded-lg bg-neutral-100 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 flex items-center justify-between text-xs font-mono">
-                <span className="text-neutral-500">Current Schedule:</span>
+                <span className="text-neutral-500">Current Setup:</span>
                 <span className="font-bold text-neutral-800 dark:text-neutral-200">
-                  {selectedBrief.meetingDate || "None"} • {selectedBrief.meetingTime || "No slot"}
+                  {selectedBrief.meetingMode || "Online"} • {selectedBrief.meetingDate || "None"} • {selectedBrief.meetingTime || "No slot"}
                 </span>
               </div>
 
+              {/* Meeting Mode / Format Switcher */}
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1.5 font-bold">
+                  Meeting Format / Mode *
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/5">
+                  {["Online Video Call", "Face-to-Face"].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => {
+                        setRescheduleMode(m);
+                        if (m === "Online Video Call") {
+                          setRescheduleLink(selectedBrief.meetingLink || "MCPA Video Conference Room");
+                        }
+                      }}
+                      className={`py-2 px-2.5 rounded text-xs font-mono font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        rescheduleMode === m
+                          ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold shadow-xs"
+                          : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                      }`}
+                    >
+                      {m === "Online Video Call" ? <Video className="w-3.5 h-3.5 text-sky-500" /> : <MapPin className="w-3.5 h-3.5 text-amber-500" />}
+                      <span>{m}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* If Online: Video Conference Link */}
+              {rescheduleMode === "Online Video Call" && (
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                    Video Conference Link / Room
+                  </label>
+                  <input
+                    type="text"
+                    value={rescheduleLink}
+                    onChange={(e) => setRescheduleLink(e.target.value)}
+                    placeholder="MCPA Video Conference Room"
+                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
+
+              {/* If Face-to-Face: Matching Booking 3-Venue Setup + Searchable VenueCombobox */}
+              {rescheduleMode === "Face-to-Face" && (
+                <div className="space-y-3 p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
+                      Select In-Person Meeting Venue *
+                    </span>
+                    <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold uppercase">
+                      {rescheduleVenueType === "office"
+                        ? "Office HQ"
+                        : rescheduleVenueType === "site"
+                        ? "Proposed Project Site"
+                        : "Coffee Shop / Venue"}
+                    </span>
+                  </div>
+
+                  {/* 3 Selectable Venue Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* 1. Visit MCPA Office */}
+                    <button
+                      type="button"
+                      onClick={() => setRescheduleVenueType("office")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                        rescheduleVenueType === "office"
+                          ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/40 text-neutral-900 dark:text-white"
+                          : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg shrink-0 ${rescheduleVenueType === "office" ? "bg-amber-500 text-neutral-950" : "bg-neutral-100 dark:bg-white/10 text-neutral-500"}`}>
+                          <Building2 className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-bold">Visit MCPA Office</span>
+                      </div>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                        Plaridel, Bulacan Head Office
+                      </span>
+                    </button>
+
+                    {/* 2. Proposed Project Site */}
+                    <button
+                      type="button"
+                      onClick={() => setRescheduleVenueType("site")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                        rescheduleVenueType === "site"
+                          ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/40 text-neutral-900 dark:text-white"
+                          : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg shrink-0 ${rescheduleVenueType === "site" ? "bg-amber-500 text-neutral-950" : "bg-neutral-100 dark:bg-white/10 text-neutral-500"}`}>
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-bold">Proposed Project Site</span>
+                      </div>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                        On-site ocular at lot
+                      </span>
+                    </button>
+
+                    {/* 3. Coffee Shop / Venue */}
+                    <button
+                      type="button"
+                      onClick={() => setRescheduleVenueType("cafe")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                        rescheduleVenueType === "cafe"
+                          ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/40 text-neutral-900 dark:text-white"
+                          : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:border-amber-500/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg shrink-0 ${rescheduleVenueType === "cafe" ? "bg-amber-500 text-neutral-950" : "bg-neutral-100 dark:bg-white/10 text-neutral-500"}`}>
+                          <Coffee className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-bold">Coffee Shop / Venue</span>
+                      </div>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                        Starbucks, fast food, mall in PH
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Details for Card 1: Visit MCPA Office */}
+                  {rescheduleVenueType === "office" && (
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div>
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 block font-bold">
+                            Official Headquarters Address:
+                          </span>
+                          <p className="text-xs font-bold text-neutral-900 dark:text-white mt-0.5">
+                            MCPA Construction &amp; Supply Head Office
+                          </p>
+                          <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-mono mt-0.5">
+                            2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
+                          </p>
+                          <span className="text-[10px] text-neutral-500 block mt-0.5">
+                            (Near Tabang Tollway Exit &amp; WalterMart Plaridel • Private Client Parking Available)
+                          </span>
+                        </div>
+                        <a
+                          href="https://www.google.com/maps/search/?api=1&query=MCPA+Construction+and+Supply+Tabang+Plaridel+Bulacan"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-[11px] uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors shrink-0 shadow-xs cursor-pointer"
+                        >
+                          <span>Open in Google Maps</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Details for Card 2: Proposed Project Site */}
+                  {rescheduleVenueType === "site" && (
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div>
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 block font-bold">
+                            Proposed Construction Lot Address:
+                          </span>
+                          <p className="text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-1.5 mt-0.5">
+                            <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span>
+                              {selectedBrief.location ||
+                                selectedBrief.projectLocation ||
+                                selectedBrief.lotLocation ||
+                                selectedBrief.city ||
+                                "Proposed Project Site"}
+                            </span>
+                          </p>
+                          <p className="text-[10px] text-neutral-500 mt-1 italic">
+                            * Our architectural and engineering team will meet you directly at your property for preliminary ocular and terrain inspection.
+                          </p>
+                        </div>
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                            selectedBrief.location ||
+                              selectedBrief.projectLocation ||
+                              selectedBrief.lotLocation ||
+                              "Bulacan"
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold font-mono text-[11px] uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors shrink-0 shadow-xs cursor-pointer"
+                        >
+                          <span>Open in Google Maps</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Details for Card 3: Coffee Shop / Venue with VenueCombobox */}
+                  {rescheduleVenueType === "cafe" && (
+                    <div className="pt-1">
+                      <VenueCombobox
+                        value={rescheduleCafeVenue}
+                        onChange={(venue) => setRescheduleCafeVenue(venue)}
+                        onClear={() => setRescheduleCafeVenue("")}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* New Date Picker */}
               <div>
-                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1">
+                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
                   Proposed New Consultation Date *
                 </label>
                 <input
@@ -1876,7 +2579,7 @@ export default function InquiryPipelineTab({
 
               {/* Time Slots Presets */}
               <div>
-                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1.5">
+                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1.5 font-bold">
                   Select Time Slot *
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1904,8 +2607,8 @@ export default function InquiryPipelineTab({
 
               {/* Reason for Rescheduling */}
               <div>
-                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1">
-                  Reason for Rescheduling
+                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                  Reason for Adjustment / Rescheduling
                 </label>
                 <select
                   value={rescheduleReason}
@@ -1914,6 +2617,8 @@ export default function InquiryPipelineTab({
                 >
                   <option value="Architectural Schedule Conflict">Architectural Schedule Conflict</option>
                   <option value="Client Slot Adjustment Request">Client Slot Adjustment Request</option>
+                  <option value="Format Switch: Online to Face-to-Face">Format Switch: Online to Face-to-Face</option>
+                  <option value="Format Switch: Face-to-Face to Online">Format Switch: Face-to-Face to Online</option>
                   <option value="Site Inspection Ongoing">Site Inspection Ongoing</option>
                   <option value="Preparation of Detailed Architectural Pegs">Preparation of Detailed Architectural Pegs</option>
                   <option value="Office Holiday / Non-Working Schedule">Office Holiday / Non-Working Schedule</option>
@@ -1922,13 +2627,13 @@ export default function InquiryPipelineTab({
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1">
+                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
                   Additional Notes for Client Notice
                 </label>
                 <textarea
                   value={rescheduleNotes}
                   onChange={(e) => setRescheduleNotes(e.target.value)}
-                  placeholder="Optional details or instructions regarding the rescheduled appointment..."
+                  placeholder="Optional details or instructions regarding the updated appointment..."
                   rows={2}
                   className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 resize-none"
                 />
@@ -1969,9 +2674,7 @@ export default function InquiryPipelineTab({
             {/* Header */}
             <div className="p-5 border-b border-rose-500/20 bg-rose-500/10 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-500">
-                  <ShieldAlert className="w-5 h-5" />
-                </div>
+                <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0" />
                 <div>
                   <h4 className="text-sm font-bold text-rose-600 dark:text-rose-400 uppercase tracking-tight">
                     Authorize Inquiry Rejection

@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Check,
   Calendar,
+  CalendarCheck,
   MapPin,
   ExternalLink,
   LogOut,
@@ -69,6 +70,7 @@ import MultiProjectRequestModal from "@/modules/portal/components/MultiProjectRe
 import { authFetch } from "@/modules/shared/authFetch";
 import { getBookingIntent, clearBookingIntent } from "@/modules/shared/bookingAuthHelper";
 import { isMeetingPast } from "@/modules/shared/meetingHelper";
+import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
 
 function ClientPortalContent() {
   const router = useRouter();
@@ -87,10 +89,16 @@ function ClientPortalContent() {
   const redirectParam = searchParams?.get("redirect");
   const tabParam = searchParams?.get("tab");
 
-  // Active view tab: "overview" | "inquiries" | "construction" | "gallery" | "billing" | "messages" | "profile"
-  const [portalTab, setPortalTab] = useState("overview");
+  // Active view tab: "overview" | "meeting" | "inquiries" | "construction" | "gallery" | "billing" | "messages" | "profile"
+  const [portalTab, setPortalTab] = useState(tabParam || "overview");
   const [inquiries, setInquiries] = useState([]);
   const [isLoadingInquiries, setIsLoadingInquiries] = useState(false);
+
+  useEffect(() => {
+    if (tabParam) {
+      setPortalTab(tabParam);
+    }
+  }, [tabParam]);
 
   // Progressive Disclosure Lifecycle States
   const [dashboardState, setDashboardState] = useState(null);
@@ -114,6 +122,13 @@ function ClientPortalContent() {
 
   // Authoritative server clock for Manila time
   const { dateStr, timeStr, timezoneCode, hasClockSkew, skewText } = useAuthoritativeClock("Asia/Manila");
+
+  // Live timer tick for real-time meeting room unlock (15m before) and ongoing status
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Modal & Toast states
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
@@ -273,10 +288,27 @@ function ClientPortalContent() {
       const savedUser = localStorage.getItem("mcpa_client_user");
       const savedToken = localStorage.getItem("mcpa_client_token");
       const savedCollapsed = localStorage.getItem("mcpa_client_sidebar_collapsed");
+      const savedDash = localStorage.getItem("mcpa_client_dashboard_state");
 
       queueMicrotask(() => {
         if (savedCollapsed !== null) {
           setIsSidebarCollapsed(savedCollapsed === "true");
+        }
+
+        if (savedDash) {
+          try {
+            const parsedDash = JSON.parse(savedDash);
+            setDashboardState(parsedDash);
+            if (parsedDash?.activeProject) {
+              setSiteProject((prev) => ({
+                ...parsedDash.activeProject,
+                progress_pct: parsedDash.activeProject.site_progress_pct || 0,
+                ...(prev || {}),
+              }));
+            }
+          } catch (e) {
+            console.warn("Dashboard state parse error:", e);
+          }
         }
 
         if (savedUser) {
@@ -315,6 +347,11 @@ function ClientPortalContent() {
       const dashData = await dashRes.json();
       if (dashRes.ok && dashData.success) {
         setDashboardState(dashData);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("mcpa_client_dashboard_state", JSON.stringify(dashData));
+          } catch (e) {}
+        }
         if (dashData.activeProject) {
           setSiteProject({
             ...dashData.activeProject,
@@ -410,9 +447,11 @@ function ClientPortalContent() {
     setIsLogoutConfirmOpen(false);
     setCurrentUser(null);
     setAuthToken(null);
+    setDashboardState(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("mcpa_client_user");
       localStorage.removeItem("mcpa_client_token");
+      localStorage.removeItem("mcpa_client_dashboard_state");
     }
     showToast("Signed out successfully.");
   };
@@ -499,7 +538,7 @@ function ClientPortalContent() {
         return {
           active: [
             { id: "overview", label: "Dashboard", icon: LayoutDashboard },
-            { id: "meeting", label: "Video Consultation", icon: Video },
+            { id: "meeting", label: "Meeting", icon: CalendarCheck },
             { id: "documents", label: "Document Vault", icon: FileText },
             { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
@@ -563,7 +602,7 @@ function ClientPortalContent() {
             { id: "process", label: "Process", icon: ListChecks },
           ],
           upcoming: [
-            { id: "consultation", label: "Video Consultation", icon: Video, unlockStage: "Stage 2 (Inquiry Approved)", unlockBadge: "Stage 2" },
+            { id: "consultation", label: "Meeting Schedule", icon: CalendarCheck, unlockStage: "Stage 2 (Inquiry Approved)", unlockBadge: "Stage 2" },
             { id: "planning", label: "Blueprints & Permits", icon: Layers, unlockStage: "Stage 3 (Pre-Construction)", unlockBadge: "Stage 3" },
             { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
             { id: "billing", label: "Milestone Escrow", icon: CreditCard, unlockStage: "Stage 3 & 4", unlockBadge: "Stage 3" },
@@ -1136,7 +1175,17 @@ function ClientPortalContent() {
           {/* ========================================================================= */}
           {portalTab === "overview" && (
             <div className="space-y-6">
-              {dashboardState?.stage_id === "CONSULTATION" ? (
+              {!dashboardState ? (
+                <div className="p-8 rounded-[12px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 space-y-4 animate-pulse">
+                  <div className="h-6 w-1/3 bg-neutral-200 dark:bg-white/10 rounded" />
+                  <div className="h-4 w-1/2 bg-neutral-100 dark:bg-white/5 rounded" />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                    <div className="h-28 bg-neutral-100 dark:bg-white/5 rounded-lg" />
+                    <div className="h-28 bg-neutral-100 dark:bg-white/5 rounded-lg" />
+                    <div className="h-28 bg-neutral-100 dark:bg-white/5 rounded-lg" />
+                  </div>
+                </div>
+              ) : dashboardState?.stage_id === "CONSULTATION" ? (
                 <PortalPhase2Consultation
                   mode="overview"
                   activeProject={dashboardState.activeProject}
@@ -1186,6 +1235,7 @@ function ClientPortalContent() {
                 <PortalPhase1PreInquiry
                   mode="overview"
                   currentUser={currentUser}
+                  dashboardState={dashboardState}
                   onStartInquiry={handleStartInquiryClick}
                   onRequestMultiProject={() => setIsMultiProjectModalOpen(true)}
                   isMultiProjectBlocked={isMultiProjectBlocked}
@@ -1428,6 +1478,22 @@ function ClientPortalContent() {
                     const status = brief.status || "Pending Review";
                     const mapCoord = brief.map_coordinates || brief.mapCoordinates;
 
+                    const briefMode = brief.venue_type
+                      ? `In-Person (${brief.venue_type})`
+                      : (brief.meeting_mode || brief.meetingMode || "Online Video Call");
+                    const isOnline = briefMode.toLowerCase().includes("online") || briefMode.toLowerCase().includes("video");
+
+                    const briefLifecycle = getMeetingLifecycleState(
+                      {
+                        mode: briefMode,
+                        date: brief.meeting_date || brief.meetingDate,
+                        time: brief.meeting_time || brief.meetingTime || "02:00 PM - 03:30 PM PHT",
+                        attendanceConfirmed: brief.attendanceConfirmed,
+                        outcome: brief.outcome,
+                      },
+                      currentTime
+                    );
+
                     return (
                       <div
                         key={id}
@@ -1484,15 +1550,19 @@ function ClientPortalContent() {
                             </span>
                             <div className="text-xs space-y-1">
                               <p className="font-semibold text-neutral-800 dark:text-neutral-200">
-                                Mode: {brief.venue_type ? `In-Person (${brief.venue_type})` : brief.meeting_mode || "Online Meeting"}
+                                Mode: {briefMode}
                               </p>
                               <p className="text-neutral-600 dark:text-neutral-400 flex items-center gap-1.5 flex-wrap">
-                                <span>Slot: {brief.meeting_date || "Earliest Available"} ({brief.meeting_time || "02:00 PM PHT"})</span>
-                                {isMeetingPast(brief.meeting_date || brief.meetingDate, brief.meeting_time || brief.meetingTime) && (
+                                <span>Slot: {brief.meeting_date || brief.meetingDate || "Earliest Available"} ({brief.meeting_time || brief.meetingTime || "02:00 PM PHT"})</span>
+                                {briefLifecycle.isPast ? (
                                   <span className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 font-medium">
                                     • Concluded
                                   </span>
-                                )}
+                                ) : briefLifecycle.isOngoing ? (
+                                  <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 uppercase animate-pulse">
+                                    • Live Now
+                                  </span>
+                                ) : null}
                               </p>
                             </div>
                           </div>
@@ -1513,14 +1583,55 @@ function ClientPortalContent() {
                           </div>
                         </div>
 
-                        {/* Meeting Link Room Card (Only active when scheduled, not rejected, and not past) */}
+                        {/* Attendance Confirmation Action (F2F within 12h, Online within 6h) */}
                         {Boolean(
-                          (brief.meeting_link || brief.meetingLink) &&
+                          briefLifecycle.needsConfirmation &&
+                          !status.toLowerCase().includes("reject") &&
+                          !status.toLowerCase().includes("decline")
+                        ) && (
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-[12px] bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 animate-in fade-in">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                                <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-amber-950 dark:text-amber-200">
+                                  Attendance Confirmation Required
+                                </p>
+                                <p className="text-[11px] text-amber-700 dark:text-amber-400 font-mono">
+                                  {briefLifecycle.isF2F
+                                    ? "Please confirm attendance within 12h prior to consultation."
+                                    : "Please confirm attendance within 6h prior to video consultation."}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInquiries((prev) =>
+                                  prev.map((item) =>
+                                    item.id === brief.id ? { ...item, attendanceConfirmed: true } : item
+                                  )
+                                );
+                                setToastMessage("Attendance confirmed! Lead Engineer notified.");
+                              }}
+                              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-colors shadow-xs cursor-pointer shrink-0"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Confirm Attendance</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Meeting Link Room Card (ONLY unlocked 15 minutes before meeting starts or when ongoing) */}
+                        {Boolean(
+                          isOnline &&
+                          (briefLifecycle.isRoomUnlocked || briefLifecycle.isOngoing) &&
                           !status.toLowerCase().includes("reject") &&
                           !status.toLowerCase().includes("decline") &&
-                          !isMeetingPast(brief.meeting_date || brief.meetingDate, brief.meeting_time || brief.meetingTime)
+                          !briefLifecycle.isPast
                         ) && (
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-[12px] bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-[12px] bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 animate-in fade-in">
                             <div className="flex items-center gap-2.5">
                               <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
                                 <Video className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -1530,23 +1641,23 @@ function ClientPortalContent() {
                                   Consultation Meeting Access
                                 </p>
                                 <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-mono">
-                                  {(brief.meeting_link || brief.meetingLink).startsWith("http")
-                                    ? "Official Video Call Room Prepared"
-                                    : (brief.meeting_link || brief.meetingLink)}
+                                  {briefLifecycle.isOngoing
+                                    ? "Consultation Session is Live — Join Room Now"
+                                    : "Official Video Call Room Prepared"}
                                 </p>
                               </div>
                             </div>
-                            {(brief.meeting_link || brief.meetingLink).startsWith("http") && (
-                              <a
-                                href={brief.meeting_link || brief.meetingLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold uppercase tracking-wider transition-colors shadow-xs"
-                              >
-                                <span>Join Consultation Call</span>
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </a>
-                            )}
+                            <a
+                              href={(brief.meeting_link || brief.meetingLink || "").startsWith("http")
+                                ? (brief.meeting_link || brief.meetingLink)
+                                : `/portal?tab=meeting`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold uppercase tracking-wider transition-colors shadow-xs cursor-pointer"
+                            >
+                              <span>Join Consultation Call</span>
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
                           </div>
                         )}
 

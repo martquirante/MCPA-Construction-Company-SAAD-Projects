@@ -552,7 +552,7 @@ export default function ArchitecturalClipboardInquiry({
       currentUser?.avatar_url ||
       currentUser?.photoURL ||
       currentUser?.picture ||
-      (currentUser?.email?.toLowerCase() === "rayquirante@gmail.com" || currentUser?.email?.toLowerCase() === "martquirante04@gmail.com"
+      (currentUser?.email?.toLowerCase() === "rayquirante@gmail.com" || currentUser?.email?.toLowerCase() === "martquirante04@gmail.com" || currentUser?.email?.toLowerCase() === "martquirante@gmail.com"
         ? "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
         : null);
 

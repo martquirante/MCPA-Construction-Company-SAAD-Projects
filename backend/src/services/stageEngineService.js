@@ -212,6 +212,62 @@ class StageEngineService {
     const initialActiveProject = projectRes.rows && projectRes.rows.length > 0 ? projectRes.rows[0] : null;
     let resolvedProject = initialActiveProject;
 
+    // Check if current project is discontinued or rejected
+    if (
+      resolvedProject &&
+      (Boolean(resolvedProject.is_archived) ||
+        resolvedProject.status === "DISCONTINUED" ||
+        resolvedProject.status === "REJECTED" ||
+        (resolvedProject.brief_status || "").toLowerCase().includes("reject") ||
+        (resolvedProject.brief_status || "").toLowerCase().includes("discontinue") ||
+        (resolvedProject.brief_status || "").toLowerCase().includes("decline") ||
+        (resolvedProject.brief_status || "").toLowerCase().includes("withdrawn"))
+    ) {
+      return {
+        success: true,
+        hasActiveProject: false,
+        hasRejectedInquiry: true,
+        rejectedBrief: {
+          briefId: resolvedProject.brief_id,
+          submissionId: resolvedProject.brief_submission_id,
+          status: resolvedProject.brief_status || "Discontinued / Rejected",
+          rejectionReason: resolvedProject.rejection_reason || "Consultation Concluded / Discontinued",
+          rejectionNotes: resolvedProject.rejection_notes || null,
+          projectType: resolvedProject.project_title || "Residential Build Inquiry",
+          location: resolvedProject.target_location,
+        },
+        activeProject: null,
+        stage_id: "PRE_INQUIRY",
+        stageLevel: STAGE_ORDER.PRE_INQUIRY,
+        stageName: STAGE_NAMES.PRE_INQUIRY,
+        is_multi_project_approved: Boolean(user.is_multi_project_approved),
+        isKycVerified: Boolean(user.kyc_verified_at),
+        userProfile: {
+          userId: user.user_id,
+          email: user.email,
+          fullName: user.full_name,
+          role: user.role,
+          avatarUrl: user.avatar_url,
+          clientType: user.client_type,
+        },
+        stagePermissions: {
+          canAccessPreInquiry: true,
+          canAccessConsultation: false,
+          canAccessPreConstruction: false,
+          canAccessActiveBuild: false,
+          canAccessCompleted: false,
+        },
+        unlockedStages: ["PRE_INQUIRY"],
+        summaryCounters: {
+          documentsCount: 0,
+          unreadMessagesCount: 0,
+          blueprintsCount: 0,
+          pendingInvoicesCount: 0,
+          activeMeeting: null,
+        },
+      };
+    }
+
     // 2.1 Auto-bridge: If no active client_projects row exists, check for an active client_briefs record
     if (!resolvedProject) {
       const briefRes = await db.query(
@@ -226,7 +282,10 @@ class StageEngineService {
         const latestBrief = briefRes.rows[0];
         const isBriefRejected = 
           Boolean(latestBrief.is_rejected) || 
-          (latestBrief.status || "").toLowerCase().includes("reject");
+          (latestBrief.status || "").toLowerCase().includes("reject") ||
+          (latestBrief.status || "").toLowerCase().includes("discontinue") ||
+          (latestBrief.status || "").toLowerCase().includes("decline") ||
+          (latestBrief.status || "").toLowerCase().includes("withdrawn");
 
         if (isBriefRejected) {
           return {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { setReturnToCompletedHome } from "@/modules/home/homeState";
@@ -9,9 +9,12 @@ import DashboardTab from "@/modules/admin/components/DashboardTab";
 import InquiryPipelineTab from "@/modules/admin/components/InquiryPipelineTab";
 import ProjectsTab from "@/modules/admin/components/ProjectsTab";
 import AccountsTab from "@/modules/admin/components/AccountsTab";
+import AdminMeetingsTab from "@/modules/admin/components/AdminMeetingsTab";
+import AdminIncomingCallManager from "@/modules/admin/components/AdminIncomingCallManager";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
 import { useAuthoritativeClock } from "@/modules/admin/hooks/useAuthoritativeClock";
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
+import { CalendarCheck as CalendarIcon } from "lucide-react";
 import {
   LockIcon,
   ShieldCheckIcon,
@@ -57,6 +60,18 @@ export default function AdminPage() {
   const [customProjects, setCustomProjects] = useState([]);
   const [allProjects, setAllProjects] = useState([]);
   const [clientBriefs, setClientBriefs] = useState([]);
+  const [liveMeetingsCount, setLiveMeetingsCount] = useState(null);
+  const [readInquiryIds, setReadInquiryIds] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("mcpa_read_inquiry_ids");
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
@@ -137,7 +152,7 @@ export default function AdminPage() {
             const avatar =
               b.avatarUrl ||
               b.avatar_url ||
-              (email === "rayquirante@gmail.com" || email === "martquirante04@gmail.com"
+              (email === "rayquirante@gmail.com" || email === "martquirante04@gmail.com" || email === "martquirante@gmail.com"
                 ? "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
                 : null);
             return {
@@ -214,7 +229,7 @@ export default function AdminPage() {
           const avatar =
             b.avatar_url ||
             b.avatarUrl ||
-            (email === "rayquirante@gmail.com" || email === "martquirante04@gmail.com"
+            (email === "rayquirante@gmail.com" || email === "martquirante04@gmail.com" || email === "martquirante@gmail.com"
               ? "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
               : null);
           return {
@@ -416,6 +431,33 @@ export default function AdminPage() {
         }
       };
     }
+  }, []);
+
+  // Real-time synchronization for navbar badges (meetings and unread inquiries)
+  useEffect(() => {
+    const handleMeetingsSync = (e) => {
+      if (e?.detail?.count !== undefined) {
+        setLiveMeetingsCount(e.detail.count);
+      }
+    };
+    const handleInquiriesReadSync = () => {
+      try {
+        const stored = localStorage.getItem("mcpa_read_inquiry_ids");
+        if (stored) {
+          setReadInquiryIds(JSON.parse(stored));
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener("mcpa-meetings-count-sync", handleMeetingsSync);
+    window.addEventListener("mcpa-inquiries-read-sync", handleInquiriesReadSync);
+    window.addEventListener("storage", handleInquiriesReadSync);
+
+    return () => {
+      window.removeEventListener("mcpa-meetings-count-sync", handleMeetingsSync);
+      window.removeEventListener("mcpa-inquiries-read-sync", handleInquiriesReadSync);
+      window.removeEventListener("storage", handleInquiriesReadSync);
+    };
   }, []);
 
   const handleToggleTheme = () => {
@@ -1110,10 +1152,68 @@ export default function AdminPage() {
   // =========================================================================
   // 2. AUTHENTICATED ADMIN DASHBOARD
   // =========================================================================
+  // Archived meetings set from localStorage to accurately auto-deduct concluded sessions
+  const archivedMeetingsSet = typeof window !== "undefined"
+    ? (() => {
+        try {
+          return new Set(JSON.parse(localStorage.getItem("mcpa_archived_meeting_ids") || "[]"));
+        } catch (e) {
+          return new Set();
+        }
+      })()
+    : new Set();
+
+  const activeBriefMeetings = clientBriefs.filter((b) => {
+    const hasDate = Boolean(b.meetingDate || b.meeting_date);
+    if (!hasDate) return false;
+    const s = (b.status || "").toLowerCase();
+    const isTerminated =
+      s.includes("reject") ||
+      s.includes("decline") ||
+      s.includes("complete") ||
+      s.includes("aligned") ||
+      s.includes("closed") ||
+      s.includes("archived") ||
+      s.includes("discontinued");
+    if (isTerminated) return false;
+    const code = b.trackingId || b.submissionId || b.projectCode || b.id;
+    if (archivedMeetingsSet.has(code) || archivedMeetingsSet.has(b.id)) return false;
+    return true;
+  });
+
+  const hasRaymartInBriefs = activeBriefMeetings.some((b) => {
+    const name = (b.clientName || b.client_name || "").toLowerCase();
+    const email = (b.clientEmail || b.client_email || "").toLowerCase();
+    return name.includes("raymart") || email.includes("quirante");
+  });
+
+  const raymartBaseCount = (!hasRaymartInBriefs && !archivedMeetingsSet.has("meet-1")) ? 1 : 0;
+  const computedMeetingsFallback = activeBriefMeetings.length + raymartBaseCount;
+  const meetingsCount = liveMeetingsCount !== null ? liveMeetingsCount : computedMeetingsFallback;
+
+  // Unread Inquiries calculation (deducting reviewed/read/archived inquiries)
+  const unreadInquiriesCount = clientBriefs.filter((b) => {
+    const id = b.id || b.submissionId || b.trackingId;
+    const isRead =
+      readInquiryIds.includes(id) ||
+      readInquiryIds.includes(b.submissionId) ||
+      readInquiryIds.includes(b.trackingId) ||
+      b.is_read === true ||
+      b.isRead === true;
+    const s = (b.status || "").toLowerCase();
+    const isClosedOrArchived =
+      s.includes("reject") ||
+      s.includes("decline") ||
+      s.includes("closed") ||
+      s.includes("archived");
+    return !isRead && !isClosedOrArchived;
+  }).length;
+
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
     { id: "projects", label: "Projects", icon: FolderKanbanIcon },
-    { id: "briefs", label: "Inquiries", icon: ClipboardListIcon, badge: clientBriefs.length || undefined },
+    { id: "meetings", label: "Meetings", icon: CalendarIcon, badge: meetingsCount > 0 ? meetingsCount : undefined },
+    { id: "briefs", label: "Inquiries", icon: ClipboardListIcon, badge: unreadInquiriesCount > 0 ? unreadInquiriesCount : undefined },
     { id: "accounts", label: "Accounts", icon: UserIcon },
   ];
 
@@ -1712,6 +1812,17 @@ export default function AdminPage() {
         )}
 
         {/* ================================================================= */}
+        {/* TAB: MEETINGS & CLIENT APPOINTMENTS                               */}
+        {/* ================================================================= */}
+        {activeTab === "meetings" && (
+          <AdminMeetingsTab
+            clientBriefs={clientBriefs}
+            currentUser={currentUser}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ================================================================= */}
         {/* TAB: ACCOUNTS MANAGEMENT                                          */}
         {/* ================================================================= */}
         {activeTab === "accounts" && (
@@ -1723,51 +1834,107 @@ export default function AdminPage() {
       </main>
       </div>
 
-      {/* Mobile Bottom Navigation Bar (Thumb-Friendly Mobile App Navigation) */}
-      <nav
-        aria-label="Mobile Bottom Navigation"
-        className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-[#0e1017]/95 backdrop-blur-xl border-t border-neutral-200/80 dark:border-white/10 px-3 py-2 flex items-center justify-around shadow-2xl transition-all select-none"
-      >
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-                setIsMobileSidebarOpen(false);
-              }}
-              className={`flex-1 flex flex-col items-center justify-center py-1 px-2 rounded-[4px] transition-all cursor-pointer relative ${
-                isActive
-                  ? "text-amber-500 font-bold"
-                  : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-              }`}
-            >
-              <div className="relative">
-                <Icon className={`w-5 h-5 transition-transform ${isActive ? "scale-105" : ""}`} />
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span className="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 rounded-[3px] bg-amber-500 text-neutral-950 font-bold text-[8px] flex items-center justify-center ring-2 ring-white dark:ring-[#0e1017]">
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-              <span className={`text-[10px] font-mono tracking-tight mt-1 truncate ${isActive ? "font-bold" : "font-medium"}`}>
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
-
-        {/* 4th Tab: Full Menu Drawer Trigger */}
-        <button
-          onClick={() => setIsMobileSidebarOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center py-1 px-2 rounded-[4px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all cursor-pointer"
+      {/* Mobile Floating Bottom Navigation Bar (Centered Compact Capsule Matching Client Portal) */}
+      <div className="fixed bottom-4 inset-x-0 z-40 lg:hidden flex justify-center pointer-events-none select-none px-3">
+        <nav
+          aria-label="Mobile Bottom Navigation"
+          className="pointer-events-auto w-auto max-w-[92vw] rounded-full bg-white/90 dark:bg-[#101218]/90 backdrop-blur-2xl border border-neutral-300/80 dark:border-white/15 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.12),inset_0_1px_1px_rgba(255,255,255,0.7)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-300"
         >
-          <MenuIcon className="w-5 h-5" />
-          <span className="text-[10px] font-mono tracking-tight mt-1">Menu</span>
-        </button>
-      </nav>
+          {(() => {
+            // Dynamic 3 Quick Tabs + 4th "More" = 4 Total Slots
+            const mobileBaseTabs = ["dashboard", "meetings", "briefs"];
+            let mobileTabIds = [...mobileBaseTabs];
+            if (!mobileBaseTabs.includes(activeTab) && navItems.some((n) => n.id === activeTab)) {
+              mobileTabIds = ["dashboard", activeTab, "briefs"];
+            }
+            const mobileNavList = mobileTabIds
+              .map((id) => navItems.find((n) => n.id === id))
+              .filter(Boolean);
+
+            return (
+              <>
+                {mobileNavList.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setIsMobileSidebarOpen(false);
+                      }}
+                      className={`relative flex items-center justify-center transition-all duration-300 ease-out cursor-pointer active:scale-95 shrink-0 ${
+                        isActive
+                          ? "px-3 py-1.5 rounded-full overflow-hidden bg-amber-500/20 dark:bg-amber-500/25 border border-amber-500/50 dark:border-amber-400/60 shadow-[0_4px_18px_rgba(245,158,11,0.28),inset_0_1px_2px_rgba(255,255,255,0.5)]"
+                          : "w-9 h-9 rounded-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                      }`}
+                      title={item.label}
+                      aria-label={item.label}
+                    >
+                      {/* Convex Optical Lens Specular Reflection */}
+                      {isActive && (
+                        <>
+                          <div className="absolute inset-x-2 top-0 h-[45%] rounded-t-full bg-gradient-to-b from-white/55 via-white/10 to-transparent pointer-events-none" />
+                          <div className="absolute inset-x-2 bottom-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
+                        </>
+                      )}
+
+                      <div className="relative flex items-center gap-1.5">
+                        <Icon className={isActive ? "w-4 h-4 text-amber-600 dark:text-amber-400 stroke-[2.5]" : "w-4.5 h-4.5 stroke-[1.8]"} />
+                        {item.badge !== undefined && item.badge > 0 && (
+                          <span className="absolute -top-1.5 -right-2 min-w-[14px] h-[14px] px-0.5 rounded-full bg-amber-500 text-neutral-950 font-bold text-[8px] flex items-center justify-center ring-2 ring-white dark:ring-[#0e1017]">
+                            {item.badge}
+                          </span>
+                        )}
+                        {/* Text Label: ONLY shown when selected */}
+                        {isActive && (
+                          <span className="text-xs font-mono font-bold tracking-tight text-amber-700 dark:text-amber-300 whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
+                            {item.label}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {/* 4th Slot: More / Full Menu Drawer */}
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSidebarOpen((prev) => !prev)}
+                  className={`relative flex items-center justify-center transition-all duration-300 ease-out cursor-pointer active:scale-95 shrink-0 ${
+                    isMobileSidebarOpen
+                      ? "px-3 py-1.5 rounded-full overflow-hidden bg-amber-500/20 dark:bg-amber-500/25 border border-amber-500/50 dark:border-amber-400/60 shadow-[0_4px_18px_rgba(245,158,11,0.28),inset_0_1px_2px_rgba(255,255,255,0.5)]"
+                      : "w-9 h-9 rounded-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                  }`}
+                  title="All Navigation Tabs & System Menu"
+                  aria-label="More Menu"
+                >
+                  {isMobileSidebarOpen && (
+                    <>
+                      <div className="absolute inset-x-2 top-0 h-[45%] rounded-t-full bg-gradient-to-b from-white/55 via-white/10 to-transparent pointer-events-none" />
+                      <div className="absolute inset-x-2 bottom-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
+                    </>
+                  )}
+
+                  <div className="relative flex items-center gap-1.5">
+                    <MenuIcon className={isMobileSidebarOpen ? "w-4 h-4 text-amber-600 dark:text-amber-400 stroke-[2.5]" : "w-4.5 h-4.5 stroke-[1.8]"} />
+                    {/* Amber notification badge dot on Menu */}
+                    {!isMobileSidebarOpen && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-[#101218]" />
+                    )}
+                    {isMobileSidebarOpen && (
+                      <span className="text-xs font-mono font-bold tracking-tight text-amber-700 dark:text-amber-300 whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
+                        More
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </>
+            );
+          })()}
+        </nav>
+      </div>
 
       {/* Admin Settings Modal */}
       <AdminSettingsModal
@@ -1830,6 +1997,31 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Global Incoming Call Dispatch Manager with Audio Ringtone & Device Push Notifications */}
+      <AdminIncomingCallManager
+        currentUser={currentUser}
+        onAnswerCall={(call) => {
+          setActiveTab("meetings");
+          try {
+            localStorage.setItem("mcpa_instant_call_active", JSON.stringify({
+              ...call,
+              answered: true,
+              adminJoined: true,
+              answeredBy: currentUser?.name || "Engr. Raymart Quirante",
+            }));
+            window.dispatchEvent(new CustomEvent("mcpa-instant-call-alert", {
+              detail: {
+                ...call,
+                answered: true,
+                adminJoined: true,
+                answeredBy: currentUser?.name || "Engr. Raymart Quirante",
+              }
+            }));
+          } catch (e) {}
+        }}
+        showToast={showToast}
+      />
     </div>
   );
 }

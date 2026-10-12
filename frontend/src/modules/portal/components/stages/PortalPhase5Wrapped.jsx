@@ -96,21 +96,16 @@ export default function PortalPhase5Wrapped({
   return (
     <div className="space-y-10 animate-in fade-in duration-300">
       {/* 1. CELEBRATION HEADER BANNER */}
-      <div className="relative overflow-hidden rounded-[8px] border border-amber-500/40 bg-linear-to-b from-amber-500/20 via-neutral-900 to-neutral-950 p-6 sm:p-10 shadow-2xl text-white">
-        <div className="absolute -right-16 -top-16 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-[8px] border border-amber-500/30 bg-white dark:bg-linear-to-b dark:from-amber-500/20 dark:via-neutral-900 dark:to-neutral-950 p-6 sm:p-10 shadow-sm dark:shadow-2xl text-neutral-900 dark:text-white transition-colors">
+        <div className="absolute -right-16 -top-16 w-80 h-80 bg-amber-500/10 dark:bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-3 text-center md:text-left max-w-xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[4px] bg-amber-500/20 border border-amber-500/40 text-amber-400 text-xs font-mono font-bold uppercase tracking-wider">
-              <Trophy className="w-4 h-4" />
-              <span>Project Turnover Complete · Phase 5 Celebration</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-4xl font-extrabold font-mono uppercase tracking-tight">
+            <h1 className="text-2xl sm:text-4xl font-extrabold font-mono uppercase tracking-tight text-neutral-900 dark:text-white">
               Congratulations! Your Home is Complete.
             </h1>
 
-            <p className="text-xs sm:text-sm text-neutral-300 font-sans leading-relaxed">
-              Every foundation footing, structural column, and bespoke finish of <span className="font-bold text-amber-400">{activeProject?.project_title}</span> has passed 100% quality commissioning. Your digital warranty certificates and Project Wrapped are ready.
+            <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300 font-sans leading-relaxed">
+              Every foundation footing, structural column, and bespoke finish of <span className="font-bold text-amber-600 dark:text-amber-400">{activeProject?.project_title}</span> has passed 100% quality commissioning. Your digital warranty certificates and Project Wrapped are ready.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-2 justify-center md:justify-start">
@@ -126,25 +121,25 @@ export default function PortalPhase5Wrapped({
               <button
                 type="button"
                 onClick={onStartInquiry}
-                className="px-5 py-2.5 rounded-[4px] bg-white/10 hover:bg-white/20 border border-white/20 text-white font-mono text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 cursor-pointer"
+                className="px-5 py-2.5 rounded-[4px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/20 border border-neutral-200 dark:border-white/20 text-neutral-900 dark:text-white font-mono text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 cursor-pointer"
               >
-                <PlusCircle className="w-4 h-4 text-amber-400" />
+                <PlusCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 Start Another Project
               </button>
             </div>
           </div>
 
-          <div className="flex flex-col items-center justify-center p-6 rounded-[8px] bg-white/5 border border-white/10 shrink-0 text-center">
+          <div className="flex flex-col items-center justify-center p-6 rounded-[8px] bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 shrink-0 text-center transition-colors">
             <LordIcon
               src="https://cdn.lordicon.com/lupuorrc.json"
               size={96}
               trigger="loop"
-              colors="primary:#f59e0b,secondary:#e2e8f0"
+              colors="primary:#f59e0b,secondary:#64748b"
             />
-            <span className="text-[11px] font-mono text-amber-400 mt-2 uppercase tracking-widest font-bold">
+            <span className="text-[11px] font-mono text-amber-600 dark:text-amber-400 mt-2 uppercase tracking-widest font-bold">
               100% Commissioned
             </span>
-            <span className="text-[10px] text-neutral-400 font-mono">
+            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
               Turnkey Warranty Active
             </span>
           </div>

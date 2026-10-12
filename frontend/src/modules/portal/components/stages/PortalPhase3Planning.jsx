@@ -227,16 +227,13 @@ export default function PortalPhase3Planning({
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* 1. PHASE 3 BANNER & MILESTONE HEADER */}
-      <div className="p-6 rounded-[8px] border border-amber-500/20 bg-linear-to-b from-neutral-900 via-neutral-900/90 to-neutral-950 text-white shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-white/10">
+      <div className="p-6 rounded-[8px] border border-neutral-200 dark:border-amber-500/20 bg-white dark:bg-linear-to-b dark:from-neutral-900 dark:via-neutral-900/90 dark:to-neutral-950 text-neutral-900 dark:text-white shadow-sm dark:shadow-xl transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-neutral-200 dark:border-white/10">
           <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-[3px] bg-amber-500/20 text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider mb-1">
-              Phase 3 Active · Pre-Construction & Planning
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-tight text-neutral-900 dark:text-white">
               Architectural & Engineering Plan Approval
             </h1>
-            <p className="text-xs text-neutral-400 font-sans mt-0.5">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
               Review signed blueprints, building permit status, and digital contract execution.
             </p>
           </div>
@@ -244,7 +241,7 @@ export default function PortalPhase3Planning({
           {contract && (
             <div className="flex items-center gap-3">
               {contract.status === "FULLY_EXECUTED" ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold uppercase">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 font-mono text-xs font-bold uppercase">
                   <ShieldCheck className="w-4 h-4" />
                   Contract Fully Executed
                 </div>
@@ -264,32 +261,32 @@ export default function PortalPhase3Planning({
 
         {/* Planning Milestone Badges */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
-          <div className="p-3 rounded-[6px] bg-white/[0.03] border border-white/5 space-y-1">
-            <span className="text-[10px] text-amber-500 font-bold uppercase">Blueprints</span>
-            <div className="font-bold text-white">{blueprints.length} Sheets Available</div>
-            <div className="text-[10px] text-neutral-400">Arch / Struct / MEP</div>
+          <div className="p-3 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-1 transition-colors">
+            <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold uppercase">Blueprints</span>
+            <div className="font-bold text-neutral-900 dark:text-white">{blueprints.length} Sheets Available</div>
+            <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Arch / Struct / MEP</div>
           </div>
 
-          <div className="p-3 rounded-[6px] bg-white/[0.03] border border-white/5 space-y-1">
-            <span className="text-[10px] text-amber-500 font-bold uppercase">LGU Permits</span>
-            <div className="font-bold text-white">{permits.filter(p => p.status === "APPROVED" || p.status === "RELEASED").length} of {permits.length || 4} Released</div>
-            <div className="text-[10px] text-neutral-400">Municipal Clearance</div>
+          <div className="p-3 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-1 transition-colors">
+            <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold uppercase">LGU Permits</span>
+            <div className="font-bold text-neutral-900 dark:text-white">{permits.filter(p => p.status === "APPROVED" || p.status === "RELEASED").length} of {permits.length || 4} Released</div>
+            <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Municipal Clearance</div>
           </div>
 
-          <div className="p-3 rounded-[6px] bg-white/[0.03] border border-white/5 space-y-1">
-            <span className="text-[10px] text-amber-500 font-bold uppercase">Groundbreaking</span>
-            <div className="font-bold text-white truncate">
+          <div className="p-3 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-1 transition-colors">
+            <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold uppercase">Groundbreaking</span>
+            <div className="font-bold text-neutral-900 dark:text-white truncate">
               {groundbreakingDate || "Scheduling in Progress"}
             </div>
-            <div className="text-[10px] text-neutral-400">Official Site Inception</div>
+            <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Official Site Inception</div>
           </div>
 
-          <div className="p-3 rounded-[6px] bg-white/[0.03] border border-white/5 space-y-1">
-            <span className="text-[10px] text-amber-500 font-bold uppercase">Contract Status</span>
-            <div className="font-bold text-white truncate">
+          <div className="p-3 rounded-[6px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-1 transition-colors">
+            <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold uppercase">Contract Status</span>
+            <div className="font-bold text-neutral-900 dark:text-white truncate">
               {contract ? contract.status : "Drafting Agreement"}
             </div>
-            <div className="text-[10px] text-neutral-400">Turnkey Protection</div>
+            <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Turnkey Protection</div>
           </div>
         </div>
       </div>

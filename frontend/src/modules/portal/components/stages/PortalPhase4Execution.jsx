@@ -101,27 +101,23 @@ export default function PortalPhase4Execution({
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* 1. HERO EXECUTION & DYNAMIC PROGRESS GAUGE */}
-      <div className="p-6 sm:p-8 rounded-[8px] border border-amber-500/20 bg-linear-to-b from-neutral-900 via-neutral-900/90 to-neutral-950 text-white shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/10">
+      <div className="p-6 sm:p-8 rounded-[8px] border border-neutral-200 dark:border-amber-500/20 bg-white dark:bg-linear-to-b dark:from-neutral-900 dark:via-neutral-900/90 dark:to-neutral-950 text-neutral-900 dark:text-white shadow-sm dark:shadow-xl transition-colors">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-neutral-200 dark:border-white/10">
           <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-[3px] bg-amber-500/20 text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider mb-2">
-              <HardHat className="w-3.5 h-3.5" />
-              <span>Phase 4 Active · Live Construction Site Execution</span>
-            </div>
-            <h1 className="text-xl sm:text-3xl font-bold font-mono uppercase tracking-tight">
+            <h1 className="text-xl sm:text-3xl font-bold font-mono uppercase tracking-tight text-neutral-900 dark:text-white">
               {activeProject?.project_title || "Residential Site Build"}
             </h1>
-            <p className="text-xs text-neutral-400 font-sans mt-1">
-              Lead Project Engineer: <span className="font-bold text-white">{siteDetails?.lead_engineer || "Engr. MCPA Lead"}</span> · Current Phase: <span className="text-amber-400 font-bold">{siteDetails?.current_phase || "Structural Erection"}</span>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-1">
+              Lead Project Engineer: <span className="font-bold text-neutral-900 dark:text-white">{siteDetails?.lead_engineer || "Engr. MCPA Lead"}</span> · Current Phase: <span className="text-amber-600 dark:text-amber-400 font-bold">{siteDetails?.current_phase || "Structural Erection"}</span>
             </p>
           </div>
 
           {/* Circular/Linear Progress Badge */}
-          <div className="flex items-center gap-4 bg-white/[0.04] p-4 rounded-[8px] border border-white/10 shrink-0">
+          <div className="flex items-center gap-4 bg-neutral-50 dark:bg-white/[0.04] p-4 rounded-[8px] border border-neutral-200 dark:border-white/10 shrink-0 transition-colors">
             <div className="relative w-16 h-16 flex items-center justify-center">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                 <path
-                  className="text-neutral-800"
+                  className="text-neutral-200 dark:text-neutral-800"
                   strokeWidth="3.5"
                   stroke="currentColor"
                   fill="none"
@@ -137,13 +133,13 @@ export default function PortalPhase4Execution({
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
               </svg>
-              <span className="absolute font-mono text-xs font-bold text-white">
+              <span className="absolute font-mono text-xs font-bold text-neutral-900 dark:text-white">
                 {progressPct}%
               </span>
             </div>
             <div>
-              <div className="text-xs font-mono font-bold text-white uppercase">Overall Build Progress</div>
-              <span className="text-[10px] font-mono text-neutral-400">
+              <div className="text-xs font-mono font-bold text-neutral-900 dark:text-white uppercase">Overall Build Progress</div>
+              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
                 {siteDetails?.revised_turnover ? `Turnover: ${siteDetails.revised_turnover}` : "On Target"}
               </span>
             </div>
@@ -161,20 +157,20 @@ export default function PortalPhase4Execution({
           ]).map((m, i) => (
             <div
               key={m.milestone_id || i}
-              className={`p-3 rounded-[6px] border flex flex-col justify-between space-y-1.5 ${
+              className={`p-3 rounded-[6px] border flex flex-col justify-between space-y-1.5 transition-colors ${
                 m.completion_pct === 100
-                  ? "bg-amber-500/10 border-amber-500/30 text-white"
+                  ? "bg-amber-500/10 border-amber-500/30 text-neutral-900 dark:text-white"
                   : m.completion_pct > 0
-                  ? "bg-white/[0.05] border-amber-500/50 text-white"
-                  : "bg-white/[0.02] border-white/5 text-neutral-500"
+                  ? "bg-neutral-50 dark:bg-white/[0.05] border-amber-500/50 text-neutral-900 dark:text-white"
+                  : "bg-neutral-50/50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-400 dark:text-neutral-500"
               }`}
             >
               <div className="flex justify-between items-center text-[10px]">
                 <span className="font-bold">PHASE 0{i + 1}</span>
-                <span className="text-amber-400 font-bold">{m.completion_pct}%</span>
+                <span className="text-amber-600 dark:text-amber-400 font-bold">{m.completion_pct}%</span>
               </div>
               <div className="text-xs font-bold truncate">{m.phase_name}</div>
-              <div className="w-full bg-neutral-800 h-1 rounded-full overflow-hidden">
+              <div className="w-full bg-neutral-200 dark:bg-neutral-800 h-1 rounded-full overflow-hidden">
                 <div
                   className="bg-amber-500 h-full rounded-full transition-all duration-500"
                   style={{ width: `${m.completion_pct}%` }}

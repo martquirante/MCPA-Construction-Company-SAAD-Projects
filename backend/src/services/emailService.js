@@ -13,6 +13,7 @@ const {
   getInquiryRejectedTemplate,
   getInquiryStatusUpdateTemplate,
   getEmailVerificationLinkTemplate,
+  getMeetingAttendanceReminderTemplate,
 } = require("../templates/emails");
 
 class EmailService {
@@ -457,6 +458,32 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
 
     return await this.sendEmailWithFallback(toEmail, subject, htmlContent, { plainText });
   }
+
+  /**
+   * Dispatches pre-meeting attendance reminder (12h for F2F or 6h for Online)
+   */
+  async sendMeetingAttendanceReminder(toEmail, meetingData = {}) {
+    const isF2F = !String(meetingData.mode || "").toLowerCase().includes("online");
+    const subId = meetingData.projectCode || meetingData.submissionId || "MCPA Consultation";
+    const leadHours = isF2F ? "12 Hours" : "6 Hours";
+    const subject = `Action Required: Confirm Your Attendance (${leadHours} Reminder) — ${subId}`;
+
+    const htmlContent = getMeetingAttendanceReminderTemplate(meetingData);
+    const plainText = `MCPA CONSTRUCTION & SUPPLY
+ACTION REQUIRED: CONFIRM YOUR ATTENDANCE (${leadHours.toUpperCase()} REMINDER)
+
+Dear ${meetingData.clientName || "Valued Client"},
+
+Your scheduled consultation (${meetingData.date || "Upcoming"} at ${meetingData.time || "Scheduled Time"}) is approaching in ${leadHours}.
+Please confirm your attendance in the MCPA Client Portal to guarantee our engineering team and lounge/room availability.
+
+Visit your Client Appointments Hub: ${process.env.FRONTEND_URL || "http://localhost:3000"}/portal?tab=meeting&confirm_attendance=true
+
+MCPA Construction & Supply • Building Better Tomorrows`;
+
+    return await this.sendEmailWithFallback(toEmail, subject, htmlContent, { plainText });
+  }
+
 
   /**
    * Sends consultation rescheduled notification to client

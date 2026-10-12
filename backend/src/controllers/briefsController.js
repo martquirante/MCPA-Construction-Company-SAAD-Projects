@@ -52,7 +52,7 @@ class BriefsController {
 
           const emailLower = (b.client_email || "").toLowerCase().trim();
           let resolvedAvatar = b.avatar_url || user?.avatar_url || null;
-          if (!resolvedAvatar && (emailLower === "rayquirante@gmail.com" || emailLower === "martquirante04@gmail.com" || emailLower === "dbprojectmartquirante@gmail.com")) {
+          if (!resolvedAvatar && (emailLower === "rayquirante@gmail.com" || emailLower === "martquirante04@gmail.com" || emailLower === "martquirante@gmail.com" || emailLower === "dbprojectmartquirante@gmail.com")) {
             resolvedAvatar = "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
           }
 
@@ -70,7 +70,7 @@ class BriefsController {
         briefs = briefs.map((b) => {
           const emailLower = (b.client_email || "").toLowerCase().trim();
           let resolvedAvatar = b.avatar_url || null;
-          if (!resolvedAvatar && (emailLower === "rayquirante@gmail.com" || emailLower === "martquirante04@gmail.com")) {
+          if (!resolvedAvatar && (emailLower === "rayquirante@gmail.com" || emailLower === "martquirante04@gmail.com" || emailLower === "martquirante@gmail.com")) {
             resolvedAvatar = "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
           }
           return {
@@ -386,7 +386,26 @@ class BriefsController {
         try {
           const clientEmail = updatedBrief.client_email;
 
-          if (isRejectAction) {
+          if (Boolean(req.body.updatedByClient)) {
+            // Notify Admin team of client schedule adjustment
+            const adminEmail = process.env.ADMIN_ALERT_EMAIL || "mcpa.construction@gmail.com";
+            await emailService.sendEmailWithFallback(
+              adminEmail,
+              `[Client Update] Consultation Setup Adjusted by ${updatedBrief.client_name || "Client"} (${updatedBrief.submission_id || "CPB"})`,
+              `<div style="font-family: sans-serif; line-height: 1.6; color: #1e293b;">
+                <h3 style="color: #d97706;">Consultation Schedule Adjusted by Client</h3>
+                <p>Client <strong>${updatedBrief.client_name || "Client"}</strong> (${updatedBrief.client_email}) has updated their consultation preferences:</p>
+                <ul>
+                  <li><strong>Meeting Mode / Format:</strong> ${req.body.meetingMode || updatedBrief.meeting_mode}</li>
+                  <li><strong>Preferred Date:</strong> ${req.body.meetingDate || updatedBrief.meeting_date}</li>
+                  <li><strong>Preferred Time:</strong> ${req.body.meetingTime || updatedBrief.meeting_time}</li>
+                  <li><strong>Agenda / Notes:</strong> ${req.body.meetingNotes || "Standard Consultation Alignment"}</li>
+                </ul>
+                <p>Please review and confirm this adjustment in the Admin Consultation Pipeline.</p>
+              </div>`,
+              { replyTo: updatedBrief.client_email }
+            );
+          } else if (isRejectAction) {
             await emailService.sendInquiryRejected(clientEmail, updatedBrief, {
               rejectionReason: req.body.rejectionReason,
               rejectionNotes: req.body.rejectionNotes,
@@ -603,6 +622,295 @@ class BriefsController {
       return res.send(buffer);
     } catch (err) {
       console.error("[BriefsController.downloadPdf] Error:", err);
+    }
+  }
+
+  async confirmAttendance(req, res) {
+    try {
+      const { id } = req.params;
+      const { confirmedBy = "client" } = req.body || {};
+      const cleanId = String(id || "").trim();
+      const isNumeric = /^\d+$/.test(cleanId);
+      const numericId = isNumeric ? parseInt(cleanId, 10) : -1;
+
+      const result = await db.query(
+        `UPDATE client_briefs 
+         SET availability_status = 'Attendance Confirmed'
+         WHERE (brief_id = $1 OR submission_id = $2)
+         RETURNING *;`,
+        [numericId, cleanId]
+      );
+
+      const updated = result.rows && result.rows[0];
+      if (!updated) {
+        return res.status(404).json({ success: false, message: "Brief not found." });
+      }
+
+      // Broadcast update
+      try {
+        const realtimeService = require("../services/realtimeService");
+        if (realtimeService?.broadcastBriefUpdated) {
+          realtimeService.broadcastBriefUpdated({
+            ...updated,
+            attendanceConfirmed: true,
+            confirmedBy,
+          });
+        }
+      } catch (e) {}
+
+      return res.json({
+        success: true,
+        brief: updated,
+        message: "Attendance successfully confirmed.",
+      });
+    } catch (err) {
+      console.error("[BriefsController.confirmAttendance] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  async sendMeetingReminder(req, res) {
+    try {
+      const { id } = req.params;
+      const cleanId = String(id || "").trim();
+      const isNumeric = /^\d+$/.test(cleanId);
+      const numericId = isNumeric ? parseInt(cleanId, 10) : -1;
+
+      const result = await db.query(
+        "SELECT * FROM client_briefs WHERE brief_id = $1 OR submission_id = $2",
+        [numericId, cleanId]
+      );
+
+      const brief = result.rows && result.rows[0];
+      if (!brief || !brief.client_email) {
+        return res.status(404).json({ success: false, message: "Client email not found for this brief." });
+      }
+
+      const isF2F = !String(brief.meeting_mode || "").toLowerCase().includes("online");
+      const meetingData = {
+        clientName: brief.client_name,
+        clientEmail: brief.client_email,
+        projectCode: brief.submission_id || "MCPA-CPB",
+        date: brief.meeting_date || "Scheduled Date",
+        time: brief.meeting_time || "10:00 AM - 11:30 AM PHT",
+        mode: brief.meeting_mode || (isF2F ? "Face-to-Face Office Visit" : "Online Video Call"),
+        agenda: brief.meeting_notes || "1st Technical & Architectural Alignment",
+        venue: brief.venue_details || "MCPA Tabang Central Office, MacArthur Highway, Plaridel, Bulacan",
+        roundTitle: req.body?.roundTitle || "1st Technical & Architectural Alignment",
+      };
+
+      await emailService.sendMeetingAttendanceReminder(brief.client_email, meetingData);
+
+      return res.json({
+        success: true,
+        message: `Attendance reminder email dispatched to ${brief.client_email}`,
+      });
+    } catch (err) {
+      console.error("[BriefsController.sendMeetingReminder] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  async recordMeetingOutcome(req, res) {
+    try {
+      const { id } = req.params;
+      const {
+        outcome, // "NEXT_MEETING" | "AGREED_ADVANCE" | "REVISION_DELIBERATION"
+        nextMeetingDate,
+        nextMeetingTime,
+        nextMeetingMode,
+        nextMeetingAgenda,
+        meetingMinutes,
+        quotationAmount,
+      } = req.body || {};
+
+      const cleanId = String(id || "").trim();
+      const isNumeric = /^\d+$/.test(cleanId);
+      const numericId = isNumeric ? parseInt(cleanId, 10) : -1;
+
+      const briefRes = await db.query(
+        "SELECT * FROM client_briefs WHERE brief_id = $1 OR submission_id = $2",
+        [numericId, cleanId]
+      );
+      const brief = briefRes.rows && briefRes.rows[0];
+      if (!brief) {
+        return res.status(404).json({ success: false, message: "Brief not found." });
+      }
+
+      let newStatus = brief.status;
+      let updatedBrief = brief;
+
+      if (outcome === "DISCONTINUED_REJECTED") {
+        newStatus = "Rejected / Declined";
+        const reason = req.body.rejectionReason || req.body.reason || "Client and MCPA did not reach an agreement";
+        const notes = meetingMinutes || req.body.rejectionNotes || "Consultation concluded without proceeding.";
+        const updateRes = await db.query(
+          `UPDATE client_briefs 
+           SET status = $1,
+               is_rejected = TRUE,
+               rejection_reason = $2,
+               rejection_notes = $3,
+               availability_status = 'Discontinued / Closed'
+           WHERE brief_id = $4 RETURNING *;`,
+          [newStatus, reason, notes, brief.brief_id]
+        );
+        updatedBrief = updateRes.rows[0];
+
+        // Archive / reset active client_project for this brief if any exists
+        try {
+          await db.query(
+            `UPDATE public.client_projects 
+             SET is_archived = TRUE, status = 'DISCONTINUED', updated_at = NOW() 
+             WHERE brief_id = $1 OR user_id = $2;`,
+            [brief.brief_id, brief.user_id || -1]
+          );
+        } catch (projErr) {
+          console.warn("[recordMeetingOutcome] client_projects archive notice:", projErr.message);
+        }
+      } else if (outcome === "AGREED_ADVANCE") {
+        newStatus = "Aligned — Advance to Pre-Construction";
+        const updateRes = await db.query(
+          `UPDATE client_briefs 
+           SET status = $1,
+               meeting_notes = COALESCE($2, meeting_notes),
+               quotation_amount = COALESCE($3, quotation_amount),
+               availability_status = 'Session Completed'
+           WHERE brief_id = $4 RETURNING *;`,
+          [newStatus, meetingMinutes || "Agreed on project scope and preliminary design.", quotationAmount || null, brief.brief_id]
+        );
+        updatedBrief = updateRes.rows[0];
+
+        // Advance project to Stage 3: PRE_CONSTRUCTION
+        try {
+          const stageEngineService = require("../services/stageEngineService");
+          await stageEngineService.advanceProjectStage({
+            briefId: brief.brief_id,
+            targetStage: "PRE_CONSTRUCTION",
+            reason: "Consultation alignment achieved. Both parties agreed on scope and preliminary budget.",
+            metadata: { meetingMinutes, quotationAmount },
+          });
+        } catch (stageErr) {
+          console.warn("[recordMeetingOutcome] advanceProjectStage warning:", stageErr.message);
+        }
+      } else if (outcome === "NEXT_MEETING") {
+        newStatus = "Meeting Scheduled (Follow-Up Round)";
+        const updateRes = await db.query(
+          `UPDATE client_briefs 
+           SET status = $1,
+               meeting_date = COALESCE($2, meeting_date),
+               meeting_time = COALESCE($3, meeting_time),
+               meeting_mode = COALESCE($4, meeting_mode),
+               meeting_notes = COALESCE($5, meeting_notes),
+               availability_status = 'Pending Confirmation'
+           WHERE brief_id = $6 RETURNING *;`,
+          [
+            newStatus,
+            nextMeetingDate || brief.meeting_date,
+            nextMeetingTime || brief.meeting_time,
+            nextMeetingMode || brief.meeting_mode,
+            nextMeetingAgenda || meetingMinutes || "Follow-up Technical Consultation",
+            brief.brief_id,
+          ]
+        );
+        updatedBrief = updateRes.rows[0];
+      } else {
+        newStatus = "Under Deliberation / Revisions";
+        const updateRes = await db.query(
+          `UPDATE client_briefs 
+           SET status = $1,
+               meeting_notes = COALESCE($2, meeting_notes)
+           WHERE brief_id = $3 RETURNING *;`,
+          [newStatus, meetingMinutes || "Revisions requested by client.", brief.brief_id]
+        );
+        updatedBrief = updateRes.rows[0];
+      }
+
+      // Broadcast update
+      try {
+        const realtimeService = require("../services/realtimeService");
+        if (realtimeService?.broadcastBriefUpdated) {
+          realtimeService.broadcastBriefUpdated(updatedBrief);
+        }
+      } catch (e) {}
+
+      return res.json({
+        success: true,
+        brief: updatedBrief,
+        outcome,
+        message: `Meeting outcome recorded: ${outcome}`,
+      });
+    } catch (err) {
+      console.error("[BriefsController.recordMeetingOutcome] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  async withdrawConsultation(req, res) {
+    try {
+      const { id } = req.params;
+      const { reason = "Client withdrew from consultation", notes = "" } = req.body || {};
+      const userEmail = req.user?.email;
+      const userId = req.user?.userId || req.user?.user_id;
+
+      const cleanId = String(id || "").trim();
+      const isNumeric = /^\d+$/.test(cleanId);
+      const numericId = isNumeric ? parseInt(cleanId, 10) : -1;
+
+      // Find matching brief
+      const briefRes = await db.query(
+        `SELECT * FROM client_briefs 
+         WHERE (brief_id = $1 OR submission_id = $2 OR LOWER(client_email) = LOWER($3))
+         ORDER BY brief_id DESC LIMIT 1;`,
+        [numericId, cleanId, userEmail || ""]
+      );
+
+      const brief = briefRes.rows && briefRes.rows[0];
+      if (!brief) {
+        return res.status(404).json({ success: false, message: "Consultation brief not found." });
+      }
+
+      const updateRes = await db.query(
+        `UPDATE client_briefs 
+         SET status = 'Rejected / Declined',
+             is_rejected = TRUE,
+             rejection_reason = $1,
+             rejection_notes = $2,
+             availability_status = 'Withdrawn by Client'
+         WHERE brief_id = $3 RETURNING *;`,
+        [reason, notes || "Client opted not to proceed.", brief.brief_id]
+      );
+
+      // Archive client project so stage reverts to PRE_INQUIRY
+      try {
+        await db.query(
+          `UPDATE public.client_projects 
+           SET is_archived = TRUE, status = 'DISCONTINUED', updated_at = NOW() 
+           WHERE brief_id = $1 OR user_id = $2;`,
+          [brief.brief_id, userId || brief.user_id || -1]
+        );
+      } catch (e) {}
+
+      const updated = updateRes.rows[0];
+
+      try {
+        const realtimeService = require("../services/realtimeService");
+        if (realtimeService?.broadcastBriefUpdated) {
+          realtimeService.broadcastBriefUpdated({
+            ...updated,
+            outcome: "DISCONTINUED_REJECTED",
+            withdrawnBy: "client",
+          });
+        }
+      } catch (e) {}
+
+      return res.json({
+        success: true,
+        brief: updated,
+        message: "Consultation successfully withdrawn. Reverted to Pre-Inquiry stage.",
+      });
+    } catch (err) {
+      console.error("[BriefsController.withdrawConsultation] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
     }
   }
 }
