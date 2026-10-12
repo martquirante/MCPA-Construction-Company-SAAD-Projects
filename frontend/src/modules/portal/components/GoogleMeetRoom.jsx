@@ -80,6 +80,7 @@ export default function GoogleMeetRoom({
   });
   const [p2pConnectionState, setP2pConnectionState] = useState("idle"); // 'idle' | 'connecting' | 'connected' | 'disconnected'
   const [isRemoteHandRaised, setIsRemoteHandRaised] = useState(false);
+  const [peerLeftInfo, setPeerLeftInfo] = useState(null); // { name, time } when remote participant leaves
 
   // Instant Meeting 3-Minute Timeout & Admin Sync State
   const [instantTimer, setInstantTimer] = useState(180); // 3 minutes = 180 seconds
@@ -245,11 +246,17 @@ export default function GoogleMeetRoom({
         }
       },
       onPeerLeft: () => {
+        const departedName = remotePeerRef.current?.name || remotePeerName || "Participant";
         setRemoteStream(null);
         setRemotePeer(null);
         remotePeerRef.current = null;
         setIsRemoteHandRaised(false);
-        userInfoRef.current.showToast?.("Participant left the consultation.");
+        setPeerLeftInfo({
+          name: departedName,
+          time: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        });
+        playLeaveChime();
+        userInfoRef.current.showToast?.(`⚠️ ${departedName} left the consultation.`);
       },
     });
     peerManagerRef.current = peerManager;
@@ -289,6 +296,7 @@ export default function GoogleMeetRoom({
         console.log("[WEBRTC] Existing peer found in room:", peer);
         remotePeerRef.current = peer;
         setRemotePeer(peer);
+        setPeerLeftInfo(null);
         setIsCallAnswered(true);
         // New participant sends offer to existing peer
         peerManager.createAndSendOffer(peer.socketId);
@@ -301,6 +309,7 @@ export default function GoogleMeetRoom({
       const peer = { ...user, socketId };
       remotePeerRef.current = peer;
       setRemotePeer(peer);
+      setPeerLeftInfo(null);
       setIsCallAnswered(true);
       userInfoRef.current.showToast?.(`${user?.name || "Participant"} joined the consultation!`);
       // If no offer received within 2.5s, initiate offer as fallback
@@ -321,6 +330,7 @@ export default function GoogleMeetRoom({
       const peer = { ...sender, socketId: fromSocketId };
       remotePeerRef.current = peer;
       setRemotePeer(peer);
+      setPeerLeftInfo(null);
       setIsCallAnswered(true);
       await peerManager.handleOfferAndSendAnswer(sdpOffer, fromSocketId);
     });
@@ -381,12 +391,19 @@ export default function GoogleMeetRoom({
       }
     });
 
-    socket.on("peer-left", () => {
+    socket.on("peer-left", ({ user }) => {
+      const departedName = user?.name || remotePeerRef.current?.name || remotePeerName || "Participant";
+      console.log("[WEBRTC] Peer left:", departedName);
       setRemoteStream(null);
       setRemotePeer(null);
       remotePeerRef.current = null;
       setIsRemoteHandRaised(false);
-      userInfoRef.current.showToast?.("Participant left the consultation.");
+      setPeerLeftInfo({
+        name: departedName,
+        time: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+      });
+      playLeaveChime();
+      userInfoRef.current.showToast?.(`⚠️ ${departedName} left the consultation.`);
     });
 
     return () => {
@@ -633,6 +650,48 @@ export default function GoogleMeetRoom({
     }
   }, [remoteStream]);
 
+  // Callback ref for reliable screen share video stream binding
+  const setScreenVideoRef = useCallback((element) => {
+    screenVideoRef.current = element;
+    if (element && screenStreamRef.current) {
+      if (element.srcObject !== screenStreamRef.current) {
+        element.srcObject = screenStreamRef.current;
+      }
+      element.play().catch(() => {});
+    }
+  }, []);
+
+  // Gentle audio chime when participant leaves
+  const playLeaveChime = () => {
+    if (typeof window === "undefined") return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.frequency.setValueAtTime(440, now);
+      gain1.gain.setValueAtTime(0.08, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.25);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.frequency.setValueAtTime(330, now + 0.2);
+      gain2.gain.setValueAtTime(0.08, now + 0.2);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.2);
+      osc2.stop(now + 0.55);
+    } catch (e) {}
+  };
+
   // Ensure remote audio and video play reliably
   useEffect(() => {
     if (remoteStream) {
@@ -750,7 +809,7 @@ export default function GoogleMeetRoom({
     }
   };
 
-  // Screen Sharing with WebRTC track replacement
+  // Screen Sharing with WebRTC track replacement (Host & Client, Desktop & Mobile)
   const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
       if (screenStreamRef.current) {
@@ -762,7 +821,7 @@ export default function GoogleMeetRoom({
 
       if (peerManagerRef.current && localStreamRef.current) {
         const camTrack = localStreamRef.current.getVideoTracks()[0];
-        if (camTrack) {
+        if (camTrack && isVideoOn) {
           await peerManagerRef.current.replaceVideoTrack(camTrack);
         }
       }
@@ -776,19 +835,23 @@ export default function GoogleMeetRoom({
       }
     } else {
       if (!navigator?.mediaDevices?.getDisplayMedia) {
-        showToast("Screen sharing requires HTTPS and a supported desktop browser.");
+        showToast("Screen sharing is not supported by this browser on your device.");
         return;
       }
       try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
+          video: {
+            cursor: "always",
+          },
+          audio: false,
         });
         screenStreamRef.current = screenStream;
         setIsScreenSharing(true);
-        showToast("You are now presenting your screen to the consultation.");
+        showToast("You are now presenting your screen.");
 
         if (screenVideoRef.current) {
           screenVideoRef.current.srcObject = screenStream;
+          screenVideoRef.current.play().catch(() => {});
         }
 
         const screenTrack = screenStream.getVideoTracks()[0];
@@ -810,7 +873,7 @@ export default function GoogleMeetRoom({
           showToast("Screen presentation ended.");
           if (peerManagerRef.current && localStreamRef.current) {
             const camTrack = localStreamRef.current.getVideoTracks()[0];
-            if (camTrack) {
+            if (camTrack && isVideoOn) {
               await peerManagerRef.current.replaceVideoTrack(camTrack);
             }
           }
@@ -824,7 +887,10 @@ export default function GoogleMeetRoom({
           }
         };
       } catch (err) {
-        console.warn("Screen share cancelled or not supported:", err);
+        if (err?.name !== "NotAllowedError") {
+          console.warn("Screen share error:", err);
+          showToast("Unable to start screen share: " + (err?.message || "Permission denied"));
+        }
       }
     }
   };
@@ -982,6 +1048,14 @@ export default function GoogleMeetRoom({
               </div>
             )}
 
+            {/* Participant Left Badge */}
+            {peerLeftInfo && !hasRemotePeer && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 font-mono text-[10px] font-bold border border-rose-500/40 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                <span>{peerLeftInfo.name} Left</span>
+              </div>
+            )}
+
             {/* User Avatar (NO CLUNKY PILL BOX) */}
             <div className="flex items-center gap-2 text-white/90">
               <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden bg-amber-500/20 border border-amber-500/40 flex items-center justify-center font-bold text-[10px] text-amber-300">
@@ -1016,6 +1090,45 @@ export default function GoogleMeetRoom({
             </div>
           )}
 
+          {/* PARTICIPANT LEFT OVERLAY NOTIFICATION MODAL */}
+          {peerLeftInfo && !hasRemotePeer && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+              <div className="max-w-sm w-full p-6 rounded-2xl bg-[#17181d] border border-white/10 shadow-2xl text-center space-y-4">
+                <div className="w-14 h-14 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 mx-auto flex items-center justify-center">
+                  <PhoneOff className="w-7 h-7" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-white">
+                    {peerLeftInfo.name} left the meeting
+                  </h3>
+                  <p className="text-xs font-mono text-white/50">
+                    Disconnected at {peerLeftInfo.time}
+                  </p>
+                  <p className="text-xs text-neutral-300 font-sans pt-1 leading-relaxed">
+                    You are currently the only person in this consultation room. You may wait for them to reconnect or leave the meeting.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setPeerLeftInfo(null)}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    Wait in Room
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLeaveCall}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-rose-950/40"
+                  >
+                    <PhoneOff className="w-3.5 h-3.5" />
+                    <span>Leave Call</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ACTIVE MEDIA RENDERING */}
           {hasRemotePeer ? (
             /* DUAL CALL MODE: REMOTE PARTICIPANT ON MAIN STAGE */
@@ -1025,7 +1138,7 @@ export default function GoogleMeetRoom({
                   ref={setRemoteVideoRef}
                   autoPlay
                   playsInline
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain bg-black"
                 />
                 <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-mono font-medium flex items-center gap-2 text-amber-400 shadow-lg">
                   <Monitor className="w-3.5 h-3.5 animate-pulse" />
@@ -1035,10 +1148,10 @@ export default function GoogleMeetRoom({
             ) : isScreenSharing ? (
               <div className="relative w-full h-full flex flex-col items-center justify-center bg-black">
                 <video
-                  ref={screenVideoRef}
+                  ref={setScreenVideoRef}
                   autoPlay
                   playsInline
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain bg-black"
                 />
                 <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-mono font-medium flex items-center gap-2 text-amber-400 shadow-lg">
                   <Monitor className="w-3.5 h-3.5 animate-pulse" />
@@ -1051,7 +1164,7 @@ export default function GoogleMeetRoom({
                   ref={setRemoteVideoRef}
                   autoPlay
                   playsInline
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain bg-black"
                 />
               </div>
             ) : (
@@ -1083,10 +1196,10 @@ export default function GoogleMeetRoom({
             isScreenSharing ? (
               <div className="relative w-full h-full flex flex-col items-center justify-center bg-black">
                 <video
-                  ref={screenVideoRef}
+                  ref={setScreenVideoRef}
                   autoPlay
                   playsInline
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain bg-black"
                 />
                 <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-mono font-medium flex items-center gap-2 text-amber-400 shadow-lg">
                   <Monitor className="w-3.5 h-3.5 animate-pulse" />
@@ -1100,7 +1213,7 @@ export default function GoogleMeetRoom({
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover ${facingMode === "user" ? "-scale-x-100" : ""}`}
+                  className={`w-full h-full object-contain bg-black ${facingMode === "user" ? "-scale-x-100" : ""}`}
                 />
               </div>
             ) : (
@@ -1505,18 +1618,18 @@ export default function GoogleMeetRoom({
               </button>
             )}
 
-            {/* Screen Share Button (Desktop & Tablet only) */}
+            {/* Screen Share Button (Available for Both Client & Host, Mobile & Desktop) */}
             <button
               type="button"
               onClick={handleToggleScreenShare}
-              className={`hidden sm:inline-flex p-3 rounded-full transition-all cursor-pointer ${
+              className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer ${
                 isScreenSharing
-                  ? "bg-amber-500 text-neutral-950 font-bold"
+                  ? "bg-amber-500 text-neutral-950 font-bold ring-2 ring-amber-400"
                   : "text-white/90 hover:text-white hover:bg-white/10 active:scale-90"
               }`}
               title={isScreenSharing ? "Stop presenting" : "Present now (Share screen)"}
             >
-              <Monitor className="w-5 h-5" />
+              <Monitor className="w-5 h-5 sm:w-5 sm:h-5" />
             </button>
 
             {/* Reactions Button with Popup */}

@@ -304,11 +304,27 @@ export class WebRTCPeerManager {
     if (!this.peerConnection) return;
 
     try {
-      const senders = this.peerConnection.getSenders();
+      const transceivers = typeof this.peerConnection.getTransceivers === "function"
+        ? this.peerConnection.getTransceivers()
+        : [];
+      const videoTransceiver = transceivers.find(
+        (t) => (t.receiver?.track?.kind === "video") || (t.sender?.track?.kind === "video")
+      );
+
+      if (videoTransceiver && videoTransceiver.sender) {
+        videoTransceiver.direction = "sendrecv";
+        await videoTransceiver.sender.replaceTrack(newVideoTrack);
+        console.log("[WEBRTC] Outgoing video/screen track replaced on transceiver successfully.");
+        return;
+      }
+
+      const senders = typeof this.peerConnection.getSenders === "function"
+        ? this.peerConnection.getSenders()
+        : [];
       const videoSender = senders.find((s) => s.track && s.track.kind === "video");
       if (videoSender) {
         await videoSender.replaceTrack(newVideoTrack);
-        console.log("[WEBRTC] Outgoing video track replaced successfully.");
+        console.log("[WEBRTC] Outgoing video track replaced on sender successfully.");
       }
     } catch (err) {
       console.error("[WEBRTC] Failed to replace video track:", err);
