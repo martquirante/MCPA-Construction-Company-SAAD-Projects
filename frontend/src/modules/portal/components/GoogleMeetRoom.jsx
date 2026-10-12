@@ -64,6 +64,13 @@ export default function GoogleMeetRoom({
   const peerManagerRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const remoteAudioRef = useRef(null);
+  const remotePeerRef = useRef(null);
+  const userInfoRef = useRef({ displayName, userRole, isUserAdmin, userAvatar, currentUser, showToast });
+
+  useEffect(() => {
+    userInfoRef.current = { displayName, userRole, isUserAdmin, userAvatar, currentUser, showToast };
+  });
+
   const [remoteStream, setRemoteStream] = useState(null);
   const [remotePeer, setRemotePeer] = useState(null);
   const [remoteMediaState, setRemoteMediaState] = useState({
@@ -113,10 +120,7 @@ export default function GoogleMeetRoom({
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.hidden) {
-        // User switched browser tab or minimized -> automatically float like Google Meet
         setIsFloatingPiP(true);
-
-        // Attempt native browser Picture-in-Picture on active video
         try {
           const activeVideo = isScreenSharing ? screenVideoRef.current : localVideoRef.current;
           if (
@@ -132,7 +136,6 @@ export default function GoogleMeetRoom({
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
@@ -142,9 +145,7 @@ export default function GoogleMeetRoom({
   useEffect(() => {
     const activeVideo = isScreenSharing ? screenVideoRef.current : localVideoRef.current;
     if (!activeVideo) return;
-    const handleLeavePiP = () => {
-      // Native PiP closed
-    };
+    const handleLeavePiP = () => {};
     activeVideo.addEventListener("leavepictureinpicture", handleLeavePiP);
     return () => {
       activeVideo.removeEventListener("leavepictureinpicture", handleLeavePiP);
@@ -200,17 +201,17 @@ export default function GoogleMeetRoom({
     onLeave && onLeave();
   };
 
-  // WebRTC Peer Connection & Socket.IO Signaling Lifecycle
+  // WebRTC Peer Connection & Socket.IO Signaling Lifecycle (Persistently Mounted)
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !roomCode) return;
 
     const serverUrl = getSignalingServerUrl();
     console.log(`[WEBRTC] Connecting to signaling server at: ${serverUrl}`);
 
     const socket = io(serverUrl, {
       transports: ["polling", "websocket"],
-      reconnectionAttempts: 5,
-      timeout: 10000,
+      reconnectionAttempts: 10,
+      timeout: 15000,
     });
     socketRef.current = socket;
 
@@ -218,10 +219,10 @@ export default function GoogleMeetRoom({
       socket,
       roomCode,
       currentUser: {
-        id: currentUser?.id,
-        name: displayName,
-        role: userRole || (isUserAdmin ? "ADMIN" : "CLIENT"),
-        avatarUrl: userAvatar,
+        id: userInfoRef.current.currentUser?.id,
+        name: userInfoRef.current.displayName,
+        role: userInfoRef.current.userRole || (userInfoRef.current.isUserAdmin ? "ADMIN" : "CLIENT"),
+        avatarUrl: userInfoRef.current.userAvatar,
       },
       onRemoteStream: (stream) => {
         console.log("[WEBRTC] Remote media stream received:", stream.id);
@@ -238,63 +239,92 @@ export default function GoogleMeetRoom({
         setP2pConnectionState(state);
         if (state === "connected") {
           setIsCallAnswered(true);
-          showToast("Live P2P encrypted media stream connected!");
+          userInfoRef.current.showToast?.("Live P2P encrypted media stream connected!");
         }
       },
       onPeerLeft: () => {
         setRemoteStream(null);
         setRemotePeer(null);
+        remotePeerRef.current = null;
         setIsRemoteHandRaised(false);
-        showToast("Participant left the consultation.");
+        userInfoRef.current.showToast?.("Participant left the consultation.");
       },
     });
     peerManagerRef.current = peerManager;
 
-    socket.on("connect", () => {
-      console.log(`[WEBRTC] Connected to signaling server with socket ID: ${socket.id}`);
-      socket.emit("join-room", {
+    // Immediately pre-init peer connection if local stream is already available
+    if (localStreamRef.current) {
+      peerManager.initPeerConnection(localStreamRef.current);
+    }
+
+    const joinRoomPayload = () => {
+      const u = userInfoRef.current;
+      return {
         roomCode,
         user: {
-          id: currentUser?.id,
-          name: displayName,
-          role: userRole || (isUserAdmin ? "ADMIN" : "CLIENT"),
-          avatarUrl: userAvatar,
+          id: u.currentUser?.id,
+          name: u.displayName,
+          role: u.userRole || (u.isUserAdmin ? "ADMIN" : "CLIENT"),
+          avatarUrl: u.userAvatar,
         },
-        role: isUserAdmin ? "admin" : "client",
-      });
+        role: u.isUserAdmin ? "admin" : "client",
+      };
+    };
+
+    socket.on("connect", () => {
+      console.log(`[WEBRTC] Connected to signaling server with socket ID: ${socket.id}`);
+      socket.emit("join-room", joinRoomPayload());
     });
 
+    if (socket.connected) {
+      socket.emit("join-room", joinRoomPayload());
+    }
+
+    // Newcomer receives existing participants
     socket.on("room-joined", ({ participants }) => {
       if (participants && participants.length > 0) {
         const peer = participants[0];
+        console.log("[WEBRTC] Existing peer found in room:", peer);
+        remotePeerRef.current = peer;
         setRemotePeer(peer);
         setIsCallAnswered(true);
-        if (localStreamRef.current) {
-          peerManager.initPeerConnection(localStreamRef.current);
-          peerManager.createAndSendOffer(peer.socketId);
-        }
+        // New participant sends offer to existing peer
+        peerManager.createAndSendOffer(peer.socketId);
       }
     });
 
+    // Existing participant receives newcomer
     socket.on("user-joined", ({ socketId, user }) => {
-      setRemotePeer(user);
+      console.log("[WEBRTC] New participant joined room:", user?.name, socketId);
+      const peer = { ...user, socketId };
+      remotePeerRef.current = peer;
+      setRemotePeer(peer);
       setIsCallAnswered(true);
-      showToast(`${user?.name || "Participant"} joined the consultation!`);
-      if (localStreamRef.current) {
-        peerManager.initPeerConnection(localStreamRef.current);
-      }
+      userInfoRef.current.showToast?.(`${user?.name || "Participant"} joined the consultation!`);
+      // If no offer received within 2.5s, initiate offer as fallback
+      setTimeout(() => {
+        if (
+          peerManagerRef.current &&
+          !peerManagerRef.current.peerConnection?.remoteDescription &&
+          !peerManagerRef.current.isInitiator
+        ) {
+          console.log("[WEBRTC] Fallback offer trigger for peer:", socketId);
+          peerManagerRef.current.createAndSendOffer(socketId);
+        }
+      }, 2500);
     });
 
     socket.on("webrtc-offer", async ({ fromSocketId, sdpOffer, sender }) => {
-      setRemotePeer(sender);
+      console.log("[WEBRTC] Received SDP offer from:", fromSocketId);
+      const peer = { ...sender, socketId: fromSocketId };
+      remotePeerRef.current = peer;
+      setRemotePeer(peer);
       setIsCallAnswered(true);
-      if (localStreamRef.current) {
-        peerManager.initPeerConnection(localStreamRef.current);
-      }
       await peerManager.handleOfferAndSendAnswer(sdpOffer, fromSocketId);
     });
 
     socket.on("webrtc-answer", async ({ sdpAnswer }) => {
+      console.log("[WEBRTC] Received SDP answer");
       await peerManager.handleAnswer(sdpAnswer);
     });
 
@@ -311,7 +341,7 @@ export default function GoogleMeetRoom({
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
-      if (msg.sender !== displayName) {
+      if (msg.sender !== userInfoRef.current.displayName) {
         setUnreadCount((c) => c + 1);
       }
       setTimeout(() => {
@@ -331,23 +361,26 @@ export default function GoogleMeetRoom({
     socket.on("peer-hand-raised", ({ isHandRaised: raised, from }) => {
       setIsRemoteHandRaised(Boolean(raised));
       if (raised) {
-        showToast(`✋ ${from || "Participant"} raised hand`);
+        userInfoRef.current.showToast?.(`✋ ${from || "Participant"} raised hand`);
       }
     });
 
     socket.on("peer-left", () => {
       setRemoteStream(null);
       setRemotePeer(null);
+      remotePeerRef.current = null;
       setIsRemoteHandRaised(false);
-      showToast("Participant left the consultation.");
+      userInfoRef.current.showToast?.("Participant left the consultation.");
     });
 
     return () => {
-      socket.emit("leave-room", { roomCode });
+      try {
+        socket.emit("leave-room", { roomCode });
+      } catch (e) {}
       peerManager.close();
       socket.disconnect();
     };
-  }, [mounted, roomCode, displayName, userRole, isUserAdmin, userAvatar, currentUser?.id, showToast]);
+  }, [mounted, roomCode]);
 
   // Instant Meeting Admin Presence & 3-Minute Auto-End Timer
   useEffect(() => {
@@ -496,9 +529,15 @@ export default function GoogleMeetRoom({
           localVideoRef.current.srcObject = stream;
         }
         if (peerManagerRef.current) {
-          peerManagerRef.current.initPeerConnection(stream);
-          if (remotePeer?.socketId) {
-            peerManagerRef.current.createAndSendOffer(remotePeer.socketId);
+          peerManagerRef.current.attachLocalTracks(stream);
+          const targetPeerId = remotePeerRef.current?.socketId;
+          if (
+            targetPeerId &&
+            !peerManagerRef.current.isInitiator &&
+            !peerManagerRef.current.peerConnection?.remoteDescription
+          ) {
+            console.log("[WEBRTC] Media ready, sending offer to remote peer:", targetPeerId);
+            peerManagerRef.current.createAndSendOffer(targetPeerId);
           }
         }
       } catch (err) {
@@ -890,6 +929,9 @@ export default function GoogleMeetRoom({
               </span>
             </div>
           )}
+
+          {/* Dedicated Remote Audio Player (ALWAYS active to output peer audio through speaker) */}
+          <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
 
           {/* ACTIVE MEDIA RENDERING */}
           {hasRemotePeer ? (

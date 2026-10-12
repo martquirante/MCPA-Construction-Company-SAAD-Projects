@@ -105,6 +105,11 @@ export default function AdminMeetingsTab({
   currentUser,
   showToast = () => {},
 }) {
+  const stableAdminUser = useMemo(
+    () => currentUser || { name: "Engr. Raymart Quirante", role: "SUPER ADMIN" },
+    [currentUser?.id, currentUser?.name, currentUser?.role]
+  );
+
   // View State: 'list' vs 'in_call'
   const [activeCallRoom, setActiveCallRoom] = useState(null); // null | { roomCode, clientName, projectTitle }
 
@@ -1945,7 +1950,7 @@ export default function AdminMeetingsTab({
       {activeCallRoom && (
         <GoogleMeetRoom
           roomCode={activeCallRoom.roomCode}
-          currentUser={currentUser || { name: "Engr. Raymart Quirante", role: "SUPER ADMIN" }}
+          currentUser={stableAdminUser}
           activeProject={{
             project_title: activeCallRoom.projectTitle,
             project_code: activeCallRoom.projectCode,

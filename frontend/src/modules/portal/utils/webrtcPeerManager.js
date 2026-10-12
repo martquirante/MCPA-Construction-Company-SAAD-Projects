@@ -44,11 +44,14 @@ export class WebRTCPeerManager {
 
   /**
    * Initializes the native RTCPeerConnection and attaches local tracks
-   * @param {MediaStream} localStream 
+   * @param {MediaStream} [localStream] 
    */
-  initPeerConnection(localStream) {
+  initPeerConnection(localStream = null) {
     if (this.peerConnection) {
-      this.close();
+      if (localStream) {
+        this.attachLocalTracks(localStream);
+      }
+      return this.peerConnection;
     }
 
     this.localStream = localStream;
@@ -59,15 +62,9 @@ export class WebRTCPeerManager {
       iceCandidatePoolSize: 10,
     });
 
-    // 1. Add local audio and video tracks to the peer connection
+    // 1. Add local audio and video tracks if available
     if (this.localStream) {
-      this.localStream.getTracks().forEach((track) => {
-        try {
-          this.peerConnection.addTrack(track, this.localStream);
-        } catch (e) {
-          console.warn("[WEBRTC] Error adding track to peer connection:", e);
-        }
-      });
+      this.attachLocalTracks(this.localStream);
     }
 
     // 2. Handle incoming remote audio and video tracks
@@ -81,7 +78,9 @@ export class WebRTCPeerManager {
           }
         });
       } else {
-        this.remoteStream.addTrack(event.track);
+        if (!this.remoteStream.getTracks().some((t) => t.id === event.track.id)) {
+          this.remoteStream.addTrack(event.track);
+        }
       }
 
       this.onRemoteStream(this.remoteStream);
@@ -115,11 +114,36 @@ export class WebRTCPeerManager {
   }
 
   /**
+   * Attaches or updates local audio and video tracks on existing peer connection
+   * @param {MediaStream} stream 
+   */
+  attachLocalTracks(stream) {
+    if (!this.peerConnection || !stream) return;
+    this.localStream = stream;
+    const senders = this.peerConnection.getSenders();
+
+    stream.getTracks().forEach((track) => {
+      const existingSender = senders.find((s) => s.track && s.track.kind === track.kind);
+      if (existingSender) {
+        existingSender.replaceTrack(track).catch(() => {});
+      } else {
+        try {
+          this.peerConnection.addTrack(track, stream);
+        } catch (e) {
+          console.warn("[WEBRTC] Error adding track to peer connection:", e);
+        }
+      }
+    });
+  }
+
+  /**
    * Called when acting as the call initiator (Caller) to create and send an SDP offer
    * @param {string} targetSocketId 
    */
   async createAndSendOffer(targetSocketId) {
-    if (!this.peerConnection) return;
+    if (!this.peerConnection) {
+      this.initPeerConnection(this.localStream);
+    }
     this.remoteSocketId = targetSocketId;
     this.isInitiator = true;
 
@@ -148,7 +172,9 @@ export class WebRTCPeerManager {
    * @param {string} fromSocketId 
    */
   async handleOfferAndSendAnswer(sdpOffer, fromSocketId) {
-    if (!this.peerConnection) return;
+    if (!this.peerConnection) {
+      this.initPeerConnection(this.localStream);
+    }
     this.remoteSocketId = fromSocketId;
 
     try {

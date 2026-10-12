@@ -308,6 +308,9 @@ export default function PortalMeetingHub({
     };
 
     try {
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate([150, 100, 150]);
+      }
       localStorage.setItem("mcpa_instant_call_active", JSON.stringify(instantCallPayload));
       window.dispatchEvent(new CustomEvent("mcpa-instant-call-alert", { detail: instantCallPayload }));
       const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"], reconnectionAttempts: 5 });
