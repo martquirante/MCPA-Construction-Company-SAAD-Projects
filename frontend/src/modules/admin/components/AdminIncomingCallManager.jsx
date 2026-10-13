@@ -290,34 +290,55 @@ export default function AdminIncomingCallManager({
 
             {/* Caller Info */}
             <div className="py-6 flex flex-col items-center text-center space-y-3">
-              {/* Animated Avatar / Ringing Graphic */}
+              {/* Animated Avatar / Customer Profile Photo */}
               <div className="relative">
-                <div className="w-20 h-20 rounded-full bg-linear-to-br from-amber-500 to-emerald-600 p-0.5 shadow-2xl flex items-center justify-center animate-bounce">
-                  <div className="w-full h-full rounded-full bg-neutral-950 flex items-center justify-center text-2xl font-bold font-mono text-amber-400">
-                    {(incomingCall.clientName || "C").charAt(0).toUpperCase()}
+                <div className="w-24 h-24 rounded-full bg-linear-to-br from-amber-500 via-amber-400 to-emerald-500 p-1 shadow-2xl flex items-center justify-center animate-bounce">
+                  <div className="w-full h-full rounded-full bg-neutral-950 flex items-center justify-center text-3xl font-bold font-mono text-amber-400 overflow-hidden ring-2 ring-white/10">
+                    {incomingCall.clientAvatar ? (
+                      <img
+                        src={incomingCall.clientAvatar}
+                        alt={incomingCall.clientName || "Customer"}
+                        className="w-full h-full object-cover rounded-full"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <span>{(incomingCall.clientName || "C").charAt(0).toUpperCase()}</span>
+                    )}
                   </div>
                 </div>
-                <div className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-emerald-500 text-neutral-950 shadow-md">
+                <div className="absolute -bottom-1 -right-1 p-2 rounded-full bg-emerald-500 text-neutral-950 shadow-lg ring-2 ring-neutral-900">
                   <PhoneCall className="w-4 h-4 animate-pulse" />
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xl font-bold font-mono text-white">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[11px] font-mono text-amber-300 font-bold mb-1">
+                  <span>Customer Calling</span>
+                </div>
+                <h3 className="text-2xl font-black font-mono text-white tracking-tight">
                   {incomingCall.clientName || "Valued Client"}
                 </h3>
-                <p className="text-xs font-sans text-neutral-400 mt-0.5">
-                  {incomingCall.projectTitle || "Architectural Project Consultation"}
+                {(incomingCall.clientEmail || incomingCall.clientPhone) && (
+                  <p className="text-xs font-mono text-neutral-400 mt-0.5">
+                    {incomingCall.clientEmail} {incomingCall.clientPhone ? `· ${incomingCall.clientPhone}` : ""}
+                  </p>
+                )}
+                <p className="text-xs font-sans text-neutral-300 mt-1">
+                  Project: <strong className="text-white font-semibold">{incomingCall.projectTitle || "Architectural Project Consultation"}</strong>
                 </p>
-                <div className="inline-flex items-center gap-1 mt-2 px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px] font-mono text-amber-400">
-                  <Sparkles className="w-3 h-3" />
+                <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-mono text-amber-400">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Code: <span className="text-white font-bold">{incomingCall.projectCode || "MCPA-2026"}</span></span>
+                  <span className="text-white/20">|</span>
                   <span>Room: {incomingCall.roomCode}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 pt-1">
                 <Volume2 className="w-4 h-4 animate-pulse" />
-                <span>Ringtone playing: universfield-ringtone-030</span>
+                <span>Ringtone active &amp; ringing</span>
               </div>
             </div>
 

@@ -31,10 +31,12 @@ import {
   PhoneCall,
   SwitchCamera,
   Globe,
+  Volume2,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { WebRTCPeerManager } from "@/modules/portal/utils/webrtcPeerManager";
 import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
+import { playOutgoingRingbackTone } from "@/modules/portal/utils/outgoingRingbackTone";
 
 // High-grade WebRTC and hardware DSP constraints for deep noise isolation and echo suppression
 const OPTIMAL_AUDIO_CONSTRAINTS = {
@@ -223,6 +225,7 @@ export default function GoogleMeetRoom({
   }, [isFullscreen, isFloatingPiP, mounted]);
 
   const isLeavingRef = useRef(false);
+  const ringbackToneRef = useRef(null);
 
   // AUTO PICTURE-IN-PICTURE & FLOATING MINI-WINDOW ON TAB SWITCH / DEVICE ACTIVITY
   useEffect(() => {
@@ -282,6 +285,10 @@ export default function GoogleMeetRoom({
 
   const handleLeaveCall = () => {
     isLeavingRef.current = true;
+    if (ringbackToneRef.current) {
+      ringbackToneRef.current.stop();
+      ringbackToneRef.current = null;
+    }
     try {
       if (typeof document !== "undefined" && document.pictureInPictureElement && document.exitPictureInPicture) {
         document.exitPictureInPicture().catch(() => {});
@@ -422,6 +429,10 @@ export default function GoogleMeetRoom({
         setRemotePeer(peer);
         setPeerLeftInfo(null);
         setIsCallAnswered(true);
+        if (ringbackToneRef.current) {
+          ringbackToneRef.current.stop();
+          ringbackToneRef.current = null;
+        }
         // New participant sends offer to existing peer
         peerManager.createAndSendOffer(peer.socketId);
       }
@@ -435,6 +446,10 @@ export default function GoogleMeetRoom({
       setRemotePeer(peer);
       setPeerLeftInfo(null);
       setIsCallAnswered(true);
+      if (ringbackToneRef.current) {
+        ringbackToneRef.current.stop();
+        ringbackToneRef.current = null;
+      }
       userInfoRef.current.showToast?.(`${user?.name || "Participant"} joined the consultation!`);
       // If no offer received within 2.5s, initiate offer as fallback
       setTimeout(() => {
@@ -456,6 +471,10 @@ export default function GoogleMeetRoom({
       setRemotePeer(peer);
       setPeerLeftInfo(null);
       setIsCallAnswered(true);
+      if (ringbackToneRef.current) {
+        ringbackToneRef.current.stop();
+        ringbackToneRef.current = null;
+      }
       await peerManager.handleOfferAndSendAnswer(sdpOffer, fromSocketId);
     });
 
@@ -539,13 +558,17 @@ export default function GoogleMeetRoom({
     };
   }, [mounted, roomCode]);
 
-  // Instant Meeting Admin Presence & 3-Minute Auto-End Timer
+  // Instant Meeting Admin Presence & 3-Minute Auto-End Timer with Ringback Tone ("trot-trot")
   useEffect(() => {
     if (!isInstantMeeting) return;
 
     // 1. If user is Admin joining the call, mark answered immediately
     if (isUserAdmin) {
       setIsCallAnswered(true);
+      if (ringbackToneRef.current) {
+        ringbackToneRef.current.stop();
+        ringbackToneRef.current = null;
+      }
       try {
         const stored = localStorage.getItem("mcpa_instant_call_active");
         if (stored) {
@@ -564,8 +587,18 @@ export default function GoogleMeetRoom({
       return;
     }
 
-    // 2. If client waiting for an Admin to answer
-    if (isCallAnswered) return;
+    // 2. Client waiting for an Admin to answer: start the "trot-trot" ringback tone!
+    if (!isCallAnswered) {
+      if (!ringbackToneRef.current) {
+        ringbackToneRef.current = playOutgoingRingbackTone();
+      }
+    } else {
+      if (ringbackToneRef.current) {
+        ringbackToneRef.current.stop();
+        ringbackToneRef.current = null;
+      }
+      return;
+    }
 
     // Check if call was already answered in localStorage
     const checkAnswered = () => {
@@ -575,6 +608,10 @@ export default function GoogleMeetRoom({
           const parsed = JSON.parse(stored);
           if (parsed.answered || parsed.adminJoined) {
             setIsCallAnswered(true);
+            if (ringbackToneRef.current) {
+              ringbackToneRef.current.stop();
+              ringbackToneRef.current = null;
+            }
             showToast(`${parsed.answeredBy || "MCPA Engineering"} has connected to the consultation!`);
           }
         }
@@ -585,6 +622,10 @@ export default function GoogleMeetRoom({
 
     const handleAnsweredEvent = (e) => {
       setIsCallAnswered(true);
+      if (ringbackToneRef.current) {
+        ringbackToneRef.current.stop();
+        ringbackToneRef.current = null;
+      }
       showToast(`${e.detail?.answeredBy || "Engr. Raymart Quirante"} has answered your call!`);
     };
 
@@ -597,6 +638,10 @@ export default function GoogleMeetRoom({
         if (prev <= 1) {
           clearInterval(timerInterval);
           // 3 minutes elapsed with no admin answering -> Auto End!
+          if (ringbackToneRef.current) {
+            ringbackToneRef.current.stop();
+            ringbackToneRef.current = null;
+          }
           handleLeaveCall();
           if (onAutoEndTimeout) {
             onAutoEndTimeout();
@@ -609,6 +654,10 @@ export default function GoogleMeetRoom({
 
     return () => {
       clearInterval(timerInterval);
+      if (ringbackToneRef.current) {
+        ringbackToneRef.current.stop();
+        ringbackToneRef.current = null;
+      }
       window.removeEventListener("mcpa-instant-call-answered", handleAnsweredEvent);
       window.removeEventListener("storage", checkAnswered);
     };
@@ -1621,13 +1670,21 @@ export default function GoogleMeetRoom({
                   </div>
                 </div>
                 {isInstantMeeting && !isCallAnswered && (
-                  <div className="text-center space-y-1">
-                    <p className="text-sm font-semibold text-white/90">
+                  <div className="text-center space-y-2 max-w-xs mx-auto animate-in fade-in duration-300">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono font-bold">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block" />
+                      <span>Ringing Engineer...</span>
+                    </div>
+                    <p className="text-sm font-semibold text-white/95">
                       Calling Engr. Raymart Quirante
                     </p>
-                    <p className="text-xs font-mono text-amber-400/90">
-                      Standby for engineering response...
+                    <p className="text-xs font-mono text-amber-400/80">
+                      Auto-ends in {Math.floor(instantTimer / 60)}:{(instantTimer % 60).toString().padStart(2, "0")} if unanswered
                     </p>
+                    <div className="flex items-center justify-center gap-1.5 pt-0.5 text-emerald-400 text-[11px] font-mono">
+                      <Volume2 className="w-3.5 h-3.5 animate-pulse" />
+                      <span>Ringtone &quot;trot-trot&quot; active</span>
+                    </div>
                   </div>
                 )}
               </div>

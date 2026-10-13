@@ -880,16 +880,27 @@ export default function AdminMeetingsTab({
           {/* Main Body: Client Monogram, Project Dossier & Tactile Buttons */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-3.5">
             <div className="flex items-start sm:items-center gap-3.5">
-              {/* Client Monogram Avatar Box */}
-              <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-black font-mono text-sm flex items-center justify-center shadow-md shadow-amber-500/20 ring-2 ring-white dark:ring-neutral-800 shrink-0">
-                <span>
-                  {(incomingInstantCall.clientName || "C")
-                    .split(" ")
-                    .map((n) => n[0])
-                    .slice(0, 2)
-                    .join("")
-                    .toUpperCase()}
-                </span>
+              {/* Client Monogram / Profile Photo Avatar Box */}
+              <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-neutral-950 font-black font-mono text-sm flex items-center justify-center shadow-md shadow-amber-500/20 ring-2 ring-white dark:ring-neutral-800 shrink-0 overflow-hidden">
+                {incomingInstantCall.clientAvatar ? (
+                  <img
+                    src={incomingInstantCall.clientAvatar}
+                    alt={incomingInstantCall.clientName || "Client"}
+                    className="w-full h-full object-cover rounded-xl"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <span>
+                    {(incomingInstantCall.clientName || "C")
+                      .split(" ")
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join("")
+                      .toUpperCase()}
+                  </span>
+                )}
                 <span className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-emerald-500 text-neutral-950 shadow ring-2 ring-white dark:ring-[#0d0f14]">
                   <Video className="w-2.5 h-2.5" />
                 </span>

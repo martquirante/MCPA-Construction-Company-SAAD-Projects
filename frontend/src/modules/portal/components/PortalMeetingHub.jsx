@@ -295,11 +295,27 @@ export default function PortalMeetingHub({
     setIsInstantMode(true);
 
     const instantRoomCode = `mcpa-instant-${roomCode || "meet"}`;
+    const clientAvatar =
+      currentUser?.avatar_url ||
+      currentUser?.avatarUrl ||
+      currentUser?.photoURL ||
+      activeProject?.client_avatar ||
+      activeProject?.avatar_url ||
+      "";
+
+    const clientPhone =
+      currentUser?.phone ||
+      currentUser?.phoneNumber ||
+      activeProject?.client_phone ||
+      "";
+
     const instantCallPayload = {
       active: true,
       roomCode: instantRoomCode,
-      clientName: currentUser?.name || activeProject?.client_name || "Valued Client",
+      clientName: currentUser?.name || currentUser?.fullName || activeProject?.client_name || "Valued Client",
       clientEmail: currentUser?.email || activeProject?.client_email || "",
+      clientAvatar,
+      clientPhone,
       projectCode: activeProject?.project_code || "MCPA-2026-MQ04B",
       projectTitle: activeProject?.project_title || "Residential Consultation",
       startedAt: Date.now(),
