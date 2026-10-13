@@ -38,6 +38,7 @@ import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
 import VenueCombobox from "@/modules/book/components/VenueCombobox";
 import { io } from "socket.io-client";
 import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
+import { GoogleIcon } from "@/modules/shared/Icons";
 
 export default function PortalMeetingHub({
   activeProject,
@@ -102,6 +103,71 @@ export default function PortalMeetingHub({
 
   // View mode tab: 'all' (All Meetings: active + history) | 'active' | 'history'
   const [hubTab, setHubTab] = useState("all");
+
+  // Resolve Consultant / Admin profile picture (Engr. Raymart Quirante)
+  const [consultantAvatar, setConsultantAvatar] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const customAvatar = localStorage.getItem("mcpa_admin_avatar");
+        if (customAvatar && customAvatar.trim()) return customAvatar.trim();
+
+        const storedAdmin = localStorage.getItem("mcpa_admin_user");
+        if (storedAdmin) {
+          const parsed = JSON.parse(storedAdmin);
+          const av = parsed.avatarUrl || parsed.avatar_url || parsed.photoURL || parsed.picture;
+          if (av && typeof av === "string" && av.trim()) return av.trim();
+        }
+
+        const storedBriefs = JSON.parse(localStorage.getItem("mcpa_client_briefs") || "[]");
+        if (Array.isArray(storedBriefs)) {
+          const rqBrief = storedBriefs.find(
+            (b) =>
+              (b.clientEmail && b.clientEmail.toLowerCase().includes("martquirante")) ||
+              (b.clientName && b.clientName.toLowerCase().includes("quirante"))
+          );
+          if (rqBrief) {
+            const av = rqBrief.avatarUrl || rqBrief.avatar_url;
+            if (av && typeof av === "string" && av.trim()) return av.trim();
+          }
+        }
+
+        const storedClient = localStorage.getItem("mcpa_client_user");
+        if (storedClient) {
+          const parsedClient = JSON.parse(storedClient);
+          const cName = (parsedClient.name || parsedClient.fullName || "").toLowerCase();
+          if (cName.includes("raymart") || cName.includes("quirante")) {
+            const av = parsedClient.avatarUrl || parsedClient.avatar_url || parsedClient.photoURL || parsedClient.picture;
+            if (av && typeof av === "string" && av.trim()) return av.trim();
+          }
+        }
+      } catch (e) {}
+    }
+    return "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
+  });
+
+  useEffect(() => {
+    const syncAvatar = () => {
+      try {
+        const customAvatar = localStorage.getItem("mcpa_admin_avatar");
+        if (customAvatar && customAvatar.trim()) {
+          setConsultantAvatar(customAvatar.trim());
+          return;
+        }
+        const storedAdmin = localStorage.getItem("mcpa_admin_user");
+        if (storedAdmin) {
+          const parsed = JSON.parse(storedAdmin);
+          const av = parsed.avatarUrl || parsed.avatar_url || parsed.photoURL || parsed.picture;
+          if (av && typeof av === "string" && av.trim()) {
+            setConsultantAvatar(av.trim());
+            return;
+          }
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener("storage", syncAvatar);
+    return () => window.removeEventListener("storage", syncAvatar);
+  }, []);
 
   // Synthesize complete meeting history and past consultations
   const meetingHistory = useMemo(() => {
@@ -725,15 +791,44 @@ export default function PortalMeetingHub({
 
             {/* Right 5 cols: Consultant Card */}
             <div className="lg:col-span-5 p-5 rounded-[10px] bg-neutral-50 dark:bg-[#14161e] border border-neutral-200 dark:border-white/5 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-[8px] bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center font-mono font-bold text-base shadow-xs">
-                  RQ
+              <div className="flex items-center gap-3.5">
+                <div className="relative w-12 h-12 rounded-[10px] overflow-hidden bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center font-mono font-bold text-base shadow-xs shrink-0 group">
+                  {consultantAvatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={consultantAvatar}
+                      alt={activeMeetingInfo.leadConsultant || "Lead Consultant"}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                        const fb = e.currentTarget.parentElement?.querySelector(".consultant-avatar-fallback");
+                        if (fb) fb.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    style={{ display: consultantAvatar ? "none" : "flex" }}
+                    className="consultant-avatar-fallback w-full h-full items-center justify-center font-mono font-bold text-base uppercase"
+                  >
+                    RQ
+                  </div>
+                  <span
+                    className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
+                    title="Verified Google Account"
+                  >
+                    <GoogleIcon className="w-2.5 h-2.5" />
+                  </span>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                    {activeMeetingInfo.leadConsultant}
-                  </h4>
-                  <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-neutral-900 dark:text-white truncate">
+                      {activeMeetingInfo.leadConsultant}
+                    </h4>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 uppercase shrink-0">
+                      Admin
+                    </span>
+                  </div>
+                  <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400 truncate">
                     {activeMeetingInfo.leadRole}
                   </p>
                 </div>
@@ -909,13 +1004,42 @@ export default function PortalMeetingHub({
                     {/* Right 4 cols: Consultant & Verification Card */}
                     <div className="lg:col-span-4 p-4.5 rounded-xl bg-neutral-50 dark:bg-[#14161e] border border-neutral-200/70 dark:border-white/5 space-y-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center font-mono font-bold text-sm shadow-xs shrink-0">
-                          RQ
+                        <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center font-mono font-bold text-sm shadow-xs shrink-0 group">
+                          {consultantAvatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={consultantAvatar}
+                              alt={item.leadConsultant || "Lead Consultant"}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const fb = e.currentTarget.parentElement?.querySelector(".history-consultant-fallback");
+                                if (fb) fb.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            style={{ display: consultantAvatar ? "none" : "flex" }}
+                            className="history-consultant-fallback w-full h-full items-center justify-center font-mono font-bold text-sm uppercase"
+                          >
+                            RQ
+                          </div>
+                          <span
+                            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
+                            title="Verified Google Account"
+                          >
+                            <GoogleIcon className="w-2 h-2" />
+                          </span>
                         </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-neutral-900 dark:text-white truncate">
-                            {item.leadConsultant}
-                          </h4>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                              {item.leadConsultant}
+                            </h4>
+                            <span className="px-1.5 py-0.2 rounded text-[8px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 uppercase shrink-0">
+                              Admin
+                            </span>
+                          </div>
                           <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
                             {item.leadRole}
                           </p>

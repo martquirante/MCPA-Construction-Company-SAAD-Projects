@@ -200,7 +200,15 @@ export default function GoogleMeetRoom({
       : "Engr. Raymart Quirante");
 
   const remotePeerAvatar =
-    remotePeer?.avatarUrl || remotePeer?.avatar_url || null;
+    remotePeer?.avatarUrl ||
+    remotePeer?.avatar_url ||
+    (!isUserAdmin
+      ? (typeof window !== "undefined" &&
+          (localStorage.getItem("mcpa_admin_avatar") ||
+            JSON.parse(localStorage.getItem("mcpa_admin_user") || "null")?.avatarUrl ||
+            JSON.parse(localStorage.getItem("mcpa_admin_user") || "null")?.avatar_url)) ||
+        "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
+      : null);
 
   const hasRemotePeer = Boolean(remotePeer || (remoteStream && isCallAnswered));
 
@@ -1659,7 +1667,14 @@ export default function GoogleMeetRoom({
                 <div className="relative flex items-center justify-center">
                   <div className="absolute w-40 h-40 rounded-full bg-amber-500/15 blur-2xl animate-pulse" />
                   <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden bg-neutral-800 border-2 border-neutral-700 shadow-2xl flex items-center justify-center ring-4 ring-white/10 transition-all">
-                    {userAvatar ? (
+                    {isInstantMeeting && !isCallAnswered && !isUserAdmin ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={remotePeerAvatar || "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"}
+                        alt="Engr. Raymart Quirante"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : userAvatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={userAvatar} alt={displayName} className="w-full h-full object-cover" />
                     ) : (
