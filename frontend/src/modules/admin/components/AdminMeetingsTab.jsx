@@ -160,6 +160,10 @@ export default function AdminMeetingsTab({
         if (stored) {
           const parsed = JSON.parse(stored);
           const isExpired = parsed.startedAt && Date.now() - parsed.startedAt > 180000;
+          if (dismissed && dismissed === parsed.roomCode) {
+            setIncomingInstantCall(null);
+            return;
+          }
           if (parsed && parsed.active && parsed.answered && parsed.adminJoined && !isExpired) {
             setActiveCallRoom({
               roomCode: parsed.roomCode,
@@ -171,10 +175,6 @@ export default function AdminMeetingsTab({
             return;
           }
           if (parsed && parsed.active && !parsed.answered && !isExpired) {
-            if (dismissed && dismissed === parsed.roomCode) {
-              setIncomingInstantCall(null);
-              return;
-            }
             setIncomingInstantCall(parsed);
             return;
           }
@@ -187,6 +187,14 @@ export default function AdminMeetingsTab({
 
     const handleInstantAlert = (e) => {
       if (e.detail && e.detail.active) {
+        let dismissed = null;
+        try {
+          dismissed = sessionStorage.getItem("mcpa_dismissed_instant_call");
+        } catch (e) {}
+        if (dismissed && dismissed === e.detail.roomCode) {
+          return;
+        }
+
         if (e.detail.answered && e.detail.adminJoined) {
           setActiveCallRoom({
             roomCode: e.detail.roomCode,
@@ -197,21 +205,17 @@ export default function AdminMeetingsTab({
           setIncomingInstantCall(null);
           return;
         }
-        let dismissed = null;
-        try {
-          dismissed = sessionStorage.getItem("mcpa_dismissed_instant_call");
-        } catch (e) {}
-        if (dismissed && dismissed === e.detail.roomCode) {
-          return;
-        }
         setIncomingInstantCall(e.detail);
         showToast(`🔔 Incoming Instant Video Consultation from ${e.detail.clientName || "Client"}!`);
       }
     };
 
-    const handleInstantEnd = () => {
+    const handleInstantEnd = (e) => {
       try {
-        sessionStorage.removeItem("mcpa_dismissed_instant_call");
+        localStorage.removeItem("mcpa_instant_call_active");
+        if (e?.detail?.roomCode) {
+          sessionStorage.setItem("mcpa_dismissed_instant_call", e.detail.roomCode);
+        }
       } catch (e) {}
       setIncomingInstantCall(null);
     };
@@ -1958,7 +1962,15 @@ export default function AdminMeetingsTab({
           }}
           isAdmin={true}
           onLeave={() => {
+            const currentRoom = activeCallRoom?.roomCode;
             setActiveCallRoom(null);
+            try {
+              localStorage.removeItem("mcpa_instant_call_active");
+              if (currentRoom) {
+                sessionStorage.setItem("mcpa_dismissed_instant_call", currentRoom);
+              }
+              window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoom } }));
+            } catch (e) {}
             showToast("Left video consultation room.");
           }}
           showToast={showToast}

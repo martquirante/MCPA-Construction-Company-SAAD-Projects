@@ -30,6 +30,7 @@ import {
   Zap,
   PhoneCall,
   SwitchCamera,
+  Globe,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { WebRTCPeerManager } from "@/modules/portal/utils/webrtcPeerManager";
@@ -182,8 +183,16 @@ export default function GoogleMeetRoom({
       }
     } catch (e) {}
 
+    // Fully purge instant call state across localStorage, sessionStorage, and window events
+    try {
+      localStorage.removeItem("mcpa_instant_call_active");
+      sessionStorage.setItem("mcpa_dismissed_instant_call", roomCode);
+      window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode } }));
+    } catch (e) {}
+
     if (socketRef.current) {
       try {
+        socketRef.current.emit("instant-call-ended", { roomCode });
         socketRef.current.emit("leave-room", { roomCode });
         socketRef.current.disconnect();
       } catch (e) {}
@@ -234,7 +243,11 @@ export default function GoogleMeetRoom({
           remoteVideoRef.current.play().catch(() => {});
         }
         if (remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = stream;
+          if (remoteAudioRef.current.srcObject !== stream) {
+            remoteAudioRef.current.srcObject = stream;
+          }
+          remoteAudioRef.current.muted = false;
+          remoteAudioRef.current.volume = 1.0;
           remoteAudioRef.current.play().catch(() => {});
         }
       },
@@ -518,19 +531,68 @@ export default function GoogleMeetRoom({
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
 
-  // Live Clock
-  const [currentTimeStr, setCurrentTimeStr] = useState("");
+  // Live Dual-Timezone Clock (Automatic Philippine Standard Time + Client Local Time Abroad)
+  const [timeState, setTimeState] = useState({
+    phTime: "",
+    localTime: "",
+    isAbroad: false,
+    tzLabel: "Local",
+  });
+
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setCurrentTimeStr(
-        now.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        })
-      );
+
+      // 1. Philippine Standard Time (PHT, UTC+8)
+      const phStr = now.toLocaleTimeString("en-US", {
+        timeZone: "Asia/Manila",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      // 2. Local Device Time
+      const localStr = now.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      // 3. Detect if user/client is abroad
+      let tzName = "";
+      try {
+        tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      } catch (e) {}
+
+      const isManila =
+        tzName.toLowerCase().includes("manila") ||
+        (now.getTimezoneOffset() === -480 && !tzName.includes("/"));
+      const isAbroad = !isManila && Boolean(tzName);
+
+      // Extract friendly label (e.g. JST, Tokyo, EST, Dubai)
+      let label = "Local";
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(now);
+        const tzPart = parts.find((p) => p.type === "timeZoneName")?.value;
+        if (tzPart && !tzPart.startsWith("GMT") && !tzPart.startsWith("UTC")) {
+          label = tzPart;
+        } else if (tzName.includes("/")) {
+          label = tzName.split("/")[1].replace(/_/g, " ");
+        } else {
+          label = tzPart || "Local";
+        }
+      } catch (e) {
+        label = "Local";
+      }
+
+      setTimeState({
+        phTime: phStr,
+        localTime: localStr,
+        isAbroad,
+        tzLabel: label,
+      });
     };
+
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
@@ -646,7 +708,11 @@ export default function GoogleMeetRoom({
       if (element.srcObject !== remoteStream) {
         element.srcObject = remoteStream;
       }
-      element.play().catch(() => {});
+      element.play().catch((err) => {
+        console.warn("[WEBRTC] Video unmuted play deferred, muting video element so video displays while audio plays via audio element:", err);
+        element.muted = true;
+        element.play().catch(() => {});
+      });
     }
   }, [remoteStream]);
 
@@ -701,6 +767,8 @@ export default function GoogleMeetRoom({
       }
       if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStream) {
         remoteAudioRef.current.srcObject = remoteStream;
+        remoteAudioRef.current.muted = false;
+        remoteAudioRef.current.volume = 1.0;
         remoteAudioRef.current.play().catch(() => {});
       }
     }
@@ -709,15 +777,26 @@ export default function GoogleMeetRoom({
   // Audio gesture unblocker (Chrome/Safari autoplay policy)
   useEffect(() => {
     const unblockAudio = () => {
-      if (remoteAudioRef.current && remoteStream && remoteAudioRef.current.paused) {
-        remoteAudioRef.current.play().catch(() => {});
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.muted = false;
+        remoteAudioRef.current.volume = 1.0;
+        if (remoteStream) {
+          if (remoteAudioRef.current.srcObject !== remoteStream) {
+            remoteAudioRef.current.srcObject = remoteStream;
+          }
+          if (remoteAudioRef.current.paused) {
+            remoteAudioRef.current.play().catch(() => {});
+          }
+        }
       }
     };
-    window.addEventListener("click", unblockAudio);
-    window.addEventListener("touchstart", unblockAudio);
+    window.addEventListener("click", unblockAudio, { passive: true });
+    window.addEventListener("touchstart", unblockAudio, { passive: true });
+    window.addEventListener("keydown", unblockAudio, { passive: true });
     return () => {
       window.removeEventListener("click", unblockAudio);
       window.removeEventListener("touchstart", unblockAudio);
+      window.removeEventListener("keydown", unblockAudio);
     };
   }, [remoteStream]);
 
@@ -923,13 +1002,24 @@ export default function GoogleMeetRoom({
     e?.preventDefault();
     if (!chatInput.trim()) return;
 
+    const now = new Date();
+    const phTimeStr = now.toLocaleTimeString("en-US", {
+      timeZone: "Asia/Manila",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const localTimeStr = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
     const newMsg = {
       id: Date.now().toString() + "-" + Math.random().toString(36).slice(2, 7),
       sender: displayName,
       senderSocketId: socketRef.current?.id,
       senderId: currentUser?.id || null,
       role: isUserAdmin ? "Lead Engineer (Host)" : "Client / Owner",
-      time: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+      time: timeState.isAbroad ? `${localTimeStr} (${phTimeStr} PH)` : localTimeStr,
+      phTime: phTimeStr,
+      localTime: localTimeStr,
       text: chatInput.trim(),
       isHost: isUserAdmin,
       isMe: true,
@@ -971,8 +1061,14 @@ export default function GoogleMeetRoom({
           : "relative w-full h-[88vh] min-h-[600px] max-h-[960px] rounded-[16px] border border-neutral-800 overflow-hidden bg-neutral-950 text-white"
       } text-white`}
     >
-      {/* Hidden audio element for receiving remote P2P audio track */}
-      <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+      {/* Offscreen active audio element for receiving remote P2P audio track without browser suspension */}
+      <audio
+        ref={remoteAudioRef}
+        autoPlay
+        playsInline
+        aria-hidden="true"
+        className="fixed -top-96 -left-96 w-1 h-1 opacity-0 pointer-events-none"
+      />
 
       {/* 1. TOP STATUS BAR (COMPACT IN FLOATING MODE, MINIMALIST & TRANSPARENT IN FULLSCREEN) */}
       {isFloatingPiP ? (
@@ -1000,11 +1096,40 @@ export default function GoogleMeetRoom({
         </div>
       ) : (
         <div className="h-12 sm:h-14 px-3 sm:px-6 flex items-center justify-between z-30 shrink-0 bg-gradient-to-b from-black/80 via-black/40 to-transparent sm:bg-neutral-950/80 sm:backdrop-blur-md transition-colors text-white">
-          {/* Left: Time & Room Code (NO CLUNKY BACKGROUND BOXES) */}
+          {/* Left: Dual Time (PH Time + Local Time if Abroad) & Room Code */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <span className="text-xs sm:text-sm font-sans font-medium text-white/90">
-              {currentTimeStr || "5:56 PM"}
-            </span>
+            {timeState.isAbroad ? (
+              <div
+                className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-sans"
+                title={`Philippine Standard Time: ${timeState.phTime} | Your Local Time: ${timeState.localTime} (${timeState.tzLabel})`}
+              >
+                {/* Philippine Standard Time */}
+                <span className="flex items-center gap-1 text-amber-300 font-semibold whitespace-nowrap">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-mono font-bold">
+                    PH
+                  </span>
+                  <span>{timeState.phTime}</span>
+                </span>
+
+                <span className="text-white/30 font-light">·</span>
+
+                {/* Local Device Time Abroad */}
+                <span className="flex items-center gap-1 text-sky-200/90 font-medium whitespace-nowrap">
+                  <Globe className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <span>{timeState.localTime}</span>
+                  <span className="text-[10px] font-mono text-white/50">
+                    ({timeState.tzLabel})
+                  </span>
+                </span>
+              </div>
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs sm:text-sm font-sans font-medium text-white/90">
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-mono font-bold">
+                  PH
+                </span>
+                <span>{timeState.phTime || "5:56 PM"}</span>
+              </span>
+            )}
             <span className="text-white/30 font-light">·</span>
             <button
               type="button"
@@ -1336,8 +1461,14 @@ export default function GoogleMeetRoom({
             {/* CHAT PANEL */}
             {activeSidePanel === "chat" && (
               <div className="flex-1 flex flex-col min-h-0">
-                <div className="p-3 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-200/60 dark:border-white/[0.04] text-[11px] text-neutral-500 dark:text-neutral-400 font-sans text-center">
-                  Messages can be seen only by people in the call.
+                <div className="p-3 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-200/60 dark:border-white/[0.04] text-[11px] text-neutral-500 dark:text-neutral-400 font-sans text-center flex flex-col items-center gap-1.5">
+                  <span>Messages can be seen only by people in the call.</span>
+                  {timeState.isAbroad && (
+                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 font-mono text-[10px] border border-sky-500/20">
+                      <Globe className="w-3 h-3 shrink-0" />
+                      <span>PH Time: {timeState.phTime} · Local: {timeState.localTime} ({timeState.tzLabel})</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Messages Feed */}

@@ -1100,25 +1100,29 @@ export default function PortalMeetingHub({
           activeProject={activeProject}
           isInstantMeeting={isInstantMode}
           onLeave={() => {
+            const currentRoomCode = isInstantMode ? `mcpa-instant-${roomCode || "meet"}` : roomCode;
             setViewState("schedule");
             setIsInstantMode(false);
             try {
               localStorage.removeItem("mcpa_instant_call_active");
-              window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended"));
+              sessionStorage.setItem("mcpa_dismissed_instant_call", currentRoomCode);
+              window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoomCode } }));
               const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"] });
-              socket.emit("instant-call-ended", { roomCode: isInstantMode ? `mcpa-instant-${roomCode || "meet"}` : roomCode });
+              socket.emit("instant-call-ended", { roomCode: currentRoomCode });
               setTimeout(() => socket.disconnect(), 2000);
             } catch (e) {}
             showToast("You left the consultation meeting.");
           }}
           onAutoEndTimeout={() => {
+            const currentRoomCode = isInstantMode ? `mcpa-instant-${roomCode || "meet"}` : roomCode;
             setViewState("schedule");
             setIsInstantMode(false);
             try {
               localStorage.removeItem("mcpa_instant_call_active");
-              window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended"));
+              sessionStorage.setItem("mcpa_dismissed_instant_call", currentRoomCode);
+              window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoomCode } }));
               const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"] });
-              socket.emit("instant-call-ended", { roomCode: isInstantMode ? `mcpa-instant-${roomCode || "meet"}` : roomCode });
+              socket.emit("instant-call-ended", { roomCode: currentRoomCode });
               setTimeout(() => socket.disconnect(), 2000);
             } catch (e) {}
             setIsTimeoutModalOpen(true);
