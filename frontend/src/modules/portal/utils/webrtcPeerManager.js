@@ -32,6 +32,44 @@ export const ICE_SERVERS = [
   },
 ];
 
+/**
+ * Optimizes WebRTC Opus SDP to enable:
+ * - DTX (Discontinuous Transmission): silences ambient background room noise when participant pauses
+ * - In-band FEC (Forward Error Correction): repairs jittered voice packets
+ * - Mono Voice Optimization: directs all bitrate to human speech clarity and acoustic echo cancellation
+ * @param {string} sdp
+ * @returns {string}
+ */
+export function optimizeOpusSdp(sdp) {
+  if (!sdp || typeof sdp !== "string") return sdp;
+
+  try {
+    const opusMatch = sdp.match(/a=rtpmap:(\d+)\s+opus\/48000/i);
+    if (!opusMatch) return sdp;
+
+    const pt = opusMatch[1];
+    const fmtpRegex = new RegExp(`(a=fmtp:${pt}\\s+)([^\\r\\n]+)`, "i");
+
+    if (fmtpRegex.test(sdp)) {
+      return sdp.replace(fmtpRegex, (match, prefix, params) => {
+        let updated = params;
+        if (!updated.includes("usedtx=")) updated += ";usedtx=1";
+        if (!updated.includes("useinbandfec=")) updated += ";useinbandfec=1";
+        if (!updated.includes("stereo=")) updated += ";stereo=0;sprop-stereo=0";
+        return `${prefix}${updated}`;
+      });
+    } else {
+      return sdp.replace(
+        new RegExp(`(a=rtpmap:${pt}\\s+opus\\/48000[^\\r\\n]*[\\r\\n]+)`, "i"),
+        `$1a=fmtp:${pt} minptime=10;useinbandfec=1;usedtx=1;stereo=0;sprop-stereo=0\r\n`
+      );
+    }
+  } catch (err) {
+    console.warn("[WEBRTC] Could not optimize Opus SDP:", err);
+    return sdp;
+  }
+}
+
 export class WebRTCPeerManager {
   constructor({
     socket,
@@ -243,13 +281,17 @@ export class WebRTCPeerManager {
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
       });
-      await this.peerConnection.setLocalDescription(offer);
+      const tunedOffer = new RTCSessionDescription({
+        type: offer.type,
+        sdp: optimizeOpusSdp(offer.sdp),
+      });
+      await this.peerConnection.setLocalDescription(tunedOffer);
 
-      console.log(`[WEBRTC] Sending SDP Offer to peer: ${targetSocketId || "room"}`);
+      console.log(`[WEBRTC] Sending SDP Offer with Opus voice optimization to peer: ${targetSocketId || "room"}`);
       this.socket.emit("webrtc-offer", {
         targetSocketId,
         roomCode: this.roomCode,
-        sdpOffer: offer,
+        sdpOffer: tunedOffer,
         sender: this.currentUser,
       });
     } catch (err) {
@@ -269,7 +311,11 @@ export class WebRTCPeerManager {
     this.remoteSocketId = fromSocketId;
 
     try {
-      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdpOffer));
+      const tunedRemoteOffer = new RTCSessionDescription({
+        type: sdpOffer.type,
+        sdp: optimizeOpusSdp(sdpOffer.sdp),
+      });
+      await this.peerConnection.setRemoteDescription(tunedRemoteOffer);
 
       // Ensure local tracks are attached to the negotiated transceivers before creating answer
       if (this.localStream) {
@@ -299,13 +345,17 @@ export class WebRTCPeerManager {
       }
 
       const answer = await this.peerConnection.createAnswer();
-      await this.peerConnection.setLocalDescription(answer);
+      const tunedAnswer = new RTCSessionDescription({
+        type: answer.type,
+        sdp: optimizeOpusSdp(answer.sdp),
+      });
+      await this.peerConnection.setLocalDescription(tunedAnswer);
 
-      console.log(`[WEBRTC] Sending SDP Answer to peer: ${fromSocketId}`);
+      console.log(`[WEBRTC] Sending SDP Answer with Opus voice optimization to peer: ${fromSocketId}`);
       this.socket.emit("webrtc-answer", {
         targetSocketId: fromSocketId,
         roomCode: this.roomCode,
-        sdpAnswer: answer,
+        sdpAnswer: tunedAnswer,
         sender: this.currentUser,
       });
     } catch (err) {
@@ -321,7 +371,11 @@ export class WebRTCPeerManager {
     if (!this.peerConnection) return;
 
     try {
-      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdpAnswer));
+      const tunedRemoteAnswer = new RTCSessionDescription({
+        type: sdpAnswer.type,
+        sdp: optimizeOpusSdp(sdpAnswer.sdp),
+      });
+      await this.peerConnection.setRemoteDescription(tunedRemoteAnswer);
 
       // Process pending candidates
       while (this.pendingCandidates.length > 0) {
@@ -330,7 +384,7 @@ export class WebRTCPeerManager {
           await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (e) {}
       }
-      console.log("[WEBRTC] Remote SDP Answer applied successfully. P2P link establishing...");
+      console.log("[WEBRTC] Remote SDP Answer applied with Opus voice tuning. P2P link establishing...");
     } catch (err) {
       console.error("[WEBRTC] Failed to set remote description answer:", err);
     }

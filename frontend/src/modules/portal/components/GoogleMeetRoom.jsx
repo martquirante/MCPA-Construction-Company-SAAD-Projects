@@ -36,6 +36,110 @@ import { io } from "socket.io-client";
 import { WebRTCPeerManager } from "@/modules/portal/utils/webrtcPeerManager";
 import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
 
+// High-grade WebRTC and hardware DSP constraints for deep noise isolation and echo suppression
+const OPTIMAL_AUDIO_CONSTRAINTS = {
+  echoCancellation: { ideal: true },
+  noiseSuppression: { ideal: true },
+  autoGainControl: { ideal: true },
+  channelCount: { ideal: 1 },
+  sampleRate: { ideal: 48000 },
+  // Specialized Chromium & Mobile WebKit DSP parameters
+  googEchoCancellation: { ideal: true },
+  googAutoGainControl: { ideal: true },
+  googNoiseSuppression: { ideal: true },
+  googHighpassFilter: { ideal: true },       // Strips low-frequency motor/traffic rumble & desk knocks
+  googTypingNoiseDetection: { ideal: true },  // Damps sharp keyboard clicks and mechanical taps
+  googAudioMirroring: { ideal: false },
+};
+
+const FALLBACK_AUDIO_CONSTRAINTS = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+};
+
+/**
+ * Creates an in-browser Web Audio DSP filter chain that passes microphone audio through:
+ * 1. 85Hz High-Pass Filter (eliminates AC hum, passing cars, desk thumps, breath plosives)
+ * 2. 7500Hz Low-Pass Filter (eliminates high frequency coil hiss and screeching)
+ * 3. 2800Hz Peaking Filter (+2.5dB clarity boost for human speech frequencies)
+ * 4. Ultra-fast 3ms Dynamics Compressor / Limiter (clamps sudden loud burst noises like dog barks, car horns, or dropped objects)
+ * 
+ * Runs entirely on the browser's native audio rendering thread with near 0% CPU footprint.
+ * @param {MediaStreamTrack} rawMicTrack 
+ * @returns {{ track: MediaStreamTrack, cleanup: () => void, audioCtx: AudioContext | null }}
+ */
+function createNoiseFilteredAudioTrack(rawMicTrack) {
+  if (!rawMicTrack || typeof window === "undefined") {
+    return { track: rawMicTrack, cleanup: () => {}, audioCtx: null };
+  }
+
+  try {
+    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtxClass) {
+      return { track: rawMicTrack, cleanup: () => {}, audioCtx: null };
+    }
+
+    const audioCtx = new AudioCtxClass({ latencyHint: "interactive" });
+    const source = audioCtx.createMediaStreamSource(new MediaStream([rawMicTrack]));
+
+    // 1. High-Pass Filter: Cuts out frequencies under 85Hz (engine rumbles, AC vibrations, mic bump pops)
+    const highpass = audioCtx.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 85;
+    highpass.Q.value = 0.707;
+
+    // 2. Low-Pass Filter: Cuts out frequencies above 7500Hz (extreme electrical hiss, piercing whine)
+    const lowpass = audioCtx.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 7500;
+    lowpass.Q.value = 0.707;
+
+    // 3. Peaking Speech Presence EQ: +2.5dB at 2800Hz to make voice intelligible and clear
+    const speechPresence = audioCtx.createBiquadFilter();
+    speechPresence.type = "peaking";
+    speechPresence.frequency.value = 2800;
+    speechPresence.gain.value = 2.5;
+    speechPresence.Q.value = 1.2;
+
+    // 4. Dynamics Compressor / Fast Limiter:
+    // Clamps sudden loud peaks (dog barking, horns, door slamming) before they blast the listener
+    const limiter = audioCtx.createDynamicsCompressor();
+    limiter.threshold.value = -24; // dB
+    limiter.knee.value = 20;       // dB
+    limiter.ratio.value = 12;      // High compression on bursts
+    limiter.attack.value = 0.003;  // 3 milliseconds instant attack clamp
+    limiter.release.value = 0.20;  // 200 milliseconds release
+
+    // Connect node chain: source -> highpass -> lowpass -> speechPresence -> limiter -> destination
+    source.connect(highpass);
+    highpass.connect(lowpass);
+    lowpass.connect(speechPresence);
+    speechPresence.connect(limiter);
+
+    const destination = audioCtx.createMediaStreamDestination();
+    limiter.connect(destination);
+
+    const filteredTrack = destination.stream.getAudioTracks()[0];
+    if (filteredTrack) {
+      filteredTrack.enabled = rawMicTrack.enabled;
+    }
+
+    const cleanup = () => {
+      try {
+        if (filteredTrack) filteredTrack.stop();
+        audioCtx.close();
+      } catch (e) {}
+    };
+
+    console.log("[WEBRTC] Active 3-layer noise reduction & speech limiter chain initialized.");
+    return { track: filteredTrack || rawMicTrack, cleanup, audioCtx };
+  } catch (err) {
+    console.warn("[WEBRTC] Web Audio noise suppression setup failed, using raw track:", err);
+    return { track: rawMicTrack, cleanup: () => {}, audioCtx: null };
+  }
+}
+
 export default function GoogleMeetRoom({
   roomCode = "fvv-rdoo-wfn",
   currentUser,
@@ -538,6 +642,8 @@ export default function GoogleMeetRoom({
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
   const screenAudioMixerRef = useRef(null);
+  const rawMicTrackRef = useRef(null);
+  const audioFilterCleanupRef = useRef(null);
 
   // Live Dual-Timezone Clock (Automatic Philippine Standard Time + Client Local Time Abroad)
   const [timeState, setTimeState] = useState({
@@ -620,33 +726,44 @@ export default function GoogleMeetRoom({
           );
         }
 
-        let stream = null;
+        let rawStream = null;
         try {
-          // Attempt Video + Audio
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: "user",
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-            },
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
-          });
+          // Attempt Video + Audio with optimal studio-grade noise suppression constraints
+          try {
+            rawStream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: "user",
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              },
+              audio: OPTIMAL_AUDIO_CONSTRAINTS,
+            });
+          } catch (optimalErr) {
+            console.warn("[WEBRTC] Optimal audio constraints failed, retrying standard:", optimalErr);
+            rawStream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: "user",
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              },
+              audio: FALLBACK_AUDIO_CONSTRAINTS,
+            });
+          }
         } catch (videoError) {
           console.warn("[WEBRTC] Video camera capture failed or unavailable, trying audio-only:", videoError);
           try {
             // Fallback to Audio-Only
-            stream = await navigator.mediaDevices.getUserMedia({
-              video: false,
-              audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-              },
-            });
+            try {
+              rawStream = await navigator.mediaDevices.getUserMedia({
+                video: false,
+                audio: OPTIMAL_AUDIO_CONSTRAINTS,
+              });
+            } catch (optAudioErr) {
+              rawStream = await navigator.mediaDevices.getUserMedia({
+                video: false,
+                audio: FALLBACK_AUDIO_CONSTRAINTS,
+              });
+            }
             setIsVideoOn(false);
           } catch (audioError) {
             console.error("[WEBRTC] Microphone capture failed as well:", audioError);
@@ -656,26 +773,45 @@ export default function GoogleMeetRoom({
         }
 
         if (!active) {
-          if (stream) {
-            stream.getTracks().forEach((track) => track.stop());
+          if (rawStream) {
+            rawStream.getTracks().forEach((track) => track.stop());
           }
           return;
         }
 
-        if (stream) {
-          localStreamRef.current = stream;
+        if (rawStream) {
+          const rawAudioTrack = rawStream.getAudioTracks()[0];
+          const rawVideoTrack = rawStream.getVideoTracks()[0];
+
+          rawMicTrackRef.current = rawAudioTrack || null;
+
+          let outgoingAudioTrack = rawAudioTrack;
+          if (rawAudioTrack) {
+            if (audioFilterCleanupRef.current) {
+              audioFilterCleanupRef.current();
+              audioFilterCleanupRef.current = null;
+            }
+            const { track: filteredTrack, cleanup: filterCleanup } = createNoiseFilteredAudioTrack(rawAudioTrack);
+            outgoingAudioTrack = filteredTrack;
+            audioFilterCleanupRef.current = filterCleanup;
+          }
+
+          // Combined stream containing camera video track + noise-filtered audio track
+          const processedStream = new MediaStream([rawVideoTrack, outgoingAudioTrack].filter(Boolean));
+          localStreamRef.current = processedStream;
+
           if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
+            localVideoRef.current.srcObject = processedStream;
           }
           if (peerManagerRef.current) {
-            peerManagerRef.current.attachLocalTracks(stream);
+            peerManagerRef.current.attachLocalTracks(processedStream);
             const targetPeerId = remotePeerRef.current?.socketId;
             if (
               targetPeerId &&
               !peerManagerRef.current.isInitiator &&
               !peerManagerRef.current.peerConnection?.remoteDescription
             ) {
-              console.log("[WEBRTC] Media ready, sending offer to remote peer:", targetPeerId);
+              console.log("[WEBRTC] Media ready with auto noise filter, sending offer to remote peer:", targetPeerId);
               peerManagerRef.current.createAndSendOffer(targetPeerId);
             }
           }
@@ -689,6 +825,14 @@ export default function GoogleMeetRoom({
 
     return () => {
       active = false;
+      if (audioFilterCleanupRef.current) {
+        audioFilterCleanupRef.current();
+        audioFilterCleanupRef.current = null;
+      }
+      if (rawMicTrackRef.current) {
+        rawMicTrackRef.current.stop();
+        rawMicTrackRef.current = null;
+      }
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((t) => t.stop());
       }
@@ -832,10 +976,12 @@ export default function GoogleMeetRoom({
   // Toggle Audio Track
   const toggleAudio = () => {
     let nextMicState = !isMicOn;
+    if (rawMicTrackRef.current) {
+      rawMicTrackRef.current.enabled = nextMicState;
+    }
     if (localStreamRef.current) {
       const audioTracks = localStreamRef.current.getAudioTracks();
       if (audioTracks.length > 0) {
-        nextMicState = !audioTracks[0].enabled;
         audioTracks[0].enabled = nextMicState;
       }
     }
