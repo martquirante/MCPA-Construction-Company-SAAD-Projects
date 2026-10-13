@@ -32,11 +32,17 @@ import {
   SwitchCamera,
   Globe,
   Volume2,
+  Star,
+  CheckCircle2,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { WebRTCPeerManager } from "@/modules/portal/utils/webrtcPeerManager";
 import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
 import { playOutgoingRingbackTone } from "@/modules/portal/utils/outgoingRingbackTone";
+import {
+  formatMeetingDuration,
+  recordConcludedMeeting,
+} from "@/modules/portal/utils/meetingHistoryService";
 
 // High-grade WebRTC and hardware DSP constraints for deep noise isolation and echo suppression
 const OPTIMAL_AUDIO_CONSTRAINTS = {
@@ -193,6 +199,24 @@ export default function GoogleMeetRoom({
   const [instantTimer, setInstantTimer] = useState(180); // 3 minutes = 180 seconds
   const [isCallAnswered, setIsCallAnswered] = useState(isUserAdmin);
 
+  // Meeting Call Duration & Pre-Leave Rating State
+  const callStartTimeRef = useRef(Date.now());
+  const [callDurationSeconds, setCallDurationSeconds] = useState(0);
+  const [isLeaveRatingModalOpen, setIsLeaveRatingModalOpen] = useState(false);
+  const [leaveRating, setLeaveRating] = useState(5);
+  const [leaveHoverRating, setLeaveHoverRating] = useState(0);
+  const [leaveNote, setLeaveNote] = useState("");
+  const hasRecordedSessionRef = useRef(false);
+
+  useEffect(() => {
+    callStartTimeRef.current = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+      setCallDurationSeconds(elapsed);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const remotePeerName =
     remotePeer?.name ||
     (isUserAdmin
@@ -291,7 +315,28 @@ export default function GoogleMeetRoom({
     return () => window.removeEventListener("mcpa-theme-change", checkTheme);
   }, []);
 
-  const handleLeaveCall = () => {
+  const performActualLeave = (rating = null, note = "") => {
+    if (!hasRecordedSessionRef.current) {
+      hasRecordedSessionRef.current = true;
+      try {
+        recordConcludedMeeting({
+          roundTitle: isInstantMeeting
+            ? "Instant Online Consultation"
+            : (activeProject?.project_title ? `${activeProject.project_title} Consultation` : "Online Video Engineering Review"),
+          mode: isInstantMeeting ? "Instant Online Meeting" : "Scheduled Online Video",
+          durationSeconds: Math.max(callDurationSeconds, 45),
+          rating: typeof rating === "number" ? rating : 5,
+          clientNote: note || (isInstantMeeting ? "Instant video consultation concluded with engineering team." : "Scheduled video consultation concluded."),
+          minutes: note || `Live video deliberation held via ${isInstantMeeting ? "Instant Room" : "Google Meet"}. Duration: ${formatMeetingDuration(Math.max(callDurationSeconds, 45))}.`,
+          venue: isInstantMeeting ? "MCPA Instant WebRTC Room" : `Google Meet · ${roomCode}`,
+          leadConsultant: isUserAdmin ? (activeProject?.client_name || "Client Participant") : "Engr. Raymart Quirante",
+          leadRole: isUserAdmin ? "Client / Project Owner" : "Lead Project Engineer & Consultant",
+        });
+      } catch (e) {
+        console.warn("[MCPA] Failed to record concluded meeting:", e);
+      }
+    }
+
     isLeavingRef.current = true;
     if (ringbackToneRef.current) {
       ringbackToneRef.current.stop();
@@ -335,6 +380,15 @@ export default function GoogleMeetRoom({
       screenVideoRef.current.srcObject.getTracks().forEach((t) => t.stop());
     }
     onLeave && onLeave();
+  };
+
+  const handleLeaveCall = () => {
+    // For clients leaving an active consultation, prompt for rating and deliberation note before leaving
+    if (!isUserAdmin && !hasRecordedSessionRef.current) {
+      setIsLeaveRatingModalOpen(true);
+      return;
+    }
+    performActualLeave(null, "");
   };
 
   // WebRTC Peer Connection & Socket.IO Signaling Lifecycle (Persistently Mounted)
@@ -2349,6 +2403,142 @@ export default function GoogleMeetRoom({
               >
                 <Info className="w-5 h-5" />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRE-LEAVE MEETING RATING & DELIBERATION FEEDBACK MODAL */}
+      {isLeaveRatingModalOpen && (
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl bg-[#12141c] border border-amber-500/30 text-white shadow-2xl p-6 sm:p-7 space-y-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold font-mono uppercase tracking-tight text-white">
+                    Rate Consultation Session
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Before leaving, share your rating and notes with MCPA.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLeaveRatingModalOpen(false)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+                title="Return to call"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Badges: Meeting Type & Duration */}
+            <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-mono">
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                  isInstantMeeting
+                    ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30"
+                    : "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30"
+                }`}
+              >
+                {isInstantMeeting ? "Instant Online Meeting" : "Scheduled Online Video"}
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>Duration: {formatMeetingDuration(callDurationSeconds)}</span>
+              </span>
+            </div>
+
+            {/* 5-Star Interactive Rating Selector */}
+            <div className="space-y-2 text-center py-1">
+              <div className="flex items-center justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const activeStar = leaveHoverRating || leaveRating;
+                  const isFilled = star <= activeStar;
+                  return (
+                    <button
+                      key={star}
+                      type="button"
+                      onMouseEnter={() => setLeaveHoverRating(star)}
+                      onMouseLeave={() => setLeaveHoverRating(0)}
+                      onClick={() => setLeaveRating(star)}
+                      className="p-1.5 transition-transform hover:scale-120 active:scale-95 cursor-pointer focus:outline-none"
+                      title={`${star} Star${star > 1 ? "s" : ""}`}
+                    >
+                      <Star
+                        className={`w-7 h-7 transition-colors ${
+                          isFilled
+                            ? "text-amber-400 fill-amber-400 filter drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]"
+                            : "text-neutral-600 hover:text-neutral-400"
+                        }`}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs font-mono font-semibold text-amber-400">
+                {leaveRating === 5 && "5.0 · Outstanding Engineering Consultation ⭐⭐⭐⭐⭐"}
+                {leaveRating === 4 && "4.0 · Very Good Consultation ⭐⭐⭐⭐"}
+                {leaveRating === 3 && "3.0 · Satisfactory Discussion ⭐⭐⭐"}
+                {leaveRating === 2 && "2.0 · Fair / Minor Inconveniences ⭐⭐"}
+                {leaveRating === 1 && "1.0 · Needs Follow-Up & Improvement ⭐"}
+              </p>
+            </div>
+
+            {/* Note / Feedback Textarea */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider font-semibold">
+                Meeting Notes or Feedback (Optional):
+              </label>
+              <textarea
+                rows={3}
+                value={leaveNote}
+                onChange={(e) => setLeaveNote(e.target.value)}
+                placeholder="Note key agreements, architectural ideas, or consultant feedback..."
+                className="w-full px-3 py-2.5 rounded-xl bg-white/[0.05] border border-white/10 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500/50 resize-none font-sans"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLeaveRatingModalOpen(false);
+                  performActualLeave(leaveRating, leaveNote);
+                }}
+                className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 active:scale-98"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Submit Rating &amp; Leave Call</span>
+              </button>
+
+              <div className="flex items-center justify-between gap-2 pt-1 text-[11px] font-mono text-neutral-400">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLeaveRatingModalOpen(false);
+                    performActualLeave(null, "");
+                  }}
+                  className="hover:text-white transition-colors cursor-pointer py-1"
+                >
+                  Skip Rating &amp; Leave
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsLeaveRatingModalOpen(false)}
+                  className="hover:text-amber-400 transition-colors cursor-pointer py-1"
+                >
+                  Cancel (Stay in Call)
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -32,6 +32,12 @@ import {
   Zap,
   Archive,
   History,
+  Star,
+  LayoutGrid,
+  List,
+  Search,
+  Filter,
+  MessageSquare,
 } from "lucide-react";
 import GoogleMeetRoom from "./GoogleMeetRoom";
 import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
@@ -39,6 +45,12 @@ import VenueCombobox from "@/modules/book/components/VenueCombobox";
 import { io } from "socket.io-client";
 import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
 import { GoogleIcon } from "@/modules/shared/Icons";
+import {
+  getConsultationHistory,
+  updateMeetingRatingAndNote,
+  DEFAULT_CONSULTATION_HISTORY,
+  formatMeetingDuration,
+} from "@/modules/portal/utils/meetingHistoryService";
 
 export default function PortalMeetingHub({
   activeProject,
@@ -169,65 +181,78 @@ export default function PortalMeetingHub({
     return () => window.removeEventListener("storage", syncAvatar);
   }, []);
 
+  // History View Mode: 'table' vs 'grid' (Persisted in localStorage)
+  const [historyViewMode, setHistoryViewMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mcpa_history_view_mode") || "table";
+    }
+    return "table";
+  });
+  const [historyFilter, setHistoryFilter] = useState("all"); // 'all' | 'instant' | 'scheduled' | 'f2f'
+  const [historySearch, setHistorySearch] = useState("");
+
+  // Stored meeting history from service & localStorage
+  const [consultationHistoryList, setConsultationHistoryList] = useState(() => getConsultationHistory());
+
+  // Listen for meeting history updates across tabs and events
+  useEffect(() => {
+    const syncHistory = () => {
+      setConsultationHistoryList(getConsultationHistory());
+    };
+    window.addEventListener("mcpa-meeting-history-updated", syncHistory);
+    window.addEventListener("storage", syncHistory);
+    return () => {
+      window.removeEventListener("mcpa-meeting-history-updated", syncHistory);
+      window.removeEventListener("storage", syncHistory);
+    };
+  }, []);
+
+  // Modals for History: Details Modal & Rating Modal
+  const [detailsModalSession, setDetailsModalSession] = useState(null);
+  const [ratingModalSession, setRatingModalSession] = useState(null);
+  const [activeRateStars, setActiveRateStars] = useState(5);
+  const [activeRateHover, setActiveRateHover] = useState(0);
+  const [activeRateNote, setActiveRateNote] = useState("");
+
   // Synthesize complete meeting history and past consultations
   const meetingHistory = useMemo(() => {
-    const list = [];
+    let list = Array.isArray(consultationHistoryList) && consultationHistoryList.length > 0
+      ? [...consultationHistoryList]
+      : [...DEFAULT_CONSULTATION_HISTORY];
 
-    // 1. Any historical sessions in activeMeetingInfo.history
+    // Merge any historical sessions from activeMeetingInfo.history if not already in list
     if (Array.isArray(activeMeetingInfo.history) && activeMeetingInfo.history.length > 0) {
       activeMeetingInfo.history.forEach((h, idx) => {
-        list.push({
-          id: h.id || `hist-${idx}`,
-          round: h.round || idx + 1,
-          roundTitle: h.roundTitle || `Round ${h.round || idx + 1} Consultation`,
-          date: h.date || h.displayDate || "2026-10-13",
-          displayDate: h.displayDate || h.date || "Tue, Oct 13, 2026",
-          time: h.time || "09:00 AM - 10:30 AM PHT",
-          mode: h.mode || "In-Person Consultation",
-          venue: h.venue || "MCPA Plaridel Central Office · Lounge 2B",
-          leadConsultant: h.leadConsultant || "Engr. Raymart Quirante",
-          leadRole: h.leadRole || "Lead Project Engineer & Consultant",
-          status: h.status || "Concluded",
-          outcome: h.outcome || "AGREED_ADVANCE",
-          minutes:
-            h.minutes ||
-            h.notes ||
-            "Initial consultation & architectural requirements alignment. Client proposed modern tropical 2-storey residence with high ceilings and natural ventilation. Proceeded to Round 2 blueprint & BOQ review.",
-          actionItems: h.actionItems || [
-            "Lot coordinates and structural setback confirmed",
-            "Initial 3D floor plan layout drafted",
-            "Advanced to Round 2 Online Video Engineering session",
-          ],
-        });
+        const already = list.some((item) => item.id === h.id || (item.date === h.date && item.time === h.time));
+        if (!already) {
+          list.push({
+            id: h.id || `hist-extra-${idx}`,
+            round: h.round || idx + 1,
+            roundTitle: h.roundTitle || `Round ${h.round || idx + 1} Consultation`,
+            date: h.date || h.displayDate || "2026-10-13",
+            displayDate: h.displayDate || h.date || "Tue, Oct 13, 2026",
+            time: h.time || "09:00 AM - 10:30 AM PHT",
+            duration: h.duration || "1h 30m",
+            durationSeconds: h.durationSeconds || 5400,
+            mode: h.mode || "In-Person Consultation",
+            venue: h.venue || "MCPA Plaridel Central Office · Lounge 2B",
+            leadConsultant: h.leadConsultant || "Engr. Raymart Quirante",
+            leadRole: h.leadRole || "Lead Project Engineer & Consultant",
+            status: h.status || "Concluded",
+            rating: h.rating || 5,
+            clientNote: h.clientNote || h.notes || "Consultation deliberation recorded.",
+            outcome: h.outcome || "AGREED_ADVANCE",
+            minutes:
+              h.minutes ||
+              h.notes ||
+              "Consultation & architectural requirements alignment completed.",
+            actionItems: h.actionItems || ["Deliberation items confirmed", "Proceeding to next phase"],
+          });
+        }
       });
     }
 
-    // 2. Authoritative Round 1 consultation record (In-person on Oct 13, 2026)
-    if (list.length === 0) {
-      list.push({
-        id: "hist-round-1",
-        round: 1,
-        roundTitle: "Round 1 · Initial Architectural Scoping & Requirements Review",
-        date: "2026-10-13",
-        displayDate: "Tue, Oct 13, 2026",
-        time: "09:00 AM - 10:30 AM PHT",
-        mode: "In-Person Consultation",
-        venue: "MCPA Plaridel Central Office · Lounge 2B",
-        leadConsultant: "Engr. Raymart Quirante",
-        leadRole: "Lead Project Engineer & Consultant",
-        status: "Concluded",
-        outcome: "AGREED_ADVANCE",
-        minutes:
-          "Comprehensive face-to-face consultation reviewing architectural wishlist, high ceiling preferences, lot setback allowances, and initial budget estimation. Engineering team aligned on structural specifications and scheduled Round 2 presentation.",
-        actionItems: [
-          "Lot TCT / Tax Dec zoning verification confirmed",
-          "Initial structural engineering layout & space programming drafted",
-          "Advance to Round 2 Online Video Engineering presentation",
-        ],
-      });
-    }
-
-    // 3. If active meeting has elapsed into the past, prepend it into history
+    // Merge active meeting if elapsed into the past
     if (lifecycle.isPast) {
       const alreadyPresent = list.some((item) => item.date === activeMeetingInfo.date && item.time === activeMeetingInfo.time);
       if (!alreadyPresent) {
@@ -238,11 +263,15 @@ export default function PortalMeetingHub({
           date: activeMeetingInfo.date,
           displayDate: activeMeetingInfo.date,
           time: activeMeetingInfo.time,
+          duration: "45 mins",
+          durationSeconds: 2700,
           mode: activeMeetingInfo.mode,
           venue: activeMeetingInfo.officeAddress || "MCPA Secure Video Room",
           leadConsultant: activeMeetingInfo.leadConsultant || "Engr. Raymart Quirante",
           leadRole: activeMeetingInfo.leadRole || "Lead Project Engineer & Consultant",
           status: "Concluded",
+          rating: 5,
+          clientNote: "Discussion completed regarding project requirements and construction budget.",
           outcome: activeMeetingInfo.outcome || "COMPLETED",
           minutes:
             activeMeetingInfo.agenda ||
@@ -253,7 +282,63 @@ export default function PortalMeetingHub({
     }
 
     return list;
-  }, [activeMeetingInfo, lifecycle.isPast]);
+  }, [consultationHistoryList, activeMeetingInfo, lifecycle.isPast]);
+
+  // Filtered and searched history
+  const filteredMeetingHistory = useMemo(() => {
+    return meetingHistory.filter((item) => {
+      const modeLower = (item.mode || "").toLowerCase();
+      const isInstant = modeLower.includes("instant");
+      const isSched = (modeLower.includes("online") || modeLower.includes("video") || modeLower.includes("google")) && !isInstant;
+      const isF2F = !isInstant && !isSched;
+
+      if (historyFilter === "instant" && !isInstant) return false;
+      if (historyFilter === "scheduled" && !isSched) return false;
+      if (historyFilter === "f2f" && !isF2F) return false;
+
+      if (historySearch.trim()) {
+        const query = historySearch.toLowerCase();
+        const matchesTitle = (item.roundTitle || "").toLowerCase().includes(query);
+        const matchesNote = (item.clientNote || "").toLowerCase().includes(query);
+        const matchesMinutes = (item.minutes || "").toLowerCase().includes(query);
+        const matchesConsultant = (item.leadConsultant || "").toLowerCase().includes(query);
+        const matchesMode = (item.mode || "").toLowerCase().includes(query);
+        if (!matchesTitle && !matchesNote && !matchesMinutes && !matchesConsultant && !matchesMode) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [meetingHistory, historyFilter, historySearch]);
+
+  const historyCounts = useMemo(() => {
+    let all = meetingHistory.length;
+    let instant = 0;
+    let scheduled = 0;
+    let f2f = 0;
+    meetingHistory.forEach((item) => {
+      const m = (item.mode || "").toLowerCase();
+      if (m.includes("instant")) instant++;
+      else if (m.includes("online") || m.includes("video") || m.includes("google")) scheduled++;
+      else f2f++;
+    });
+    return { all, instant, scheduled, f2f };
+  }, [meetingHistory]);
+
+  const handleOpenRatingModal = (session) => {
+    setRatingModalSession(session);
+    setActiveRateStars(session.rating || 5);
+    setActiveRateHover(0);
+    setActiveRateNote(session.clientNote || "");
+  };
+
+  const handleSaveRating = () => {
+    if (!ratingModalSession) return;
+    const updated = updateMeetingRatingAndNote(ratingModalSession.id, activeRateStars, activeRateNote);
+    setConsultationHistoryList(updated);
+    setRatingModalSession(null);
+    showToast("Rating & consultation note updated successfully!");
+  };
 
   // Check URL query param ?confirm_attendance=true
   useEffect(() => {
@@ -906,166 +991,394 @@ export default function PortalMeetingHub({
             </div>
           </div>
 
-          {/* History Cards Grid */}
-          <div className="space-y-3.5">
-            {meetingHistory.map((item, index) => {
-              const isOnline = (item.mode || "").toLowerCase().includes("online");
-              return (
-                <div
-                  key={item.id || index}
-                  className="rounded-[12px] bg-white dark:bg-[#101218] border border-neutral-200/90 dark:border-white/10 hover:border-amber-500/40 transition-all shadow-xs dark:shadow-md p-5 sm:p-6 space-y-4"
+          {/* Filter & View Mode Controls Toolbar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+            {/* Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { key: "all", label: "All Sessions", count: historyCounts.all, icon: <History className="w-3 h-3" /> },
+                { key: "instant", label: "Instant Online", count: historyCounts.instant, icon: <Zap className="w-3 h-3 text-cyan-400" /> },
+                { key: "scheduled", label: "Scheduled Video", count: historyCounts.scheduled, icon: <Video className="w-3 h-3 text-indigo-400" /> },
+                { key: "f2f", label: "In-Person (F2F)", count: historyCounts.f2f, icon: <Building className="w-3 h-3 text-emerald-400" /> },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setHistoryFilter(tab.key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    historyFilter === tab.key
+                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-xs"
+                      : "bg-neutral-100 hover:bg-neutral-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-neutral-600 dark:text-neutral-400 border border-neutral-200/70 dark:border-white/5"
+                  }`}
                 >
-                  {/* Top Bar: Badges, Round, Date/Time */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-100 dark:border-white/5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-neutral-100 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 flex items-center gap-1.5">
-                        <Archive className="w-3 h-3 text-amber-500" />
-                        <span>Concluded Session</span>
-                      </span>
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-neutral-200 dark:bg-white/10 text-neutral-700 dark:text-neutral-300">
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
 
-                      <span
-                        className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider inline-flex items-center gap-1.5 ${
-                          isOnline
-                            ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
-                            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                        }`}
-                      >
-                        {isOnline ? <Video className="w-3 h-3" /> : <Building className="w-3 h-3" />}
-                        <span>{item.mode}</span>
-                      </span>
+            {/* Search and Table/Grid Mode Toggle */}
+            <div className="flex items-center gap-2 self-start md:self-auto">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  placeholder="Filter topic or notes..."
+                  className="pl-8.5 pr-3 py-1.5 rounded-lg bg-white dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500/40 w-36 sm:w-48 font-mono shadow-xs"
+                />
+              </div>
 
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                        Round {item.round || index + 1}
-                      </span>
-                    </div>
+              {/* View Switcher: Table vs Grid */}
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-neutral-100 dark:bg-white/5 border border-neutral-200/80 dark:border-white/10 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryViewMode("table");
+                    try { localStorage.setItem("mcpa_history_view_mode", "table"); } catch (e) {}
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-all cursor-pointer ${
+                    historyViewMode === "table"
+                      ? "bg-white dark:bg-[#1c1f2b] text-neutral-900 dark:text-white shadow-xs border border-neutral-200/60 dark:border-white/10"
+                      : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                  }`}
+                  title="Table View (Little Info Overview)"
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span>Table</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryViewMode("grid");
+                    try { localStorage.setItem("mcpa_history_view_mode", "grid"); } catch (e) {}
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-all cursor-pointer ${
+                    historyViewMode === "grid"
+                      ? "bg-white dark:bg-[#1c1f2b] text-neutral-900 dark:text-white shadow-xs border border-neutral-200/60 dark:border-white/10"
+                      : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                  }`}
+                  title="Grid View (Card Information)"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>Grid</span>
+                </button>
+              </div>
+            </div>
+          </div>
 
-                    <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-400">
-                      <Clock className="w-3.5 h-3.5 text-amber-500" />
-                      <span className="font-semibold text-neutral-800 dark:text-neutral-200">
-                        {item.displayDate} · {item.time}
-                      </span>
-                    </div>
-                  </div>
+          {/* SESSIONS DISPLAY: TABLE VS GRID */}
+          {filteredMeetingHistory.length === 0 ? (
+            <div className="p-10 text-center rounded-xl bg-white dark:bg-[#101218] border border-neutral-200/80 dark:border-white/[0.06] text-neutral-400 space-y-2">
+              <History className="w-8 h-8 mx-auto text-neutral-300 dark:text-neutral-700 stroke-[1.5]" />
+              <p className="text-xs font-mono">
+                No consultation sessions found matching this filter criteria.
+              </p>
+            </div>
+          ) : historyViewMode === "table" ? (
+            /* TABLE VIEW: Clean Compact Architectural Table ("little info lang sya ganun") */
+            <div className="rounded-xl border border-neutral-200/90 dark:border-white/10 overflow-hidden bg-white dark:bg-[#101218] shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-neutral-200/80 dark:border-white/10 bg-neutral-50/80 dark:bg-white/[0.02] text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                      <th className="py-3 px-4">Date &amp; Petsa</th>
+                      <th className="py-3 px-4">Mode / Type</th>
+                      <th className="py-3 px-4">Meeting Topic</th>
+                      <th className="py-3 px-4">Duration</th>
+                      <th className="py-3 px-4">Rating</th>
+                      <th className="py-3 px-4">Deliberation / Note</th>
+                      <th className="py-3 px-4">Consultant</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100 dark:divide-white/5 text-xs font-sans">
+                    {filteredMeetingHistory.map((item, index) => {
+                      const modeLower = (item.mode || "").toLowerCase();
+                      const isInstant = modeLower.includes("instant");
+                      const isSched = (modeLower.includes("online") || modeLower.includes("video") || modeLower.includes("google")) && !isInstant;
 
-                  {/* Body Grid: Meeting Details & Consultant */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
-                    {/* Left 8 cols: Title, Venue, Minutes & Action Items */}
-                    <div className="lg:col-span-8 space-y-3.5">
-                      <div>
-                        <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-neutral-400 font-bold">
-                          SESSION ARCHIVE
+                      return (
+                        <tr
+                          key={item.id || index}
+                          className="hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors"
+                        >
+                          {/* 1. Date & Petsa */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="font-semibold text-neutral-900 dark:text-white">
+                              {item.displayDate}
+                            </div>
+                            <div className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 flex items-center gap-1 mt-0.5">
+                              <Clock className="w-3 h-3 text-amber-500" />
+                              <span>{item.time}</span>
+                            </div>
+                          </td>
+
+                          {/* 2. Mode / Type */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
+                                isInstant
+                                  ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20"
+                                  : isSched
+                                  ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
+                                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                              }`}
+                            >
+                              {isInstant ? (
+                                <Zap className="w-3 h-3" />
+                              ) : isSched ? (
+                                <Video className="w-3 h-3" />
+                              ) : (
+                                <Building className="w-3 h-3" />
+                              )}
+                              <span>
+                                {isInstant
+                                  ? "Instant Online"
+                                  : isSched
+                                  ? "Scheduled Video"
+                                  : "In-Person F2F"}
+                              </span>
+                            </span>
+                          </td>
+
+                          {/* 3. Meeting Topic */}
+                          <td className="py-3.5 px-4 min-w-[200px]">
+                            <div className="font-bold text-neutral-900 dark:text-white line-clamp-1">
+                              {item.roundTitle}
+                            </div>
+                            <div className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1 mt-0.5 truncate">
+                              <MapPin className="w-3 h-3 text-amber-500 shrink-0" />
+                              <span className="truncate">{item.venue}</span>
+                            </div>
+                          </td>
+
+                          {/* 4. Duration (Haba ng meeting) */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 shadow-xs">
+                              <Clock className="w-3 h-3 text-amber-500" />
+                              <span>{item.duration || "< 1 min"}</span>
+                            </span>
+                          </td>
+
+                          {/* 5. Rating (1-5 stars) */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {item.rating ? (
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex items-center text-amber-400">
+                                  {[1, 2, 3, 4, 5].map((s) => (
+                                    <Star
+                                      key={s}
+                                      className={`w-3.5 h-3.5 ${
+                                        s <= item.rating
+                                          ? "fill-amber-400 text-amber-400"
+                                          : "text-neutral-300 dark:text-neutral-700"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">
+                                  {item.rating}.0
+                                </span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenRatingModal(item)}
+                                className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors cursor-pointer"
+                              >
+                                Rate Session
+                              </button>
+                            )}
+                          </td>
+
+                          {/* 6. Note / Feedback */}
+                          <td className="py-3.5 px-4 max-w-[220px]">
+                            <p
+                              className="text-xs text-neutral-600 dark:text-neutral-300 font-sans line-clamp-2 italic"
+                              title={item.clientNote || item.minutes}
+                            >
+                              &ldquo;{item.clientNote || item.minutes}&rdquo;
+                            </p>
+                          </td>
+
+                          {/* 7. Consultant */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 overflow-hidden text-amber-600 dark:text-amber-400 font-mono font-bold text-[10px] flex items-center justify-center shrink-0">
+                                {consultantAvatar ? (
+                                  <img
+                                    src={consultantAvatar}
+                                    alt="RQ"
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  "RQ"
+                                )}
+                              </div>
+                              <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 truncate max-w-[120px]">
+                                {item.leadConsultant || "Engr. Raymart Quirante"}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 8. Actions */}
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setDetailsModalSession(item)}
+                                className="p-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer"
+                                title="View Consultation Minutes & Details"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenRatingModal(item)}
+                                className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 transition-colors cursor-pointer"
+                                title="Rate or Edit Notes"
+                              >
+                                <Star className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* GRID VIEW: Concise Information Cards ("pwede rin mag grid sya ganun like little info lang") */
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+              {filteredMeetingHistory.map((item, index) => {
+                const modeLower = (item.mode || "").toLowerCase();
+                const isInstant = modeLower.includes("instant");
+                const isSched = (modeLower.includes("online") || modeLower.includes("video") || modeLower.includes("google")) && !isInstant;
+
+                return (
+                  <div
+                    key={item.id || index}
+                    className="rounded-xl bg-white dark:bg-[#101218] border border-neutral-200/90 dark:border-white/10 hover:border-amber-500/40 transition-all shadow-xs p-4.5 flex flex-col justify-between space-y-3.5"
+                  >
+                    {/* Card Top: Date & Duration */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-mono font-bold text-neutral-800 dark:text-neutral-200">
+                          {item.displayDate}
                         </span>
-                        <h3 className="text-base font-bold text-neutral-900 dark:text-white mt-0.5">
-                          {item.roundTitle}
-                        </h3>
-                        <div className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                          <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span>{item.venue}</span>
-                        </div>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          <Clock className="w-3 h-3 text-amber-500" />
+                          <span>{item.duration || "< 1 min"}</span>
+                        </span>
                       </div>
 
-                      {/* Minutes Box */}
-                      <div className="p-4 rounded-xl bg-neutral-50 dark:bg-[#14161e] border border-neutral-200/70 dark:border-white/5 space-y-2">
-                        <div className="flex items-center justify-between text-[11px] font-mono font-bold uppercase text-neutral-500 dark:text-neutral-400">
-                          <span className="flex items-center gap-1.5">
-                            <FileText className="w-3.5 h-3.5 text-amber-500" />
-                            <span>Consultation Minutes &amp; Deliberation Summary</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
+                            isInstant
+                              ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20"
+                              : isSched
+                              ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
+                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                          }`}
+                        >
+                          {isInstant ? (
+                            <Zap className="w-3 h-3" />
+                          ) : isSched ? (
+                            <Video className="w-3 h-3" />
+                          ) : (
+                            <Building className="w-3 h-3" />
+                          )}
+                          <span>
+                            {isInstant
+                              ? "Instant Online"
+                              : isSched
+                              ? "Scheduled Video"
+                              : "In-Person F2F"}
                           </span>
-                          <span className="text-emerald-600 dark:text-emerald-400 text-[10px]">
-                            Verified by MCPA Lead Engineer
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400">
+                          {item.time}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Middle: Title & Deliberation Note Snippet */}
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-bold text-neutral-900 dark:text-white line-clamp-1">
+                        {item.roundTitle}
+                      </h4>
+                      <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/5 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-[10px] font-mono text-neutral-400 uppercase font-semibold">
+                            Client Note / Review:
                           </span>
+                          {item.rating ? (
+                            <div className="flex items-center gap-1 text-amber-400">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              <span className="text-[10px] font-mono font-bold text-amber-500">
+                                {item.rating}.0
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-mono text-neutral-400">Unrated</span>
+                          )}
                         </div>
-                        <p className="text-xs text-neutral-700 dark:text-neutral-300 font-sans leading-relaxed">
-                          {item.minutes}
+                        <p className="text-xs text-neutral-600 dark:text-neutral-300 font-sans line-clamp-2 italic">
+                          &ldquo;{item.clientNote || item.minutes}&rdquo;
                         </p>
                       </div>
-
-                      {/* Action Items */}
-                      {Array.isArray(item.actionItems) && item.actionItems.length > 0 && (
-                        <div className="space-y-2">
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 font-bold">
-                            Agreed Next Steps &amp; Action Items
-                          </span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {item.actionItems.map((act, actIdx) => (
-                              <div
-                                key={actIdx}
-                                className="flex items-center gap-2 p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/50 dark:border-white/[0.04] text-[11px] font-sans text-neutral-700 dark:text-neutral-300"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                                <span className="truncate">{act}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
-                    {/* Right 4 cols: Consultant & Verification Card */}
-                    <div className="lg:col-span-4 p-4.5 rounded-xl bg-neutral-50 dark:bg-[#14161e] border border-neutral-200/70 dark:border-white/5 space-y-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center font-mono font-bold text-sm shadow-xs shrink-0 group">
+                    {/* Card Footer: Consultant + Actions */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-neutral-100 dark:border-white/5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-6 h-6 rounded-md bg-amber-500/15 border border-amber-500/30 overflow-hidden text-amber-600 dark:text-amber-400 font-mono font-bold text-[9px] flex items-center justify-center shrink-0">
                           {consultantAvatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={consultantAvatar}
-                              alt={item.leadConsultant || "Lead Consultant"}
+                              alt="RQ"
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                                const fb = e.currentTarget.parentElement?.querySelector(".history-consultant-fallback");
-                                if (fb) fb.style.display = "flex";
-                              }}
                             />
-                          ) : null}
-                          <div
-                            style={{ display: consultantAvatar ? "none" : "flex" }}
-                            className="history-consultant-fallback w-full h-full items-center justify-center font-mono font-bold text-sm uppercase"
-                          >
-                            RQ
-                          </div>
-                          <span
-                            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
-                            title="Verified Google Account"
-                          >
-                            <GoogleIcon className="w-2 h-2" />
-                          </span>
+                          ) : (
+                            "RQ"
+                          )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <h4 className="text-xs font-bold text-neutral-900 dark:text-white truncate">
-                              {item.leadConsultant}
-                            </h4>
-                            <span className="px-1.5 py-0.2 rounded text-[8px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 uppercase shrink-0">
-                              Admin
-                            </span>
-                          </div>
-                          <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
-                            {item.leadRole}
-                          </p>
-                        </div>
+                        <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300 truncate">
+                          {item.leadConsultant || "Engr. Raymart Quirante"}
+                        </span>
                       </div>
 
-                      <div className="pt-2.5 border-t border-neutral-200/70 dark:border-white/5 space-y-2">
-                        <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-neutral-400">Session Status:</span>
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                            Concluded
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-neutral-400">Milestone Stage:</span>
-                          <span className="font-semibold text-amber-600 dark:text-amber-400">
-                            Stage 2 · Scoping Complete
-                          </span>
-                        </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setDetailsModalSession(item)}
+                          className="px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-200 transition-colors cursor-pointer"
+                        >
+                          Minutes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRatingModal(item)}
+                          className="px-2 py-1 rounded-md text-[10px] font-mono font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <Star className="w-2.5 h-2.5 fill-amber-400" />
+                          <span>Rate</span>
+                        </button>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1571,6 +1884,271 @@ export default function PortalMeetingHub({
           }}
           showToast={showToast}
         />
+      )}
+
+      {/* 8. CONSULTATION MINUTES & DETAILS MODAL */}
+      {detailsModalSession && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-[#12141c] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white shadow-2xl p-6 sm:p-7 space-y-5"
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-neutral-100 dark:border-white/5">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-neutral-100 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10">
+                    Concluded Session
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                    {detailsModalSession.mode}
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold font-mono text-neutral-900 dark:text-white mt-1">
+                  {detailsModalSession.roundTitle}
+                </h3>
+                <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-neutral-500 dark:text-neutral-400">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{detailsModalSession.displayDate} · {detailsModalSession.time}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Duration: {detailsModalSession.duration || "< 1 min"}</span>
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailsModalSession(null)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Venue & Location */}
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/5 text-xs text-neutral-700 dark:text-neutral-300">
+              <MapPin className="w-4 h-4 text-amber-500 shrink-0" />
+              <span>{detailsModalSession.venue}</span>
+            </div>
+
+            {/* Deliberation Minutes */}
+            <div className="p-4 rounded-xl bg-neutral-50 dark:bg-[#151822] border border-neutral-200/80 dark:border-white/5 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-mono font-bold uppercase text-neutral-500 dark:text-neutral-400">
+                <span className="flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Consultation Minutes &amp; Deliberation Summary</span>
+                </span>
+                <span className="text-emerald-600 dark:text-emerald-400 text-[10px]">
+                  Verified by MCPA Lead Engineer
+                </span>
+              </div>
+              <p className="text-xs text-neutral-700 dark:text-neutral-300 font-sans leading-relaxed">
+                {detailsModalSession.minutes}
+              </p>
+            </div>
+
+            {/* Agreed Next Steps & Action Items */}
+            {Array.isArray(detailsModalSession.actionItems) && detailsModalSession.actionItems.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 font-bold">
+                  Agreed Next Steps &amp; Action Items
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {detailsModalSession.actionItems.map((act, actIdx) => (
+                    <div
+                      key={actIdx}
+                      className="flex items-center gap-2 p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/50 dark:border-white/[0.04] text-[11px] font-sans text-neutral-700 dark:text-neutral-300"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span className="truncate">{act}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Client Rating & Deliberation Review */}
+            <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase font-bold text-amber-600 dark:text-amber-400">
+                  Client Rating &amp; Deliberation Feedback
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenRatingModal(detailsModalSession);
+                    setDetailsModalSession(null);
+                  }}
+                  className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 underline hover:text-amber-500 cursor-pointer"
+                >
+                  Edit Rating &amp; Notes
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center text-amber-400">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`w-4 h-4 ${
+                        s <= (detailsModalSession.rating || 5)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-neutral-300 dark:text-neutral-700"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+                  {detailsModalSession.rating || 5}.0 / 5.0
+                </span>
+              </div>
+              <p className="text-xs text-neutral-700 dark:text-neutral-300 font-sans italic">
+                &ldquo;{detailsModalSession.clientNote || detailsModalSession.minutes}&rdquo;
+              </p>
+            </div>
+
+            {/* Consultant Info & Close Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-neutral-100 dark:border-white/5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 overflow-hidden text-amber-600 dark:text-amber-400 font-mono font-bold text-xs flex items-center justify-center shrink-0">
+                  {consultantAvatar ? (
+                    <img src={consultantAvatar} alt="RQ" className="w-full h-full object-cover" />
+                  ) : "RQ"}
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-neutral-900 dark:text-white">
+                    {detailsModalSession.leadConsultant || "Engr. Raymart Quirante"}
+                  </h4>
+                  <p className="text-[10px] font-mono text-neutral-500">
+                    {detailsModalSession.leadRole || "Lead Project Engineer & Consultant"}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setDetailsModalSession(null)}
+                className="px-4 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
+              >
+                Close Minutes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. RATE SESSION & DELIBERATION NOTE MODAL */}
+      {ratingModalSession && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl bg-white dark:bg-[#12141c] border border-amber-500/30 text-neutral-900 dark:text-white shadow-2xl p-6 sm:p-7 space-y-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  <Star className="w-5 h-5 fill-amber-500 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold font-mono uppercase tracking-tight text-neutral-900 dark:text-white">
+                    Rate Consultation Session
+                  </h3>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    {ratingModalSession.roundTitle}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRatingModalSession(null)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Badges: Meeting Type & Duration */}
+            <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/60 dark:border-white/5 text-xs font-mono">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                {ratingModalSession.mode}
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
+                <Clock className="w-3 h-3 text-amber-500" />
+                <span>Duration: {ratingModalSession.duration || "< 1 min"}</span>
+              </span>
+            </div>
+
+            {/* 5-Star Interactive Selector */}
+            <div className="space-y-2 text-center py-1">
+              <div className="flex items-center justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const activeStar = activeRateHover || activeRateStars;
+                  const isFilled = star <= activeStar;
+                  return (
+                    <button
+                      key={star}
+                      type="button"
+                      onMouseEnter={() => setActiveRateHover(star)}
+                      onMouseLeave={() => setActiveRateHover(0)}
+                      onClick={() => setActiveRateStars(star)}
+                      className="p-1.5 transition-transform hover:scale-120 active:scale-95 cursor-pointer focus:outline-none"
+                      title={`${star} Star${star > 1 ? "s" : ""}`}
+                    >
+                      <Star
+                        className={`w-7 h-7 transition-colors ${
+                          isFilled
+                            ? "text-amber-500 fill-amber-500 filter drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]"
+                            : "text-neutral-300 dark:text-neutral-700 hover:text-neutral-400"
+                        }`}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs font-mono font-semibold text-amber-600 dark:text-amber-400">
+                {activeRateStars === 5 && "5.0 · Outstanding Engineering Consultation ⭐⭐⭐⭐⭐"}
+                {activeRateStars === 4 && "4.0 · Very Good Consultation ⭐⭐⭐⭐"}
+                {activeRateStars === 3 && "3.0 · Satisfactory Discussion ⭐⭐⭐"}
+                {activeRateStars === 2 && "2.0 · Fair / Minor Inconveniences ⭐⭐"}
+                {activeRateStars === 1 && "1.0 · Needs Follow-Up & Improvement ⭐"}
+              </p>
+            </div>
+
+            {/* Note / Feedback Textarea */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold">
+                Deliberation Note &amp; Feedback:
+              </label>
+              <textarea
+                rows={3}
+                value={activeRateNote}
+                onChange={(e) => setActiveRateNote(e.target.value)}
+                placeholder="Share feedback, architectural decisions, or discussion notes..."
+                className="w-full px-3 py-2.5 rounded-xl bg-neutral-50 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500/50 resize-none font-sans"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setRatingModalSession(null)}
+                className="px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveRating}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-98"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Save Rating &amp; Note</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
