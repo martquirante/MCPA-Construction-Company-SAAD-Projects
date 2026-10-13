@@ -537,6 +537,7 @@ export default function GoogleMeetRoom({
   const screenVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
+  const screenAudioMixerRef = useRef(null);
 
   // Live Dual-Timezone Clock (Automatic Philippine Standard Time + Client Local Time Abroad)
   const [timeState, setTimeState] = useState({
@@ -838,6 +839,10 @@ export default function GoogleMeetRoom({
         audioTracks[0].enabled = nextMicState;
       }
     }
+    // Update live presenter mic gain in screen audio mixer if sharing screen
+    if (screenAudioMixerRef.current?.micGain) {
+      screenAudioMixerRef.current.micGain.gain.value = nextMicState ? 1.0 : 0.0;
+    }
     setIsMicOn(nextMicState);
     if (socketRef.current?.connected) {
       socketRef.current.emit("peer-state-change", {
@@ -895,22 +900,31 @@ export default function GoogleMeetRoom({
     }
   };
 
-  // Screen Sharing with WebRTC track replacement (Host & Client, Desktop & Mobile)
+  // Screen Sharing with WebRTC track replacement & Audio Mixing (Host & Client, Desktop & Mobile)
   const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((t) => t.stop());
         screenStreamRef.current = null;
       }
-      setIsScreenSharing(false);
-      showToast("Screen presentation ended.");
-
+      if (screenAudioMixerRef.current) {
+        screenAudioMixerRef.current.cleanUp();
+        screenAudioMixerRef.current = null;
+      }
+      // Revert outgoing audio to local microphone
       if (peerManagerRef.current && localStreamRef.current) {
+        const micTrack = localStreamRef.current.getAudioTracks()[0];
+        if (micTrack) {
+          await peerManagerRef.current.replaceAudioTrack(micTrack);
+        }
         const camTrack = localStreamRef.current.getVideoTracks()[0];
         if (camTrack && isVideoOn) {
           await peerManagerRef.current.replaceVideoTrack(camTrack);
         }
       }
+      setIsScreenSharing(false);
+      showToast("Screen presentation ended.");
+
       if (socketRef.current?.connected) {
         socketRef.current.emit("peer-state-change", {
           roomCode,
@@ -925,25 +939,104 @@ export default function GoogleMeetRoom({
         return;
       }
       try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            cursor: "always",
-          },
-          audio: false,
-        });
+        let screenStream = null;
+        try {
+          // Attempt capture with tab/system audio
+          screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              cursor: "always",
+              displaySurface: "browser",
+            },
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
+          });
+        } catch (audioReqErr) {
+          console.warn("[WEBRTC] Screen share with audio declined or unsupported, falling back to video-only:", audioReqErr);
+          screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              cursor: "always",
+            },
+            audio: false,
+          });
+        }
+
         screenStreamRef.current = screenStream;
         setIsScreenSharing(true);
-        showToast("You are now presenting your screen.");
 
         if (screenVideoRef.current) {
           screenVideoRef.current.srcObject = screenStream;
           screenVideoRef.current.play().catch(() => {});
         }
 
-        const screenTrack = screenStream.getVideoTracks()[0];
-        if (peerManagerRef.current && screenTrack) {
-          await peerManagerRef.current.replaceVideoTrack(screenTrack);
+        const screenVideoTrack = screenStream.getVideoTracks()[0];
+        if (peerManagerRef.current && screenVideoTrack) {
+          await peerManagerRef.current.replaceVideoTrack(screenVideoTrack);
         }
+
+        // Handle and Mix Screen Video Audio (e.g. YouTube, presentation video, or system sounds)
+        const screenAudioTracks = screenStream.getAudioTracks();
+        const hasScreenAudio = screenAudioTracks.length > 0;
+
+        if (hasScreenAudio && typeof window !== "undefined") {
+          try {
+            const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtxClass) {
+              const audioCtx = new AudioCtxClass();
+              const destination = audioCtx.createMediaStreamDestination();
+
+              // 1. Connect Presentation / Video Audio
+              const screenSource = audioCtx.createMediaStreamSource(new MediaStream([screenAudioTracks[0]]));
+              const screenGain = audioCtx.createGain();
+              screenGain.gain.value = 1.0;
+              screenSource.connect(screenGain);
+              screenGain.connect(destination);
+
+              // 2. Connect Presenter Microphone (Allows talking while video is playing)
+              const micTrack = localStreamRef.current?.getAudioTracks()[0];
+              let micGain = null;
+              if (micTrack) {
+                const micSource = audioCtx.createMediaStreamSource(new MediaStream([micTrack]));
+                micGain = audioCtx.createGain();
+                micGain.gain.value = isMicOn ? 1.0 : 0.0;
+                micSource.connect(micGain);
+                micGain.connect(destination);
+              }
+
+              const mixedAudioTrack = destination.stream.getAudioTracks()[0];
+              screenAudioMixerRef.current = {
+                audioCtx,
+                mixedAudioTrack,
+                micGain,
+                cleanUp: () => {
+                  try {
+                    mixedAudioTrack.stop();
+                    audioCtx.close();
+                  } catch (e) {}
+                },
+              };
+
+              if (peerManagerRef.current && mixedAudioTrack) {
+                await peerManagerRef.current.replaceAudioTrack(mixedAudioTrack);
+                console.log("[WEBRTC] Outgoing audio upgraded to mixed mic + presentation audio.");
+              }
+            }
+          } catch (mixErr) {
+            console.warn("[WEBRTC] Audio mixing fallback to direct screen audio track:", mixErr);
+            if (peerManagerRef.current) {
+              await peerManagerRef.current.replaceAudioTrack(screenAudioTracks[0]);
+            }
+          }
+        }
+
+        showToast(
+          hasScreenAudio
+            ? "Presenting screen with video audio enabled!"
+            : "You are now presenting your screen."
+        );
+
         if (socketRef.current?.connected) {
           socketRef.current.emit("peer-state-change", {
             roomCode,
@@ -953,16 +1046,28 @@ export default function GoogleMeetRoom({
           });
         }
 
-        screenTrack.onended = async () => {
-          setIsScreenSharing(false);
-          screenStreamRef.current = null;
-          showToast("Screen presentation ended.");
+        screenVideoTrack.onended = async () => {
+          if (screenStreamRef.current) {
+            screenStreamRef.current.getTracks().forEach((t) => t.stop());
+            screenStreamRef.current = null;
+          }
+          if (screenAudioMixerRef.current) {
+            screenAudioMixerRef.current.cleanUp();
+            screenAudioMixerRef.current = null;
+          }
           if (peerManagerRef.current && localStreamRef.current) {
+            const micTrack = localStreamRef.current.getAudioTracks()[0];
+            if (micTrack) {
+              await peerManagerRef.current.replaceAudioTrack(micTrack);
+            }
             const camTrack = localStreamRef.current.getVideoTracks()[0];
             if (camTrack && isVideoOn) {
               await peerManagerRef.current.replaceVideoTrack(camTrack);
             }
           }
+          setIsScreenSharing(false);
+          showToast("Screen presentation ended.");
+
           if (socketRef.current?.connected) {
             socketRef.current.emit("peer-state-change", {
               roomCode,

@@ -393,6 +393,42 @@ export class WebRTCPeerManager {
   }
 
   /**
+   * Seamlessly replaces the outgoing audio track (e.g. mixed mic + presentation audio)
+   * without renegotiation
+   * @param {MediaStreamTrack} newAudioTrack 
+   */
+  async replaceAudioTrack(newAudioTrack) {
+    if (!this.peerConnection || !newAudioTrack) return;
+
+    try {
+      const transceivers = typeof this.peerConnection.getTransceivers === "function"
+        ? this.peerConnection.getTransceivers()
+        : [];
+      const audioTransceiver = transceivers.find(
+        (t) => (t.receiver?.track?.kind === "audio") || (t.sender?.track?.kind === "audio")
+      );
+
+      if (audioTransceiver && audioTransceiver.sender) {
+        audioTransceiver.direction = "sendrecv";
+        await audioTransceiver.sender.replaceTrack(newAudioTrack);
+        console.log("[WEBRTC] Outgoing audio track replaced on transceiver successfully.");
+        return;
+      }
+
+      const senders = typeof this.peerConnection.getSenders === "function"
+        ? this.peerConnection.getSenders()
+        : [];
+      const audioSender = senders.find((s) => s.track && s.track.kind === "audio");
+      if (audioSender) {
+        await audioSender.replaceTrack(newAudioTrack);
+        console.log("[WEBRTC] Outgoing audio track replaced on sender successfully.");
+      }
+    } catch (err) {
+      console.error("[WEBRTC] Failed to replace audio track:", err);
+    }
+  }
+
+  /**
    * Terminates the peer connection and releases resources
    */
   close() {
