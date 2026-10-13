@@ -39,6 +39,8 @@ import {
   Zap,
   Archive,
   RotateCcw,
+  Star,
+  AlertTriangle,
 } from "lucide-react";
 import GoogleMeetRoom from "@/modules/portal/components/GoogleMeetRoom";
 import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
@@ -46,6 +48,11 @@ import { resolveClientAvatar } from "@/modules/admin/components/InquiryPipelineT
 import { GoogleIcon } from "@/modules/shared/Icons";
 import VenueCombobox from "@/modules/book/components/VenueCombobox";
 import MeetingFilterCombobox from "@/modules/admin/components/MeetingFilterCombobox";
+import {
+  getConsultationHistory,
+  isDummyConsultationSession,
+  formatMeetingDuration,
+} from "@/modules/portal/utils/meetingHistoryService";
 
 function ClientAvatarWithFallback({ item, clientBriefs }) {
   const matchingBrief = useMemo(() => {
@@ -263,7 +270,29 @@ export default function AdminMeetingsTab({
   const [nextRoundMode, setNextRoundMode] = useState("Online Video Call");
   const [nextRoundAgenda, setNextRoundAgenda] = useState("2nd Blueprint & BOQ Estimate Review");
   const [isSubmittingOutcome, setIsSubmittingOutcome] = useState(false);
+  const [isOutcomeConfirmModalOpen, setIsOutcomeConfirmModalOpen] = useState(false);
   const [isSendingReminderId, setIsSendingReminderId] = useState(null);
+
+  // Concluded Consultations History (from meetingHistoryService and localStorage)
+  const [concludedHistory, setConcludedHistory] = useState(() => getConsultationHistory());
+  const [viewMinutesSession, setViewMinutesSession] = useState(null);
+
+  // Purge any legacy dummy consultation records on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("mcpa_consultation_history");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const purged = parsed.filter((item) => !isDummyConsultationSession(item));
+          if (purged.length !== parsed.length) {
+            localStorage.setItem("mcpa_consultation_history", JSON.stringify(purged));
+            setConcludedHistory(purged);
+          }
+        }
+      }
+    } catch (e) {}
+  }, []);
 
   // Synchronize meeting updates from Client Portal in real-time
   useEffect(() => {
@@ -288,11 +317,19 @@ export default function AdminMeetingsTab({
       }
     };
 
+    const handleHistorySync = () => {
+      setConcludedHistory(getConsultationHistory());
+    };
+
     window.addEventListener("mcpa-meeting-updated", handleMeetingSync);
+    window.addEventListener("mcpa-meeting-history-updated", handleHistorySync);
     window.addEventListener("storage", handleMeetingSync);
+    window.addEventListener("storage", handleHistorySync);
     return () => {
       window.removeEventListener("mcpa-meeting-updated", handleMeetingSync);
+      window.removeEventListener("mcpa-meeting-history-updated", handleHistorySync);
       window.removeEventListener("storage", handleMeetingSync);
+      window.removeEventListener("storage", handleHistorySync);
     };
   }, []);
 
@@ -371,6 +408,47 @@ export default function AdminMeetingsTab({
     setMeetingsList(initialMeetings);
   }, [initialMeetings]);
 
+  // Combined master list merging scheduled meetings and concluded consultations with ratings & notes
+  const allMeetings = useMemo(() => {
+    const combined = [...meetingsList];
+    if (Array.isArray(concludedHistory) && concludedHistory.length > 0) {
+      concludedHistory.forEach((c) => {
+        if (isDummyConsultationSession(c)) return;
+        if (!combined.some((m) => m.id === c.id)) {
+          combined.push({
+            id: c.id,
+            clientName: c.clientName || "Raymart Quirante",
+            clientEmail: c.clientEmail || "martquirante@gmail.com",
+            clientPhone: "+63 917 839 2011",
+            projectCode: c.projectCode || "MCPA-2026-MQ04B",
+            projectTitle: c.projectTitle || c.roundTitle || "Consultation Deliberation",
+            roomCode: (c.venue || "").includes("meet.google.com")
+              ? c.venue.split("·")[1]?.trim()
+              : (c.id || "mcpa-session"),
+            mode: c.mode || "Online Video Call",
+            date: c.date,
+            displayDate: c.displayDate || c.date,
+            time: c.time,
+            duration: c.duration,
+            durationSeconds: c.durationSeconds,
+            status: "Concluded",
+            leadConsultant: c.leadConsultant || "Engr. Raymart Quirante",
+            venue: c.venue,
+            notes: c.clientNote || c.minutes,
+            clientNote: c.clientNote,
+            minutes: c.minutes,
+            rating: c.rating,
+            actionItems: c.actionItems,
+            isArchived: true,
+            isConcluded: true,
+            isToday: c.date === new Date().toISOString().split("T")[0],
+          });
+        }
+      });
+    }
+    return combined;
+  }, [meetingsList, concludedHistory]);
+
   // Archived Meetings Tracking (Persisted in localStorage)
   const [archivedMeetingIds, setArchivedMeetingIds] = useState(() => {
     if (typeof window !== "undefined") {
@@ -423,19 +501,19 @@ export default function AdminMeetingsTab({
 
   // Metrics (Accurate active count, auto-deducting finished/archived meetings)
   const metrics = useMemo(() => {
-    const activeList = meetingsList.filter((m) => !isMeetingArchived(m));
-    const archivedList = meetingsList.filter((m) => isMeetingArchived(m));
+    const activeList = allMeetings.filter((m) => !isMeetingArchived(m));
+    const archivedList = allMeetings.filter((m) => isMeetingArchived(m));
     return {
-      allTotal: meetingsList.length,
+      allTotal: allMeetings.length,
       total: activeList.length,
       archived: archivedList.length,
       today: activeList.filter((m) => m.isToday).length,
       online: activeList.filter((m) => m.mode.toLowerCase().includes("online")).length,
       f2f: activeList.filter((m) => !m.mode.toLowerCase().includes("online")).length,
       confirmed: activeList.filter((m) => m.status === "Confirmed" || m.status === "Room Ready").length,
-      upcoming: activeList.filter((m) => m.status !== "Completed").length,
+      upcoming: activeList.filter((m) => m.status !== "Completed" && m.status !== "Concluded").length,
     };
-  }, [meetingsList, archivedMeetingIds, unarchivedMeetingIds, currentTime]);
+  }, [allMeetings, archivedMeetingIds, unarchivedMeetingIds, currentTime]);
 
   // Synchronize active meetings count with Navbar Badge in real-time
   useEffect(() => {
@@ -446,7 +524,7 @@ export default function AdminMeetingsTab({
 
   // Filtered List
   const filteredMeetings = useMemo(() => {
-    return meetingsList.filter((m) => {
+    return allMeetings.filter((m) => {
       // Query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -454,7 +532,9 @@ export default function AdminMeetingsTab({
           (m.clientName || "").toLowerCase().includes(q) ||
           (m.clientEmail || "").toLowerCase().includes(q) ||
           (m.projectCode || "").toLowerCase().includes(q) ||
-          (m.roomCode || "").toLowerCase().includes(q);
+          (m.roomCode || "").toLowerCase().includes(q) ||
+          (m.clientNote || "").toLowerCase().includes(q) ||
+          (m.notes || "").toLowerCase().includes(q);
         if (!matches) return false;
       }
 
@@ -473,12 +553,12 @@ export default function AdminMeetingsTab({
       if (activeFilter === "today") return m.isToday;
       if (activeFilter === "online") return (m.mode || "").toLowerCase().includes("online");
       if (activeFilter === "f2f") return !(m.mode || "").toLowerCase().includes("online");
-      if (activeFilter === "completed") return m.status === "Completed";
-      if (activeFilter === "upcoming") return m.status !== "Completed";
+      if (activeFilter === "completed") return m.status === "Completed" || m.status === "Concluded";
+      if (activeFilter === "upcoming") return m.status !== "Completed" && m.status !== "Concluded";
 
       return true;
     });
-  }, [meetingsList, searchQuery, activeFilter, archivedMeetingIds, unarchivedMeetingIds, currentTime]);
+  }, [allMeetings, searchQuery, activeFilter, archivedMeetingIds, unarchivedMeetingIds, currentTime]);
 
   // Manual Archive / Restore toggle handler
   const handleToggleArchive = (meeting) => {
@@ -657,10 +737,17 @@ export default function AdminMeetingsTab({
     setNextRoundSlot("02:00 PM - 03:30 PM PHT");
     setNextRoundMode(meeting.mode || "Online Video Call");
     setNextRoundAgenda("Follow-Up Project Consultation & Review");
+    setIsOutcomeConfirmModalOpen(false);
+  };
+
+  const handleOpenOutcomeConfirmation = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!outcomeMeeting) return;
+    setIsOutcomeConfirmModalOpen(true);
   };
 
   const handleConfirmOutcome = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!outcomeMeeting) return;
     setIsSubmittingOutcome(true);
 
@@ -806,6 +893,7 @@ export default function AdminMeetingsTab({
       }
 
       setOutcomeMeeting(null);
+      setIsOutcomeConfirmModalOpen(false);
     } catch (err) {
       showToast("Outcome recording error: " + err.message);
     } finally {
@@ -1210,6 +1298,41 @@ export default function AdminMeetingsTab({
                       </span>
                     </div>
                   </div>
+
+                  {/* Rating & Call Notes Box for Concluded Consultations */}
+                  {(item.rating || item.clientNote) && (
+                    <div className="p-3 rounded-lg bg-amber-500/[0.06] border border-amber-500/20 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex items-center text-amber-400">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Star
+                                key={s}
+                                className={`w-3.5 h-3.5 ${
+                                  s <= (item.rating || 5)
+                                    ? "fill-amber-400 text-amber-400"
+                                    : "text-neutral-300 dark:text-neutral-700"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-[11px]">
+                            {Number(item.rating || 5).toFixed(1)} / 5.0
+                          </span>
+                        </div>
+                        {item.duration && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-white/70 dark:bg-white/10 text-neutral-700 dark:text-neutral-300">
+                            {item.duration}
+                          </span>
+                        )}
+                      </div>
+                      {item.clientNote && (
+                        <p className="text-neutral-700 dark:text-neutral-300 italic font-sans line-clamp-2 text-[11px] leading-snug">
+                          <span className="font-semibold not-italic text-amber-600 dark:text-amber-400 font-mono">Note: </span>&ldquo;{item.clientNote}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Toolbar */}
@@ -1232,6 +1355,18 @@ export default function AdminMeetingsTab({
                       >
                         <Award className="w-3.5 h-3.5 text-amber-500" />
                         <span>Outcome</span>
+                      </button>
+                    )}
+
+                    {(item.isConcluded || item.clientNote || item.rating) && (
+                      <button
+                        type="button"
+                        onClick={() => setViewMinutesSession(item)}
+                        className="h-8 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-amber-500/30 cursor-pointer"
+                        title="View Call Rating & Notes"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="hidden xs:inline">Notes</span>
                       </button>
                     )}
 
@@ -1344,11 +1479,17 @@ export default function AdminMeetingsTab({
                       <Clock className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                       <span>{item.time}</span>
                     </div>
+                    {item.duration && (
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono font-semibold text-amber-600 dark:text-amber-400">
+                        <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                        <span>Duration: {item.duration}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Col 3 (xl:col-span-3): Format, Venue & Live Indicator */}
                   <div className="xl:col-span-3 space-y-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider inline-flex items-center gap-1 ${
                           isOnline
@@ -1359,6 +1500,13 @@ export default function AdminMeetingsTab({
                         {isOnline ? <Video className="w-3 h-3" /> : <Building className="w-3 h-3" />}
                         <span>{isOnline ? "Online Call" : "In-Person"}</span>
                       </span>
+
+                      {item.rating && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 inline-flex items-center gap-1">
+                          <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                          <span>{Number(item.rating).toFixed(1)}</span>
+                        </span>
+                      )}
 
                       {lifecycle.isOngoing && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-mono font-bold uppercase animate-pulse inline-flex items-center gap-1">
@@ -1374,12 +1522,19 @@ export default function AdminMeetingsTab({
                         </span>
                       )}
                     </div>
-                    <div className="flex items-start gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 max-w-[210px]">
-                      <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0 mt-0.5" />
-                      <span className="leading-snug break-words line-clamp-2" title={item.venue}>
-                        {item.venue}
-                      </span>
-                    </div>
+
+                    {item.clientNote ? (
+                      <p className="text-[11px] text-neutral-600 dark:text-neutral-300 italic line-clamp-1 truncate max-w-[240px]" title={item.clientNote}>
+                        <span className="font-semibold not-italic text-amber-600 dark:text-amber-400 font-mono">Note: </span>&ldquo;{item.clientNote}&rdquo;
+                      </p>
+                    ) : (
+                      <div className="flex items-start gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 max-w-[210px]">
+                        <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0 mt-0.5" />
+                        <span className="leading-snug break-words line-clamp-2" title={item.venue}>
+                          {item.venue}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Col 4 (xl:col-span-4): Unified Precision Action Toolbar */}
@@ -1394,6 +1549,18 @@ export default function AdminMeetingsTab({
                       >
                         <Video className="w-3.5 h-3.5" />
                         <span>Join Call</span>
+                      </button>
+                    )}
+
+                    {(item.isConcluded || item.clientNote || item.rating) && (
+                      <button
+                        type="button"
+                        onClick={() => setViewMinutesSession(item)}
+                        className="h-8 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium transition-colors flex items-center gap-1.5 border border-amber-500/30 cursor-pointer shrink-0"
+                        title="View Call Rating & Notes"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="hidden sm:inline">Notes</span>
                       </button>
                     )}
 
@@ -1775,14 +1942,17 @@ export default function AdminMeetingsTab({
               </div>
               <button
                 type="button"
-                onClick={() => setOutcomeMeeting(null)}
+                onClick={() => {
+                  setOutcomeMeeting(null);
+                  setIsOutcomeConfirmModalOpen(false);
+                }}
                 className="p-1 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmOutcome} className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
+            <form onSubmit={handleOpenOutcomeConfirmation} className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
               {/* Outcome Choice Radio Cards */}
               <div className="space-y-2">
                 <label className="text-[11px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold">
@@ -1878,7 +2048,7 @@ export default function AdminMeetingsTab({
                       <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${
                         outcomeType === "DISCONTINUED_REJECTED" ? "border-rose-500 bg-rose-500" : "border-neutral-400"
                       }`} />
-                      <span>Discontinued / Did Not Proceed (Hindi Nagkasundo / Umayaw)</span>
+                      <span>Discontinued / Consultation Concluded (Agreement Not Reached)</span>
                     </span>
                     <span className="text-[10px] font-mono font-bold text-rose-600 dark:text-rose-400 uppercase">
                       Revert to Phase 1
@@ -1964,7 +2134,7 @@ export default function AdminMeetingsTab({
                       className="w-full px-2.5 py-1.5 rounded bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-rose-500"
                     >
                       <option value="Budget / Financial Alignment Mismatch">Budget / Financial Alignment Mismatch</option>
-                      <option value="Client Decided Not to Proceed / Backed Out">Client Decided Not to Proceed / Umayaw</option>
+                      <option value="Client Decided Not to Proceed / Withdrawn">Client Decided Not to Proceed / Withdrawn</option>
                       <option value="Disagreement on Scope & Specifications">Disagreement on Scope &amp; Specifications</option>
                       <option value="Project Deferred / Indefinitely Postponed">Project Deferred / Indefinitely Postponed</option>
                       <option value="Hired Another Contractor">Hired Another Contractor</option>
@@ -1998,7 +2168,10 @@ export default function AdminMeetingsTab({
               <div className="sticky bottom-0 bg-white/95 dark:bg-[#14161f]/95 backdrop-blur-sm -mx-5 -mb-5 px-5 py-3 border-t border-neutral-200 dark:border-white/10 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setOutcomeMeeting(null)}
+                  onClick={() => {
+                    setOutcomeMeeting(null);
+                    setIsOutcomeConfirmModalOpen(false);
+                  }}
                   className="px-4 py-2 rounded-[4px] text-xs font-mono font-bold uppercase text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
                 >
                   Cancel
@@ -2020,6 +2193,248 @@ export default function AdminMeetingsTab({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5.1 OUTCOME CONFIRMATION MODAL */}
+      {isOutcomeConfirmModalOpen && outcomeMeeting && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+          <div className="relative w-full max-w-lg rounded-[14px] bg-white dark:bg-[#11131a] border border-neutral-200 dark:border-white/15 shadow-2xl overflow-hidden animate-in zoom-in-95">
+            {/* Header with appropriate colored accent line & icon */}
+            <div className={`p-5 pb-4 border-b ${
+              outcomeType === "DISCONTINUED_REJECTED"
+                ? "border-rose-500/20 bg-rose-500/5 dark:bg-rose-500/10"
+                : outcomeType === "AGREED_ADVANCE"
+                ? "border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10"
+                : outcomeType === "REVISION_DELIBERATION"
+                ? "border-sky-500/20 bg-sky-500/5 dark:bg-sky-500/10"
+                : "border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10"
+            }`}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border ${
+                    outcomeType === "DISCONTINUED_REJECTED"
+                      ? "border-rose-500/30 bg-rose-500/15 text-rose-500"
+                      : outcomeType === "AGREED_ADVANCE"
+                      ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-500"
+                      : outcomeType === "REVISION_DELIBERATION"
+                      ? "border-sky-500/30 bg-sky-500/15 text-sky-500"
+                      : "border-amber-500/30 bg-amber-500/15 text-amber-500"
+                  }`}>
+                    {outcomeType === "DISCONTINUED_REJECTED" && <AlertTriangle className="w-5 h-5" />}
+                    {outcomeType === "AGREED_ADVANCE" && <Award className="w-5 h-5" />}
+                    {outcomeType === "REVISION_DELIBERATION" && <RefreshCw className="w-5 h-5" />}
+                    {outcomeType === "NEXT_MEETING" && <CalendarCheck className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-mono font-bold uppercase tracking-wide text-neutral-900 dark:text-white">
+                      Confirm Consultation Decision
+                    </h3>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+                      Please review the outcome summary before finalizing and synchronizing.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsOutcomeConfirmModalOpen(false)}
+                  disabled={isSubmittingOutcome}
+                  className="p-1 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body / Summary Cards */}
+            <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
+              {/* Client & Project Info */}
+              <div className="p-3 rounded-[8px] bg-neutral-100/70 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold">
+                    Client &amp; Project
+                  </div>
+                  <div className="text-xs font-mono font-bold text-neutral-900 dark:text-white mt-0.5">
+                    {outcomeMeeting.clientName}
+                  </div>
+                  <div className="text-[11px] text-neutral-500 font-sans">
+                    {outcomeMeeting.projectTitle} • <span className="font-mono text-amber-500">{outcomeMeeting.projectCode}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold">
+                    Current Stage
+                  </div>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-neutral-200 dark:bg-white/10 text-neutral-800 dark:text-neutral-200 mt-1">
+                    Round {outcomeMeeting.round || 1}
+                  </span>
+                </div>
+              </div>
+
+              {/* Selected Direction Box */}
+              <div className={`p-3.5 rounded-[8px] border ${
+                outcomeType === "DISCONTINUED_REJECTED"
+                  ? "border-rose-500/30 bg-rose-500/10 dark:bg-rose-500/15"
+                  : outcomeType === "AGREED_ADVANCE"
+                  ? "border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-500/15"
+                  : outcomeType === "REVISION_DELIBERATION"
+                  ? "border-sky-500/30 bg-sky-500/10 dark:bg-sky-500/15"
+                  : "border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/15"
+              }`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                    Selected Outcome
+                  </span>
+                  <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded ${
+                    outcomeType === "DISCONTINUED_REJECTED"
+                      ? "bg-rose-500/20 text-rose-600 dark:text-rose-400"
+                      : outcomeType === "AGREED_ADVANCE"
+                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                      : outcomeType === "REVISION_DELIBERATION"
+                      ? "bg-sky-500/20 text-sky-600 dark:text-sky-400"
+                      : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                  }`}>
+                    {outcomeType === "DISCONTINUED_REJECTED" && "Revert to Phase 1"}
+                    {outcomeType === "AGREED_ADVANCE" && "Stage Gate Unlocked"}
+                    {outcomeType === "REVISION_DELIBERATION" && "Pending Decision"}
+                    {outcomeType === "NEXT_MEETING" && "Iterative Alignment"}
+                  </span>
+                </div>
+                <div className="text-xs font-mono font-bold text-neutral-900 dark:text-white">
+                  {outcomeType === "DISCONTINUED_REJECTED" && "Discontinued / Consultation Concluded (Agreement Not Reached)"}
+                  {outcomeType === "AGREED_ADVANCE" && "Mutual Agreement Reached · Advance to Stage 3 Pre-Construction"}
+                  {outcomeType === "REVISION_DELIBERATION" && "Under Client Deliberation / Revisions in Progress"}
+                  {outcomeType === "NEXT_MEETING" && "Schedule Follow-Up Consultation Meeting"}
+                </div>
+              </div>
+
+              {/* Specific details based on outcome type */}
+              {outcomeType === "NEXT_MEETING" && (
+                <div className="space-y-2 p-3 rounded-[8px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 text-xs font-sans">
+                  <div className="text-[10px] font-mono font-bold uppercase text-neutral-500">
+                    Follow-Up Consultation Schedule
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-neutral-500 text-[11px]">Date: </span>
+                      <strong className="text-neutral-900 dark:text-white font-mono">{nextRoundDate}</strong>
+                    </div>
+                    <div>
+                      <span className="text-neutral-500 text-[11px]">Slot: </span>
+                      <strong className="text-neutral-900 dark:text-white font-mono">{nextRoundSlot}</strong>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-neutral-500 text-[11px]">Format: </span>
+                    <strong className="text-neutral-900 dark:text-white font-sans">{nextRoundMode}</strong>
+                  </div>
+                  <div>
+                    <span className="text-neutral-500 text-[11px]">Agenda: </span>
+                    <strong className="text-neutral-900 dark:text-white font-sans">{nextRoundAgenda || "General Consultation Review"}</strong>
+                  </div>
+                  <div className="text-[11px] text-amber-600 dark:text-amber-400 font-mono pt-1 border-t border-neutral-200 dark:border-white/5">
+                    → Will initialize Round {(outcomeMeeting.round || 1) + 1} and synchronize to client portal.
+                  </div>
+                </div>
+              )}
+
+              {outcomeType === "AGREED_ADVANCE" && (
+                <div className="p-3 rounded-[8px] bg-emerald-500/10 border border-emerald-500/20 text-xs font-sans space-y-1.5">
+                  <div className="text-[10px] font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">
+                    Milestone Advancement
+                  </div>
+                  <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed text-[11px]">
+                    Advancing project to <strong>Stage 3 Pre-Construction Planning</strong>. This consultation will be concluded and archived, unlocking blueprints, soil survey, and contract finalization.
+                  </p>
+                </div>
+              )}
+
+              {outcomeType === "REVISION_DELIBERATION" && (
+                <div className="p-3 rounded-[8px] bg-sky-500/10 border border-sky-500/20 text-xs font-sans space-y-1.5">
+                  <div className="text-[10px] font-mono font-bold uppercase text-sky-600 dark:text-sky-400">
+                    Deliberation Status Maintained
+                  </div>
+                  <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed text-[11px]">
+                    Consultation session will remain active while the client considers options or architectural team prepares requested design/BOQ adjustments.
+                  </p>
+                </div>
+              )}
+
+              {outcomeType === "DISCONTINUED_REJECTED" && (
+                <div className="p-3 rounded-[8px] bg-rose-500/10 border border-rose-500/25 text-xs font-sans space-y-2">
+                  <div className="text-[10px] font-mono font-bold uppercase text-rose-500 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Warning: Irreversible Phase Reversion</span>
+                  </div>
+                  <div>
+                    <span className="text-neutral-500 dark:text-neutral-400 text-[11px]">Primary Reason: </span>
+                    <strong className="text-neutral-900 dark:text-white font-mono">{discontinueReason}</strong>
+                  </div>
+                  <p className="text-[11px] text-rose-700 dark:text-rose-300/90 leading-relaxed">
+                    Client project will be reset to <strong>Phase 1 (Pre-Inquiry / Declined)</strong>. This consultation will be closed and archived. The client will be gracefully informed on their portal.
+                  </p>
+                </div>
+              )}
+
+              {/* Deliberation Minutes / Engineering Notes */}
+              <div className="space-y-1">
+                <div className="text-[10px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold">
+                  {outcomeType === "DISCONTINUED_REJECTED" ? "Discontinue Notes" : "Meeting Minutes & Notes"}
+                </div>
+                <div className="p-2.5 rounded-[6px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap break-words max-h-28 overflow-y-auto">
+                  {outcomeMinutes && outcomeMinutes.trim() ? (
+                    outcomeMinutes
+                  ) : (
+                    <span className="text-neutral-400 italic font-sans text-xs">No additional remarks or minutes entered.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-neutral-50 dark:bg-[#14161f] border-t border-neutral-200 dark:border-white/10 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsOutcomeConfirmModalOpen(false)}
+                disabled={isSubmittingOutcome}
+                className="px-4 py-2 rounded-[4px] text-xs font-mono font-bold uppercase text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Go Back &amp; Edit
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmOutcome}
+                disabled={isSubmittingOutcome}
+                className={`px-5 py-2 rounded-[4px] font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md disabled:opacity-50 flex items-center gap-2 ${
+                  outcomeType === "DISCONTINUED_REJECTED"
+                    ? "bg-rose-500 hover:bg-rose-600 text-white"
+                    : outcomeType === "AGREED_ADVANCE"
+                    ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                    : "bg-amber-500 hover:bg-amber-400 text-neutral-950"
+                }`}
+              >
+                {isSubmittingOutcome ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Synchronizing Decision...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>
+                      {outcomeType === "DISCONTINUED_REJECTED"
+                        ? "Confirm & Revert to Phase 1"
+                        : outcomeType === "AGREED_ADVANCE"
+                        ? "Confirm & Advance to Stage 3"
+                        : outcomeType === "NEXT_MEETING"
+                        ? `Confirm Round ${(outcomeMeeting.round || 1) + 1} Schedule`
+                        : "Confirm & Save Deliberation"}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2049,6 +2464,108 @@ export default function AdminMeetingsTab({
           }}
           showToast={showToast}
         />
+      )}
+      {/* CONCLUDED CONSULTATION RATING & DELIBERATION NOTES MODAL */}
+      {viewMinutesSession && (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#12141c] border border-amber-500/30 text-neutral-900 dark:text-white shadow-2xl p-6 sm:p-7 space-y-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  <Star className="w-5 h-5 fill-amber-500 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold font-mono uppercase tracking-tight text-neutral-900 dark:text-white">
+                    Consultation Notes &amp; Rating
+                  </h3>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    {viewMinutesSession.projectTitle || viewMinutesSession.clientName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewMinutesSession(null)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Badges: Mode, Duration, Date */}
+            <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/60 dark:border-white/5 text-xs font-mono">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                {viewMinutesSession.mode}
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
+                <Clock className="w-3 h-3 text-amber-500" />
+                <span>Duration: {viewMinutesSession.duration || "< 1 min"}</span>
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
+                {viewMinutesSession.displayDate} · {viewMinutesSession.time}
+              </span>
+            </div>
+
+            {/* Star Rating Visual */}
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-amber-700 dark:text-amber-400">
+                  Call Rating
+                </span>
+                <div className="flex items-center gap-1 text-amber-400">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`w-4 h-4 ${
+                        s <= (viewMinutesSession.rating || 5)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-neutral-300 dark:text-neutral-700"
+                      }`}
+                    />
+                  ))}
+                  <span className="ml-1 text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+                    {Number(viewMinutesSession.rating || 5).toFixed(1)} / 5.0
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                {viewMinutesSession.status}
+              </span>
+            </div>
+
+            {/* Deliberation Note / Client Feedback */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold">
+                Deliberation / Call Notes:
+              </label>
+              <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 text-xs text-neutral-800 dark:text-neutral-200 italic font-sans leading-relaxed">
+                &ldquo;{viewMinutesSession.clientNote || viewMinutesSession.notes || "No deliberation note recorded."}&rdquo;
+              </div>
+            </div>
+
+            {/* Client & Consultant details */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-neutral-100 dark:border-white/5">
+              <div className="text-xs space-y-0.5">
+                <div className="font-semibold text-neutral-900 dark:text-white">
+                  Client: {viewMinutesSession.clientName}
+                </div>
+                <div className="text-[11px] font-mono text-neutral-500">
+                  Project: {viewMinutesSession.projectCode} · {viewMinutesSession.projectTitle}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewMinutesSession(null)}
+                className="px-4 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
+              >
+                Close Notes
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

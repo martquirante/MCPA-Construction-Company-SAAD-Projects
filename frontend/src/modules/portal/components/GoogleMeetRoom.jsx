@@ -319,18 +319,28 @@ export default function GoogleMeetRoom({
     if (!hasRecordedSessionRef.current) {
       hasRecordedSessionRef.current = true;
       try {
+        const clientName = activeProject?.client_name || (!isUserAdmin ? (currentUser?.name || "Raymart Quirante") : "Client Participant");
+        const projectTitle = activeProject?.project_title || (isInstantMeeting ? "Instant Online Consultation" : "Online Video Engineering Review");
+        const projectCode = activeProject?.project_code || "MCPA-2026-MQ04B";
+        const finalDurationSec = Math.max(callDurationSeconds, 1);
+        const formattedDur = formatMeetingDuration(finalDurationSec);
+
         recordConcludedMeeting({
           roundTitle: isInstantMeeting
             ? "Instant Online Consultation"
             : (activeProject?.project_title ? `${activeProject.project_title} Consultation` : "Online Video Engineering Review"),
           mode: isInstantMeeting ? "Instant Online Meeting" : "Scheduled Online Video",
-          durationSeconds: Math.max(callDurationSeconds, 45),
-          rating: typeof rating === "number" ? rating : 5,
+          durationSeconds: finalDurationSec,
+          rating: typeof rating === "number" ? Math.max(1, Math.min(5, rating)) : 5,
           clientNote: note || (isInstantMeeting ? "Instant video consultation concluded with engineering team." : "Scheduled video consultation concluded."),
-          minutes: note || `Live video deliberation held via ${isInstantMeeting ? "Instant Room" : "Google Meet"}. Duration: ${formatMeetingDuration(Math.max(callDurationSeconds, 45))}.`,
+          minutes: note || `Live video deliberation held via ${isInstantMeeting ? "Instant Room" : "Google Meet"}. Duration: ${formattedDur}.`,
           venue: isInstantMeeting ? "MCPA Instant WebRTC Room" : `Google Meet · ${roomCode}`,
-          leadConsultant: isUserAdmin ? (activeProject?.client_name || "Client Participant") : "Engr. Raymart Quirante",
-          leadRole: isUserAdmin ? "Client / Project Owner" : "Lead Project Engineer & Consultant",
+          leadConsultant: "Engr. Raymart Quirante",
+          leadRole: "Lead Project Engineer & Consultant",
+          clientName,
+          clientEmail: activeProject?.client_email || "martquirante@gmail.com",
+          projectCode,
+          projectTitle,
         });
       } catch (e) {
         console.warn("[MCPA] Failed to record concluded meeting:", e);
@@ -383,8 +393,8 @@ export default function GoogleMeetRoom({
   };
 
   const handleLeaveCall = () => {
-    // For clients leaving an active consultation, prompt for rating and deliberation note before leaving
-    if (!isUserAdmin && !hasRecordedSessionRef.current) {
+    // When leaving an active consultation, prompt for rating and deliberation note before leaving
+    if (!hasRecordedSessionRef.current) {
       setIsLeaveRatingModalOpen(true);
       return;
     }
@@ -896,18 +906,13 @@ export default function GoogleMeetRoom({
 
           rawMicTrackRef.current = rawAudioTrack || null;
 
-          let outgoingAudioTrack = rawAudioTrack;
-          if (rawAudioTrack) {
-            if (audioFilterCleanupRef.current) {
-              audioFilterCleanupRef.current();
-              audioFilterCleanupRef.current = null;
-            }
-            const { track: filteredTrack, cleanup: filterCleanup } = createNoiseFilteredAudioTrack(rawAudioTrack);
-            outgoingAudioTrack = filteredTrack;
-            audioFilterCleanupRef.current = filterCleanup;
-          }
+          // Directly use rawAudioTrack!
+          // Browser getUserMedia with OPTIMAL_AUDIO_CONSTRAINTS already provides native
+          // hardware-accelerated Acoustic Echo Cancellation (AEC), Noise Suppression (NS), and Auto Gain Control (AGC).
+          // Routing through Web Audio AudioContext caused browser suspension and complete audio dropouts.
+          const outgoingAudioTrack = rawAudioTrack;
 
-          // Combined stream containing camera video track + noise-filtered audio track
+          // Combined stream containing camera video track + raw microphone audio track
           const processedStream = new MediaStream([rawVideoTrack, outgoingAudioTrack].filter(Boolean));
           localStreamRef.current = processedStream;
 
@@ -917,13 +922,19 @@ export default function GoogleMeetRoom({
           if (peerManagerRef.current) {
             peerManagerRef.current.attachLocalTracks(processedStream);
             const targetPeerId = remotePeerRef.current?.socketId;
-            if (
-              targetPeerId &&
-              !peerManagerRef.current.isInitiator &&
-              !peerManagerRef.current.peerConnection?.remoteDescription
-            ) {
-              console.log("[WEBRTC] Media ready with auto noise filter, sending offer to remote peer:", targetPeerId);
-              peerManagerRef.current.createAndSendOffer(targetPeerId);
+            if (targetPeerId) {
+              if (
+                !peerManagerRef.current.isInitiator &&
+                !peerManagerRef.current.peerConnection?.remoteDescription
+              ) {
+                console.log("[WEBRTC] Media ready with native audio, sending offer to remote peer:", targetPeerId);
+                peerManagerRef.current.createAndSendOffer(targetPeerId);
+              } else if (
+                peerManagerRef.current.peerConnection?.signalingState === "stable"
+              ) {
+                console.log("[WEBRTC] Media ready post-handshake, renegotiating offer for peer:", targetPeerId);
+                peerManagerRef.current.createAndSendOffer(targetPeerId);
+              }
             }
           }
         }
@@ -1422,9 +1433,9 @@ export default function GoogleMeetRoom({
     setTimeout(() => setHasCopied(false), 2500);
   };  const roomContent = (
     <div
-      className={`transition-all duration-300 flex flex-col justify-between select-none shadow-2xl ${
+      className={`dark transition-all duration-300 flex flex-col justify-between select-none shadow-2xl ${
         isFloatingPiP
-          ? "fixed bottom-5 right-5 z-[999999] w-[340px] sm:w-[380px] h-[270px] rounded-2xl bg-[#121316] border border-neutral-700/80 dark:border-white/20 overflow-hidden ring-1 ring-black/50"
+          ? "fixed bottom-5 right-5 z-[999999] w-[340px] sm:w-[390px] h-[285px] sm:h-[295px] rounded-2xl bg-[#121316] border border-white/20 overflow-hidden ring-1 ring-black/50"
           : isFullscreen
           ? "fixed inset-0 z-[99999] w-full h-[100dvh] max-w-none max-h-none rounded-none border-0 overflow-hidden bg-neutral-950 text-white"
           : "relative w-full h-[88vh] min-h-[600px] max-h-[960px] rounded-[16px] border border-neutral-800 overflow-hidden bg-neutral-950 text-white"
@@ -1589,36 +1600,38 @@ export default function GoogleMeetRoom({
             </div>
           )}
 
-          {/* PARTICIPANT LEFT OVERLAY NOTIFICATION MODAL */}
+          {/* PARTICIPANT LEFT OVERLAY NOTIFICATION */}
           {peerLeftInfo && !hasRemotePeer && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
-              <div className="max-w-sm w-full p-6 rounded-2xl bg-[#17181d] border border-white/10 shadow-2xl text-center space-y-4">
-                <div className="w-14 h-14 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 mx-auto flex items-center justify-center">
-                  <PhoneOff className="w-7 h-7" />
+            <div className={`absolute inset-0 z-30 flex items-center justify-center ${isFloatingPiP ? "p-2.5" : "p-4 sm:p-6"} bg-black/85 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200`}>
+              <div className={`${isFloatingPiP ? "w-full max-w-[310px] p-3 space-y-2" : "max-w-sm w-full p-6 rounded-2xl space-y-4"} rounded-2xl bg-[#17181d] border border-white/10 shadow-2xl text-center`}>
+                <div className={`${isFloatingPiP ? "w-8 h-8" : "w-13 h-13"} rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 mx-auto flex items-center justify-center`}>
+                  <PhoneOff className={isFloatingPiP ? "w-4 h-4" : "w-6 h-6"} />
                 </div>
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-white">
+                <div className="space-y-0.5">
+                  <h3 className={`${isFloatingPiP ? "text-xs font-bold leading-tight" : "text-base font-bold"} text-white`}>
                     {peerLeftInfo.name} left the meeting
                   </h3>
-                  <p className="text-xs font-mono text-white/50">
+                  <p className="text-[10px] font-mono text-white/50">
                     Disconnected at {peerLeftInfo.time}
                   </p>
-                  <p className="text-xs text-neutral-300 font-sans pt-1 leading-relaxed">
-                    You are currently the only person in this consultation room. You may wait for them to reconnect or leave the meeting.
+                  <p className={`${isFloatingPiP ? "text-[11px] line-clamp-1" : "text-xs"} text-neutral-300 font-sans pt-0.5 leading-relaxed`}>
+                    {isFloatingPiP
+                      ? "You are currently alone in this room."
+                      : "You are currently the only person in this consultation room. You may wait for them to reconnect or leave the meeting."}
                   </p>
                 </div>
-                <div className="flex items-center justify-center gap-3 pt-2">
+                <div className={`flex items-center justify-center gap-2 ${isFloatingPiP ? "pt-0.5" : "pt-2"}`}>
                   <button
                     type="button"
                     onClick={() => setPeerLeftInfo(null)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors cursor-pointer"
+                    className={`flex-1 ${isFloatingPiP ? "px-2.5 py-1.5 text-[11px]" : "px-4 py-2.5 text-xs"} rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-medium transition-all cursor-pointer`}
                   >
                     Wait in Room
                   </button>
                   <button
                     type="button"
                     onClick={handleLeaveCall}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-rose-950/40"
+                    className={`flex-1 ${isFloatingPiP ? "px-2.5 py-1.5 text-[11px]" : "px-4 py-2.5 text-xs"} rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-rose-950/40`}
                   >
                     <PhoneOff className="w-3.5 h-3.5" />
                     <span>Leave Call</span>
@@ -1637,6 +1650,7 @@ export default function GoogleMeetRoom({
                   ref={setRemoteVideoRef}
                   autoPlay
                   playsInline
+                  muted
                   className="w-full h-full object-contain bg-black"
                 />
                 <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-mono font-medium flex items-center gap-2 text-amber-400 shadow-lg">
@@ -1650,6 +1664,7 @@ export default function GoogleMeetRoom({
                   ref={setScreenVideoRef}
                   autoPlay
                   playsInline
+                  muted
                   className="w-full h-full object-contain bg-black"
                 />
                 <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-mono font-medium flex items-center gap-2 text-amber-400 shadow-lg">
@@ -1663,6 +1678,7 @@ export default function GoogleMeetRoom({
                   ref={setRemoteVideoRef}
                   autoPlay
                   playsInline
+                  muted
                   className="w-full h-full object-contain bg-black"
                 />
               </div>
@@ -1827,16 +1843,32 @@ export default function GoogleMeetRoom({
         {activeSidePanel && !isFloatingPiP && (
           <aside className="fixed inset-0 sm:relative sm:inset-auto z-40 w-full sm:w-88 h-full sm:rounded-[16px] bg-[#14151a] border-0 sm:border sm:border-white/10 flex flex-col shadow-2xl overflow-hidden text-white animate-in slide-in-from-bottom sm:slide-in-from-right-4 duration-200">
             {/* Panel Header */}
-            <div className="p-4 border-b border-neutral-200 dark:border-white/[0.08] flex items-center justify-between">
-              <h3 className="text-sm font-sans font-bold text-neutral-900 dark:text-white capitalize">
-                {activeSidePanel === "chat" && "In-call messages"}
-                {activeSidePanel === "people" && `People (${hasRemotePeer ? "2" : "1"})`}
-                {activeSidePanel === "info" && "Meeting details"}
+            <div className="p-4 border-b border-white/[0.08] flex items-center justify-between bg-[#14151a]">
+              <h3 className="text-sm font-sans font-bold text-white capitalize flex items-center gap-2">
+                {activeSidePanel === "chat" && (
+                  <>
+                    <MessageSquare className="w-4 h-4 text-amber-400" />
+                    <span>In-Call Messages</span>
+                  </>
+                )}
+                {activeSidePanel === "people" && (
+                  <>
+                    <Users className="w-4 h-4 text-amber-400" />
+                    <span>People ({hasRemotePeer ? "2" : "1"})</span>
+                  </>
+                )}
+                {activeSidePanel === "info" && (
+                  <>
+                    <Info className="w-4 h-4 text-amber-400" />
+                    <span>Meeting Details</span>
+                  </>
+                )}
               </h3>
               <button
                 type="button"
                 onClick={() => setActiveSidePanel(null)}
-                className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                title="Close panel"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1844,9 +1876,12 @@ export default function GoogleMeetRoom({
 
             {/* CHAT PANEL */}
             {activeSidePanel === "chat" && (
-              <div className="flex-1 flex flex-col min-h-0">
-                <div className="p-3 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-200/60 dark:border-white/[0.04] text-[11px] text-neutral-500 dark:text-neutral-400 font-sans text-center flex flex-col items-center gap-1.5">
-                  <span>Messages can be seen only by people in the call.</span>
+              <div className="flex-1 flex flex-col min-h-0 bg-[#14151a]">
+                <div className="p-3 bg-white/[0.03] border-b border-white/[0.06] text-[11px] text-neutral-400 font-sans text-center flex flex-col items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 text-neutral-300 font-medium">
+                    <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>Messages can be seen only by people in this call.</span>
+                  </div>
                   {timeState.isAbroad && (
                     <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 font-mono text-[10px] border border-sky-500/20">
                       <Globe className="w-3 h-3 shrink-0" />
@@ -1858,62 +1893,70 @@ export default function GoogleMeetRoom({
                 {/* Messages Feed */}
                 <div
                   ref={chatScrollRef}
-                  className="flex-1 p-4 overflow-y-auto space-y-3.5 min-h-0 text-xs"
+                  className="flex-1 p-4 overflow-y-auto space-y-3 min-h-0 text-xs"
                 >
-                  {messages.map((msg) => {
-                    const isMe = Boolean(
-                      msg.isMe ||
-                      (msg.senderSocketId && socketRef.current?.id && msg.senderSocketId === socketRef.current.id) ||
-                      (msg.senderId && currentUser?.id && String(msg.senderId) === String(currentUser.id)) ||
-                      (msg.sender && displayName && msg.sender.toLowerCase().trim() === displayName.toLowerCase().trim())
-                    );
+                  {messages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-4 text-neutral-500 space-y-2">
+                      <MessageSquare className="w-8 h-8 opacity-30 text-amber-400" />
+                      <p className="text-xs text-neutral-400 font-medium">No messages yet.</p>
+                      <p className="text-[11px] text-neutral-500">Send a note to everyone in this consultation.</p>
+                    </div>
+                  ) : (
+                    messages.map((msg) => {
+                      const isMe = Boolean(
+                        msg.isMe ||
+                        (msg.senderSocketId && socketRef.current?.id && msg.senderSocketId === socketRef.current.id) ||
+                        (msg.senderId && currentUser?.id && String(msg.senderId) === String(currentUser.id)) ||
+                        (msg.sender && displayName && msg.sender.toLowerCase().trim() === displayName.toLowerCase().trim())
+                      );
 
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`flex flex-col space-y-1 ${
-                          isMe ? "items-end" : "items-start"
-                        }`}
-                      >
+                      return (
                         <div
-                          className={`flex items-center gap-1.5 text-[10px] font-mono ${
-                            isMe ? "justify-end text-amber-400" : "justify-start text-neutral-400"
+                          key={msg.id}
+                          className={`flex flex-col space-y-1 ${
+                            isMe ? "items-end" : "items-start"
                           }`}
                         >
-                          <span className="font-bold">{isMe ? "You" : msg.sender}</span>
-                          <span className="text-white/40">·</span>
-                          <span className="text-white/50">{msg.time}</span>
+                          <div
+                            className={`flex items-center gap-1.5 text-[10px] font-mono ${
+                              isMe ? "justify-end text-amber-400/90" : "justify-start text-neutral-400"
+                            }`}
+                          >
+                            <span className="font-bold">{isMe ? "You" : msg.sender}</span>
+                            <span className="text-white/30">·</span>
+                            <span className="text-white/40">{msg.time}</span>
+                          </div>
+                          <div
+                            className={`px-3.5 py-2.5 rounded-2xl max-w-[85%] font-sans text-xs break-words leading-relaxed shadow-sm ${
+                              isMe
+                                ? "bg-amber-500 text-neutral-950 font-medium rounded-tr-xs shadow-amber-500/10"
+                                : "bg-[#1f2129] text-neutral-100 rounded-tl-xs border border-white/10"
+                            }`}
+                          >
+                            {msg.text}
+                          </div>
                         </div>
-                        <div
-                          className={`px-3.5 py-2.5 rounded-2xl max-w-[85%] font-sans text-xs break-words leading-relaxed shadow-sm ${
-                            isMe
-                              ? "bg-amber-500 text-neutral-950 font-semibold rounded-tr-xs shadow-amber-500/20"
-                              : "bg-neutral-800 text-neutral-100 rounded-tl-xs border border-white/10"
-                          }`}
-                        >
-                          {msg.text}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
 
                 {/* Message Input */}
                 <form
                   onSubmit={handleSendMessage}
-                  className="p-3 border-t border-neutral-200 dark:border-white/[0.08] flex items-center gap-2 bg-neutral-50/50 dark:bg-[#14151a]"
+                  className="p-3 border-t border-white/[0.08] flex items-center gap-2 bg-[#101115]"
                 >
                   <input
                     type="text"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Send a message to everyone"
-                    className="flex-1 px-3.5 py-2.5 rounded-full bg-white dark:bg-white/[0.06] border border-neutral-300 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    placeholder="Send a message to everyone..."
+                    className="flex-1 px-4 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.08] border border-white/10 focus:border-amber-500/70 focus:bg-white/[0.09] text-xs text-white placeholder-neutral-500 focus:outline-none transition-all"
                   />
                   <button
                     type="submit"
                     disabled={!chatInput.trim()}
-                    className="p-2.5 rounded-full bg-amber-500 disabled:bg-neutral-200 dark:disabled:bg-white/10 text-neutral-950 disabled:text-neutral-400 dark:disabled:text-neutral-500 transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
+                    className="p-2.5 rounded-full bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 font-bold transition-all cursor-pointer shadow-md shadow-amber-500/20 disabled:opacity-30 disabled:hover:bg-amber-500 disabled:cursor-not-allowed shrink-0"
                     title="Send message"
                   >
                     <Send className="w-3.5 h-3.5" />
@@ -1924,73 +1967,73 @@ export default function GoogleMeetRoom({
 
             {/* PEOPLE PANEL */}
             {activeSidePanel === "people" && (
-              <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+              <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-[#14151a]">
                 <div className="text-[11px] font-mono uppercase text-neutral-400 font-bold tracking-wider">
                   In Call ({hasRemotePeer ? "2" : "1"})
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {/* Local User */}
-                  <div className="flex items-center justify-between p-2.5 rounded-[8px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.04] border border-white/[0.07]">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-white flex items-center justify-center font-bold text-xs">
+                      <div className="w-8 h-8 rounded-full bg-neutral-800 text-white flex items-center justify-center font-bold text-xs border border-white/10">
                         {displayName.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
+                        <div className="text-xs font-bold text-white flex items-center gap-1.5">
                           <span>{displayName}</span>
-                          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">(You)</span>
+                          <span className="text-[10px] text-amber-400 font-mono">(You)</span>
                           {isHandRaised && <span>✋</span>}
                         </div>
-                        <div className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                        <div className="text-[10px] text-neutral-400">
                           {isUserAdmin ? "Lead Engineer (Host)" : "Client / Property Owner"}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
                       {isMicOn ? (
-                        <Mic className="w-4 h-4 text-emerald-500" />
+                        <Mic className="w-4 h-4 text-emerald-400" />
                       ) : (
-                        <MicOff className="w-4 h-4 text-rose-500" />
+                        <MicOff className="w-4 h-4 text-rose-400" />
                       )}
                     </div>
                   </div>
 
                   {/* Remote User (If connected) */}
                   {hasRemotePeer ? (
-                    <div className="flex items-center justify-between p-2.5 rounded-[8px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.04] border border-white/[0.07]">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs">
+                        <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs border border-amber-500/30">
                           {remotePeerName.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
+                          <div className="text-xs font-bold text-white flex items-center gap-1.5">
                             <span>{remotePeerName}</span>
-                            <span className="px-1.5 py-0.2 rounded-[2px] bg-amber-500/20 text-amber-700 dark:text-amber-400 font-mono text-[9px] uppercase font-bold">
+                            <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-mono text-[9px] uppercase font-bold border border-amber-500/30">
                               {isUserAdmin ? "Client" : "Consultant"}
                             </span>
                             {isRemoteHandRaised && <span>✋</span>}
                           </div>
-                          <div className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                          <div className="text-[10px] text-neutral-400">
                             {isUserAdmin ? "Client Participant" : "Lead Project Engineer"}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
                         {remoteMediaState.isMicOn !== false ? (
-                          <Mic className="w-4 h-4 text-emerald-500" />
+                          <Mic className="w-4 h-4 text-emerald-400" />
                         ) : (
-                          <MicOff className="w-4 h-4 text-rose-500" />
+                          <MicOff className="w-4 h-4 text-rose-400" />
                         )}
                       </div>
                     </div>
                   ) : (
-                    <div className="p-3 rounded-[8px] bg-neutral-50 dark:bg-white/[0.02] border border-dashed border-neutral-300 dark:border-white/10 text-center">
-                      <p className="text-xs font-sans text-neutral-600 dark:text-neutral-400">
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-dashed border-white/10 text-center">
+                      <p className="text-xs font-sans text-neutral-400">
                         Waiting for other participant to connect...
                       </p>
-                      <p className="text-[10px] font-mono text-neutral-400 mt-1">
-                        Code: {roomCode}
+                      <p className="text-[10px] font-mono text-neutral-500 mt-1">
+                        Room: {roomCode}
                       </p>
                     </div>
                   )}
@@ -2000,18 +2043,18 @@ export default function GoogleMeetRoom({
 
             {/* INFO PANEL */}
             {activeSidePanel === "info" && (
-              <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 uppercase">
+              <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-[#14151a]">
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-bold font-mono text-amber-400 uppercase tracking-wider">
                     Joining Information
                   </h4>
-                  <p className="text-xs text-neutral-700 dark:text-neutral-300 font-sans">
-                    Room Code: <span className="font-mono font-bold text-neutral-900 dark:text-white">{roomCode}</span>
+                  <p className="text-xs text-neutral-300 font-sans">
+                    Room Code: <span className="font-mono font-bold text-white">{roomCode}</span>
                   </p>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  <p className="text-[11px] text-neutral-400">
                     Direct access for client engineering consultation.
                   </p>
-                  <div className="pt-1 flex items-center gap-1.5 text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+                  <div className="pt-1 flex items-center gap-1.5 text-[11px] font-mono text-emerald-400">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     <span>Automatic End-to-End Encryption (256-bit TLS)</span>
                   </div>
@@ -2020,21 +2063,21 @@ export default function GoogleMeetRoom({
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-[8px] bg-neutral-100 dark:bg-white/[0.08] hover:bg-neutral-200 dark:hover:bg-white/[0.12] text-xs font-mono font-bold text-neutral-900 dark:text-white transition-colors cursor-pointer border border-neutral-200 dark:border-0"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-xs font-mono font-bold text-white transition-all cursor-pointer border border-white/10 active:scale-98"
                 >
-                  {hasCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  {hasCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{hasCopied ? "Copied" : "Copy Joining Link"}</span>
                 </button>
 
-                <div className="pt-4 border-t border-neutral-200 dark:border-white/[0.08] space-y-2">
-                  <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-bold">
+                <div className="pt-4 border-t border-white/[0.08] space-y-2">
+                  <span className="text-[11px] font-mono text-neutral-400 uppercase font-bold tracking-wider">
                     Project Parameters
                   </span>
-                  <div className="p-3 rounded-[8px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-0 text-xs space-y-1">
-                    <div className="text-neutral-500 dark:text-neutral-400 text-[10px] font-mono">PROJECT TITLE</div>
-                    <div className="font-bold text-neutral-900 dark:text-white">{activeProject?.project_title || "Residential Build Inquiry"}</div>
-                    <div className="text-neutral-500 dark:text-neutral-400 text-[10px] font-mono mt-1">PROJECT CODE</div>
-                    <div className="font-mono text-amber-600 dark:text-amber-400 font-bold">{activeProject?.project_code}</div>
+                  <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs space-y-1.5">
+                    <div className="text-neutral-500 text-[10px] font-mono">PROJECT TITLE</div>
+                    <div className="font-bold text-white">{activeProject?.project_title || "Residential Build Inquiry"}</div>
+                    <div className="text-neutral-500 text-[10px] font-mono mt-1">PROJECT CODE</div>
+                    <div className="font-mono text-amber-400 font-bold">{activeProject?.project_code || "MCPA-CONSULTATION"}</div>
                   </div>
                 </div>
               </div>

@@ -48,7 +48,7 @@ import { GoogleIcon } from "@/modules/shared/Icons";
 import {
   getConsultationHistory,
   updateMeetingRatingAndNote,
-  DEFAULT_CONSULTATION_HISTORY,
+  isDummyConsultationSession,
   formatMeetingDuration,
 } from "@/modules/portal/utils/meetingHistoryService";
 
@@ -194,6 +194,31 @@ export default function PortalMeetingHub({
   // Stored meeting history from service & localStorage
   const [consultationHistoryList, setConsultationHistoryList] = useState(() => getConsultationHistory());
 
+  // Purge any legacy dummy consultation records on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("mcpa_consultation_history");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const purged = parsed.filter((item) => !isDummyConsultationSession(item));
+          if (purged.length !== parsed.length) {
+            localStorage.setItem("mcpa_consultation_history", JSON.stringify(purged));
+            setConsultationHistoryList(purged);
+          }
+        }
+      }
+      const shared = localStorage.getItem("mcpa_shared_meeting_schedule");
+      if (shared) {
+        const parsedShared = JSON.parse(shared);
+        if (parsedShared && Array.isArray(parsedShared.history)) {
+          parsedShared.history = parsedShared.history.filter((item) => !isDummyConsultationSession(item));
+          localStorage.setItem("mcpa_shared_meeting_schedule", JSON.stringify(parsedShared));
+        }
+      }
+    } catch (e) {}
+  }, []);
+
   // Listen for meeting history updates across tabs and events
   useEffect(() => {
     const syncHistory = () => {
@@ -214,75 +239,11 @@ export default function PortalMeetingHub({
   const [activeRateHover, setActiveRateHover] = useState(0);
   const [activeRateNote, setActiveRateNote] = useState("");
 
-  // Synthesize complete meeting history and past consultations
+  // Synthesize complete meeting history and past consultations (real concluded meetings only)
   const meetingHistory = useMemo(() => {
-    let list = Array.isArray(consultationHistoryList) && consultationHistoryList.length > 0
-      ? [...consultationHistoryList]
-      : [...DEFAULT_CONSULTATION_HISTORY];
-
-    // Merge any historical sessions from activeMeetingInfo.history if not already in list
-    if (Array.isArray(activeMeetingInfo.history) && activeMeetingInfo.history.length > 0) {
-      activeMeetingInfo.history.forEach((h, idx) => {
-        const already = list.some((item) => item.id === h.id || (item.date === h.date && item.time === h.time));
-        if (!already) {
-          list.push({
-            id: h.id || `hist-extra-${idx}`,
-            round: h.round || idx + 1,
-            roundTitle: h.roundTitle || `Round ${h.round || idx + 1} Consultation`,
-            date: h.date || h.displayDate || "2026-10-13",
-            displayDate: h.displayDate || h.date || "Tue, Oct 13, 2026",
-            time: h.time || "09:00 AM - 10:30 AM PHT",
-            duration: h.duration || "1h 30m",
-            durationSeconds: h.durationSeconds || 5400,
-            mode: h.mode || "In-Person Consultation",
-            venue: h.venue || "MCPA Plaridel Central Office · Lounge 2B",
-            leadConsultant: h.leadConsultant || "Engr. Raymart Quirante",
-            leadRole: h.leadRole || "Lead Project Engineer & Consultant",
-            status: h.status || "Concluded",
-            rating: h.rating || 5,
-            clientNote: h.clientNote || h.notes || "Consultation deliberation recorded.",
-            outcome: h.outcome || "AGREED_ADVANCE",
-            minutes:
-              h.minutes ||
-              h.notes ||
-              "Consultation & architectural requirements alignment completed.",
-            actionItems: h.actionItems || ["Deliberation items confirmed", "Proceeding to next phase"],
-          });
-        }
-      });
-    }
-
-    // Merge active meeting if elapsed into the past
-    if (lifecycle.isPast) {
-      const alreadyPresent = list.some((item) => item.date === activeMeetingInfo.date && item.time === activeMeetingInfo.time);
-      if (!alreadyPresent) {
-        list.unshift({
-          id: "hist-active-past",
-          round: activeMeetingInfo.round || 2,
-          roundTitle: activeMeetingInfo.roundTitle || "Project Consultation & Discussion",
-          date: activeMeetingInfo.date,
-          displayDate: activeMeetingInfo.date,
-          time: activeMeetingInfo.time,
-          duration: "45 mins",
-          durationSeconds: 2700,
-          mode: activeMeetingInfo.mode,
-          venue: activeMeetingInfo.officeAddress || "MCPA Secure Video Room",
-          leadConsultant: activeMeetingInfo.leadConsultant || "Engr. Raymart Quirante",
-          leadRole: activeMeetingInfo.leadRole || "Lead Project Engineer & Consultant",
-          status: "Concluded",
-          rating: 5,
-          clientNote: "Discussion completed regarding project requirements and construction budget.",
-          outcome: activeMeetingInfo.outcome || "COMPLETED",
-          minutes:
-            activeMeetingInfo.agenda ||
-            "Consultation session completed. Architectural deliberation minutes recorded.",
-          actionItems: ["Deliberation minutes archived", "Engineering follow-up queued"],
-        });
-      }
-    }
-
-    return list;
-  }, [consultationHistoryList, activeMeetingInfo, lifecycle.isPast]);
+    if (!Array.isArray(consultationHistoryList)) return [];
+    return consultationHistoryList.filter((item) => !isDummyConsultationSession(item));
+  }, [consultationHistoryList]);
 
   // Filtered and searched history
   const filteredMeetingHistory = useMemo(() => {
@@ -982,13 +943,6 @@ export default function PortalMeetingHub({
                 </p>
               </div>
             </div>
-
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
-                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                <span>All Past Sessions Archived</span>
-              </span>
-            </div>
           </div>
 
           {/* Filter & View Mode Controls Toolbar */}
@@ -1076,7 +1030,9 @@ export default function PortalMeetingHub({
             <div className="p-10 text-center rounded-xl bg-white dark:bg-[#101218] border border-neutral-200/80 dark:border-white/[0.06] text-neutral-400 space-y-2">
               <History className="w-8 h-8 mx-auto text-neutral-300 dark:text-neutral-700 stroke-[1.5]" />
               <p className="text-xs font-mono">
-                No consultation sessions found matching this filter criteria.
+                {meetingHistory.length === 0
+                  ? "No consultation sessions recorded yet. Concluded meetings will appear here with call duration, ratings, and deliberation notes."
+                  : "No consultation sessions found matching this filter criteria."}
               </p>
             </div>
           ) : historyViewMode === "table" ? (
@@ -1086,7 +1042,7 @@ export default function PortalMeetingHub({
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-neutral-200/80 dark:border-white/10 bg-neutral-50/80 dark:bg-white/[0.02] text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                      <th className="py-3 px-4">Date &amp; Petsa</th>
+                      <th className="py-3 px-4">Date &amp; Time</th>
                       <th className="py-3 px-4">Mode / Type</th>
                       <th className="py-3 px-4">Meeting Topic</th>
                       <th className="py-3 px-4">Duration</th>
@@ -1107,7 +1063,7 @@ export default function PortalMeetingHub({
                           key={item.id || index}
                           className="hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors"
                         >
-                          {/* 1. Date & Petsa */}
+                          {/* 1. Date & Time */}
                           <td className="py-3.5 px-4 whitespace-nowrap">
                             <div className="font-semibold text-neutral-900 dark:text-white">
                               {item.displayDate}

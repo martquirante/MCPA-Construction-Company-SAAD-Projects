@@ -43,6 +43,108 @@ import {
 import { INITIAL_PROJECTS, deduplicateProjects, broadcastProjectsChange, subscribeProjectsChange } from "@/modules/shared/projectsHelper";
 import { authFetch } from "@/modules/shared/authFetch";
 
+export function resolveAdminAvatar(user) {
+  if (!user) return null;
+  const direct = user.avatar_url || user.avatarUrl;
+  if (
+    direct &&
+    typeof direct === "string" &&
+    direct.trim() &&
+    direct !== "null" &&
+    direct !== "undefined"
+  ) {
+    return direct.trim();
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("mcpa_admin_avatar");
+      if (stored && stored.trim() && stored !== "null" && stored !== "undefined") {
+        return stored.trim();
+      }
+    } catch {}
+  }
+
+  const email = (user.email || "").toLowerCase().trim();
+  const name = (user.fullName || user.name || "").toLowerCase().trim();
+  if (
+    email.includes("quirante") ||
+    email === "dbprojectmartquirante@gmail.com" ||
+    email === "martquirante@gmail.com" ||
+    email === "martquirante04@gmail.com" ||
+    name.includes("raymart") ||
+    name.includes("quirante")
+  ) {
+    return "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
+  }
+
+  return null;
+}
+
+function AdminAvatar({ user, sizeClasses = "w-8 h-8", textClasses = "text-xs" }) {
+  const resolvedUrl = useMemo(() => resolveAdminAvatar(user), [user]);
+  const [currentSrc, setCurrentSrc] = useState(resolvedUrl);
+  const [hasFailed, setHasFailed] = useState(false);
+
+  useEffect(() => {
+    setCurrentSrc(resolvedUrl);
+    setHasFailed(false);
+  }, [resolvedUrl]);
+
+  const initials = useMemo(() => {
+    const rawName = user?.fullName || user?.name || "Raymart Quirante";
+    return (
+      rawName
+        .replace(/^(Engr\.|Arch\.|Dr\.|Atty\.|Mr\.|Ms\.|Mrs\.)\s+/i, "")
+        .trim()
+        .split(/\s+/)
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "RQ"
+    );
+  }, [user?.fullName, user?.name]);
+
+  const handleError = () => {
+    const googleFallback =
+      "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
+    if (currentSrc && currentSrc !== googleFallback) {
+      const email = (user?.email || "").toLowerCase().trim();
+      const name = (user?.fullName || user?.name || "").toLowerCase().trim();
+      if (
+        email.includes("quirante") ||
+        email === "dbprojectmartquirante@gmail.com" ||
+        name.includes("raymart") ||
+        name.includes("quirante")
+      ) {
+        setCurrentSrc(googleFallback);
+        return;
+      }
+    }
+    setHasFailed(true);
+  };
+
+  return (
+    <div
+      className={`${sizeClasses} rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold ${textClasses} flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs`}
+    >
+      {currentSrc && !hasFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={currentSrc}
+          alt={user?.fullName || user?.name || "Admin Avatar"}
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
+          onError={handleError}
+        />
+      ) : (
+        <span>{initials}</span>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [emailInput, setEmailInput] = useState("");
@@ -384,6 +486,9 @@ export default function AdminPage() {
                           setCurrentUser(refreshed);
                           localStorage.setItem("mcpa_admin_user", JSON.stringify(refreshed));
                           sessionStorage.setItem("mcpa_admin_user", JSON.stringify(refreshed));
+                          if (refreshed.avatar_url || refreshed.avatarUrl) {
+                            localStorage.setItem("mcpa_admin_avatar", refreshed.avatar_url || refreshed.avatarUrl);
+                          }
                         }
                       })
                       .catch(() => {});
@@ -546,6 +651,9 @@ export default function AdminPage() {
         sessionStorage.setItem("mcpa_admin_authenticated", "true");
         localStorage.setItem("mcpa_admin_user", JSON.stringify(loggedUser));
         sessionStorage.setItem("mcpa_admin_user", JSON.stringify(loggedUser));
+        if (loggedUser.avatar_url || loggedUser.avatarUrl) {
+          localStorage.setItem("mcpa_admin_avatar", loggedUser.avatar_url || loggedUser.avatarUrl);
+        }
 
         if (data.token) {
           localStorage.setItem("mcpa_admin_token", data.token);
@@ -575,6 +683,11 @@ export default function AdminPage() {
     try {
       localStorage.setItem("mcpa_admin_user", JSON.stringify(formatted));
       sessionStorage.setItem("mcpa_admin_user", JSON.stringify(formatted));
+      if (formatted.avatar_url || formatted.avatarUrl) {
+        localStorage.setItem("mcpa_admin_avatar", formatted.avatar_url || formatted.avatarUrl);
+      } else {
+        localStorage.removeItem("mcpa_admin_avatar");
+      }
     } catch (e) {}
   };
 
@@ -1513,25 +1626,7 @@ export default function AdminPage() {
               tabIndex={0}
               title="Open Account Settings & Profile"
             >
-              <div className="w-9 h-9 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs">
-                {currentUser?.avatar_url || currentUser?.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={currentUser.avatar_url || currentUser.avatarUrl}
-                    alt="Profile Avatar"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  (currentUser?.fullName || currentUser?.name || "Raymart Quirante")
-                    .replace(/^(Engr\.|Arch\.|Dr\.|Atty\.|Mr\.|Ms\.|Mrs\.)\s+/i, "")
-                    .trim()
-                    .split(/\s+/)
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase() || "RQ"
-                )}
-              </div>
+              <AdminAvatar user={currentUser} sizeClasses="w-9 h-9" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                   {currentUser?.fullName || currentUser?.name || "Raymart Quirante"}
@@ -1576,25 +1671,7 @@ export default function AdminPage() {
                   className="relative group cursor-pointer focus:outline-none"
                   title={`${currentUser?.fullName || currentUser?.name || "Raymart Quirante"} (${currentUser?.role || "ADMIN"})`}
                 >
-                  <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs">
-                    {currentUser?.avatar_url || currentUser?.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={currentUser.avatar_url || currentUser.avatarUrl}
-                        alt="Profile Avatar"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      (currentUser?.fullName || currentUser?.name || "Raymart Quirante")
-                        .replace(/^(Engr\.|Arch\.|Dr\.|Atty\.|Mr\.|Ms\.|Mrs\.)\s+/i, "")
-                        .trim()
-                        .split(/\s+/)
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase() || "RQ"
-                    )}
-                  </div>
+                  <AdminAvatar user={currentUser} sizeClasses="w-8 h-8" />
 
                   {/* Tooltip */}
                   <div className="hidden lg:block absolute left-full bottom-0 ml-2 px-2.5 py-1 rounded-[4px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
@@ -1631,25 +1708,7 @@ export default function AdminPage() {
                   tabIndex={0}
                   title="Click to edit Account Settings & Profile"
                 >
-                  <div className="w-8 h-8 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs">
-                    {currentUser?.avatar_url || currentUser?.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={currentUser.avatar_url || currentUser.avatarUrl}
-                        alt="Profile Avatar"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      (currentUser?.fullName || currentUser?.name || "Raymart Quirante")
-                        .replace(/^(Engr\.|Arch\.|Dr\.|Atty\.|Mr\.|Ms\.|Mrs\.)\s+/i, "")
-                        .trim()
-                        .split(/\s+/)
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase() || "RQ"
-                    )}
-                  </div>
+                  <AdminAvatar user={currentUser} sizeClasses="w-8 h-8" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                       {currentUser?.fullName || currentUser?.name || "Raymart Quirante"}

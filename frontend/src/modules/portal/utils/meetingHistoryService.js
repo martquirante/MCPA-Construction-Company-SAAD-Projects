@@ -33,101 +33,101 @@ export function formatMeetingDuration(seconds) {
 }
 
 /**
- * Standard default historical sessions to ensure authoritative architectural record
+ * Standard consultation history default (clean initial state, zero dummy sessions)
  */
-export const DEFAULT_CONSULTATION_HISTORY = [
-  {
-    id: "hist-round-1-f2f",
-    round: 1,
-    roundTitle: "Round 1 · Initial Architectural Scoping & Requirements Review",
-    date: "2026-10-13",
-    displayDate: "Tue, Oct 13, 2026",
-    time: "09:00 AM - 10:30 AM PHT",
-    duration: "1h 30m",
-    durationSeconds: 5400,
-    mode: "In-Person Consultation",
-    venue: "MCPA Plaridel Central Office · Lounge 2B",
-    leadConsultant: "Engr. Raymart Quirante",
-    leadRole: "Lead Project Engineer & Consultant",
-    status: "Concluded",
-    rating: 5,
-    clientNote: "Very thorough initial scoping session. Engr. Raymart explained setback constraints and answered all architectural questions clearly.",
-    minutes:
-      "Comprehensive face-to-face consultation reviewing architectural wishlist, high ceiling preferences, lot setback allowances, and initial budget estimation. Engineering team aligned on structural specifications and scheduled Round 2 presentation.",
-    actionItems: [
-      "Lot TCT / Tax Dec zoning verification confirmed",
-      "Initial structural engineering layout & space programming drafted",
-      "Advance to Round 2 Online Video Engineering presentation",
-    ],
-  },
-  {
-    id: "hist-instant-setback-01",
-    round: 1.5,
-    roundTitle: "Instant Consultation · Property Setback & Boundary Clarification",
-    date: "2026-10-13",
-    displayDate: "Tue, Oct 13, 2026",
-    time: "02:15 PM - 02:38 PM PHT",
-    duration: "23 mins",
-    durationSeconds: 1380,
-    mode: "Instant Online Meeting",
-    venue: "MCPA Instant WebRTC Room",
-    leadConsultant: "Engr. Raymart Quirante",
-    leadRole: "Lead Project Engineer & Consultant",
-    status: "Concluded",
-    rating: 5,
-    clientNote: "Immediate response from engineering team. Resolved corner lot clearance quickly through live video discussion.",
-    minutes:
-      "Instant video engineering consultation addressing setback limits along northern perimeter boundary and rainwater harvesting tank placement. Structural team confirmed 2-meter minimum rear setback compliance.",
-    actionItems: [
-      "Perimeter setback marked on CAD layout",
-      "Rainwater cistern repositioned to east garden",
-    ],
-  },
-  {
-    id: "hist-round-2-sched-mep",
-    round: 2,
-    roundTitle: "Round 2 · Engineering Blueprint & MEP System Review",
-    date: "2026-10-12",
-    displayDate: "Mon, Oct 12, 2026",
-    time: "03:00 PM - 03:45 PM PHT",
-    duration: "45 mins",
-    durationSeconds: 2700,
-    mode: "Scheduled Online Video",
-    venue: "Google Meet · meet.google.com/fvv-rdoo-wfn",
-    leadConsultant: "Engr. Raymart Quirante",
-    leadRole: "Lead Project Engineer & Consultant",
-    status: "Concluded",
-    rating: 5,
-    clientNote: "Clear presentation of electrical and plumbing riser diagrams. Highly satisfied with engineering transparency.",
-    minutes:
-      "Virtual engineering session reviewing preliminary MEP (Mechanical, Electrical, Plumbing) designs, load computations for AC units, and solar-ready conduit paths. Client approved the proposed solar panel orientation.",
-    actionItems: [
-      "Solar conduit specification added to electrical plan",
-      "Final MEP bill of materials updated",
-    ],
-  },
-];
+export const DEFAULT_CONSULTATION_HISTORY = [];
+
+const LEGACY_DUMMY_IDS = new Set([
+  "hist-round-1-f2f",
+  "hist-instant-setback-01",
+  "hist-round-2-sched-mep",
+]);
+
+/**
+ * Identify any seeded, mock, or synthetic dummy consultation sessions
+ */
+export function isDummyConsultationSession(item) {
+  if (!item) return true;
+  const id = String(item.id || "").toLowerCase();
+  const title = String(item.roundTitle || item.projectTitle || "").toLowerCase();
+  const note = String(item.clientNote || item.notes || item.minutes || "").toLowerCase();
+  const venue = String(item.venue || "").toLowerCase();
+
+  // Legacy or synthetic dummy IDs
+  if (
+    LEGACY_DUMMY_IDS.has(item.id) ||
+    id === "hist-round-1-f2f" ||
+    id === "hist-instant-setback-01" ||
+    id === "hist-round-2-sched-mep" ||
+    id.startsWith("hist-extra-") ||
+    id.startsWith("hist-active-") ||
+    id.includes("dummy")
+  ) {
+    return true;
+  }
+
+  // Known dummy titles from seed data
+  if (
+    title.includes("initial architectural scoping") ||
+    title.includes("property setback & boundary") ||
+    title.includes("engineering blueprint & mep") ||
+    title.includes("architectural scoping") ||
+    title.includes("property setback")
+  ) {
+    return true;
+  }
+
+  // Known dummy deliberation / feedback notes
+  if (
+    note.includes("very thorough") ||
+    note.includes("immediate response from engineering") ||
+    note.includes("immediate response...") ||
+    note.includes("clear presentation of electrical") ||
+    note.includes("clear presentation...") ||
+    note.includes("rainwater harvesting") ||
+    note.includes("perimeter boundary")
+  ) {
+    return true;
+  }
+
+  // Known dummy venues
+  if (
+    venue.includes("lounge 2b") ||
+    venue.includes("instant webrtc room") ||
+    venue.includes("meet.google.com/fvv-rdoo-wfn")
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Retrieve consultation history from localStorage with fallback defaults
  */
 export function getConsultationHistory() {
-  if (typeof window === "undefined") return DEFAULT_CONSULTATION_HISTORY;
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CONSULTATION_HISTORY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY_CONSULTATION_HISTORY, JSON.stringify(DEFAULT_CONSULTATION_HISTORY));
-      return DEFAULT_CONSULTATION_HISTORY;
+      return [];
     }
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem(STORAGE_KEY_CONSULTATION_HISTORY, JSON.stringify(DEFAULT_CONSULTATION_HISTORY));
-      return DEFAULT_CONSULTATION_HISTORY;
+      return [];
     }
-    return parsed;
+    // Cleanse out any legacy or seeded dummy records from earlier development
+    const cleaned = parsed.filter((item) => item && !isDummyConsultationSession(item));
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEY_CONSULTATION_HISTORY, JSON.stringify(cleaned));
+      try {
+        window.dispatchEvent(new CustomEvent("mcpa-meeting-history-updated", { detail: cleaned }));
+      } catch (err) {}
+    }
+    return cleaned;
   } catch (e) {
     console.warn("[MCPA] Failed to load consultation history from localStorage:", e);
-    return DEFAULT_CONSULTATION_HISTORY;
+    return [];
   }
 }
 
@@ -137,8 +137,10 @@ export function getConsultationHistory() {
 export function saveConsultationHistory(items) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY_CONSULTATION_HISTORY, JSON.stringify(items));
-    window.dispatchEvent(new CustomEvent("mcpa-meeting-history-updated", { detail: items }));
+    const safeItems = Array.isArray(items) ? items : [];
+    localStorage.setItem(STORAGE_KEY_CONSULTATION_HISTORY, JSON.stringify(safeItems));
+    window.dispatchEvent(new CustomEvent("mcpa-meeting-history-updated", { detail: safeItems }));
+    window.dispatchEvent(new CustomEvent("mcpa-meeting-updated", { detail: safeItems }));
   } catch (e) {
     console.warn("[MCPA] Failed to save consultation history:", e);
   }
@@ -158,6 +160,10 @@ export function recordConcludedMeeting({
   leadConsultant = "Engr. Raymart Quirante",
   leadRole = "Lead Project Engineer & Consultant",
   actionItems = ["Consultation concluded and deliberation archived"],
+  clientName = "Raymart Quirante",
+  clientEmail = "martquirante@gmail.com",
+  projectCode = "MCPA-2026-MQ04B",
+  projectTitle = "Modern Tropical Residence",
 }) {
   const current = getConsultationHistory();
   const now = new Date();
@@ -191,6 +197,10 @@ export function recordConcludedMeeting({
     venue,
     leadConsultant,
     leadRole,
+    clientName,
+    clientEmail,
+    projectCode,
+    projectTitle,
     status: "Concluded",
     rating: typeof rating === "number" ? Math.max(1, Math.min(5, rating)) : 5,
     clientNote: clientNote.trim() || (mode.toLowerCase().includes("instant") ? "Instant consultation concluded with engineering team." : "Consultation finished successfully."),

@@ -82,6 +82,7 @@ export default function AdminSettingsModal({
   const [civilStatus, setCivilStatus] = useState("Single");
   const [locationAddress, setLocationAddress] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [facebookUrl, setFacebookUrl] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
@@ -128,6 +129,7 @@ export default function AdminSettingsModal({
         setCivilStatus(currentUser.civilStatus || currentUser.civil_status || "Single");
         setLocationAddress(currentUser.locationAddress || currentUser.location_address || "");
         setAvatarUrl(currentUser.avatarUrl || currentUser.avatar_url || "");
+        setAvatarLoadError(false);
         setFacebookUrl(currentUser.facebookUrl || currentUser.facebook_url || "");
         setLinkedinUrl(currentUser.linkedinUrl || currentUser.linkedin_url || "");
         setInstagramUrl(currentUser.instagramUrl || currentUser.instagram_url || "");
@@ -309,6 +311,7 @@ export default function AdminSettingsModal({
       const data = await res.json();
       if (res.ok && data.success && data.url) {
         setAvatarUrl(data.url);
+        setAvatarLoadError(false);
         triggerNotification("Photo uploaded! Click 'Save Profile Information' below to apply.");
       } else {
         throw new Error(data.message || "Failed to upload photo.");
@@ -574,12 +577,15 @@ export default function AdminSettingsModal({
                   <div className="flex items-center gap-4">
                     {/* Avatar Display */}
                     <div className="relative w-16 h-16 rounded-[4px] bg-amber-500/15 border border-amber-500/30 flex items-center justify-center font-bold font-mono text-lg text-amber-700 dark:text-amber-400 overflow-hidden shrink-0 shadow-xs">
-                      {avatarUrl ? (
+                      {avatarUrl && !avatarLoadError ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={avatarUrl}
                           alt="Profile Avatar"
                           className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          crossOrigin="anonymous"
+                          onError={() => setAvatarLoadError(true)}
                         />
                       ) : (
                         <span>{computedMonogram}</span>

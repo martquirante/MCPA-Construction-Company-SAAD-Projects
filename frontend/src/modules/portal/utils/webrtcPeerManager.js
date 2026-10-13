@@ -53,15 +53,18 @@ export function optimizeOpusSdp(sdp) {
     if (fmtpRegex.test(sdp)) {
       return sdp.replace(fmtpRegex, (match, prefix, params) => {
         let updated = params;
-        if (!updated.includes("usedtx=")) updated += ";usedtx=1";
+        // Keep in-band FEC for packet loss protection, but remove usedtx=1 (DTX)
+        // because aggressive DTX mutes speech on pauses and cuts off sentence starts
+        if (updated.includes("usedtx=1")) {
+          updated = updated.replace(/;?usedtx=1/g, "");
+        }
         if (!updated.includes("useinbandfec=")) updated += ";useinbandfec=1";
-        if (!updated.includes("stereo=")) updated += ";stereo=0;sprop-stereo=0";
         return `${prefix}${updated}`;
       });
     } else {
       return sdp.replace(
         new RegExp(`(a=rtpmap:${pt}\\s+opus\\/48000[^\\r\\n]*[\\r\\n]+)`, "i"),
-        `$1a=fmtp:${pt} minptime=10;useinbandfec=1;usedtx=1;stereo=0;sprop-stereo=0\r\n`
+        `$1a=fmtp:${pt} useinbandfec=1\r\n`
       );
     }
   } catch (err) {
@@ -311,11 +314,7 @@ export class WebRTCPeerManager {
     this.remoteSocketId = fromSocketId;
 
     try {
-      const tunedRemoteOffer = new RTCSessionDescription({
-        type: sdpOffer.type,
-        sdp: optimizeOpusSdp(sdpOffer.sdp),
-      });
-      await this.peerConnection.setRemoteDescription(tunedRemoteOffer);
+      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdpOffer));
 
       // Ensure local tracks are attached to the negotiated transceivers before creating answer
       if (this.localStream) {
@@ -371,11 +370,7 @@ export class WebRTCPeerManager {
     if (!this.peerConnection) return;
 
     try {
-      const tunedRemoteAnswer = new RTCSessionDescription({
-        type: sdpAnswer.type,
-        sdp: optimizeOpusSdp(sdpAnswer.sdp),
-      });
-      await this.peerConnection.setRemoteDescription(tunedRemoteAnswer);
+      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdpAnswer));
 
       // Process pending candidates
       while (this.pendingCandidates.length > 0) {
