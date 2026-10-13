@@ -53,6 +53,11 @@ export function isDummyConsultationSession(item) {
   const note = String(item.clientNote || item.notes || item.minutes || "").toLowerCase();
   const venue = String(item.venue || "").toLowerCase();
 
+  // Genuine dynamically created sessions with real numeric timestamp IDs are preserved
+  if (/^hist-\d{12,14}-[a-z0-9]+$/i.test(item.id)) {
+    return false;
+  }
+
   // Legacy or synthetic dummy IDs
   if (
     LEGACY_DUMMY_IDS.has(item.id) ||
@@ -90,10 +95,9 @@ export function isDummyConsultationSession(item) {
     return true;
   }
 
-  // Known dummy venues
+  // Known dummy venues from early development mocks
   if (
     venue.includes("lounge 2b") ||
-    venue.includes("instant webrtc room") ||
     venue.includes("meet.google.com/fvv-rdoo-wfn")
   ) {
     return true;

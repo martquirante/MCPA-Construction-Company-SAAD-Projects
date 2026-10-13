@@ -1400,6 +1400,7 @@ export default function GoogleMeetRoom({
       time: timeState.isAbroad ? `${localTimeStr} (${phTimeStr} PH)` : localTimeStr,
       phTime: phTimeStr,
       localTime: localTimeStr,
+      createdAt: now.toISOString(),
       text: chatInput.trim(),
       isHost: isUserAdmin,
       isMe: true,
@@ -1924,7 +1925,9 @@ export default function GoogleMeetRoom({
                           >
                             <span className="font-bold">{isMe ? "You" : msg.sender}</span>
                             <span className="text-white/30">·</span>
-                            <span className="text-white/40">{msg.time}</span>
+                            <span className="text-white/40">
+                              {msg.time || (msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "")}
+                            </span>
                           </div>
                           <div
                             className={`px-3.5 py-2.5 rounded-2xl max-w-[85%] font-sans text-xs break-words leading-relaxed shadow-sm ${

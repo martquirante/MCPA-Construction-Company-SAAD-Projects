@@ -134,13 +134,23 @@ class WebRTCSignalingService {
       // 5. In-Call Real-Time Chat Messaging
       socket.on("send-chat-message", ({ roomCode, message }) => {
         if (!roomCode || !message) return;
+        const fallbackTime = new Date().toLocaleTimeString("en-US", {
+          timeZone: "Asia/Manila",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+
         const msgPayload = {
           id: message.id || Date.now().toString(),
           sender: message.sender || socket.userData?.name || "Participant",
           senderSocketId: message.senderSocketId || socket.id,
           senderId: message.senderId || socket.userData?.id || null,
           role: message.role || socket.userData?.role || "Client",
-          time: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
+          time: message.time || fallbackTime,
+          phTime: message.phTime || fallbackTime,
+          localTime: message.localTime || fallbackTime,
+          createdAt: message.createdAt || new Date().toISOString(),
           text: message.text,
           isHost: Boolean(message.isHost || socket.userData?.role === "ADMIN" || socket.userData?.role === "ENGINEER"),
         };
