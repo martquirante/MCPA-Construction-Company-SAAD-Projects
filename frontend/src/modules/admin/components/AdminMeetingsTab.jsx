@@ -383,17 +383,42 @@ export default function AdminMeetingsTab({
     return [];
   });
 
+  const [unarchivedMeetingIds, setUnarchivedMeetingIds] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return JSON.parse(localStorage.getItem("mcpa_unarchived_meeting_ids") || "[]");
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
   const isMeetingArchived = (m) => {
     if (!m) return false;
+    // Explicit unarchived override by admin
+    if (unarchivedMeetingIds.includes(m.id) || unarchivedMeetingIds.includes(m.projectCode)) return false;
+    // Explicit archived by admin
     if (archivedMeetingIds.includes(m.id) || archivedMeetingIds.includes(m.projectCode)) return true;
     const s = (m.status || "").toLowerCase();
-    return (
+    if (
       s.includes("complete") ||
       s.includes("aligned") ||
       s.includes("closed") ||
       s.includes("archived") ||
-      s.includes("discontinued")
-    );
+      s.includes("discontinued") ||
+      s.includes("concluded") ||
+      s.includes("withdrawn")
+    ) {
+      return true;
+    }
+    // Time-based conclusion: if meeting scheduled time has passed, treat as past/concluded
+    try {
+      const lifecycle = getMeetingLifecycleState(m, currentTime);
+      if (lifecycle?.isPast) return true;
+    } catch (e) {}
+
+    return false;
   };
 
   // Metrics (Accurate active count, auto-deducting finished/archived meetings)
@@ -401,6 +426,7 @@ export default function AdminMeetingsTab({
     const activeList = meetingsList.filter((m) => !isMeetingArchived(m));
     const archivedList = meetingsList.filter((m) => isMeetingArchived(m));
     return {
+      allTotal: meetingsList.length,
       total: activeList.length,
       archived: archivedList.length,
       today: activeList.filter((m) => m.isToday).length,
@@ -409,7 +435,7 @@ export default function AdminMeetingsTab({
       confirmed: activeList.filter((m) => m.status === "Confirmed" || m.status === "Room Ready").length,
       upcoming: activeList.filter((m) => m.status !== "Completed").length,
     };
-  }, [meetingsList, archivedMeetingIds]);
+  }, [meetingsList, archivedMeetingIds, unarchivedMeetingIds, currentTime]);
 
   // Synchronize active meetings count with Navbar Badge in real-time
   useEffect(() => {
@@ -425,38 +451,43 @@ export default function AdminMeetingsTab({
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matches =
-          m.clientName.toLowerCase().includes(q) ||
-          m.clientEmail.toLowerCase().includes(q) ||
-          m.projectCode.toLowerCase().includes(q) ||
-          m.roomCode.toLowerCase().includes(q);
+          (m.clientName || "").toLowerCase().includes(q) ||
+          (m.clientEmail || "").toLowerCase().includes(q) ||
+          (m.projectCode || "").toLowerCase().includes(q) ||
+          (m.roomCode || "").toLowerCase().includes(q);
         if (!matches) return false;
       }
 
       const isArchived = isMeetingArchived(m);
 
-      // Archive tab filter
-      if (activeFilter === "archive") return isArchived;
+      // "all_records": show ALL meetings without hiding anything
+      if (activeFilter === "all_records") return true;
+
+      // Archive / History tab filter
+      if (activeFilter === "archive" || activeFilter === "history") return isArchived;
 
       // All other views hide archived meetings automatically!
       if (isArchived) return false;
 
       // Tab filter
       if (activeFilter === "today") return m.isToday;
-      if (activeFilter === "online") return m.mode.toLowerCase().includes("online");
-      if (activeFilter === "f2f") return !m.mode.toLowerCase().includes("online");
+      if (activeFilter === "online") return (m.mode || "").toLowerCase().includes("online");
+      if (activeFilter === "f2f") return !(m.mode || "").toLowerCase().includes("online");
       if (activeFilter === "completed") return m.status === "Completed";
       if (activeFilter === "upcoming") return m.status !== "Completed";
 
       return true;
     });
-  }, [meetingsList, searchQuery, activeFilter, archivedMeetingIds]);
+  }, [meetingsList, searchQuery, activeFilter, archivedMeetingIds, unarchivedMeetingIds, currentTime]);
 
   // Manual Archive / Restore toggle handler
   const handleToggleArchive = (meeting) => {
     const isCurrentlyArchived = isMeetingArchived(meeting);
     let nextArchived;
+    let nextUnarchived;
     if (isCurrentlyArchived) {
       nextArchived = archivedMeetingIds.filter((id) => id !== meeting.id && id !== meeting.projectCode);
+      nextUnarchived = Array.from(new Set([...unarchivedMeetingIds, meeting.id, meeting.projectCode]));
       setMeetingsList((prev) =>
         prev.map((m) =>
           m.id === meeting.id
@@ -467,18 +498,21 @@ export default function AdminMeetingsTab({
       showToast(`Meeting with ${meeting.clientName} restored to active list.`);
     } else {
       nextArchived = Array.from(new Set([...archivedMeetingIds, meeting.id, meeting.projectCode]));
+      nextUnarchived = unarchivedMeetingIds.filter((id) => id !== meeting.id && id !== meeting.projectCode);
       setMeetingsList((prev) =>
         prev.map((m) =>
           m.id === meeting.id
-            ? { ...m, status: "Archived / Completed", isArchived: true }
+            ? { ...m, status: "Archived / Concluded", isArchived: true }
             : m
         )
       );
-      showToast(`Meeting with ${meeting.clientName} automatically moved to Archive.`);
+      showToast(`Meeting with ${meeting.clientName} automatically moved to Meeting History / Archive.`);
     }
     setArchivedMeetingIds(nextArchived);
+    setUnarchivedMeetingIds(nextUnarchived);
     try {
       localStorage.setItem("mcpa_archived_meeting_ids", JSON.stringify(nextArchived));
+      localStorage.setItem("mcpa_unarchived_meeting_ids", JSON.stringify(nextUnarchived));
       window.dispatchEvent(
         new CustomEvent("mcpa-meeting-updated", {
           detail: { id: meeting.id, isArchived: !isCurrentlyArchived },
@@ -981,7 +1015,10 @@ export default function AdminMeetingsTab({
           <div className="text-2xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white">
             {metrics.total}
           </div>
-          <div className="text-[11px] text-neutral-400 font-sans">Active Appointment Pipeline</div>
+          <div className="text-[11px] text-neutral-400 font-sans flex items-center justify-between">
+            <span>Active Pipeline</span>
+            <span className="font-mono text-amber-600 dark:text-amber-400 font-semibold">{metrics.archived} in History</span>
+          </div>
         </div>
 
         <div className="p-4 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1 hover:border-emerald-500/30 transition-colors">
@@ -1087,8 +1124,10 @@ export default function AdminMeetingsTab({
         <div className="p-12 text-center rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] text-neutral-400 space-y-2">
           <CalendarCheck className="w-8 h-8 mx-auto text-neutral-300 dark:text-neutral-700 stroke-[1.5]" />
           <p className="text-xs font-mono">
-            {activeFilter === "archive"
-              ? "No archived or concluded meetings found."
+            {activeFilter === "archive" || activeFilter === "history"
+              ? "No archived or concluded meetings found in history."
+              : activeFilter === "all_records"
+              ? "No meeting records found in database."
               : "No meeting schedules found matching criteria."}
           </p>
         </div>
@@ -1122,6 +1161,12 @@ export default function AdminMeetingsTab({
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
                         {item.projectCode}
                       </span>
+                      {isMeetingArchived(item) && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-mono font-semibold uppercase inline-flex items-center gap-1">
+                          <Archive className="w-2.5 h-2.5" />
+                          <span>History</span>
+                        </span>
+                      )}
                       {lifecycle.isOngoing && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-mono font-bold uppercase animate-pulse inline-flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
@@ -1319,6 +1364,13 @@ export default function AdminMeetingsTab({
                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-mono font-bold uppercase animate-pulse inline-flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
                           <span>Live</span>
+                        </span>
+                      )}
+
+                      {isMeetingArchived(item) && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-mono font-semibold uppercase inline-flex items-center gap-1">
+                          <Archive className="w-2.5 h-2.5" />
+                          <span>History</span>
                         </span>
                       )}
                     </div>

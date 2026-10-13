@@ -98,12 +98,21 @@ export default function MeetingFilterCombobox({
     },
     {
       id: "archive",
-      label: "Archive / Concluded",
-      shortLabel: "Archive",
+      label: "Meeting History / Archive",
+      shortLabel: "History",
       count: metrics.archived ?? 0,
       icon: Archive,
       iconSrc: "https://cdn.lordicon.com/whczgeur.json",
       colors: "primary:#64748b,secondary:#94a3b8",
+    },
+    {
+      id: "all_records",
+      label: "All Meetings (Full History)",
+      shortLabel: "All Meetings",
+      count: metrics.allTotal ?? ((metrics.total || 0) + (metrics.archived || 0)),
+      icon: CalendarCheck,
+      iconSrc: "https://cdn.lordicon.com/gqdnbnwt.json",
+      colors: "primary:#f59e0b,secondary:#10b981",
     },
   ];
 
