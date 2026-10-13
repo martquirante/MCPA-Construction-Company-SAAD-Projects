@@ -118,9 +118,12 @@ export default function GoogleMeetRoom({
     }
   }, [isFullscreen, isFloatingPiP, mounted]);
 
+  const isLeavingRef = useRef(false);
+
   // AUTO PICTURE-IN-PICTURE & FLOATING MINI-WINDOW ON TAB SWITCH / DEVICE ACTIVITY
   useEffect(() => {
     const handleVisibilityChange = async () => {
+      if (isLeavingRef.current) return;
       if (document.hidden) {
         setIsFloatingPiP(true);
         try {
@@ -174,6 +177,7 @@ export default function GoogleMeetRoom({
   }, []);
 
   const handleLeaveCall = () => {
+    isLeavingRef.current = true;
     try {
       if (typeof document !== "undefined" && document.pictureInPictureElement && document.exitPictureInPicture) {
         document.exitPictureInPicture().catch(() => {});
@@ -186,7 +190,8 @@ export default function GoogleMeetRoom({
     // Fully purge instant call state across localStorage, sessionStorage, and window events
     try {
       localStorage.removeItem("mcpa_instant_call_active");
-      sessionStorage.setItem("mcpa_dismissed_instant_call", roomCode);
+      sessionStorage.setItem("mcpa_dismissed_instant_call", roomCode || "all");
+      sessionStorage.setItem("mcpa_call_recently_left", String(Date.now()));
       window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode } }));
     } catch (e) {}
 
@@ -194,7 +199,9 @@ export default function GoogleMeetRoom({
       try {
         socketRef.current.emit("instant-call-ended", { roomCode });
         socketRef.current.emit("leave-room", { roomCode });
-        socketRef.current.disconnect();
+        setTimeout(() => {
+          socketRef.current?.disconnect();
+        }, 500);
       } catch (e) {}
     }
 

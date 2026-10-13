@@ -203,7 +203,7 @@ class WebRTCSignalingService {
 
       socket.on("instant-call-ended", ({ roomCode }) => {
         console.log(`[WEBRTC] Instant call ended (Room: ${roomCode})`);
-        if (this.activeInstantCall && this.activeInstantCall.roomCode === roomCode) {
+        if (this.activeInstantCall && (!roomCode || this.activeInstantCall.roomCode === roomCode || String(roomCode).includes(this.activeInstantCall.roomCode) || String(this.activeInstantCall.roomCode).includes(roomCode))) {
           this.activeInstantCall = null;
         }
         this.io.emit("instant-call-ended", { roomCode });

@@ -151,6 +151,12 @@ export default function AdminMeetingsTab({
   useEffect(() => {
     const checkInstantCall = () => {
       try {
+        const recentlyLeft = sessionStorage.getItem("mcpa_call_recently_left");
+        if (recentlyLeft && Date.now() - Number(recentlyLeft) < 60000) {
+          setIncomingInstantCall(null);
+          return;
+        }
+
         const stored = localStorage.getItem("mcpa_instant_call_active");
         let dismissed = null;
         try {
@@ -160,7 +166,7 @@ export default function AdminMeetingsTab({
         if (stored) {
           const parsed = JSON.parse(stored);
           const isExpired = parsed.startedAt && Date.now() - parsed.startedAt > 180000;
-          if (dismissed && dismissed === parsed.roomCode) {
+          if (dismissed && (dismissed === parsed.roomCode || dismissed === "all")) {
             setIncomingInstantCall(null);
             return;
           }
@@ -187,11 +193,16 @@ export default function AdminMeetingsTab({
 
     const handleInstantAlert = (e) => {
       if (e.detail && e.detail.active) {
+        const recentlyLeft = sessionStorage.getItem("mcpa_call_recently_left");
+        if (recentlyLeft && Date.now() - Number(recentlyLeft) < 60000) {
+          return;
+        }
+
         let dismissed = null;
         try {
           dismissed = sessionStorage.getItem("mcpa_dismissed_instant_call");
         } catch (e) {}
-        if (dismissed && dismissed === e.detail.roomCode) {
+        if (dismissed && (dismissed === e.detail.roomCode || dismissed === "all")) {
           return;
         }
 
@@ -211,13 +222,13 @@ export default function AdminMeetingsTab({
     };
 
     const handleInstantEnd = (e) => {
+      setActiveCallRoom(null);
+      setIncomingInstantCall(null);
       try {
         localStorage.removeItem("mcpa_instant_call_active");
-        if (e?.detail?.roomCode) {
-          sessionStorage.setItem("mcpa_dismissed_instant_call", e.detail.roomCode);
-        }
+        sessionStorage.setItem("mcpa_dismissed_instant_call", e?.detail?.roomCode || "all");
+        sessionStorage.setItem("mcpa_call_recently_left", String(Date.now()));
       } catch (e) {}
-      setIncomingInstantCall(null);
     };
 
     window.addEventListener("mcpa-instant-call-alert", handleInstantAlert);
@@ -1964,11 +1975,11 @@ export default function AdminMeetingsTab({
           onLeave={() => {
             const currentRoom = activeCallRoom?.roomCode;
             setActiveCallRoom(null);
+            setIncomingInstantCall(null);
             try {
               localStorage.removeItem("mcpa_instant_call_active");
-              if (currentRoom) {
-                sessionStorage.setItem("mcpa_dismissed_instant_call", currentRoom);
-              }
+              sessionStorage.setItem("mcpa_dismissed_instant_call", currentRoom || "all");
+              sessionStorage.setItem("mcpa_call_recently_left", String(Date.now()));
               window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoom } }));
             } catch (e) {}
             showToast("Left video consultation room.");

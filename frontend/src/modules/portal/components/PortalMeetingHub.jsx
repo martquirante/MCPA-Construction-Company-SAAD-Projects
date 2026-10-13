@@ -1105,11 +1105,14 @@ export default function PortalMeetingHub({
             setIsInstantMode(false);
             try {
               localStorage.removeItem("mcpa_instant_call_active");
-              sessionStorage.setItem("mcpa_dismissed_instant_call", currentRoomCode);
+              sessionStorage.setItem("mcpa_dismissed_instant_call", currentRoomCode || "all");
+              sessionStorage.setItem("mcpa_call_recently_left", String(Date.now()));
               window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoomCode } }));
               const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"] });
-              socket.emit("instant-call-ended", { roomCode: currentRoomCode });
-              setTimeout(() => socket.disconnect(), 2000);
+              socket.on("connect", () => {
+                socket.emit("instant-call-ended", { roomCode: currentRoomCode });
+                setTimeout(() => socket.disconnect(), 1000);
+              });
             } catch (e) {}
             showToast("You left the consultation meeting.");
           }}
