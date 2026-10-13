@@ -14,69 +14,77 @@ export const ALLOWED_MIME_TYPES = [
   "image/jpg",
 ];
 
+// Known legacy mock IDs to purge from existing client/admin browser storage
+const LEGACY_DUMMY_IDS = new Set([
+  "req-tct-001",
+  "req-taxdec-002",
+  "req-validid-003",
+  "tx-brief-001",
+]);
+
 // Standard Document Suggestions for Admin requesting from Clients (with Combobox support)
 export const STANDARD_REQUEST_DOCUMENTS = [
   {
     id: "tct",
     title: "Transfer Certificate of Title (TCT)",
     category: "Lot & Ownership",
-    defaultNote: "Kailangan ang malinaw na kopya ng lahat ng pahina kasama ang technical description para sa zoning at boundary confirmation.",
+    defaultNote: "Please provide a clear and complete copy of all pages including the technical boundary description on the back for setback and zoning verification.",
     urgency: "Urgent",
   },
   {
     id: "tax_dec",
     title: "Latest Real Property Tax Declaration (Tax Dec)",
     category: "Tax & Assessor",
-    defaultNote: "Pinakabagong resibo at certification ng tax declaration para sa zoning at assessment verification.",
+    defaultNote: "Most recent certified true copy or official tax receipt from the City or Municipal Assessor's office for property assessment verification.",
     urgency: "Required for Phase 2",
   },
   {
     id: "survey_plan",
     title: "Certified Lot Subdivision & Survey Plan",
     category: "Lot & Engineering",
-    defaultNote: "Kailangan para sa setback calculation at architectural site positioning.",
+    defaultNote: "Required for accurate building setback calculations and architectural site layout.",
     urgency: "Required for Phase 2",
   },
   {
     id: "valid_id",
     title: "Valid Government-Issued ID (Primary Owner & Spouse)",
     category: "Identification",
-    defaultNote: "Passport, Driver's License, o UMID para sa notarized engineering documents.",
+    defaultNote: "Clear copy of Passport, Driver's License, or National ID (with three specimen signatures) for notarized building permit applications.",
     urgency: "Required for Phase 2",
   },
   {
     id: "spa",
     title: "Special Power of Attorney (SPA)",
     category: "Legal Authorization",
-    defaultNote: "Kung kinatawan o kamag-anak ang namamahala sa transaksyon habang nasa ibang bansa.",
+    defaultNote: "Required if an authorized representative or family member is managing the project on behalf of an owner residing overseas.",
     urgency: "Standard",
   },
   {
     id: "brgy_clearance",
     title: "Barangay Construction Clearance & HOA Approval",
     category: "Permits & Clearances",
-    defaultNote: "Clearance mula sa Barangay o Homeowners Association bago simulan ang mobilization.",
+    defaultNote: "Clearance issued by the local Barangay hall or Homeowners Association prior to equipment mobilization.",
     urgency: "Standard",
   },
   {
     id: "soil_test",
     title: "Soil Test / Geotechnical Investigation Report",
     category: "Engineering & Structural",
-    defaultNote: "Ulat ng structural soil bearing capacity para sa foundation engineering design.",
+    defaultNote: "Official structural soil bearing capacity report for structural foundation and footing design.",
     urgency: "Standard",
   },
   {
     id: "architectural_wishlist",
     title: "Structural Blueprint / Architectural Wishlist",
     category: "Design Reference",
-    defaultNote: "Inyong mga peg, gustong floor layout, o lumang structural sketch para sa architectural review.",
+    defaultNote: "Your preferred floor plan sketches, inspiration photos, or design pegs for architectural review.",
     urgency: "Standard",
   },
   {
     id: "others",
     title: "Others (Custom Specification)",
     category: "Custom Request",
-    defaultNote: "Tukuyin ang partikular na dokumento na kinakailangan ng MCPA para sa inyong proyekto.",
+    defaultNote: "Specify the particular document required by MCPA engineering for your project.",
     urgency: "Standard",
   },
 ];
@@ -87,128 +95,62 @@ export const STANDARD_MCPA_TRANSMITTALS = [
     id: "quotation_index",
     title: "Formal Quotation & Detailed Cost Index",
     category: "Financial & Estimation",
-    defaultNote: "Detalyadong presyo at material cost estimation mula sa MCPA Estimating Desk.",
+    defaultNote: "Itemized project cost breakdown and material specifications prepared by the MCPA Estimating Department.",
   },
   {
     id: "schematic_set",
     title: "Preliminary Architectural Schematic Set (Plans & Elevations)",
     category: "Architectural Drawings",
-    defaultNote: "Paunang floor plan at 3D exterior perspective para sa inyong pagsusuri at feedback.",
+    defaultNote: "Initial 2D floor plans and 3D exterior perspectives prepared for your review and feedback.",
   },
   {
     id: "boq_breakdown",
     title: "Bill of Quantities (BOQ) Summary Breakdown",
     category: "Engineering Breakdown",
-    defaultNote: "Talaan ng mga materyales, lakas-paggawa, at schedule ng pagbuhos.",
+    defaultNote: "Comprehensive breakdown of structural materials, labor allocation, and project timeline.",
   },
   {
     id: "contract_draft",
     title: "Signed Construction Agreement & Conditions",
     category: "Legal & Contract",
-    defaultNote: "Opisyal na kontrata sa pagitan ng kliyente at MCPA Construction and Supply.",
+    defaultNote: "Official construction agreement terms between the client and MCPA Construction and Supply.",
   },
   {
     id: "notice_proceed",
     title: "Notice to Proceed & Engineering Transmittal",
     category: "Mobilization & Permits",
-    defaultNote: "Opisyal na pabatid para sa pagsisimula ng gawaing-sibil at site mobilization.",
+    defaultNote: "Official engineering clearance to commence site mobilization and civil construction works.",
   },
   {
     id: "soil_assessment",
     title: "Soil Test Geological Assessment & Recommendations",
     category: "Engineering & Soil",
-    defaultNote: "Opisyal na ulat ng geological validation at footings specification.",
+    defaultNote: "Geological validation summary and structural foundation engineering recommendations.",
   },
   {
     id: "others_mcpa",
     title: "Others (Custom Transmittal)",
     category: "MCPA Transmittal",
-    defaultNote: "Opisyal na dokumentong ipinapadala ng MCPA sa may-ari ng proyekto.",
+    defaultNote: "Official project document transmitted directly by MCPA Construction and Supply.",
   },
 ];
 
-// Initial Realistic Seed Requests
-export const INITIAL_DOCUMENT_REQUESTS = [
-  {
-    id: "req-tct-001",
-    title: "Transfer Certificate of Title (TCT)",
-    category: "Lot & Ownership",
-    clientName: "Raymart Quirante",
-    clientEmail: "rayquirante@gmail.com",
-    projectCode: "MCPA-CPB-748294",
-    urgency: "Urgent",
-    note: "Pakisiguradong malinaw ang technical description sa likod ng titulo para sa setback at boundary verification ng building permit.",
-    requestedBy: "Engr. Raymart Quirante (Admin)",
-    requestedAt: "2026-10-13T09:00:00.000Z",
-    status: "pending", // "pending" | "uploaded" | "verified"
-    file: null,
-  },
-  {
-    id: "req-taxdec-002",
-    title: "Latest Real Property Tax Declaration (Tax Dec)",
-    category: "Tax & Assessor",
-    clientName: "Raymart Quirante",
-    clientEmail: "rayquirante@gmail.com",
-    projectCode: "MCPA-CPB-748294",
-    urgency: "Required for Phase 2",
-    note: "Pinakabagong certified true copy o official receipt ng amilyar/tax declaration mula sa City/Municipal Assessor.",
-    requestedBy: "Engr. Raymart Quirante (Admin)",
-    requestedAt: "2026-10-13T09:30:00.000Z",
-    status: "pending",
-    file: null,
-  },
-  {
-    id: "req-validid-003",
-    title: "Valid Government-Issued ID (Primary Owner)",
-    category: "Identification",
-    clientName: "Raymart Quirante",
-    clientEmail: "rayquirante@gmail.com",
-    projectCode: "MCPA-CPB-748294",
-    urgency: "Standard",
-    note: "Malinaw na kopya ng Passport, UMID, o Driver's License na may tatlong pirma para sa legal notarization.",
-    requestedBy: "Engr. Raymart Quirante (Admin)",
-    requestedAt: "2026-10-12T14:20:00.000Z",
-    status: "uploaded",
-    file: {
-      fileName: "Raymart_Quirante_Government_ID_Verified.pdf",
-      fileSize: 2450892,
-      fileUrl: "/assets/mcpa-logo.svg",
-      mimeType: "application/pdf",
-      uploadedAt: "2026-10-12T16:15:00.000Z",
-    },
-    verified: true,
-  },
-];
+// Clean initial state with zero dummy / seed records
+export const INITIAL_DOCUMENT_REQUESTS = [];
 
-// Initial Realistic Seed MCPA Transmittals (Issued directly by MCPA to client)
-export const INITIAL_MCPA_TRANSMITTALS = [
-  {
-    id: "tx-brief-001",
-    title: "Preliminary Architectural Consultation Brief & Site Zoning Guidelines",
-    category: "Architectural Drawings",
-    clientName: "Raymart Quirante",
-    clientEmail: "rayquirante@gmail.com",
-    projectCode: "MCPA-CPB-748294",
-    note: "Opisyal na preliminary zoning guidelines at structural setback summary na inihanda ng MCPA Central Architecture Studio.",
-    issuedBy: "Engr. Raymart Quirante (MCPA Principal)",
-    issuedAt: "2026-10-13T08:15:00.000Z",
-    fileName: "MCPA_Preliminary_Zoning_Brief_MQ04.pdf",
-    fileSize: 4218760,
-    fileUrl: "/assets/mcpa-logo.svg",
-    mimeType: "application/pdf",
-  },
-];
+// Clean initial state with zero dummy / seed transmittals
+export const INITIAL_MCPA_TRANSMITTALS = [];
 
 /**
  * Validates a selected file against format and 25MB limits.
- * Returns human-readable, non-IT friendly error message in Tagalog & English.
+ * Returns human-readable, non-IT friendly error message in clear English.
  */
 export function validateDocumentFile(file) {
   if (!file) {
     return {
       valid: false,
-      title: "Walang Napiling File",
-      message: "Mangyaring pumili muna ng dokumento na nais i-upload bago magpatuloy.",
+      title: "No File Selected",
+      message: "Please choose a document from your computer or phone before proceeding.",
     };
   }
 
@@ -221,8 +163,8 @@ export function validateDocumentFile(file) {
   if (!isAllowedExt && !isAllowedMime) {
     return {
       valid: false,
-      title: "Hindi Suportadong Uri ng File",
-      message: `Ang napiling file (.${fileExt || "unknown"}) ay hindi suportado. Tanging mga dokumentong PDF at Larawan (JPG, PNG) lamang ang tinatanggap para sa malinaw at opisyal na pagsusuri ng MCPA engineering team.`,
+      title: "Unsupported File Format",
+      message: `The selected file format (.${fileExt || "unknown"}) is not supported. Please upload a PDF document or image file (JPG, PNG) so our engineering team can review it clearly.`,
     };
   }
 
@@ -230,8 +172,8 @@ export function validateDocumentFile(file) {
     const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
     return {
       valid: false,
-      title: "Masyadong Malaki ang File",
-      message: `Masyadong malaki ang napiling file (${sizeInMb} MB). Ang pinapayagang pinakamataas na sukat ay 25 MB lamang upang masigurong mabilis at maayos itong ma-upload. Pakipaliit o pumili ng ibang file.`,
+      title: "File Exceeds Size Limit",
+      message: `The selected file is too large (${sizeInMb} MB). The maximum allowed file size is 25 MB to ensure smooth and secure upload. Please choose a compressed copy or smaller file.`,
     };
   }
 
@@ -270,24 +212,27 @@ export function formatDocDate(isoDateStr) {
 }
 
 /**
- * Loads Document Requests from LocalStorage or seeds with defaults
+ * Loads Document Requests from LocalStorage without dummy seed data
  */
 export function loadDocumentRequests() {
-  if (typeof window === "undefined") return INITIAL_DOCUMENT_REQUESTS;
+  if (typeof window === "undefined") return [];
   try {
     const saved = localStorage.getItem("mcpa_document_requests");
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      if (Array.isArray(parsed)) {
+        // Purge any legacy dummy records that may be stuck in the browser
+        const clean = parsed.filter((item) => item && !LEGACY_DUMMY_IDS.has(item.id));
+        if (clean.length !== parsed.length) {
+          localStorage.setItem("mcpa_document_requests", JSON.stringify(clean));
+        }
+        return clean;
       }
     }
-    // Seed defaults
-    localStorage.setItem("mcpa_document_requests", JSON.stringify(INITIAL_DOCUMENT_REQUESTS));
-    return INITIAL_DOCUMENT_REQUESTS;
+    return [];
   } catch (e) {
     console.warn("Could not read mcpa_document_requests:", e);
-    return INITIAL_DOCUMENT_REQUESTS;
+    return [];
   }
 }
 
@@ -297,10 +242,13 @@ export function loadDocumentRequests() {
 export function saveDocumentRequests(requests) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem("mcpa_document_requests", JSON.stringify(requests));
+    const clean = Array.isArray(requests)
+      ? requests.filter((item) => item && !LEGACY_DUMMY_IDS.has(item.id))
+      : [];
+    localStorage.setItem("mcpa_document_requests", JSON.stringify(clean));
     window.dispatchEvent(
       new CustomEvent("mcpa-document-requests-updated", {
-        detail: { requests },
+        detail: { requests: clean },
       })
     );
   } catch (e) {
@@ -309,23 +257,27 @@ export function saveDocumentRequests(requests) {
 }
 
 /**
- * Loads MCPA Transmittals (Documents issued directly by MCPA to client)
+ * Loads MCPA Transmittals without dummy seed data
  */
 export function loadAdminTransmittals() {
-  if (typeof window === "undefined") return INITIAL_MCPA_TRANSMITTALS;
+  if (typeof window === "undefined") return [];
   try {
     const saved = localStorage.getItem("mcpa_admin_transmittals");
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      if (Array.isArray(parsed)) {
+        // Purge any legacy dummy transmittal records
+        const clean = parsed.filter((item) => item && !LEGACY_DUMMY_IDS.has(item.id));
+        if (clean.length !== parsed.length) {
+          localStorage.setItem("mcpa_admin_transmittals", JSON.stringify(clean));
+        }
+        return clean;
       }
     }
-    localStorage.setItem("mcpa_admin_transmittals", JSON.stringify(INITIAL_MCPA_TRANSMITTALS));
-    return INITIAL_MCPA_TRANSMITTALS;
+    return [];
   } catch (e) {
     console.warn("Could not read mcpa_admin_transmittals:", e);
-    return INITIAL_MCPA_TRANSMITTALS;
+    return [];
   }
 }
 
@@ -335,10 +287,13 @@ export function loadAdminTransmittals() {
 export function saveAdminTransmittals(transmittals) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem("mcpa_admin_transmittals", JSON.stringify(transmittals));
+    const clean = Array.isArray(transmittals)
+      ? transmittals.filter((item) => item && !LEGACY_DUMMY_IDS.has(item.id))
+      : [];
+    localStorage.setItem("mcpa_admin_transmittals", JSON.stringify(clean));
     window.dispatchEvent(
       new CustomEvent("mcpa-admin-transmittals-updated", {
-        detail: { transmittals },
+        detail: { transmittals: clean },
       })
     );
   } catch (e) {

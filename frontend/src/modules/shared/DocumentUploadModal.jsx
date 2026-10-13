@@ -83,16 +83,16 @@ export default function DocumentUploadModal({
 
     setIsUploading(true);
     setUploadProgress(0);
-    setUploadPhaseText("Sinusuri ang integridad at sukat ng file...");
+    setUploadPhaseText("Checking document file integrity and size...");
 
     // Smooth animation ticking function
     const simulateSteps = [
-      { progress: 12, delay: 200, text: "Inihahanda at sinusuri ang format ng dokumento..." },
-      { progress: 28, delay: 350, text: "Ipinapadala sa MCPA cloud engineering vault (28%)..." },
-      { progress: 48, delay: 450, text: "Ipinapadala sa MCPA cloud engineering vault (48%)..." },
-      { progress: 72, delay: 500, text: "Kinukumpirma ang transmittal at lagda (72%)..." },
-      { progress: 88, delay: 350, text: "Inililista sa secure document registry (88%)..." },
-      { progress: 97, delay: 300, text: "Kinukumpleto ang opisyal na record..." },
+      { progress: 14, delay: 200, text: "Validating file format and structure..." },
+      { progress: 32, delay: 350, text: "Encrypting and transmitting to secure vault (32%)..." },
+      { progress: 54, delay: 450, text: "Transmitting to MCPA cloud storage (54%)..." },
+      { progress: 76, delay: 500, text: "Verifying transmittal record and signature (76%)..." },
+      { progress: 90, delay: 350, text: "Registering in secure document registry (90%)..." },
+      { progress: 98, delay: 300, text: "Finalizing official engineering record..." },
     ];
 
     let actualUploadedUrl = null;
@@ -127,7 +127,7 @@ export default function DocumentUploadModal({
 
     // Complete to 100%
     setUploadProgress(100);
-    setUploadPhaseText("Tapos na ang pag-upload!");
+    setUploadPhaseText("Upload completed successfully!");
     await new Promise((r) => setTimeout(r, 400));
 
     const finalFileUrl =
@@ -183,7 +183,7 @@ export default function DocumentUploadModal({
             </h3>
             {targetRequest?.note && (
               <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 font-sans line-clamp-2">
-                <span className="font-semibold text-amber-600 dark:text-amber-400">Admin Note: </span>
+                <span className="font-semibold text-amber-600 dark:text-amber-400">Instructions: </span>
                 {targetRequest.note}
               </p>
             )}
@@ -216,13 +216,13 @@ export default function DocumentUploadModal({
               <div>
                 <h4 className="text-lg font-bold text-neutral-900 dark:text-white">
                   {uploadType === "admin"
-                    ? "Matagumpay na Naipadala sa Kliyente!"
-                    : "Matagumpay na Na-upload!"}
+                    ? "Transmittal Successfully Sent to Client!"
+                    : "Document Successfully Uploaded!"}
                 </h4>
                 <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-1 max-w-md mx-auto">
                   {uploadType === "admin"
-                    ? `Nailagak na ang dokumento at makikita na ito ni ${clientName} sa kanyang portal.`
-                    : "Natanggap na ito ng MCPA Admin desk para sa opisyal na engineering evaluation at permit validation."}
+                    ? `The official document is now securely published and available for ${clientName} to view in their portal.`
+                    : "Your file has been safely received by the MCPA Central Engineering desk for architectural evaluation and building permit verification."}
                 </p>
               </div>
 
@@ -243,7 +243,7 @@ export default function DocumentUploadModal({
                     </div>
                   </div>
                   <span className="px-2 py-0.5 rounded-[4px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold uppercase shrink-0">
-                    Verified
+                    Uploaded
                   </span>
                 </div>
               )}
@@ -251,15 +251,14 @@ export default function DocumentUploadModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-2 px-6 py-2.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer transition-all shadow-md"
+                className="mt-2 px-6 py-2.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer transition-all shadow-md active:scale-95"
               >
-                Tapusin at Isara
+                Done &amp; Close
               </button>
             </div>
           ) : isUploading ? (
             /* UPLOADING 0% TO 100% PROGRESS ANIMATION VIEW */
             <div className="py-8 px-4 flex flex-col items-center text-center space-y-5 animate-in fade-in duration-200">
-              {/* Animated LordIcon / Cloud Pulse */}
               <div className="relative">
                 <div className="w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 animate-pulse">
                   <UploadCloud className="w-8 h-8" />
@@ -276,13 +275,12 @@ export default function DocumentUploadModal({
                   </span>
                 </div>
 
-                {/* Shimmering Progress Bar */}
+                {/* Progress Bar */}
                 <div className="w-full h-3 rounded-full bg-neutral-200 dark:bg-white/10 overflow-hidden relative shadow-inner">
                   <div
-                    className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 transition-all duration-300 rounded-full relative"
+                    className="h-full bg-linear-to-r from-amber-500 via-amber-400 to-amber-500 transition-all duration-300 rounded-full relative"
                     style={{ width: `${uploadProgress}%` }}
                   >
-                    {/* Shimmer light sweep */}
                     <div className="absolute inset-0 bg-white/20 animate-pulse" />
                   </div>
                 </div>
@@ -310,7 +308,7 @@ export default function DocumentUploadModal({
                   <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-rose-500" />
                   <div className="space-y-1 text-left">
                     <h5 className="text-xs font-bold font-mono uppercase tracking-wider">
-                      {validationError.title || "Hindi Tanggap ang File"}
+                      {validationError.title || "File Not Accepted"}
                     </h5>
                     <p className="text-xs font-sans leading-relaxed text-neutral-700 dark:text-neutral-300">
                       {validationError.message}
@@ -347,10 +345,10 @@ export default function DocumentUploadModal({
 
                 <div>
                   <p className="text-xs font-bold text-neutral-900 dark:text-white font-mono uppercase tracking-wider">
-                    {selectedFile ? "Palitan ang Napiling File" : "I-drag o I-click para Pumili ng File"}
+                    {selectedFile ? "Change Selected File" : "Drag & drop or click to choose file"}
                   </p>
                   <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
-                    Tinatanggap: PDF, JPG, PNG, WEBP (Hanggang 25 MB lamang)
+                    Accepted formats: PDF, JPG, PNG, WEBP (Maximum size: 25 MB)
                   </p>
                 </div>
               </div>
@@ -367,7 +365,7 @@ export default function DocumentUploadModal({
                         {selectedFile.name}
                       </p>
                       <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
-                        {formatFileSize(selectedFile.size)} · Handa nang i-upload
+                        {formatFileSize(selectedFile.size)} · Ready to upload
                       </p>
                     </div>
                   </div>
@@ -377,21 +375,19 @@ export default function DocumentUploadModal({
                       e.stopPropagation();
                       setSelectedFile(null);
                     }}
-                    className="p-1 rounded-[4px] text-neutral-400 hover:text-rose-500 hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors"
-                    title="Alisin ang napiling file"
+                    className="p-1 rounded-[4px] text-neutral-400 hover:text-rose-500 hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                    title="Remove selected file"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               )}
 
-              {/* Friendly Guide note */}
+              {/* Friendly Privacy Guide note */}
               <div className="p-3 rounded-[6px] bg-amber-500/[0.06] border border-amber-500/20 text-neutral-700 dark:text-neutral-300 text-[11px] font-sans flex items-start gap-2">
                 <Shield className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Protektadong Transmittal:</strong> Ang iyong dokumento ay ligtas na
-                  iniingatan alinsunod sa Data Privacy Act of 2012 para sa opisyal na pag-aaral ng
-                  arkitektura at inhinyero ng MCPA.
+                  <strong>Secure Document Vault:</strong> Your file is encrypted and safely stored in compliance with the Data Privacy Act of 2012 for MCPA architectural and engineering review.
                 </span>
               </div>
 
@@ -400,9 +396,9 @@ export default function DocumentUploadModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-[6px] border border-neutral-300 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-mono text-xs font-bold uppercase transition-colors"
+                  className="px-4 py-2 rounded-[6px] border border-neutral-300 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
                 >
-                  Kanselahin
+                  Cancel
                 </button>
                 <button
                   type="button"
@@ -410,11 +406,11 @@ export default function DocumentUploadModal({
                   onClick={startUpload}
                   className={`px-5 py-2 rounded-[6px] font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${
                     selectedFile
-                      ? "bg-amber-500 hover:bg-amber-400 text-neutral-950 cursor-pointer shadow-md hover:gap-2.5"
+                      ? "bg-amber-500 hover:bg-amber-400 text-neutral-950 cursor-pointer shadow-md hover:gap-2.5 active:scale-95"
                       : "bg-neutral-200 dark:bg-white/10 text-neutral-400 cursor-not-allowed"
                   }`}
                 >
-                  <span>Simulan ang Pag-Upload</span>
+                  <span>Start Secure Upload</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
