@@ -71,6 +71,7 @@ import { authFetch } from "@/modules/shared/authFetch";
 import { getBookingIntent, clearBookingIntent } from "@/modules/shared/bookingAuthHelper";
 import { isMeetingPast } from "@/modules/shared/meetingHelper";
 import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
+import { loadDocumentRequests } from "@/modules/portal/utils/documentRequestsHelper";
 
 function ClientPortalContent() {
   const router = useRouter();
@@ -128,6 +129,25 @@ function ClientPortalContent() {
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 10000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Document requests badge counter for Consultation stage
+  const [pendingDocumentRequestsCount, setPendingDocumentRequestsCount] = useState(0);
+  useEffect(() => {
+    const updateCount = () => {
+      try {
+        const reqs = loadDocumentRequests();
+        const pending = reqs.filter((r) => r.status === "pending").length;
+        setPendingDocumentRequestsCount(pending);
+      } catch (e) {}
+    };
+    updateCount();
+    window.addEventListener("mcpa-document-requests-updated", updateCount);
+    window.addEventListener("storage", updateCount);
+    return () => {
+      window.removeEventListener("mcpa-document-requests-updated", updateCount);
+      window.removeEventListener("storage", updateCount);
+    };
   }, []);
 
   // Modal & Toast states
@@ -539,7 +559,7 @@ function ClientPortalContent() {
           active: [
             { id: "overview", label: "Dashboard", icon: LayoutDashboard },
             { id: "meeting", label: "Meeting", icon: CalendarCheck },
-            { id: "documents", label: "Document Vault", icon: FileText },
+            { id: "documents", label: "Request Documents", icon: FileText, badge: pendingDocumentRequestsCount > 0 ? pendingDocumentRequestsCount : undefined },
             { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [

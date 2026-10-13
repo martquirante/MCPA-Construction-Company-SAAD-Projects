@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   CalendarCheck,
   Video,
@@ -26,10 +26,24 @@ import {
   X,
   XCircle,
   Zap,
+  FileCheck,
+  Building,
+  Check,
+  Plus,
+  RefreshCw,
+  Eye,
 } from "lucide-react";
 import LordIcon from "@/modules/shared/LordIcon";
 import { authFetch } from "@/modules/shared/authFetch";
 import PortalMeetingHub from "../PortalMeetingHub";
+import DocumentUploadModal from "@/modules/shared/DocumentUploadModal";
+import {
+  loadDocumentRequests,
+  saveDocumentRequests,
+  loadAdminTransmittals,
+  formatFileSize,
+  formatDocDate,
+} from "@/modules/portal/utils/documentRequestsHelper";
 
 export default function PortalPhase2Consultation({
   activeProject,
@@ -56,10 +70,135 @@ export default function PortalPhase2Consultation({
   const [isSendingMsg, setIsSendingMsg] = useState(false);
   const chatScrollRef = useRef(null);
 
-  // 3. Document Vault states
+  // 3. Document Requests & MCPA Transmittals states
   const [documents, setDocuments] = useState([]);
+  const [documentRequests, setDocumentRequests] = useState([]);
+  const [adminTransmittals, setAdminTransmittals] = useState([]);
+  const [activeUploadRequest, setActiveUploadRequest] = useState(null);
+  const [isExtraUploadModalOpen, setIsExtraUploadModalOpen] = useState(false);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [docTypeSelected, setDocTypeSelected] = useState("LAND_TITLE");
+
+  // Sync Document Requests & Transmittals with Admin & LocalStorage
+  useEffect(() => {
+    setDocumentRequests(loadDocumentRequests());
+    setAdminTransmittals(loadAdminTransmittals());
+
+    const handleSync = () => {
+      setDocumentRequests(loadDocumentRequests());
+      setAdminTransmittals(loadAdminTransmittals());
+    };
+
+    window.addEventListener("mcpa-document-requests-updated", handleSync);
+    window.addEventListener("mcpa-admin-transmittals-updated", handleSync);
+    window.addEventListener("storage", handleSync);
+
+    return () => {
+      window.removeEventListener("mcpa-document-requests-updated", handleSync);
+      window.removeEventListener("mcpa-admin-transmittals-updated", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
+  }, []);
+
+  const clientRequests = useMemo(() => {
+    const email = (currentUser?.email || "").toLowerCase().trim();
+    const trackingId = (inquiries?.[0]?.trackingId || inquiries?.[0]?.id || "").trim();
+    const matched = documentRequests.filter(
+      (r) =>
+        !email ||
+        !r.clientEmail ||
+        r.clientEmail.toLowerCase() === email ||
+        (trackingId && r.projectCode === trackingId)
+    );
+    return matched.length > 0 ? matched : documentRequests;
+  }, [documentRequests, currentUser, inquiries]);
+
+  const clientTransmittals = useMemo(() => {
+    const email = (currentUser?.email || "").toLowerCase().trim();
+    const trackingId = (inquiries?.[0]?.trackingId || inquiries?.[0]?.id || "").trim();
+    const matched = adminTransmittals.filter(
+      (t) =>
+        !email ||
+        !t.clientEmail ||
+        t.clientEmail.toLowerCase() === email ||
+        (trackingId && t.projectCode === trackingId)
+    );
+    return matched.length > 0 ? matched : adminTransmittals;
+  }, [adminTransmittals, currentUser, inquiries]);
+
+  const pendingRequestsCount = useMemo(
+    () => clientRequests.filter((r) => r.status === "pending").length,
+    [clientRequests]
+  );
+
+  const handleRequestUploadSuccess = async (uploadedFile) => {
+    if (!activeUploadRequest) return;
+
+    const updated = documentRequests.map((r) => {
+      if (r.id === activeUploadRequest.id) {
+        return {
+          ...r,
+          status: "uploaded",
+          file: uploadedFile,
+        };
+      }
+      return r;
+    });
+
+    setDocumentRequests(updated);
+    saveDocumentRequests(updated);
+
+    if (projectId) {
+      try {
+        await authFetch(`/api/projects/${projectId}/documents`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            stageId: "CONSULTATION",
+            docType: activeUploadRequest.category || "REQUIRED_DOCUMENT",
+            fileName: uploadedFile.fileName,
+            fileUrl: uploadedFile.fileUrl,
+            fileSizeBytes: uploadedFile.fileSize,
+            mimeType: uploadedFile.mimeType,
+            notes: `Uploaded for request: ${activeUploadRequest.title}`,
+          }),
+        });
+      } catch (err) {
+        console.warn("Backend document save:", err);
+      }
+    }
+
+    setActiveUploadRequest(null);
+    showToast(`Matagumpay na na-upload ang "${activeUploadRequest.title}"!`);
+  };
+
+  const handleExtraUploadSuccess = async (uploadedFile) => {
+    if (projectId) {
+      try {
+        const res = await authFetch(`/api/projects/${projectId}/documents`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            stageId: "CONSULTATION",
+            docType: "ADDITIONAL_LOT_DOCUMENT",
+            fileName: uploadedFile.fileName,
+            fileUrl: uploadedFile.fileUrl,
+            fileSizeBytes: uploadedFile.fileSize,
+            mimeType: uploadedFile.mimeType,
+            notes: "Additional client lot upload",
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.document) {
+          setDocuments((prev) => [data.document, ...prev]);
+        }
+      } catch (err) {
+        console.warn("Backend extra document save:", err);
+      }
+    }
+    setIsExtraUploadModalOpen(false);
+    showToast(`Matagumpay na na-upload ang "${uploadedFile.fileName}"!`);
+  };
 
   // 4. Quotation Request state
   const [quotationRequested, setQuotationRequested] = useState(false);
@@ -457,7 +596,7 @@ export default function PortalPhase2Consultation({
               </div>
             </div>
 
-            {/* Card 2: Document Vault Summary */}
+            {/* Card 2: Request Documents Summary */}
             <div
               onClick={() => onSelectTab && onSelectTab("documents")}
               className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
@@ -467,22 +606,24 @@ export default function PortalPhase2Consultation({
                   <Shield className="w-6 h-6" />
                 </div>
                 <span className="text-purple-500 dark:text-purple-400 font-mono text-[10px] font-bold uppercase tracking-wider">
-                  {documents.length} Files Deposited
+                  {pendingRequestsCount > 0
+                    ? `${pendingRequestsCount} Action Needed`
+                    : `${clientRequests.length} Requests Checked`}
                 </span>
               </div>
 
               <div className="space-y-1">
-                <div className="text-xs font-mono font-bold uppercase text-neutral-500">Document Vault</div>
+                <div className="text-xs font-mono font-bold uppercase text-neutral-500">Request Documents</div>
                 <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
-                  Lot Titles &amp; Permits
+                  Admin Document Requests
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                  Upload Transfer Certificate of Title (TCT), lot plans, and tax declarations for engineering validation.
+                  Tingnan ang mga dokumentong hiniling ng MCPA Admin (TCT, Tax Dec, Clearances) at mga ipinadalang opisyal na plano.
                 </p>
               </div>
 
               <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
-                <span>Open Document Vault</span>
+                <span>Open Request Documents</span>
                 <ArrowRight className="w-4 h-4" />
               </div>
             </div>
@@ -533,119 +674,315 @@ export default function PortalPhase2Consultation({
         />
       )}
 
-      {/* 3. DOCUMENT VAULT (TCT, TAX DEC, VALID IDS) (SHOWN IN OVERVIEW & DOCUMENTS MODES) */}
+      {/* 3. REQUEST DOCUMENTS & MCPA TRANSMITTALS (SHOWN IN OVERVIEW & DOCUMENTS MODES) */}
       {(mode === "overview" || mode === "documents") && (
-      <div className="p-6 rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-md space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
-          <div>
-            <h2 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white tracking-tight flex items-center gap-2">
-              <Shield className="w-4 h-4 text-amber-500" />
-              Document Vault (Lot Titles & Identification)
-            </h2>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans">
-              Upload lot documents (Transfer Certificate of Title, Tax Declaration, Subdivision Plans) to prepare building permits.
-            </p>
+        <div className="p-6 rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-md space-y-8">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
+            <div>
+              <h2 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white tracking-tight flex items-center gap-2">
+                <Shield className="w-4 h-4 text-amber-500" />
+                Request Documents &amp; MCPA Transmittals
+              </h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+                I-upload ang mga dokumentong hiniling ng MCPA Admin (TCT, Tax Dec, Valid ID) at suriin ang mga opisyal na plano at transmittal na ipinadala sa inyo.
+              </p>
+            </div>
+
+            {/* Upload Additional File Button */}
+            <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsExtraUploadModalOpen(true)}
+                className="px-4 py-2 rounded-[4px] bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer flex items-center gap-2 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5 text-amber-500" />
+                <span>Mag-deposit ng Ibang File</span>
+              </button>
+            </div>
           </div>
 
-          {/* Upload Button with Type Selector */}
-          <div className="flex items-center gap-3 self-start sm:self-auto">
-            <select
-              value={docTypeSelected}
-              onChange={(e) => setDocTypeSelected(e.target.value)}
-              className="px-3 py-1.5 rounded-[4px] bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-mono text-neutral-900 dark:text-white"
-            >
-              <option value="LAND_TITLE">Transfer Certificate of Title (TCT)</option>
-              <option value="LOT_PLAN">Lot Vicinity & Subdivision Plan</option>
-              <option value="TAX_DECLARATION">Tax Declaration Receipt</option>
-              <option value="VALID_ID">Government Issued Valid ID</option>
-            </select>
+          {/* SUB-SECTION 1: MGA DOKUMENTONG HINILING NG MCPA ADMIN */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-amber-500" />
+                <h3 className="text-xs font-mono font-bold uppercase text-neutral-900 dark:text-white tracking-wider">
+                  Mga Dokumentong Hiniling ng MCPA Admin ({clientRequests.length})
+                </h3>
+              </div>
+              <span className="text-[10px] font-mono text-neutral-400">
+                {pendingRequestsCount > 0 ? `${pendingRequestsCount} Action Needed` : "Lahat Na-upload Na"}
+              </span>
+            </div>
 
-            <label className={`px-4 py-1.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer flex items-center gap-2 transition-colors ${
-              isUploadingDoc ? "opacity-50 cursor-not-allowed" : ""
-            }`}>
-              <Upload className="w-3.5 h-3.5" />
-              <span>{isUploadingDoc ? "Uploading..." : "Upload Document"}</span>
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                className="hidden"
-                disabled={isUploadingDoc}
-                onChange={handleFileUpload}
-              />
-            </label>
-          </div>
-        </div>
+            {clientRequests.length === 0 ? (
+              <div className="p-8 text-center rounded-[6px] border border-dashed border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-400 space-y-2">
+                <FileCheck className="w-8 h-8 text-emerald-500 mx-auto" />
+                <p>Walang nakabinbing kahilingan ng dokumento mula sa MCPA Admin.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {clientRequests.map((req) => {
+                  const isPending = req.status === "pending";
+                  const isUploaded = req.status === "uploaded";
+                  const isVerified = req.status === "verified";
 
-        {/* Uploaded Documents Grid */}
-        {documents.length === 0 ? (
-          <div className="p-8 text-center rounded-[6px] border border-dashed border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-400 space-y-2">
-            <FileUp className="w-8 h-8 text-neutral-400 mx-auto" />
-            <p>No documents deposited yet in vault.</p>
-            <span className="text-[10px] text-neutral-500 font-sans">
-              Accepted files: PDF, High-Res Scanned JPG, PNG (Max 25MB)
-            </span>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {documents.map((doc) => {
-              const isVerified = doc.verification_status === "Verified";
-              const isRejected = doc.verification_status === "Rejected";
+                  return (
+                    <div
+                      key={req.id}
+                      className="p-5 rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-950/60 hover:border-amber-500/40 transition-all flex flex-col justify-between space-y-4"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                              {req.category}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider ${
+                                req.urgency?.toLowerCase().includes("urgent")
+                                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                                  : "bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
+                              }`}
+                            >
+                              {req.urgency}
+                            </span>
+                          </div>
 
-              return (
-                <div
-                  key={doc.doc_id}
-                  className="p-4 rounded-[6px] border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950/50 flex flex-col justify-between space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-[4px] bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                        <FileText className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-mono font-bold text-neutral-900 dark:text-white truncate">
-                          {doc.file_name}
+                          <span
+                            className={`px-2 py-0.5 rounded-[3px] text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 flex items-center gap-1 ${
+                              isVerified
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                : isUploaded
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                : "bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
+                            }`}
+                          >
+                            {isVerified ? "Verified" : isUploaded ? "Under Review" : "Action Needed"}
+                          </span>
+                        </div>
+
+                        <h4 className="text-sm font-bold text-neutral-900 dark:text-white leading-snug">
+                          {req.title}
                         </h4>
-                        <span className="text-[10px] font-mono text-neutral-400 uppercase">
-                          {doc.doc_type}
-                        </span>
+
+                        {req.note && (
+                          <p className="text-xs text-neutral-600 dark:text-neutral-400 font-sans line-clamp-3">
+                            <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                              Tagubilin ng Admin:{" "}
+                            </span>
+                            {req.note}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Action or Uploaded File Details */}
+                      <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800">
+                        {req.file ? (
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between text-xs font-mono">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <FileCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                                <span className="font-bold text-neutral-900 dark:text-white truncate">
+                                  {req.file.fileName}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-neutral-400 shrink-0">
+                                {formatFileSize(req.file.fileSize)}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={req.file.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 px-3 py-1.5 rounded-[4px] bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-900 dark:text-white font-mono text-[11px] font-bold text-center flex items-center justify-center gap-1.5 transition-colors"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Tingnan</span>
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => setActiveUploadRequest(req)}
+                                className="px-3 py-1.5 rounded-[4px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-mono text-[11px] font-bold transition-colors cursor-pointer"
+                              >
+                                Re-upload
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setActiveUploadRequest(req)}
+                            className="w-full px-4 py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md hover:shadow-amber-500/20 active:scale-95"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>I-upload ang Dokumento</span>
+                          </button>
+                        )}
                       </div>
                     </div>
-
-                    <span
-                      className={`px-2 py-0.5 rounded-[3px] text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 ${
-                        isVerified
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                          : isRejected
-                          ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
-                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                      }`}
-                    >
-                      {doc.verification_status}
-                    </span>
-                  </div>
-
-                  <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[10px] font-mono text-neutral-400">
-                    <span>
-                      {doc.file_size_bytes
-                        ? (Number(doc.file_size_bytes) / 1024 / 1024).toFixed(2) + " MB"
-                        : "Verified"}
-                    </span>
-                    <a
-                      href={doc.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-amber-500 hover:underline flex items-center gap-1 font-bold"
-                    >
-                      View Vault File
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* SUB-SECTION 2: MGA OPISYAL NA DOKUMENTONG IPINADALA NG MCPA SA IYO */}
+          <div className="space-y-4 pt-6 border-t border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <h3 className="text-xs font-mono font-bold uppercase text-neutral-900 dark:text-white tracking-wider">
+                  Mga Opisyal na Dokumentong Ipinadala ng MCPA sa Iyo ({clientTransmittals.length})
+                </h3>
+              </div>
+              <span className="text-[10px] font-mono text-neutral-400">Direct MCPA Transmittals</span>
+            </div>
+
+            {clientTransmittals.length === 0 ? (
+              <div className="p-8 text-center rounded-[6px] border border-dashed border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-400 space-y-2">
+                <Building className="w-8 h-8 text-neutral-400 mx-auto" />
+                <p>Wala pang ipinadalang transmittal ang MCPA para sa inyong proyekto.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {clientTransmittals.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="p-5 rounded-[8px] border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-950/60 hover:border-blue-500/40 transition-all flex flex-col justify-between space-y-4"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+                          {tx.category}
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400">
+                          {formatDocDate(tx.issuedAt)}
+                        </span>
+                      </div>
+
+                      <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
+                        {tx.title}
+                      </h4>
+
+                      {tx.note && (
+                        <p className="text-xs text-neutral-600 dark:text-neutral-400 font-sans line-clamp-2">
+                          {tx.note}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-4 h-4 text-blue-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-mono font-bold text-neutral-900 dark:text-white truncate">
+                            {tx.fileName}
+                          </p>
+                          <p className="text-[10px] font-mono text-neutral-400">
+                            {formatFileSize(tx.fileSize)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <a
+                        href={tx.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 rounded-[4px] bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors shrink-0"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Tingnan</span>
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* SUB-SECTION 3: OPTIONAL VAULT DEPOSIT RECORDS */}
+          {documents.length > 0 && (
+            <div className="space-y-4 pt-6 border-t border-neutral-200 dark:border-neutral-800">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-mono font-bold uppercase text-neutral-500 tracking-wider">
+                  Karagdagang Na-deposit na Files sa Vault ({documents.length})
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.doc_id}
+                    className="p-4 rounded-[6px] border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950/50 flex flex-col justify-between space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <FileText className="w-4 h-4 text-amber-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-mono font-bold text-neutral-900 dark:text-white truncate">
+                            {doc.file_name}
+                          </p>
+                          <span className="text-[10px] font-mono text-neutral-400 uppercase">
+                            {doc.doc_type}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-[3px] text-[9px] font-mono font-bold uppercase text-emerald-500 bg-emerald-500/10">
+                        Deposited
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[10px] font-mono text-neutral-400">
+                      <span>{doc.file_size_bytes ? formatFileSize(doc.file_size_bytes) : "Verified"}</span>
+                      <a
+                        href={doc.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-amber-500 hover:underline flex items-center gap-1 font-bold"
+                      >
+                        View
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 0% TO 100% ANIMATED UPLOAD MODAL FOR REQUESTED DOCUMENTS */}
+      {activeUploadRequest && (
+        <DocumentUploadModal
+          isOpen={Boolean(activeUploadRequest)}
+          onClose={() => setActiveUploadRequest(null)}
+          uploadType="client"
+          targetRequest={activeUploadRequest}
+          clientName={currentUser?.fullName || currentUser?.name || "Client"}
+          projectCode={activeUploadRequest.projectCode || "MCPA-CPB-748294"}
+          onUploadSuccess={handleRequestUploadSuccess}
+        />
+      )}
+
+      {/* 0% TO 100% ANIMATED UPLOAD MODAL FOR EXTRA VAULT FILES */}
+      {isExtraUploadModalOpen && (
+        <DocumentUploadModal
+          isOpen={isExtraUploadModalOpen}
+          onClose={() => setIsExtraUploadModalOpen(false)}
+          uploadType="client"
+          targetRequest={{
+            title: "Additional Lot / Project Document",
+            category: "General Lot Deposit",
+            note: "Karagdagang file para sa engineering records.",
+          }}
+          clientName={currentUser?.fullName || currentUser?.name || "Client"}
+          projectCode={inquiries?.[0]?.trackingId || "MCPA-CPB-748294"}
+          onUploadSuccess={handleExtraUploadSuccess}
+        />
       )}
 
       {/* CLIENT WITHDRAW / DISCONTINUE CONSULTATION MODAL */}

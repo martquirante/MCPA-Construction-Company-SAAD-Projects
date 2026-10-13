@@ -10,11 +10,13 @@ import InquiryPipelineTab from "@/modules/admin/components/InquiryPipelineTab";
 import ProjectsTab from "@/modules/admin/components/ProjectsTab";
 import AccountsTab from "@/modules/admin/components/AccountsTab";
 import AdminMeetingsTab from "@/modules/admin/components/AdminMeetingsTab";
+import AdminDocumentRequestsTab from "@/modules/admin/components/AdminDocumentRequestsTab";
 import AdminIncomingCallManager from "@/modules/admin/components/AdminIncomingCallManager";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
 import { useAuthoritativeClock } from "@/modules/admin/hooks/useAuthoritativeClock";
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
-import { CalendarCheck as CalendarIcon } from "lucide-react";
+import { CalendarCheck as CalendarIcon, FileText as FileTextIcon } from "lucide-react";
+import { loadDocumentRequests } from "@/modules/portal/utils/documentRequestsHelper";
 import {
   LockIcon,
   ShieldCheckIcon,
@@ -84,6 +86,25 @@ export default function AdminPage() {
   const [warrantyTickets, setWarrantyTickets] = useState([]);
   const [siteExpenses, setSiteExpenses] = useState([]);
   const [activeDbProvider, setActiveDbProvider] = useState("cloud");
+
+  // Document requests badge counter
+  const [pendingDocsCount, setPendingDocsCount] = useState(0);
+  useEffect(() => {
+    const checkRequests = () => {
+      try {
+        const reqs = loadDocumentRequests();
+        const pendingOrUploaded = reqs.filter((r) => r.status === "uploaded" || r.status === "pending").length;
+        setPendingDocsCount(pendingOrUploaded);
+      } catch (e) {}
+    };
+    checkRequests();
+    window.addEventListener("mcpa-document-requests-updated", checkRequests);
+    window.addEventListener("storage", checkRequests);
+    return () => {
+      window.removeEventListener("mcpa-document-requests-updated", checkRequests);
+      window.removeEventListener("storage", checkRequests);
+    };
+  }, []);
 
   const toggleSidebarCollapse = () => {
     setIsSidebarCollapsed((prev) => {
@@ -1214,6 +1235,7 @@ export default function AdminPage() {
     { id: "projects", label: "Projects", icon: FolderKanbanIcon },
     { id: "meetings", label: "Meetings", icon: CalendarIcon, badge: meetingsCount > 0 ? meetingsCount : undefined },
     { id: "briefs", label: "Inquiries", icon: ClipboardListIcon, badge: unreadInquiriesCount > 0 ? unreadInquiriesCount : undefined },
+    { id: "documents", label: "Documents", icon: FileTextIcon, badge: pendingDocsCount > 0 ? pendingDocsCount : undefined },
     { id: "accounts", label: "Accounts", icon: UserIcon },
   ];
 
@@ -1831,6 +1853,17 @@ export default function AdminPage() {
           />
         )}
 
+        {/* ================================================================= */}
+        {/* TAB: CLIENT DOCUMENTS & MCPA TRANSMITTALS                        */}
+        {/* ================================================================= */}
+        {activeTab === "documents" && (
+          <AdminDocumentRequestsTab
+            clientBriefs={clientBriefs}
+            currentUser={currentUser}
+            showToast={showToast}
+          />
+        )}
+
       </main>
       </div>
 
@@ -1841,11 +1874,11 @@ export default function AdminPage() {
           className="pointer-events-auto w-auto max-w-[92vw] rounded-full bg-white/90 dark:bg-[#101218]/90 backdrop-blur-2xl border border-neutral-300/80 dark:border-white/15 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.12),inset_0_1px_1px_rgba(255,255,255,0.7)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-300"
         >
           {(() => {
-            // Dynamic 3 Quick Tabs + 4th "More" = 4 Total Slots
-            const mobileBaseTabs = ["dashboard", "meetings", "briefs"];
+            // Dynamic Quick Tabs
+            const mobileBaseTabs = ["dashboard", "meetings", "briefs", "documents"];
             let mobileTabIds = [...mobileBaseTabs];
             if (!mobileBaseTabs.includes(activeTab) && navItems.some((n) => n.id === activeTab)) {
-              mobileTabIds = ["dashboard", activeTab, "briefs"];
+              mobileTabIds = ["dashboard", activeTab, "briefs", "documents"];
             }
             const mobileNavList = mobileTabIds
               .map((id) => navItems.find((n) => n.id === id))
