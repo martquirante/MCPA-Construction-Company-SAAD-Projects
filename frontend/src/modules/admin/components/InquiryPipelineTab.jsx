@@ -1028,7 +1028,7 @@ export default function InquiryPipelineTab({
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                        <span className="text-[11px] font-mono font-medium text-neutral-400 dark:text-neutral-500">
                           {brief.submissionId || brief.id}
                         </span>
                         {brief.locationType === "OFW" && (
@@ -1194,7 +1194,7 @@ export default function InquiryPipelineTab({
                           <h4 className="text-sm font-semibold text-neutral-900 dark:text-white truncate tracking-tight">
                             {brief.clientName}
                           </h4>
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                          <span className="text-[11px] font-mono font-medium text-neutral-400 dark:text-neutral-500 shrink-0">
                             {brief.submissionId || brief.id}
                           </span>
                           {brief.locationType === "OFW" && (

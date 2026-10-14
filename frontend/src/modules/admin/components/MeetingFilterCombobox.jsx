@@ -14,7 +14,6 @@ import {
   Archive,
   Building2,
 } from "lucide-react";
-import LordIcon from "@/modules/shared/LordIcon";
 
 export default function MeetingFilterCombobox({
   activeFilter = "all",
@@ -57,8 +56,7 @@ export default function MeetingFilterCombobox({
       shortLabel: "All",
       count: metrics.total ?? totalCount,
       icon: CalendarCheck,
-      iconSrc: "https://cdn.lordicon.com/gqdnbnwt.json",
-      colors: "primary:#f59e0b,secondary:#64748b",
+      color: "text-amber-500",
     },
     {
       id: "today",
@@ -66,8 +64,7 @@ export default function MeetingFilterCombobox({
       shortLabel: "Today",
       count: metrics.today ?? 0,
       icon: Clock,
-      iconSrc: "https://cdn.lordicon.com/kbtmbyzy.json",
-      colors: "primary:#f59e0b,secondary:#0284c7",
+      color: "text-amber-500",
     },
     {
       id: "online",
@@ -75,8 +72,7 @@ export default function MeetingFilterCombobox({
       shortLabel: "Online",
       count: metrics.online ?? 0,
       icon: Video,
-      iconSrc: "https://cdn.lordicon.com/bgebyztw.json",
-      colors: "primary:#0284c7,secondary:#38bdf8",
+      color: "text-sky-500",
     },
     {
       id: "f2f",
@@ -84,8 +80,7 @@ export default function MeetingFilterCombobox({
       shortLabel: "Face-to-Face",
       count: metrics.f2f ?? 0,
       icon: Building2,
-      iconSrc: "https://cdn.lordicon.com/ecqveqap.json",
-      colors: "primary:#a855f7,secondary:#d946ef",
+      color: "text-purple-500 dark:text-purple-400",
     },
     {
       id: "upcoming",
@@ -93,8 +88,7 @@ export default function MeetingFilterCombobox({
       shortLabel: "Upcoming",
       count: metrics.upcoming ?? null,
       icon: Calendar,
-      iconSrc: "https://cdn.lordicon.com/qhgmphtg.json",
-      colors: "primary:#10b981,secondary:#059669",
+      color: "text-emerald-500",
     },
     {
       id: "archive",
@@ -102,8 +96,7 @@ export default function MeetingFilterCombobox({
       shortLabel: "History",
       count: metrics.archived ?? 0,
       icon: Archive,
-      iconSrc: "https://cdn.lordicon.com/whczgeur.json",
-      colors: "primary:#64748b,secondary:#94a3b8",
+      color: "text-neutral-500 dark:text-neutral-400",
     },
     {
       id: "all_records",
@@ -111,8 +104,7 @@ export default function MeetingFilterCombobox({
       shortLabel: "All Meetings",
       count: metrics.allTotal ?? ((metrics.total || 0) + (metrics.archived || 0)),
       icon: CalendarCheck,
-      iconSrc: "https://cdn.lordicon.com/gqdnbnwt.json",
-      colors: "primary:#f59e0b,secondary:#10b981",
+      color: "text-amber-500",
     },
   ];
 
@@ -146,16 +138,13 @@ export default function MeetingFilterCombobox({
         aria-expanded={isOpen}
       >
         <div className="flex items-center gap-2.5 min-w-0">
-          {currentOption.iconSrc ? (
-            <LordIcon
-              src={currentOption.iconSrc}
-              size={18}
-              trigger="hover"
-              colors={currentOption.colors || "primary:#f59e0b,secondary:#64748b"}
-            />
-          ) : (
-            <CurrentIcon className="w-4 h-4 text-amber-500 shrink-0" />
-          )}
+          <CurrentIcon
+            className={`w-4 h-4 shrink-0 ${
+              activeFilter !== "all"
+                ? currentOption.color || "text-amber-500"
+                : "text-amber-500"
+            }`}
+          />
 
           <div className="flex items-center gap-1.5 truncate text-left">
             <span className="text-[10px] text-neutral-400 dark:text-neutral-500 uppercase font-bold tracking-wider hidden sm:inline">
@@ -173,16 +162,10 @@ export default function MeetingFilterCombobox({
           </div>
         </div>
 
-        {/* Right Badge count & Chevron */}
+        {/* Right Badge count & Chevron (No bg, plain text number only) */}
         <div className="flex items-center gap-2 shrink-0">
           {currentCount !== null && (
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
-                activeFilter !== "all"
-                  ? "bg-amber-500 text-neutral-950 shadow-xs"
-                  : "bg-neutral-100 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
-              }`}
-            >
+            <span className="text-xs font-mono font-bold text-neutral-500 dark:text-neutral-400">
               {currentCount}
             </span>
           )}
@@ -268,20 +251,13 @@ export default function MeetingFilterCombobox({
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                        {opt.iconSrc ? (
-                          <LordIcon
-                            src={opt.iconSrc}
-                            size={18}
-                            trigger="hover"
-                            colors={
-                              isSelected
-                                ? "primary:#0a0a0a,secondary:#171717"
-                                : opt.colors || "primary:#f59e0b,secondary:#64748b"
-                            }
-                          />
-                        ) : (
-                          <OptIcon className="w-4 h-4 text-neutral-400 shrink-0" />
-                        )}
+                        <OptIcon
+                          className={`w-4 h-4 shrink-0 transition-colors ${
+                            isSelected
+                              ? "text-neutral-950"
+                              : opt.color || "text-neutral-400"
+                          }`}
+                        />
                       </div>
 
                       <span className="text-xs font-mono uppercase truncate block">
@@ -289,15 +265,15 @@ export default function MeetingFilterCombobox({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2.5 shrink-0">
                       {opt.count !== null && (
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
+                          className={`text-xs font-mono font-bold transition-colors ${
                             isSelected
-                              ? "bg-neutral-950 text-white"
+                              ? "text-neutral-950"
                               : opt.count > 0
-                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
-                              : "bg-neutral-100 dark:bg-white/5 text-neutral-400"
+                              ? "text-neutral-600 dark:text-neutral-300"
+                              : "text-neutral-400 dark:text-neutral-500"
                           }`}
                         >
                           {opt.count}

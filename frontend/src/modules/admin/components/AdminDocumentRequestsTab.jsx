@@ -41,6 +41,7 @@ import {
 } from "@/modules/portal/utils/documentRequestsHelper";
 import DocumentUploadModal from "@/modules/shared/DocumentUploadModal";
 import { resolveClientAvatar } from "@/modules/admin/components/InquiryPipelineTab";
+import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 
 export default function AdminDocumentRequestsTab({
   clientBriefs = [],
@@ -355,15 +356,12 @@ export default function AdminDocumentRequestsTab({
       {/* 1. TOP HEADER & METRICS */}
       <div className="p-5 sm:p-6 rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-5">
         <div>
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <span className="px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
-              <Shield className="w-3 h-3 text-amber-500" />
-              Document Vault &amp; Requests Hub
-            </span>
-            <span className="text-xs font-mono text-neutral-400">Phase 2 Consultation</span>
+          <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1.5">
+            <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span>Document Vault &amp; Requests Hub</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-tight text-neutral-900 dark:text-white">
-            Client Document Requests &amp; MCPA Transmittals
+            Client Document Requests
           </h1>
           <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 font-sans mt-1 max-w-3xl leading-relaxed">
             Request official land titles, clearances, and tax declarations from clients, or transmit blueprints, quotations, and signed contracts directly to client portals.
@@ -545,24 +543,44 @@ export default function AdminDocumentRequestsTab({
           </div>
 
           {filteredTransmittals.length === 0 ? (
-            /* Clean Empty State */
-            <div className="p-12 text-center rounded-[8px] bg-white dark:bg-[#101218] border border-dashed border-neutral-300 dark:border-white/10 space-y-3">
-              <Building className="w-10 h-10 text-neutral-400 mx-auto" />
-              <h4 className="text-sm font-mono font-bold text-neutral-900 dark:text-white">
-                No MCPA Transmittals Issued Yet
-              </h4>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans max-w-md mx-auto leading-relaxed">
-                Use the &quot;Upload Transmittal&quot; button above to transmit blueprints, quotations, or agreements directly to the client&apos;s portal.
-              </p>
-              <button
-                type="button"
-                onClick={() => setIsDirectUploadFormOpen(true)}
-                className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer transition-all shadow-sm"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Upload First Transmittal</span>
-              </button>
-            </div>
+            searchQuery.trim() ? (
+              <AdminEmptyState
+                iconSrc="https://cdn.lordicon.com/msoeawqm.json"
+                fallback={Search}
+                badgeText="Transmittal Search"
+                title="No Matching Transmittals"
+                description={`No transmitted documents found matching "${searchQuery}". Try searching by client name, project code, or document title.`}
+                actionButton={
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="px-4 py-2 rounded-[4px] bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold transition-colors cursor-pointer"
+                  >
+                    Clear Search
+                  </button>
+                }
+              />
+            ) : (
+              <AdminEmptyState
+                iconSrc="https://cdn.lordicon.com/smwmetfi.json"
+                fallback={Upload}
+                badgeText="Transmittal Vault Standby"
+                title="No MCPA Transmittals Issued Yet"
+                description="Transmit blueprints, architectural quotations, or signed construction agreements directly to the client's portal."
+                colors="primary:#d97706,secondary:#0284c7"
+                size={84}
+                actionButton={
+                  <button
+                    type="button"
+                    onClick={() => setIsDirectUploadFormOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer transition-all shadow-sm active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Upload First Transmittal</span>
+                  </button>
+                }
+              />
+            )
           ) : viewMode === "table" ? (
             /* MCPA TRANSMITTALS TABLE VIEW */
             <div className="overflow-x-auto rounded-[8px] border border-neutral-200 dark:border-white/5 bg-white dark:bg-[#101218] shadow-xs">
@@ -739,24 +757,47 @@ export default function AdminDocumentRequestsTab({
           </div>
 
           {filteredRequests.length === 0 ? (
-            /* Clean Empty State */
-            <div className="p-12 text-center rounded-[8px] bg-white dark:bg-[#101218] border border-dashed border-neutral-300 dark:border-white/10 space-y-3">
-              <FileText className="w-10 h-10 text-neutral-400 mx-auto" />
-              <h4 className="text-sm font-mono font-bold text-neutral-900 dark:text-white">
-                No Document Requests Found
-              </h4>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans max-w-md mx-auto leading-relaxed">
-                Click &quot;Request Document&quot; above to request required land titles, tax declarations, or barangay construction clearances from the client.
-              </p>
-              <button
-                type="button"
-                onClick={() => setIsRequestModalOpen(true)}
-                className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer transition-all shadow-sm"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Request First Document</span>
-              </button>
-            </div>
+            searchQuery.trim() || activeFilter !== "all" ? (
+              <AdminEmptyState
+                iconSrc="https://cdn.lordicon.com/msoeawqm.json"
+                fallback={Search}
+                badgeText="Filter / Search Active"
+                title="No Matching Document Requests"
+                description={`No document requests match your current filters${searchQuery ? ` ("${searchQuery}")` : ""}. Try selecting "All Requests" or clearing your search.`}
+                actionButton={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setActiveFilter("all");
+                    }}
+                    className="px-4 py-2 rounded-[4px] bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold transition-colors cursor-pointer"
+                  >
+                    Clear Filter &amp; Search
+                  </button>
+                }
+              />
+            ) : (
+              <AdminEmptyState
+                iconSrc="https://cdn.lordicon.com/nocovwne.json"
+                fallback={FileText}
+                badgeText="Document Vault Standby"
+                title="No Document Requests Found"
+                description="Click &quot;Request Document&quot; above to request required land titles, tax declarations, or barangay construction clearances from the client."
+                colors="primary:#d97706,secondary:#0284c7"
+                size={84}
+                actionButton={
+                  <button
+                    type="button"
+                    onClick={() => setIsRequestModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer transition-all shadow-sm active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Request First Document</span>
+                  </button>
+                }
+              />
+            )
           ) : viewMode === "table" ? (
             /* CLIENT DOCUMENT REQUESTS TABLE VIEW */
             <div className="overflow-x-auto rounded-[8px] border border-neutral-200 dark:border-white/5 bg-white dark:bg-[#101218] shadow-xs">

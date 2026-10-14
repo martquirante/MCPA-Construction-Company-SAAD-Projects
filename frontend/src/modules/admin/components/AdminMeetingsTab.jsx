@@ -954,7 +954,7 @@ export default function AdminMeetingsTab({
   };
 
   return (
-    <div className="space-y-6 font-sans animate-in fade-in duration-200">
+    <div className="space-y-6 font-sans animate-in fade-in duration-200 pb-36 sm:pb-20">
       {/* 0. INCOMING INSTANT CONSULTATION CALL ALERT BANNER — BESPOKE ARCHITECTURAL DISPATCH HUD */}
       {incomingInstantCall && !incomingInstantCall.answered && (
         <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-[#0d0f14]/95 backdrop-blur-xl border border-neutral-200/90 dark:border-white/[0.08] shadow-[0_16px_40px_-12px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.03)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7),0_0_35px_rgba(245,158,11,0.07)] p-4 sm:p-5 transition-all animate-in fade-in slide-in-from-top-3 duration-300">
@@ -1225,18 +1225,26 @@ export default function AdminMeetingsTab({
           {filteredMeetings.map((item) => {
             const isOnline = item.mode.toLowerCase().includes("online");
             const lifecycle = getMeetingLifecycleState(item, currentTime);
+            const isArchived = isMeetingArchived(item);
+
             return (
               <div
                 key={item.id}
-                className="rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] hover:border-amber-500/40 hover:shadow-md transition-all duration-150 p-4.5 flex flex-col justify-between space-y-4"
+                className="group relative rounded-2xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.08] hover:border-amber-500/30 hover:shadow-lg transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between space-y-4 overflow-hidden"
               >
-                {/* Card Top: Client & Status Badges */}
-                <div className="space-y-3">
+                {/* Live Top Accent Line */}
+                {lifecycle.isOngoing && (
+                  <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 animate-pulse" />
+                )}
+
+                {/* Card Body */}
+                <div className="space-y-3.5">
+                  {/* 1. Header: Client Info & Authoritative Single Status */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <ClientAvatarWithFallback item={item} clientBriefs={clientBriefs} />
                       <div className="min-w-0">
-                        <h4 className="text-sm font-semibold text-neutral-900 dark:text-white truncate tracking-tight">
+                        <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate tracking-tight">
                           {item.clientName}
                         </h4>
                         <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono truncate">
@@ -1245,70 +1253,81 @@ export default function AdminMeetingsTab({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                        {item.projectCode}
-                      </span>
-                      {isMeetingArchived(item) && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-mono font-semibold uppercase inline-flex items-center gap-1">
-                          <Archive className="w-2.5 h-2.5" />
-                          <span>History</span>
+                    {/* Single Clean Lifecycle Status Badge */}
+                    <div className="shrink-0">
+                      {lifecycle.isOngoing ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                          </span>
+                          Live Now
                         </span>
-                      )}
-                      {lifecycle.isOngoing && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-mono font-bold uppercase animate-pulse inline-flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
-                          <span>Live</span>
+                      ) : isArchived ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-neutral-400 border border-neutral-200/80 dark:border-white/10">
+                          Concluded
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                          Scheduled
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Project Title */}
-                  <div className="text-xs text-neutral-700 dark:text-neutral-300 font-medium line-clamp-1">
-                    {item.projectTitle}
+                  {/* 2. Project Title & Identifier */}
+                  <div className="space-y-0.5">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400 dark:text-neutral-500">
+                      <span>PROJECT CONSULTATION</span>
+                      <span className="font-semibold text-neutral-600 dark:text-neutral-300">{item.projectCode}</span>
+                    </div>
+                    <p className="text-xs font-medium text-neutral-800 dark:text-neutral-200 line-clamp-1">
+                      {item.projectTitle || "Architecture & Construction Brief"}
+                    </p>
                   </div>
 
-                  {/* Schedule Details Box */}
-                  <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/[0.04] space-y-2 text-xs">
-                    <div className="flex items-center justify-between text-neutral-700 dark:text-neutral-300 font-semibold">
+                  {/* 3. Schedule & Channel Metadata Box */}
+                  <div className="rounded-xl bg-neutral-50/80 dark:bg-white/[0.025] border border-neutral-200/60 dark:border-white/[0.05] p-3 space-y-2 text-xs">
+                    <div className="flex items-center justify-between gap-2 text-neutral-800 dark:text-neutral-200 font-medium">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                         <span>{item.displayDate}</span>
                       </div>
-                      <div className="flex items-center gap-1 font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
+                      <div className="flex items-center gap-1.5 font-mono text-[11px] text-neutral-500 dark:text-neutral-400 shrink-0">
                         <Clock className="w-3 h-3 text-neutral-400" />
                         <span>{item.time}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-200/50 dark:border-white/[0.04]">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider inline-flex items-center gap-1 ${
-                          isOnline
-                            ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
-                            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                        }`}
-                      >
-                        {isOnline ? <Video className="w-3 h-3" /> : <Building className="w-3 h-3" />}
-                        <span>{isOnline ? "Online Call" : "In-Person"}</span>
-                      </span>
-                      <span className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate max-w-[170px]" title={item.venue}>
-                        {item.venue}
-                      </span>
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-neutral-200/50 dark:border-white/[0.04] text-[11px]">
+                      <div className="flex items-center gap-1.5 text-neutral-600 dark:text-neutral-300 min-w-0">
+                        {isOnline ? (
+                          <Video className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                        ) : (
+                          <Building className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        )}
+                        <span className="truncate" title={item.venue}>
+                          {item.venue || (isOnline ? "MCPA Video Room" : "Office Consultation")}
+                        </span>
+                      </div>
+                      {item.duration && (
+                        <span className="font-mono text-[10px] text-neutral-500 dark:text-neutral-400 shrink-0">
+                          {item.duration}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Rating & Call Notes Box for Concluded Consultations */}
+                  {/* 4. Consultation Rating & Client Feedback (Refined Quote Block) */}
                   {(item.rating || item.clientNote) && (
-                    <div className="p-3 rounded-lg bg-amber-500/[0.06] border border-amber-500/20 space-y-1.5 text-xs">
+                    <div className="rounded-xl bg-amber-500/[0.04] dark:bg-amber-500/[0.05] border border-amber-500/15 p-3 space-y-1.5 text-xs">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <div className="flex items-center text-amber-400">
                             {[1, 2, 3, 4, 5].map((s) => (
                               <Star
                                 key={s}
-                                className={`w-3.5 h-3.5 ${
+                                className={`w-3 h-3 ${
                                   s <= (item.rating || 5)
                                     ? "fill-amber-400 text-amber-400"
                                     : "text-neutral-300 dark:text-neutral-700"
@@ -1320,111 +1339,111 @@ export default function AdminMeetingsTab({
                             {Number(item.rating || 5).toFixed(1)} / 5.0
                           </span>
                         </div>
-                        {item.duration && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-white/70 dark:bg-white/10 text-neutral-700 dark:text-neutral-300">
-                            {item.duration}
-                          </span>
-                        )}
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                          Feedback
+                        </span>
                       </div>
                       {item.clientNote && (
-                        <p className="text-neutral-700 dark:text-neutral-300 italic font-sans line-clamp-2 text-[11px] leading-snug">
-                          <span className="font-semibold not-italic text-amber-600 dark:text-amber-400 font-mono">Note: </span>&ldquo;{item.clientNote}&rdquo;
+                        <p className="text-neutral-600 dark:text-neutral-300 italic text-[11px] leading-relaxed line-clamp-2">
+                          &ldquo;{item.clientNote}&rdquo;
                         </p>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Action Toolbar */}
-                <div className="pt-3 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    {isOnline && (lifecycle.isRoomUnlocked || lifecycle.isOngoing) ? (
-                      <button
-                        type="button"
-                        onClick={() => handleJoinCallAsHost(item)}
-                        className="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs flex-1"
-                      >
-                        <Video className="w-3.5 h-3.5" />
-                        <span>Join Call</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenOutcome(item)}
-                        className="h-8 px-3 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 border border-neutral-200 dark:border-white/10 cursor-pointer flex-1"
-                      >
-                        <Award className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Outcome</span>
-                      </button>
-                    )}
-
-                    {(item.isConcluded || item.clientNote || item.rating) && (
-                      <button
-                        type="button"
-                        onClick={() => setViewMinutesSession(item)}
-                        className="h-8 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-amber-500/30 cursor-pointer"
-                        title="View Call Rating & Notes"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-amber-500" />
-                        <span className="hidden xs:inline">Notes</span>
-                      </button>
-                    )}
-
+                {/* 5. Responsive Two-Tier Action Toolbar */}
+                <div className="pt-3 border-t border-neutral-100 dark:border-white/[0.06] flex flex-col gap-2">
+                  {/* Tier 1: Primary Action Button (Full-width on mobile with ergonomic touch height) */}
+                  {isOnline && (lifecycle.isRoomUnlocked || lifecycle.isOngoing) ? (
                     <button
                       type="button"
-                      onClick={() => handleOpenReschedule(item)}
-                      className="h-8 px-2.5 rounded-lg bg-white hover:bg-neutral-50 dark:bg-transparent dark:hover:bg-white/5 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200 dark:border-white/10 cursor-pointer"
-                      title="Reschedule / Change Setup"
+                      onClick={() => handleJoinCallAsHost(item)}
+                      className="w-full h-10 sm:h-9 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      title="Join video consultation as Lead Architect"
                     >
-                      <RefreshCw className="w-3 h-3 text-neutral-400" />
-                      <span className="hidden xs:inline">Setup</span>
+                      <Video className="w-4 h-4" />
+                      <span>Join Live Call</span>
                     </button>
-
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => handleToggleArchive(item)}
-                      className={`h-8 px-2.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 border cursor-pointer ${
-                        isMeetingArchived(item)
-                          ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30"
-                          : "bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border-neutral-200 dark:border-white/10"
-                      }`}
-                      title={isMeetingArchived(item) ? "Restore meeting to active" : "Move to Archive / Concluded"}
+                      onClick={() => handleOpenOutcome(item)}
+                      className="w-full h-10 sm:h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-white/10 dark:hover:bg-white/15 active:scale-[0.99] text-white text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      title="Record meeting outcome or follow-up milestones"
                     >
-                      {isMeetingArchived(item) ? (
-                        <>
-                          <RotateCcw className="w-3 h-3 text-amber-500" />
-                          <span className="hidden xs:inline">Restore</span>
-                        </>
-                      ) : (
-                        <>
-                          <Archive className="w-3 h-3 text-neutral-400" />
-                          <span className="hidden xs:inline">Archive</span>
-                        </>
+                      <Award className="w-4 h-4 text-amber-400" />
+                      <span>Consultation Outcome</span>
+                    </button>
+                  )}
+
+                  {/* Tier 2: Secondary Quick Actions */}
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      {(item.isConcluded || item.clientNote || item.rating) && (
+                        <button
+                          type="button"
+                          onClick={() => setViewMinutesSession(item)}
+                          className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer flex-1 sm:flex-initial"
+                          title="View Call Rating & Notes"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-amber-500" />
+                          <span className="text-[11px]">Notes</span>
+                        </button>
                       )}
-                    </button>
-                  </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleSendReminder(item)}
-                      disabled={isSendingReminderId === item.id}
-                      className="h-8 w-8 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-                      title="Send pre-meeting attendance reminder email"
-                    >
-                      {isSendingReminderId === item.id ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Mail className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    <a
-                      href={`mailto:${item.clientEmail}`}
-                      className="h-8 w-8 rounded-lg bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-500 hover:text-neutral-900 dark:hover:text-white border border-neutral-200 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer"
-                      title={`Send direct email to ${item.clientEmail}`}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReschedule(item)}
+                        className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer flex-1 sm:flex-initial"
+                        title="Reschedule / Change Setup"
+                      >
+                        <RefreshCw className="w-3 h-3 text-neutral-400" />
+                        <span className="text-[11px]">Setup</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleArchive(item)}
+                        className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer flex-1 sm:flex-initial"
+                        title={isArchived ? "Restore meeting to active" : "Move to Archive / Concluded"}
+                      >
+                        {isArchived ? (
+                          <>
+                            <RotateCcw className="w-3 h-3 text-amber-500" />
+                            <span className="text-[11px]">Restore</span>
+                          </>
+                        ) : (
+                          <>
+                            <Archive className="w-3 h-3 text-neutral-400" />
+                            <span className="text-[11px]">Archive</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleSendReminder(item)}
+                        disabled={isSendingReminderId === item.id}
+                        className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-600 dark:hover:text-sky-400 border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                        title="Send pre-meeting reminder email"
+                      >
+                        {isSendingReminderId === item.id ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Mail className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      <a
+                        href={`mailto:${item.clientEmail}`}
+                        className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                        title={`Send direct email to ${item.clientEmail}`}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1438,33 +1457,40 @@ export default function AdminMeetingsTab({
           <div className="hidden xl:grid grid-cols-12 gap-4 px-5 py-2 text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold border-b border-neutral-200/70 dark:border-white/[0.06]">
             <div className="col-span-3">Client &amp; Project</div>
             <div className="col-span-2">Consultation Schedule</div>
-            <div className="col-span-3">Format &amp; Venue</div>
+            <div className="col-span-3">Status &amp; Channel</div>
             <div className="col-span-4 text-right">Actions</div>
           </div>
 
           {filteredMeetings.map((item) => {
             const isOnline = item.mode.toLowerCase().includes("online");
             const lifecycle = getMeetingLifecycleState(item, currentTime);
+            const isArchived = isMeetingArchived(item);
+
             return (
               <div
                 key={item.id}
-                className="rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] hover:border-amber-500/40 hover:shadow-md transition-all duration-150 p-4 sm:p-4.5"
+                className="group relative rounded-2xl xl:rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.08] hover:border-amber-500/30 hover:shadow-md transition-all duration-200 p-4 sm:p-4.5 overflow-hidden"
               >
+                {/* Live Top Accent Line */}
+                {lifecycle.isOngoing && (
+                  <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 animate-pulse" />
+                )}
+
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-center">
                   {/* Col 1 (xl:col-span-3): Client & Project Brief */}
                   <div className="xl:col-span-3 flex items-center gap-3.5 min-w-0">
                     <ClientAvatarWithFallback item={item} clientBriefs={clientBriefs} />
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-semibold text-neutral-900 dark:text-white truncate tracking-tight">
+                        <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate tracking-tight">
                           {item.clientName}
                         </h4>
-                        <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                        <span className="text-[11px] font-mono font-medium text-neutral-500 dark:text-neutral-400 shrink-0">
                           {item.projectCode}
                         </span>
                       </div>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                        {item.projectTitle}
+                        {item.projectTitle || "Architecture & Construction Brief"}
                       </p>
                     </div>
                   </div>
@@ -1480,159 +1506,154 @@ export default function AdminMeetingsTab({
                       <span>{item.time}</span>
                     </div>
                     {item.duration && (
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono font-semibold text-amber-600 dark:text-amber-400">
-                        <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
                         <span>Duration: {item.duration}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Col 3 (xl:col-span-3): Format, Venue & Live Indicator */}
-                  <div className="xl:col-span-3 space-y-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider inline-flex items-center gap-1 ${
-                          isOnline
-                            ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
-                            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                        }`}
-                      >
-                        {isOnline ? <Video className="w-3 h-3" /> : <Building className="w-3 h-3" />}
-                        <span>{isOnline ? "Online Call" : "In-Person"}</span>
-                      </span>
+                  {/* Col 3 (xl:col-span-3): Format & Status */}
+                  <div className="xl:col-span-3 space-y-1.5 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Authoritative Single Status */}
+                      {lifecycle.isOngoing ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                          </span>
+                          Live Now
+                        </span>
+                      ) : isArchived ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-neutral-400 border border-neutral-200/80 dark:border-white/10">
+                          Concluded
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                          Scheduled
+                        </span>
+                      )}
 
                       {item.rating && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 inline-flex items-center gap-1">
-                          <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                        <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                           <span>{Number(item.rating).toFixed(1)}</span>
-                        </span>
-                      )}
-
-                      {lifecycle.isOngoing && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-mono font-bold uppercase animate-pulse inline-flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
-                          <span>Live</span>
-                        </span>
-                      )}
-
-                      {isMeetingArchived(item) && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 font-mono font-semibold uppercase inline-flex items-center gap-1">
-                          <Archive className="w-2.5 h-2.5" />
-                          <span>History</span>
                         </span>
                       )}
                     </div>
 
                     {item.clientNote ? (
-                      <p className="text-[11px] text-neutral-600 dark:text-neutral-300 italic line-clamp-1 truncate max-w-[240px]" title={item.clientNote}>
-                        <span className="font-semibold not-italic text-amber-600 dark:text-amber-400 font-mono">Note: </span>&ldquo;{item.clientNote}&rdquo;
+                      <p className="text-[11px] text-neutral-600 dark:text-neutral-300 italic line-clamp-1 truncate max-w-full" title={item.clientNote}>
+                        &ldquo;{item.clientNote}&rdquo;
                       </p>
                     ) : (
-                      <div className="flex items-start gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 max-w-[210px]">
-                        <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0 mt-0.5" />
-                        <span className="leading-snug break-words line-clamp-2" title={item.venue}>
-                          {item.venue}
+                      <div className="flex items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+                        {isOnline ? (
+                          <Video className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                        ) : (
+                          <Building className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        )}
+                        <span className="truncate" title={item.venue}>
+                          {item.venue || (isOnline ? "MCPA Video Room" : "Office Consultation")}
                         </span>
                       </div>
                     )}
                   </div>
 
                   {/* Col 4 (xl:col-span-4): Unified Precision Action Toolbar */}
-                  <div className="xl:col-span-4 flex items-center justify-start xl:justify-end gap-1.5 border-t xl:border-t-0 pt-3 xl:pt-0 border-neutral-100 dark:border-white/5">
-                    {/* Live Join Button (when unlocked or ongoing) */}
-                    {isOnline && (lifecycle.isRoomUnlocked || lifecycle.isOngoing) && (
+                  <div className="xl:col-span-4 border-t xl:border-t-0 pt-3 xl:pt-0 border-neutral-100 dark:border-white/[0.06] flex flex-col xl:flex-row xl:items-center xl:justify-end gap-2 xl:gap-1.5">
+                    {/* Primary Action Button (Full-width on mobile, auto-width on desktop) */}
+                    {isOnline && (lifecycle.isRoomUnlocked || lifecycle.isOngoing) ? (
                       <button
                         type="button"
                         onClick={() => handleJoinCallAsHost(item)}
-                        className="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-[11px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
-                        title="Join consultation call as Lead Engineer / Host"
+                        className="w-full xl:w-auto h-10 xl:h-8 px-4 xl:px-3 rounded-xl xl:rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs xl:text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs shrink-0"
+                        title="Join video consultation as Lead Architect"
                       >
-                        <Video className="w-3.5 h-3.5" />
-                        <span>Join Call</span>
+                        <Video className="w-4 h-4 xl:w-3.5 xl:h-3.5" />
+                        <span>Join Live Call</span>
                       </button>
-                    )}
-
-                    {(item.isConcluded || item.clientNote || item.rating) && (
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => setViewMinutesSession(item)}
-                        className="h-8 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium transition-colors flex items-center gap-1.5 border border-amber-500/30 cursor-pointer shrink-0"
-                        title="View Call Rating & Notes"
+                        onClick={() => handleOpenOutcome(item)}
+                        className="w-full xl:w-auto h-10 xl:h-8 px-4 xl:px-3 rounded-xl xl:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-white/10 dark:hover:bg-white/15 active:scale-[0.99] text-white text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs shrink-0"
+                        title="Record meeting outcome or follow-up milestones"
                       >
-                        <FileText className="w-3.5 h-3.5 text-amber-500" />
-                        <span className="hidden sm:inline">Notes</span>
+                        <Award className="w-4 h-4 xl:w-3.5 xl:h-3.5 text-amber-400" />
+                        <span>Consultation Outcome</span>
                       </button>
                     )}
 
-                    {/* Record Outcome Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleOpenOutcome(item)}
-                      className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 text-xs font-medium transition-colors flex items-center gap-1.5 border border-neutral-200 dark:border-white/10 cursor-pointer shrink-0"
-                      title="Record meeting outcome or schedule follow-up"
-                    >
-                      <Award className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Outcome</span>
-                    </button>
+                    {/* Secondary Quick Action Tools */}
+                    <div className="flex items-center justify-between xl:justify-end gap-1.5 flex-1 xl:flex-initial">
+                      <div className="flex items-center gap-1.5 flex-1 xl:flex-initial">
+                        {(item.isConcluded || item.clientNote || item.rating) && (
+                          <button
+                            type="button"
+                            onClick={() => setViewMinutesSession(item)}
+                            className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer flex-1 xl:flex-initial shrink-0"
+                            title="View Call Rating & Notes"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-amber-500" />
+                            <span className="text-[11px]">Notes</span>
+                          </button>
+                        )}
 
-                    {/* Reschedule Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleOpenReschedule(item)}
-                      className="h-8 px-2.5 rounded-lg bg-white hover:bg-neutral-50 dark:bg-transparent dark:hover:bg-white/5 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-xs font-medium transition-colors flex items-center gap-1.5 border border-neutral-200 dark:border-white/10 cursor-pointer shrink-0"
-                      title="Reschedule date, time, or venue"
-                    >
-                      <RefreshCw className="w-3 h-3 text-neutral-400" />
-                      <span className="hidden sm:inline">Setup</span>
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReschedule(item)}
+                          className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer flex-1 xl:flex-initial shrink-0"
+                          title="Reschedule / Change Setup"
+                        >
+                          <RefreshCw className="w-3 h-3 text-neutral-400" />
+                          <span className="text-[11px]">Setup</span>
+                        </button>
 
-                    {/* Archive / Restore Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleToggleArchive(item)}
-                      className={`h-8 px-2.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border cursor-pointer shrink-0 ${
-                        isMeetingArchived(item)
-                          ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30"
-                          : "bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border-neutral-200 dark:border-white/10"
-                      }`}
-                      title={isMeetingArchived(item) ? "Restore meeting to active" : "Move to Archive / Concluded"}
-                    >
-                      {isMeetingArchived(item) ? (
-                        <>
-                          <RotateCcw className="w-3 h-3 text-amber-500" />
-                          <span className="hidden sm:inline">Restore</span>
-                        </>
-                      ) : (
-                        <>
-                          <Archive className="w-3 h-3 text-neutral-400" />
-                          <span className="hidden sm:inline">Archive</span>
-                        </>
-                      )}
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleArchive(item)}
+                          className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer flex-1 xl:flex-initial shrink-0"
+                          title={isArchived ? "Restore meeting to active" : "Move to Archive / Concluded"}
+                        >
+                          {isArchived ? (
+                            <>
+                              <RotateCcw className="w-3 h-3 text-amber-500" />
+                              <span className="text-[11px]">Restore</span>
+                            </>
+                          ) : (
+                            <>
+                              <Archive className="w-3 h-3 text-neutral-400" />
+                              <span className="text-[11px]">Archive</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
 
-                    {/* Send Reminder Action Icon */}
-                    <button
-                      type="button"
-                      onClick={() => handleSendReminder(item)}
-                      disabled={isSendingReminderId === item.id}
-                      className="h-8 w-8 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 flex items-center justify-center transition-colors cursor-pointer shrink-0 disabled:opacity-50"
-                      title="Send pre-meeting attendance reminder email"
-                    >
-                      {isSendingReminderId === item.id ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Mail className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleSendReminder(item)}
+                          disabled={isSendingReminderId === item.id}
+                          className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-600 dark:hover:text-sky-400 border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                          title="Send pre-meeting reminder email"
+                        >
+                          {isSendingReminderId === item.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Mail className="w-3.5 h-3.5" />
+                          )}
+                        </button>
 
-                    {/* Direct Client Contact Email */}
-                    <a
-                      href={`mailto:${item.clientEmail}`}
-                      className="h-8 w-8 rounded-lg bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-500 hover:text-neutral-900 dark:hover:text-white border border-neutral-200 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                      title={`Send direct email to ${item.clientEmail}`}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+                        <a
+                          href={`mailto:${item.clientEmail}`}
+                          className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                          title={`Send direct email to ${item.clientEmail}`}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1928,17 +1949,36 @@ export default function AdminMeetingsTab({
 
       {/* 5. MEETING OUTCOME & NEXT STEPS MODAL (MULTI-ROUND ENGAGEMENT) */}
       {outcomeMeeting && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-lg max-h-[88vh] flex flex-col rounded-[12px] bg-white dark:bg-[#14161f] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-neutral-200 dark:border-white/10 shrink-0">
-              <div>
-                <h3 className="text-sm font-mono font-bold uppercase text-neutral-900 dark:text-white flex items-center gap-2">
-                  <Award className="w-4 h-4 text-amber-500" />
-                  <span>Consultation Outcome &amp; Next Steps</span>
-                </h3>
-                <p className="text-xs text-neutral-500 font-sans mt-0.5">
-                  Client: <strong className="text-neutral-800 dark:text-neutral-200">{outcomeMeeting.clientName}</strong> ({outcomeMeeting.projectCode})
-                </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-xl max-h-[88vh] flex flex-col rounded-2xl bg-white dark:bg-[#12141c] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 pb-4 border-b border-neutral-200/80 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.02] shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                  <Award className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white truncate">
+                    Consultation Outcome &amp; Next Steps
+                  </h3>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-neutral-500 dark:text-neutral-400 font-sans truncate">
+                    <span className="font-semibold text-neutral-900 dark:text-neutral-200 truncate">
+                      {outcomeMeeting.clientName}
+                    </span>
+                    <span className="text-neutral-300 dark:text-neutral-600 shrink-0">•</span>
+                    <span className="font-mono text-[11px] text-neutral-400 dark:text-neutral-500 shrink-0">
+                      {outcomeMeeting.projectCode}
+                    </span>
+                    {outcomeMeeting.round && (
+                      <>
+                        <span className="text-neutral-300 dark:text-neutral-600 shrink-0">•</span>
+                        <span className="text-[10px] font-mono font-bold uppercase text-amber-600 dark:text-amber-400 shrink-0">
+                          Round {outcomeMeeting.round}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
               <button
                 type="button"
@@ -1946,174 +1986,249 @@ export default function AdminMeetingsTab({
                   setOutcomeMeeting(null);
                   setIsOutcomeConfirmModalOpen(false);
                 }}
-                className="p-1 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0 ml-2"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleOpenOutcomeConfirmation} className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
+            <form onSubmit={handleOpenOutcomeConfirmation} className="flex-1 overflow-y-auto p-5 space-y-4.5 min-h-0">
               {/* Outcome Choice Radio Cards */}
               <div className="space-y-2">
-                <label className="text-[11px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold">
+                <label className="text-[11px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold block">
                   Consultation Decision &amp; Direction *
                 </label>
 
                 {/* Option 1: Schedule Next Meeting (Multiple rounds) */}
                 <div
                   onClick={() => setOutcomeType("NEXT_MEETING")}
-                  className={`p-3.5 rounded-[8px] border transition-all cursor-pointer space-y-1 ${
+                  className={`group p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer relative ${
                     outcomeType === "NEXT_MEETING"
-                      ? "border-amber-500 bg-amber-500/10 dark:bg-amber-500/15"
-                      : "border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20"
+                      ? "border-amber-500/80 bg-amber-500/[0.05] dark:bg-amber-500/[0.08] ring-1 ring-amber-500/20"
+                      : "border-neutral-200/90 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-neutral-50/60 dark:hover:bg-white/[0.02]"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                      <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${
-                        outcomeType === "NEXT_MEETING" ? "border-amber-500 bg-amber-500" : "border-neutral-400"
-                      }`} />
-                      <span>Schedule Follow-Up Consultation Meeting</span>
-                    </span>
-                    <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase">
-                      Iterative Alignment
-                    </span>
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                      outcomeType === "NEXT_MEETING"
+                        ? "border-amber-500 bg-amber-500 shadow-xs"
+                        : "border-neutral-300 dark:border-neutral-600 group-hover:border-neutral-400"
+                    }`}>
+                      {outcomeType === "NEXT_MEETING" && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-neutral-950" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${
+                            outcomeType === "NEXT_MEETING" ? "text-amber-500" : "text-neutral-400"
+                          }`} />
+                          <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white truncate">
+                            Schedule Follow-Up Consultation Meeting
+                          </span>
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                          Iterative Alignment
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans mt-1 leading-relaxed">
+                        Further technical evaluation, 3D design revisions, or BOQ estimate refinements are needed before signing.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-sans pl-5 leading-relaxed">
-                    Further technical evaluation, 3D design revisions, or BOQ estimate refinements are needed before signing.
-                  </p>
                 </div>
 
                 {/* Option 2: Mutual Agreement Reached (Advance to Pre-Construction) */}
                 <div
                   onClick={() => setOutcomeType("AGREED_ADVANCE")}
-                  className={`p-3.5 rounded-[8px] border transition-all cursor-pointer space-y-1 ${
+                  className={`group p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer relative ${
                     outcomeType === "AGREED_ADVANCE"
-                      ? "border-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/15"
-                      : "border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20"
+                      ? "border-emerald-500/80 bg-emerald-500/[0.05] dark:bg-emerald-500/[0.08] ring-1 ring-emerald-500/20"
+                      : "border-neutral-200/90 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-neutral-50/60 dark:hover:bg-white/[0.02]"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                      <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${
-                        outcomeType === "AGREED_ADVANCE" ? "border-emerald-500 bg-emerald-500" : "border-neutral-400"
-                      }`} />
-                      <span>Mutual Agreement Reached · Advance to Stage 3</span>
-                    </span>
-                    <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                      Stage Gate Unlocked
-                    </span>
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                      outcomeType === "AGREED_ADVANCE"
+                        ? "border-emerald-500 bg-emerald-500 shadow-xs"
+                        : "border-neutral-300 dark:border-neutral-600 group-hover:border-neutral-400"
+                    }`}>
+                      {outcomeType === "AGREED_ADVANCE" && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-neutral-950" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Award className={`w-3.5 h-3.5 shrink-0 ${
+                            outcomeType === "AGREED_ADVANCE" ? "text-emerald-500" : "text-neutral-400"
+                          }`} />
+                          <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white truncate">
+                            Mutual Agreement Reached · Advance to Stage 3
+                          </span>
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                          Stage Gate Unlocked
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans mt-1 leading-relaxed">
+                        Client and MCPA are in agreement with preliminary scope and budget. Elevate to Stage 3 Pre-Construction Planning.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-sans pl-5 leading-relaxed">
-                    Client and MCPA are in agreement with the preliminary scope and budget. Elevate to Stage 3 Pre-Construction Planning (Blueprints, Soil Survey, Contract).
-                  </p>
                 </div>
 
                 {/* Option 3: Under Deliberation */}
                 <div
                   onClick={() => setOutcomeType("REVISION_DELIBERATION")}
-                  className={`p-3.5 rounded-[8px] border transition-all cursor-pointer space-y-1 ${
+                  className={`group p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer relative ${
                     outcomeType === "REVISION_DELIBERATION"
-                      ? "border-sky-500 bg-sky-500/10 dark:bg-sky-500/15"
-                      : "border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20"
+                      ? "border-sky-500/80 bg-sky-500/[0.05] dark:bg-sky-500/[0.08] ring-1 ring-sky-500/20"
+                      : "border-neutral-200/90 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-neutral-50/60 dark:hover:bg-white/[0.02]"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                      <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${
-                        outcomeType === "REVISION_DELIBERATION" ? "border-sky-500 bg-sky-500" : "border-neutral-400"
-                      }`} />
-                      <span>Under Client Deliberation / Revisions in Progress</span>
-                    </span>
-                    <span className="text-[10px] font-mono font-bold text-sky-600 dark:text-sky-400 uppercase">
-                      Pending Decision
-                    </span>
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                      outcomeType === "REVISION_DELIBERATION"
+                        ? "border-sky-500 bg-sky-500 shadow-xs"
+                        : "border-neutral-300 dark:border-neutral-600 group-hover:border-neutral-400"
+                    }`}>
+                      {outcomeType === "REVISION_DELIBERATION" && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-neutral-950" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Clock className={`w-3.5 h-3.5 shrink-0 ${
+                            outcomeType === "REVISION_DELIBERATION" ? "text-sky-500" : "text-neutral-400"
+                          }`} />
+                          <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white truncate">
+                            Under Client Deliberation / Revisions in Progress
+                          </span>
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap text-[10px] font-mono font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                          Pending Decision
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans mt-1 leading-relaxed">
+                        Client requested revisions or is discussing internally with partners. Save meeting notes and maintain active session.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-sans pl-5 leading-relaxed">
-                    Client requested revisions or is discussing internally with family/partners. Save meeting minutes and maintain active consultation.
-                  </p>
                 </div>
 
-                {/* Option 4: Discontinued / Did Not Proceed (Hindi Nagkasundo / Umayaw) */}
+                {/* Option 4: Discontinued / Did Not Proceed */}
                 <div
                   onClick={() => setOutcomeType("DISCONTINUED_REJECTED")}
-                  className={`p-3.5 rounded-[8px] border transition-all cursor-pointer space-y-1 ${
+                  className={`group p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer relative ${
                     outcomeType === "DISCONTINUED_REJECTED"
-                      ? "border-rose-500 bg-rose-500/10 dark:bg-rose-500/15"
-                      : "border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20"
+                      ? "border-rose-500/80 bg-rose-500/[0.05] dark:bg-rose-500/[0.08] ring-1 ring-rose-500/20"
+                      : "border-neutral-200/90 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-neutral-50/60 dark:hover:bg-white/[0.02]"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                      <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${
-                        outcomeType === "DISCONTINUED_REJECTED" ? "border-rose-500 bg-rose-500" : "border-neutral-400"
-                      }`} />
-                      <span>Discontinued / Consultation Concluded (Agreement Not Reached)</span>
-                    </span>
-                    <span className="text-[10px] font-mono font-bold text-rose-600 dark:text-rose-400 uppercase">
-                      Revert to Phase 1
-                    </span>
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                      outcomeType === "DISCONTINUED_REJECTED"
+                        ? "border-rose-500 bg-rose-500 shadow-xs"
+                        : "border-neutral-300 dark:border-neutral-600 group-hover:border-neutral-400"
+                    }`}>
+                      {outcomeType === "DISCONTINUED_REJECTED" && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <XCircle className={`w-3.5 h-3.5 shrink-0 ${
+                            outcomeType === "DISCONTINUED_REJECTED" ? "text-rose-500" : "text-neutral-400"
+                          }`} />
+                          <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white truncate">
+                            Discontinued · Consultation Concluded
+                          </span>
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap text-[10px] font-mono font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                          Revert to Phase 1
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans mt-1 leading-relaxed">
+                        Client and MCPA did not reach an agreement, or client opted not to proceed. Consultation closes and status resets to Phase 1.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-sans pl-5 leading-relaxed">
-                    Client and MCPA did not reach an agreement, or the client opted not to proceed. Consultation is closed and stage resets to Phase 1 (Rejected).
-                  </p>
                 </div>
               </div>
 
               {/* Dynamic Inputs for Next Meeting Round */}
               {outcomeType === "NEXT_MEETING" && (
-                <div className="p-3.5 rounded-[8px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 space-y-3 animate-in fade-in">
+                <div className="p-4 rounded-xl bg-neutral-50/70 dark:bg-white/[0.02] border border-neutral-200/90 dark:border-white/5 space-y-3.5 animate-in fade-in duration-150">
                   <div className="text-[11px] font-mono font-bold uppercase text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5" />
                     <span>Follow-Up Consultation Setup</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-mono uppercase text-neutral-500">Date *</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-mono uppercase font-bold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                        <Calendar className="w-3 h-3 text-amber-500" />
+                        Next Date *
+                      </label>
                       <input
                         type="date"
                         value={nextRoundDate}
                         onChange={(e) => setNextRoundDate(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white"
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
                         required
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-mono uppercase text-neutral-500">Slot *</label>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-mono uppercase font-bold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                        <Clock className="w-3 h-3 text-amber-500" />
+                        Time Slot *
+                      </label>
                       <select
                         value={nextRoundSlot}
                         onChange={(e) => setNextRoundSlot(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white"
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
                       >
-                        <option value="09:00 AM - 10:30 AM PHT">09:00 AM - 10:30 AM</option>
-                        <option value="10:00 AM - 11:30 AM PHT">10:00 AM - 11:30 AM</option>
-                        <option value="02:00 PM - 03:30 PM PHT">02:00 PM - 03:30 PM</option>
-                        <option value="04:00 PM - 05:30 PM PHT">04:00 PM - 05:30 PM</option>
+                        <option value="09:00 AM - 10:30 AM PHT">09:00 AM - 10:30 AM PHT</option>
+                        <option value="10:00 AM - 11:30 AM PHT">10:00 AM - 11:30 AM PHT</option>
+                        <option value="02:00 PM - 03:30 PM PHT">02:00 PM - 03:30 PM PHT</option>
+                        <option value="04:00 PM - 05:30 PM PHT">04:00 PM - 05:30 PM PHT</option>
                       </select>
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase text-neutral-500">Meeting Format *</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase font-bold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                      <Video className="w-3 h-3 text-sky-500" />
+                      Meeting Format &amp; Venue *
+                    </label>
                     <select
                       value={nextRoundMode}
                       onChange={(e) => setNextRoundMode(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white"
+                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-sans text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
                     >
-                      <option value="Online Video Call">Online Video Call (MCPA Video Room)</option>
+                      <option value="Online Video Call">Online Video Call (MCPA Secure Video Room)</option>
                       <option value="Face-to-Face Office Visit">Face-to-Face Office Visit (MCPA Plaridel Lounge)</option>
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase text-neutral-500">Consultation Agenda &amp; Objectives</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase font-bold text-neutral-500 dark:text-neutral-400">
+                      Agenda &amp; Discussion Objectives
+                    </label>
                     <input
                       type="text"
                       value={nextRoundAgenda}
                       onChange={(e) => setNextRoundAgenda(e.target.value)}
-                      placeholder="e.g. Blueprint Review &amp; BOQ Revision Discussion"
-                      className="w-full px-2.5 py-1.5 rounded bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-sans text-neutral-900 dark:text-white"
+                      placeholder="e.g. 3D Blueprint Review &amp; Revised BOQ Discussion"
+                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-sans text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
                     />
                   </div>
                 </div>
@@ -2121,17 +2236,19 @@ export default function AdminMeetingsTab({
 
               {/* Dynamic Inputs for Discontinued / Rejected */}
               {outcomeType === "DISCONTINUED_REJECTED" && (
-                <div className="p-3.5 rounded-[8px] bg-rose-500/10 border border-rose-500/20 space-y-2.5 animate-in fade-in">
-                  <div className="text-[11px] font-mono font-bold uppercase text-rose-500 flex items-center gap-1.5">
+                <div className="p-4 rounded-xl bg-rose-500/[0.04] dark:bg-rose-500/[0.08] border border-rose-500/20 space-y-3 animate-in fade-in duration-150">
+                  <div className="text-[11px] font-mono font-bold uppercase text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
                     <XCircle className="w-3.5 h-3.5" />
                     <span>Discontinue Reason &amp; Archive Settings</span>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase text-neutral-500 dark:text-neutral-400">Primary Reason *</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase font-bold text-neutral-500 dark:text-neutral-400">
+                      Primary Reason *
+                    </label>
                     <select
                       value={discontinueReason}
                       onChange={(e) => setDiscontinueReason(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-rose-500"
+                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-sans text-neutral-900 dark:text-white focus:outline-none focus:border-rose-500 transition-all"
                     >
                       <option value="Budget / Financial Alignment Mismatch">Budget / Financial Alignment Mismatch</option>
                       <option value="Client Decided Not to Proceed / Withdrawn">Client Decided Not to Proceed / Withdrawn</option>
@@ -2141,15 +2258,15 @@ export default function AdminMeetingsTab({
                       <option value="Out of Service Area / Feasibility Issue">Out of Service Area / Feasibility Issue</option>
                     </select>
                   </div>
-                  <p className="text-[11px] text-rose-600 dark:text-rose-400/90 font-sans leading-relaxed">
-                    Client project phase will be reset to <strong>Phase 1 (Pre-Inquiry / Rejected)</strong>. The client will see a respectful note in their portal and can submit another inquiry whenever ready.
+                  <p className="text-[11px] text-rose-600/90 dark:text-rose-400/90 font-sans leading-relaxed">
+                    Client project phase will be reset to <strong>Phase 1 (Pre-Inquiry / Rejected)</strong>. The consultation record will be archived with full history preserved.
                   </p>
                 </div>
               )}
 
               {/* Consultation Minutes / Notes */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold">
+                <label className="text-[11px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold block">
                   {outcomeType === "DISCONTINUED_REJECTED" ? "Discontinue Notes / Client Feedback" : "Consultation Minutes & Engineering Notes"}
                 </label>
                 <textarea
@@ -2161,35 +2278,45 @@ export default function AdminMeetingsTab({
                       ? "Record remarks on why client did not proceed or summary of discussions..."
                       : "Record summary of discussions, client preferences, agreements, or items to revise..."
                   }
-                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs font-sans text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-lg bg-neutral-50/50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs font-sans text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
                 />
               </div>
 
-              <div className="sticky bottom-0 bg-white/95 dark:bg-[#14161f]/95 backdrop-blur-sm -mx-5 -mb-5 px-5 py-3 border-t border-neutral-200 dark:border-white/10 flex items-center justify-end gap-2.5">
+              {/* Sticky Modal Footer */}
+              <div className="sticky bottom-0 bg-white/95 dark:bg-[#12141c]/95 backdrop-blur-md -mx-5 -mb-5 px-5 py-3.5 border-t border-neutral-200/80 dark:border-white/10 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
                     setOutcomeMeeting(null);
                     setIsOutcomeConfirmModalOpen(false);
                   }}
-                  className="px-4 py-2 rounded-[4px] text-xs font-mono font-bold uppercase text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-lg text-xs font-mono font-bold uppercase text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingOutcome}
-                  className={`px-5 py-2 rounded-[4px] font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md disabled:opacity-50 ${
+                  className={`px-5 py-2 rounded-lg font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm disabled:opacity-50 flex items-center gap-2 ${
                     outcomeType === "DISCONTINUED_REJECTED"
-                      ? "bg-rose-500 hover:bg-rose-400 text-white"
-                      : "bg-amber-500 hover:bg-amber-400 text-neutral-950"
+                      ? "bg-rose-600 hover:bg-rose-500 text-white"
+                      : outcomeType === "AGREED_ADVANCE"
+                      ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                      : "bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold"
                   }`}
                 >
-                  {isSubmittingOutcome
-                    ? "Saving Decision..."
-                    : outcomeType === "DISCONTINUED_REJECTED"
-                    ? "Confirm & Revert to Phase 1"
-                    : "Confirm Decision & Sync"}
+                  {isSubmittingOutcome ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving Decision...</span>
+                    </>
+                  ) : outcomeType === "DISCONTINUED_REJECTED" ? (
+                    "Confirm & Revert to Phase 1"
+                  ) : outcomeType === "AGREED_ADVANCE" ? (
+                    "Advance to Stage 3"
+                  ) : (
+                    "Confirm Decision & Sync"
+                  )}
                 </button>
               </div>
             </form>
@@ -2199,8 +2326,8 @@ export default function AdminMeetingsTab({
 
       {/* 5.1 OUTCOME CONFIRMATION MODAL */}
       {isOutcomeConfirmModalOpen && outcomeMeeting && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-          <div className="relative w-full max-w-lg rounded-[14px] bg-white dark:bg-[#11131a] border border-neutral-200 dark:border-white/15 shadow-2xl overflow-hidden animate-in zoom-in-95">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-[#12141c] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Header with appropriate colored accent line & icon */}
             <div className={`p-5 pb-4 border-b ${
               outcomeType === "DISCONTINUED_REJECTED"
@@ -2213,7 +2340,7 @@ export default function AdminMeetingsTab({
             }`}>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border ${
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
                     outcomeType === "DISCONTINUED_REJECTED"
                       ? "border-rose-500/30 bg-rose-500/15 text-rose-500"
                       : outcomeType === "AGREED_ADVANCE"
@@ -2228,7 +2355,7 @@ export default function AdminMeetingsTab({
                     {outcomeType === "NEXT_MEETING" && <CalendarCheck className="w-5 h-5" />}
                   </div>
                   <div>
-                    <h3 className="text-sm font-mono font-bold uppercase tracking-wide text-neutral-900 dark:text-white">
+                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
                       Confirm Consultation Decision
                     </h3>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
@@ -2240,7 +2367,7 @@ export default function AdminMeetingsTab({
                   type="button"
                   onClick={() => setIsOutcomeConfirmModalOpen(false)}
                   disabled={isSubmittingOutcome}
-                  className="p-1 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-white transition-colors cursor-pointer"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2250,50 +2377,50 @@ export default function AdminMeetingsTab({
             {/* Modal Body / Summary Cards */}
             <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
               {/* Client & Project Info */}
-              <div className="p-3 rounded-[8px] bg-neutral-100/70 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 flex items-center justify-between">
+              <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/90 dark:border-white/10 flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold">
+                  <div className="text-[10px] font-mono uppercase text-neutral-400 dark:text-neutral-500 font-bold">
                     Client &amp; Project
                   </div>
                   <div className="text-xs font-mono font-bold text-neutral-900 dark:text-white mt-0.5">
                     {outcomeMeeting.clientName}
                   </div>
                   <div className="text-[11px] text-neutral-500 font-sans">
-                    {outcomeMeeting.projectTitle} • <span className="font-mono text-amber-500">{outcomeMeeting.projectCode}</span>
+                    {outcomeMeeting.projectTitle} • <span className="font-mono text-neutral-400">{outcomeMeeting.projectCode}</span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] font-mono uppercase text-neutral-500 dark:text-neutral-400 font-bold">
+                  <div className="text-[10px] font-mono uppercase text-neutral-400 dark:text-neutral-500 font-bold">
                     Current Stage
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-neutral-200 dark:bg-white/10 text-neutral-800 dark:text-neutral-200 mt-1">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 mt-1">
                     Round {outcomeMeeting.round || 1}
                   </span>
                 </div>
               </div>
 
               {/* Selected Direction Box */}
-              <div className={`p-3.5 rounded-[8px] border ${
+              <div className={`p-4 rounded-xl border ${
                 outcomeType === "DISCONTINUED_REJECTED"
-                  ? "border-rose-500/30 bg-rose-500/10 dark:bg-rose-500/15"
+                  ? "border-rose-500/30 bg-rose-500/[0.04] dark:bg-rose-500/[0.08]"
                   : outcomeType === "AGREED_ADVANCE"
-                  ? "border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-500/15"
+                  ? "border-emerald-500/30 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.08]"
                   : outcomeType === "REVISION_DELIBERATION"
-                  ? "border-sky-500/30 bg-sky-500/10 dark:bg-sky-500/15"
-                  : "border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/15"
+                  ? "border-sky-500/30 bg-sky-500/[0.04] dark:bg-sky-500/[0.08]"
+                  : "border-amber-500/30 bg-amber-500/[0.04] dark:bg-amber-500/[0.08]"
               }`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                     Selected Outcome
                   </span>
-                  <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded ${
+                  <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border whitespace-nowrap ${
                     outcomeType === "DISCONTINUED_REJECTED"
-                      ? "bg-rose-500/20 text-rose-600 dark:text-rose-400"
+                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/20"
                       : outcomeType === "AGREED_ADVANCE"
-                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                       : outcomeType === "REVISION_DELIBERATION"
-                      ? "bg-sky-500/20 text-sky-600 dark:text-sky-400"
-                      : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                      ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/20"
+                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20"
                   }`}>
                     {outcomeType === "DISCONTINUED_REJECTED" && "Revert to Phase 1"}
                     {outcomeType === "AGREED_ADVANCE" && "Stage Gate Unlocked"}
@@ -2302,8 +2429,8 @@ export default function AdminMeetingsTab({
                   </span>
                 </div>
                 <div className="text-xs font-mono font-bold text-neutral-900 dark:text-white">
-                  {outcomeType === "DISCONTINUED_REJECTED" && "Discontinued / Consultation Concluded (Agreement Not Reached)"}
-                  {outcomeType === "AGREED_ADVANCE" && "Mutual Agreement Reached · Advance to Stage 3 Pre-Construction"}
+                  {outcomeType === "DISCONTINUED_REJECTED" && "Discontinued · Consultation Concluded"}
+                  {outcomeType === "AGREED_ADVANCE" && "Mutual Agreement Reached · Advance to Stage 3"}
                   {outcomeType === "REVISION_DELIBERATION" && "Under Client Deliberation / Revisions in Progress"}
                   {outcomeType === "NEXT_MEETING" && "Schedule Follow-Up Consultation Meeting"}
                 </div>

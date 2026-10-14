@@ -78,6 +78,7 @@ export default function StageCombobox({
                 size={18}
                 trigger="hover"
                 colors={currentStage.colors || "primary:#f59e0b,secondary:#64748b"}
+                fallback={FilterIcon}
               />
             ) : (
               <FilterIcon className="w-4 h-4 text-amber-500 shrink-0" />
@@ -103,13 +104,7 @@ export default function StageCombobox({
 
         {/* Right Badge count & Chevron */}
         <div className="flex items-center gap-2 shrink-0">
-          <span
-            className={`px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold transition-colors ${
-              selectedStage !== "ALL"
-                ? "bg-amber-500 text-neutral-950 shadow-xs"
-                : "bg-neutral-100 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
-            }`}
-          >
+          <span className="text-xs font-mono font-bold text-neutral-500 dark:text-neutral-400">
             {currentCount}
           </span>
           <ChevronDownIcon
@@ -219,6 +214,7 @@ export default function StageCombobox({
                                 ? "primary:#0a0a0a,secondary:#171717"
                                 : st.colors || "primary:#f59e0b,secondary:#64748b"
                             }
+                            fallback={FilterIcon}
                           />
                         ) : (
                           <FilterIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
@@ -233,15 +229,15 @@ export default function StageCombobox({
                       </div>
                     </div>
 
-                    {/* Right side: Count pill + Checkmark */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Right side: Count + Checkmark */}
+                    <div className="flex items-center gap-2.5 shrink-0">
                       <span
-                        className={`px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold transition-colors ${
+                        className={`text-xs font-mono font-bold transition-colors ${
                           isSelected
-                            ? "bg-neutral-950 text-white"
+                            ? "text-neutral-950"
                             : count > 0
-                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
-                            : "bg-neutral-100 dark:bg-white/5 text-neutral-400"
+                            ? "text-neutral-600 dark:text-neutral-300"
+                            : "text-neutral-400 dark:text-neutral-500"
                         }`}
                       >
                         {count}
