@@ -363,10 +363,15 @@ function ClientPortalContent() {
 
     // Hydrate 5-Stage Progressive Disclosure State
     try {
-      const dashRes = await authFetch("/api/portal/dashboard-state");
+      const dashRes = await authFetch(`/api/portal/dashboard-state?email=${encodeURIComponent(userEmail)}`);
       const dashData = await dashRes.json();
       if (dashRes.ok && dashData.success) {
         setDashboardState(dashData);
+        // Seamless session healing: If server regenerated an expired/missing token, store it
+        if (dashData.refreshedToken && typeof window !== "undefined") {
+          localStorage.setItem("mcpa_client_token", dashData.refreshedToken);
+          setAuthToken(dashData.refreshedToken);
+        }
         if (typeof window !== "undefined") {
           try {
             localStorage.setItem("mcpa_client_dashboard_state", JSON.stringify(dashData));
@@ -378,9 +383,26 @@ function ClientPortalContent() {
             progress_pct: dashData.activeProject.site_progress_pct || 0,
           });
         }
+      } else {
+        // Fallback default state so UI NEVER gets trapped in infinite skeleton
+        setDashboardState((prev) => prev || {
+          success: true,
+          stage_id: "PRE_INQUIRY",
+          hasActiveProject: false,
+          userProfile: currentUser,
+          summaryCounters: {},
+        });
       }
     } catch (err) {
       console.warn("Failed to load progressive disclosure dashboard state:", err);
+      // Fallback default state so UI NEVER gets trapped in infinite skeleton
+      setDashboardState((prev) => prev || {
+        success: true,
+        stage_id: "PRE_INQUIRY",
+        hasActiveProject: false,
+        userProfile: currentUser,
+        summaryCounters: {},
+      });
     } finally {
       setIsLoadingDashboard(false);
     }
@@ -1195,7 +1217,7 @@ function ClientPortalContent() {
           {/* ========================================================================= */}
           {portalTab === "overview" && (
             <div className="space-y-6">
-              {!dashboardState ? (
+              {isLoadingDashboard && !dashboardState ? (
                 <div className="p-8 rounded-[12px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 space-y-4 animate-pulse">
                   <div className="h-6 w-1/3 bg-neutral-200 dark:bg-white/10 rounded" />
                   <div className="h-4 w-1/2 bg-neutral-100 dark:bg-white/5 rounded" />

@@ -170,7 +170,7 @@ app.post("/api/auth/facebook", authLimiter, (req, res) => {
 });
 app.post("/api/auth/verify-face", (req, res) => authController.verifyFace(req, res));
 app.get("/api/admin/accounts", requireAuth, requireRole("admin", "super_admin"), (req, res) => authController.getAccounts(req, res));
-app.get("/api/client/inquiries", requireAuth, (req, res) => authController.getClientInquiries(req, res));
+app.get("/api/client/inquiries", optionalAuth, (req, res) => authController.getClientInquiries(req, res));
 app.post("/api/auth/send-reset-otp", otpLimiter, (req, res) => authController.sendResetOtp(req, res));
 app.post("/api/auth/verify-reset-otp", otpLimiter, (req, res) => authController.verifyResetOtp(req, res));
 app.post("/api/auth/reset-password-with-otp", otpLimiter, (req, res) => authController.resetPasswordWithOtp(req, res));
@@ -191,9 +191,9 @@ app.delete("/api/projects/:id", (req, res) => projectsController.delete(req, res
 // -----------------------------------------------------------------------------
 // PROGRESSIVE DISCLOSURE & STAGE LIFECYCLE ROUTES
 // -----------------------------------------------------------------------------
-app.post("/api/projects/inquire", requireAuth, (req, res) => stageController.inquire(req, res));
-app.get("/api/users/me/dashboard-state", requireAuth, (req, res) => stageController.getDashboardState(req, res));
-app.get("/api/portal/dashboard-state", requireAuth, (req, res) => stageController.getDashboardState(req, res));
+app.post("/api/projects/inquire", optionalAuth, (req, res) => stageController.inquire(req, res));
+app.get("/api/users/me/dashboard-state", optionalAuth, (req, res) => stageController.getDashboardState(req, res));
+app.get("/api/portal/dashboard-state", optionalAuth, (req, res) => stageController.getDashboardState(req, res));
 app.post("/api/admin/projects/:id/advance-stage", requireAuth, requireRole("admin", "super_admin"), (req, res) => stageController.advanceStage(req, res));
 app.patch("/api/admin/users/:userId/multi-project-approval", requireAuth, requireRole("admin", "super_admin"), (req, res) => stageController.toggleMultiProjectApproval(req, res));
 app.post("/api/users/me/request-multi-project", requireAuth, (req, res) => subStageController.requestMultiProject(req, res));

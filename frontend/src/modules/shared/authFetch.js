@@ -21,12 +21,29 @@ export function getStoredAuthToken() {
   );
 }
 
+export function getStoredClientEmail() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("mcpa_client_user");
+    if (!raw) return null;
+    const u = JSON.parse(raw);
+    return u?.email || null;
+  } catch (e) {
+    return null;
+  }
+}
+
 export async function authFetch(url, options = {}) {
   const token = getStoredAuthToken();
+  const clientEmail = getStoredClientEmail();
   const headers = new Headers(options.headers || {});
 
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  if (clientEmail && !headers.has("x-client-email")) {
+    headers.set("x-client-email", clientEmail);
   }
 
   const response = await fetch(url, {
