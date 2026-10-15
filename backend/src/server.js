@@ -129,6 +129,52 @@ app.get("/api/health", async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
+// WEBRTC ICE SERVERS (STUN & TURN RELAY CONFIGURATION)
+// -----------------------------------------------------------------------------
+app.get("/api/webrtc/ice-servers", (req, res) => {
+  const turnUsername = process.env.METERED_TURN_USERNAME || process.env.NEXT_PUBLIC_METERED_TURN_USERNAME || "";
+  const turnPassword = process.env.METERED_TURN_PASSWORD || process.env.NEXT_PUBLIC_METERED_TURN_PASSWORD || "";
+
+  const iceServers = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
+    { urls: "stun:stun.relay.metered.ca:80" },
+  ];
+
+  if (turnUsername && turnPassword) {
+    iceServers.push(
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: turnUsername,
+        credential: turnPassword,
+      }
+    );
+  }
+
+  return res.json({
+    success: true,
+    iceServers,
+  });
+});
+
+
+// -----------------------------------------------------------------------------
 // TRANSLATION ROUTE
 // -----------------------------------------------------------------------------
 app.post("/api/translations", async (req, res) => {
@@ -228,6 +274,7 @@ app.get("/api/wrapped/:shareToken", (req, res) => subStageController.getPublicWr
 // -----------------------------------------------------------------------------
 // CLIENT BRIEFS / CONSULTATIONS ROUTES (SAAD FLOWCHART PHASES 1-4)
 // -----------------------------------------------------------------------------
+app.get("/api/client/active-inquiry-check", optionalAuth, (req, res) => briefsController.checkActiveInquiry(req, res));
 app.get("/api/briefs", (req, res) => briefsController.getAll(req, res));
 app.get("/api/briefs/:id/pdf", (req, res) => briefsController.downloadPdf(req, res));
 app.post("/api/briefs/pdf", (req, res) => briefsController.downloadPdf(req, res));

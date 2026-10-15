@@ -127,16 +127,69 @@ class BriefsController {
 
       const normalizedEmail = clientEmail.trim().toLowerCase();
 
-      // 1. Anti-Spam Check: Max 3 active/pending inquiries per client
-      const activeCheck = await db.query(
-        "SELECT COUNT(*) AS active_count FROM client_briefs WHERE LOWER(client_email) = LOWER($1) AND status IN ('Pending Review', 'Meeting Scheduled')",
+      // 1. Single Active Inquiry Policy: Max 1 active inquiry per client unless is_multi_project_approved
+      const userRes = await db.query(
+        "SELECT user_id, is_multi_project_approved FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
         [normalizedEmail]
       );
-      const activeCount = parseInt(activeCheck.rows?.[0]?.active_count || "0", 10);
-      if (activeCount >= 3) {
-        return res.status(429).json({
-          message: "You have 3 active inquiries currently undergoing architectural review. Please wait for our team's response or manage your existing briefs in the Client Portal.",
-        });
+      const isMultiApproved = Boolean(userRes.rows?.[0]?.is_multi_project_approved);
+
+      if (!isMultiApproved) {
+        // Check active brief
+        const activeCheck = await db.query(
+          `SELECT brief_id, submission_id, project_type, status, location, created_at 
+           FROM client_briefs 
+           WHERE LOWER(client_email) = LOWER($1) 
+             AND (status NOT ILIKE '%reject%' AND status NOT ILIKE '%decline%' AND status NOT ILIKE '%discontinue%' AND status NOT ILIKE '%withdrawn%' AND status NOT ILIKE '%complet%')
+           ORDER BY brief_id DESC 
+           LIMIT 1`,
+          [normalizedEmail]
+        );
+        if (activeCheck.rows && activeCheck.rows.length > 0) {
+          const existing = activeCheck.rows[0];
+          return res.status(409).json({
+            success: false,
+            error: "ACTIVE_INQUIRY_EXISTS",
+            hasActiveInquiry: true,
+            activeInquiry: {
+              briefId: existing.brief_id,
+              submissionId: existing.submission_id,
+              projectType: existing.project_type,
+              status: existing.status,
+              location: existing.location,
+              createdAt: existing.created_at,
+              isProject: false,
+            },
+            message: "You currently have an active architectural inquiry on record. MCPA maintains a strict 1-project policy per client to ensure dedicated engineering oversight.",
+          });
+        }
+
+        // Check active project
+        const projectCheck = await db.query(
+          `SELECT client_project_id, project_code, project_title, project_type, target_location, stage_id, created_at 
+           FROM client_projects 
+           WHERE (user_id = $1 OR brief_id IN (SELECT brief_id FROM client_briefs WHERE LOWER(client_email) = LOWER($2)))
+             AND is_archived = FALSE AND stage_id != 'COMPLETED'
+           ORDER BY client_project_id DESC LIMIT 1`,
+          [userRes.rows?.[0]?.user_id || 0, normalizedEmail]
+        );
+        if (projectCheck.rows && projectCheck.rows.length > 0) {
+          const existingProj = projectCheck.rows[0];
+          return res.status(409).json({
+            success: false,
+            error: "ACTIVE_PROJECT_EXISTS",
+            hasActiveInquiry: true,
+            activeInquiry: {
+              submissionId: existingProj.project_code,
+              projectType: existingProj.project_title || existingProj.project_type,
+              status: `Stage: ${existingProj.stage_id}`,
+              location: existingProj.target_location,
+              createdAt: existingProj.created_at,
+              isProject: true,
+            },
+            message: "You have an ongoing construction project in progress. Multi-booking requires senior administrative clearance.",
+          });
+        }
       }
 
       // 2. Cooldown check: 5 minutes between submissions for same email
@@ -911,6 +964,88 @@ class BriefsController {
     } catch (err) {
       console.error("[BriefsController.withdrawConsultation] Error:", err);
       return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * GET /api/client/active-inquiry-check
+   * Pre-flight Gatekeeper: Checks if an email has an active inquiry or active project.
+   */
+  async checkActiveInquiry(req, res) {
+    try {
+      const email = req.query.email || req.user?.email || req.headers["x-client-email"];
+      if (!email || !email.trim()) {
+        return res.json({ hasActiveInquiry: false });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const userRes = await db.query(
+        "SELECT user_id, is_multi_project_approved FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
+        [normalizedEmail]
+      );
+      const isMultiApproved = Boolean(userRes.rows?.[0]?.is_multi_project_approved);
+
+      if (isMultiApproved) {
+        return res.json({ hasActiveInquiry: false, isMultiApproved: true });
+      }
+
+      // 1. Check active project
+      const projectRes = await db.query(
+        `SELECT client_project_id, project_code, project_title, project_type, target_location, stage_id, created_at 
+         FROM client_projects 
+         WHERE (user_id = $1 OR brief_id IN (SELECT brief_id FROM client_briefs WHERE LOWER(client_email) = LOWER($2)))
+           AND is_archived = FALSE AND stage_id != 'COMPLETED'
+         ORDER BY client_project_id DESC LIMIT 1`,
+        [userRes.rows?.[0]?.user_id || 0, normalizedEmail]
+      );
+
+      if (projectRes.rows && projectRes.rows.length > 0) {
+        const p = projectRes.rows[0];
+        return res.json({
+          hasActiveInquiry: true,
+          activeInquiry: {
+            submissionId: p.project_code,
+            projectType: p.project_title || p.project_type,
+            status: `Stage: ${p.stage_id}`,
+            location: p.target_location,
+            createdAt: p.created_at,
+            isProject: true,
+            stageId: p.stage_id,
+          },
+        });
+      }
+
+      // 2. Check active brief
+      const briefRes = await db.query(
+        `SELECT brief_id, submission_id, project_type, status, location, created_at 
+         FROM client_briefs 
+         WHERE LOWER(client_email) = LOWER($1) 
+           AND (status NOT ILIKE '%reject%' AND status NOT ILIKE '%decline%' AND status NOT ILIKE '%discontinue%' AND status NOT ILIKE '%withdrawn%' AND status NOT ILIKE '%complet%')
+         ORDER BY brief_id DESC 
+         LIMIT 1`,
+        [normalizedEmail]
+      );
+
+      if (briefRes.rows && briefRes.rows.length > 0) {
+        const b = briefRes.rows[0];
+        return res.json({
+          hasActiveInquiry: true,
+          activeInquiry: {
+            briefId: b.brief_id,
+            submissionId: b.submission_id,
+            projectType: b.project_type,
+            status: b.status,
+            location: b.location,
+            createdAt: b.created_at,
+            isProject: false,
+          },
+        });
+      }
+
+      return res.json({ hasActiveInquiry: false });
+    } catch (err) {
+      console.error("[BriefsController.checkActiveInquiry] Error:", err);
+      return res.json({ hasActiveInquiry: false });
     }
   }
 }

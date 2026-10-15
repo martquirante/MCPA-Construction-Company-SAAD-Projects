@@ -67,6 +67,8 @@ import PortalPhase3Planning from "@/modules/portal/components/stages/PortalPhase
 import PortalPhase4Execution from "@/modules/portal/components/stages/PortalPhase4Execution";
 import PortalPhase5Wrapped from "@/modules/portal/components/stages/PortalPhase5Wrapped";
 import MultiProjectRequestModal from "@/modules/portal/components/MultiProjectRequestModal";
+import SingleInquiryPolicyModal from "@/modules/shared/SingleInquiryPolicyModal";
+import { evaluateSingleInquiryPolicy } from "@/modules/shared/inquiryPolicyHelper";
 import { authFetch } from "@/modules/shared/authFetch";
 import { getBookingIntent, clearBookingIntent } from "@/modules/shared/bookingAuthHelper";
 import { isMeetingPast } from "@/modules/shared/meetingHelper";
@@ -105,6 +107,7 @@ function ClientPortalContent() {
   const [dashboardState, setDashboardState] = useState(null);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
   const [isMultiProjectModalOpen, setIsMultiProjectModalOpen] = useState(false);
+  const [isSinglePolicyModalOpen, setIsSinglePolicyModalOpen] = useState(false);
 
   // Construction project (from live database)
   const [siteProject, setSiteProject] = useState(null);
@@ -434,15 +437,24 @@ function ClientPortalContent() {
     }
   };
 
+  const singleInquiryPolicy = useMemo(() => {
+    return evaluateSingleInquiryPolicy({
+      inquiries,
+      dashboardState,
+      activeProject: dashboardState?.activeProject,
+    });
+  }, [inquiries, dashboardState]);
+
   const isMultiProjectBlocked = Boolean(
-    dashboardState?.hasActiveProject &&
-    dashboardState?.stage_id !== "COMPLETED" &&
-    !dashboardState?.is_multi_project_approved
+    singleInquiryPolicy.isBlocked ||
+    (dashboardState?.hasActiveProject &&
+      dashboardState?.stage_id !== "COMPLETED" &&
+      !dashboardState?.is_multi_project_approved)
   );
 
   const handleStartInquiryClick = () => {
     if (isMultiProjectBlocked) {
-      setIsMultiProjectModalOpen(true);
+      setIsSinglePolicyModalOpen(true);
     } else {
       setIsInquiryModalOpen(true);
     }
@@ -1279,7 +1291,7 @@ function ClientPortalContent() {
                   currentUser={currentUser}
                   dashboardState={dashboardState}
                   onStartInquiry={handleStartInquiryClick}
-                  onRequestMultiProject={() => setIsMultiProjectModalOpen(true)}
+                  onRequestMultiProject={() => setIsSinglePolicyModalOpen(true)}
                   isMultiProjectBlocked={isMultiProjectBlocked}
                   onSelectTab={(tab) => setPortalTab(tab)}
                   inquiries={inquiries}
@@ -1357,7 +1369,7 @@ function ClientPortalContent() {
                 mode="portfolio"
                 currentUser={currentUser}
                 onStartInquiry={handleStartInquiryClick}
-                onRequestMultiProject={() => setIsMultiProjectModalOpen(true)}
+                onRequestMultiProject={() => setIsSinglePolicyModalOpen(true)}
                 isMultiProjectBlocked={isMultiProjectBlocked}
                 onSelectTab={(tab) => setPortalTab(tab)}
                 inquiries={inquiries}
@@ -1372,7 +1384,7 @@ function ClientPortalContent() {
                 mode="services"
                 currentUser={currentUser}
                 onStartInquiry={handleStartInquiryClick}
-                onRequestMultiProject={() => setIsMultiProjectModalOpen(true)}
+                onRequestMultiProject={() => setIsSinglePolicyModalOpen(true)}
                 isMultiProjectBlocked={isMultiProjectBlocked}
                 onSelectTab={(tab) => setPortalTab(tab)}
                 inquiries={inquiries}
@@ -1387,7 +1399,7 @@ function ClientPortalContent() {
                 mode="process"
                 currentUser={currentUser}
                 onStartInquiry={handleStartInquiryClick}
-                onRequestMultiProject={() => setIsMultiProjectModalOpen(true)}
+                onRequestMultiProject={() => setIsSinglePolicyModalOpen(true)}
                 isMultiProjectBlocked={isMultiProjectBlocked}
                 onSelectTab={(tab) => setPortalTab(tab)}
                 inquiries={inquiries}
@@ -2185,6 +2197,18 @@ function ClientPortalContent() {
         showToast={showToast}
         onSuccess={() => {
           if (currentUser?.email) fetchClientData(currentUser.email);
+        }}
+      />
+
+      {/* SINGLE INQUIRY POLICY NOTIFICATION MODAL */}
+      <SingleInquiryPolicyModal
+        isOpen={isSinglePolicyModalOpen}
+        onClose={() => setIsSinglePolicyModalOpen(false)}
+        activeInquiry={singleInquiryPolicy.activeInquiry}
+        currentUser={currentUser}
+        onOpenPortal={() => {
+          setIsSinglePolicyModalOpen(false);
+          setPortalTab("inquiries");
         }}
       />
     </div>

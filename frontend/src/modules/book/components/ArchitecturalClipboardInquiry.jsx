@@ -28,6 +28,7 @@ import { Building2, MapPin, Coffee, ExternalLink, Sparkles, Video, Calendar } fr
 import LottieSuccessCheck from "@/modules/shared/LottieSuccessCheck";
 import VenueSearchModal, { EstablishmentLogo } from "./VenueSearchModal";
 import VenueCombobox from "./VenueCombobox";
+import SingleInquiryPolicyModal from "@/modules/shared/SingleInquiryPolicyModal";
 
 const PROJECT_CATEGORIES = [
   {
@@ -380,6 +381,8 @@ export default function ArchitecturalClipboardInquiry({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submissionId, setSubmissionId] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
+  const [policyBlockedInquiry, setPolicyBlockedInquiry] = useState(null);
 
   // Sync if selectedStyle prop changes externally
   useEffect(() => {
@@ -609,11 +612,7 @@ export default function ArchitecturalClipboardInquiry({
     };
 
     try {
-      // 1. Local storage backup
-      const existing = JSON.parse(localStorage.getItem("mcpa_client_briefs") || "[]");
-      localStorage.setItem("mcpa_client_briefs", JSON.stringify([briefPayload, ...existing]));
-
-      // 2. Persist to backend database API
+      // 1. Persist to backend database API FIRST before local storage
       const res = await fetch("/api/briefs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -621,16 +620,32 @@ export default function ArchitecturalClipboardInquiry({
       });
 
       const data = await res.json();
+
+      // Intercept Single Active Inquiry policy conflict
+      if (res.status === 409 || data?.hasActiveInquiry) {
+        setPolicyBlockedInquiry(data.activeInquiry || {
+          submissionId: data?.reference_code || "MCPA-ACTIVE-INQ",
+          projectType: "Active Architectural Brief",
+          status: "Pending Review / Active Consultation",
+        });
+        setIsPolicyModalOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
+
       if (!res.ok && res.status !== 200) {
         throw new Error(data.message || `Submission failed with status ${res.status}`);
       }
+
+      // 2. Local storage backup only upon valid non-conflicting submission
+      const existing = JSON.parse(localStorage.getItem("mcpa_client_briefs") || "[]");
+      localStorage.setItem("mcpa_client_briefs", JSON.stringify([briefPayload, ...existing]));
 
       setIsSubmitted(true);
       if (onSuccess) onSuccess(data.brief || briefPayload);
     } catch (err) {
       console.warn("Brief sync warning:", err);
-      // Even if network blips, display submitted state if saved locally
-      setIsSubmitted(true);
+      setSubmitError(err.message || "Failed to submit brief. Please verify your connection.");
     } finally {
       setIsSubmitting(false);
     }
@@ -1981,6 +1996,14 @@ export default function ArchitecturalClipboardInquiry({
         }}
         currentVenue={venueCafeDetails}
         isFil={isFil}
+      />
+
+      {/* SINGLE ACTIVE INQUIRY POLICY MODAL */}
+      <SingleInquiryPolicyModal
+        isOpen={isPolicyModalOpen}
+        onClose={() => setIsPolicyModalOpen(false)}
+        activeInquiry={policyBlockedInquiry}
+        currentUser={currentUser}
       />
     </section>
   );

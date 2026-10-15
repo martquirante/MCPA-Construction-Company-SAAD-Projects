@@ -8,29 +8,99 @@
  * - Audio & Video stream synchronization
  */
 
-export const ICE_SERVERS = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-  { urls: "stun:stun2.l.google.com:19302" },
-  { urls: "stun:stun.cloudflare.com:3478" },
-  { urls: "stun:global.stun.twilio.com:3478" },
-  { urls: "stun:relay.metered.ca:80" },
-  {
-    urls: "turn:relay.metered.ca:80",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-  {
-    urls: "turn:relay.metered.ca:443",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-  {
-    urls: "turn:relay.metered.ca:443?transport=tcp",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-];
+import { getSignalingServerUrl } from "./signalingUrl.js";
+
+let cachedDynamicIceServers = null;
+
+/**
+ * Dynamically fetches ICE servers from the Azure backend API (/api/webrtc/ice-servers).
+ * This ensures that even if Vercel environment variables are missing, the browser
+ * automatically receives the production Metered TURN relay credentials from Azure.
+ */
+export const fetchIceServers = async () => {
+  if (cachedDynamicIceServers && cachedDynamicIceServers.length > 0) {
+    return cachedDynamicIceServers;
+  }
+
+  try {
+    const serverUrl = getSignalingServerUrl();
+    const endpoint = `${serverUrl}/api/webrtc/ice-servers`;
+    const res = await fetch(endpoint);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.iceServers && data.iceServers.length > 0) {
+        cachedDynamicIceServers = data.iceServers;
+        console.log("[WEBRTC] Successfully fetched ICE servers from Azure backend:", data.iceServers.length);
+        return cachedDynamicIceServers;
+      }
+    }
+  } catch (err) {
+    console.warn("[WEBRTC] Could not load dynamic ICE servers from backend, using env fallback:", err);
+  }
+
+  return getIceServers();
+};
+
+// Proactively pre-fetch ICE servers in the background when in browser
+if (typeof window !== "undefined") {
+  fetchIceServers().catch(() => {});
+}
+
+/**
+ * Resolves STUN and TURN ICE servers for WebRTC NAT traversal.
+ * Secrets are loaded from environment variables (.env / .env.local)
+ * to maintain strict zero-exposure policy in repository source files.
+ */
+export const getIceServers = () => {
+  if (cachedDynamicIceServers && cachedDynamicIceServers.length > 0) {
+    return cachedDynamicIceServers;
+  }
+
+  const turnUsername = process.env.NEXT_PUBLIC_METERED_TURN_USERNAME;
+  const turnPassword = process.env.NEXT_PUBLIC_METERED_TURN_PASSWORD;
+
+  const servers = [
+    // 1. High-speed Public STUN servers for direct P2P NAT hole-punching
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
+    { urls: "stun:global.stun.twilio.com:3478" },
+    { urls: "stun:stun.relay.metered.ca:80" },
+  ];
+
+  // 2. Dedicated Enterprise Metered TURN Relays (bypasses CGNAT, Mobile Data & Strict Firewalls)
+  if (turnUsername && turnPassword) {
+    servers.push(
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: turnUsername,
+        credential: turnPassword,
+      }
+    );
+  }
+
+  return servers;
+};
+
+export const ICE_SERVERS = getIceServers();
+
+
 
 /**
  * Optimizes WebRTC Opus SDP to enable:
@@ -113,8 +183,22 @@ export class WebRTCPeerManager {
     this.remoteStream = new MediaStream();
 
     this.peerConnection = new RTCPeerConnection({
-      iceServers: ICE_SERVERS,
+      iceServers: getIceServers(),
     });
+
+    // If dynamic servers from Azure are still loading, update connection as soon as they arrive
+    if (!cachedDynamicIceServers) {
+      fetchIceServers()
+        .then((servers) => {
+          if (this.peerConnection && typeof this.peerConnection.setConfiguration === "function") {
+            try {
+              this.peerConnection.setConfiguration({ iceServers: servers });
+              console.log("[WEBRTC] Updated RTCPeerConnection with dynamic Azure TURN servers.");
+            } catch (e) {}
+          }
+        })
+        .catch(() => {});
+    }
 
     // 1. Ensure transceivers exist for both audio and video reception
     try {

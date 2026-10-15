@@ -767,10 +767,11 @@ export default function PortalPhase1PreInquiry({
             <button
               type="button"
               onClick={onRequestMultiProject}
-              className="px-6 py-3.5 rounded-[6px] bg-amber-600 hover:bg-amber-500 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 shadow-lg cursor-pointer"
+              className="px-6 py-3.5 rounded-[6px] bg-neutral-900 dark:bg-[#151922] hover:bg-neutral-800 dark:hover:bg-[#1c2230] text-amber-500 dark:text-amber-400 border border-amber-500/30 hover:border-amber-500/60 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2.5 shadow-lg cursor-pointer"
             >
-              <ShieldCheck className="w-4 h-4" />
-              Request Multi-Project Approval
+              <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0" />
+              <span>Active Inquiry Locked · View Policy</span>
+              <ArrowRight className="w-4 h-4 text-neutral-400" />
             </button>
           ) : (
             <button
