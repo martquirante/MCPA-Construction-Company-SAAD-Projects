@@ -47,25 +47,52 @@ class WebRTCSignalingService {
       console.log(`[WEBRTC SIGNALING] Socket connected: ${socket.id}`);
 
       // 1. Client or Admin joins a consultation room
+      // 1a. Pre-join query for room participant count & capacity check
+      socket.on("check-room-capacity", ({ roomCode }) => {
+        if (!roomCode) return;
+        const currentCount = this.rooms.has(roomCode) ? this.rooms.get(roomCode).size : 0;
+        const maxCapacity = 8;
+        socket.emit("room-capacity-status", {
+          roomCode,
+          currentCount,
+          maxCapacity,
+          isFull: currentCount >= maxCapacity,
+        });
+      });
+
+      // 1b. Client or Admin joins a consultation room
       socket.on("join-room", ({ roomCode, user = {}, role = "client" }) => {
         if (!roomCode) return;
-
-        socket.join(roomCode);
-        socket.currentRoom = roomCode;
-        socket.userData = { ...user, role, socketId: socket.id, joinedAt: Date.now() };
 
         if (!this.rooms.has(roomCode)) {
           this.rooms.set(roomCode, new Map());
         }
 
         const roomParticipants = this.rooms.get(roomCode);
+        const maxCapacity = 8;
+
+        if (roomParticipants.size >= maxCapacity) {
+          console.warn(`[WEBRTC] Room ${roomCode} is full (${roomParticipants.size}/${maxCapacity}). Rejecting socket ${socket.id}`);
+          socket.emit("room-full", {
+            roomCode,
+            currentCount: roomParticipants.size,
+            maxCapacity,
+            message: `The consultation room has reached its maximum capacity (${maxCapacity} participants).`,
+          });
+          return;
+        }
+
+        socket.join(roomCode);
+        socket.currentRoom = roomCode;
+        socket.userData = { ...user, role, socketId: socket.id, joinedAt: Date.now() };
+
         const existingParticipants = Array.from(roomParticipants.values());
 
         // Save current participant
         roomParticipants.set(socket.id, socket.userData);
 
         console.log(
-          `[WEBRTC] User "${user.name || role}" (${socket.id}) joined room "${roomCode}". Active in room: ${roomParticipants.size}`
+          `[WEBRTC] User "${user.name || role}" (${socket.id}) joined room "${roomCode}". Active in room: ${roomParticipants.size}/${maxCapacity}`
         );
 
         // Notify the newly joined socket of any peers already waiting in the room

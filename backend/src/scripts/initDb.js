@@ -198,6 +198,7 @@ async function initializeDatabase() {
       "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS site_address_details JSONB;",
       "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS spatial_wishlist JSONB;",
       "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS message TEXT;",
+      "ALTER TABLE client_briefs ADD COLUMN IF NOT EXISTS meeting_room_code VARCHAR(100);",
     ];
     for (const q of briefCols) {
       try { await db.query(q); } catch (e) {}

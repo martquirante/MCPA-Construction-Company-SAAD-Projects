@@ -40,6 +40,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import GoogleMeetRoom from "./GoogleMeetRoom";
+import { extractRoomCode, buildMeetingUrl } from "@/modules/portal/utils/roomCodeHelper";
 import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
 import VenueCombobox from "@/modules/book/components/VenueCombobox";
 import { io } from "socket.io-client";
@@ -89,7 +90,9 @@ export default function PortalMeetingHub({
   }, []);
 
   const primaryInquiry = inquiries?.[0];
-  const roomCode = meetingRoom?.room_code || "mcpa-meet-7ecea339";
+  const roomCode = useMemo(() => {
+    return extractRoomCode(primaryInquiry || meetingRoom);
+  }, [primaryInquiry, meetingRoom]);
 
   // Active / Upcoming Meeting info derived from project / inquiry / defaults
   const [activeMeetingInfo, setActiveMeetingInfo] = useState({
@@ -366,9 +369,10 @@ export default function PortalMeetingHub({
   }, [showToast]);
 
   const handleCopyCode = () => {
-    navigator.clipboard?.writeText(roomCode);
+    const url = buildMeetingUrl(roomCode);
+    navigator.clipboard?.writeText(url);
     setCopiedCode(true);
-    showToast("Meeting code copied!");
+    showToast("Meeting invitation link copied!");
     setTimeout(() => setCopiedCode(false), 2000);
   };
 

@@ -49,6 +49,7 @@ import {
   Lock,
   Hammer,
   ListChecks,
+  FileCheck,
 } from "lucide-react";
 import PortalHeroFinancialCard from "@/modules/portal/components/PortalHeroFinancialCard";
 import PortalOverallProgressCard from "@/modules/portal/components/PortalOverallProgressCard";
@@ -62,6 +63,7 @@ import PortalMobileBottomNav from "@/modules/portal/components/PortalMobileBotto
 import PortalEmptyState from "@/modules/portal/components/PortalEmptyState";
 import PortalSiteSupervisorCard from "@/modules/portal/components/PortalSiteSupervisorCard";
 import PortalPhase1PreInquiry from "@/modules/portal/components/stages/PortalPhase1PreInquiry";
+import PortalStage2PlanningAndConsultation from "@/modules/portal/components/stages/PortalStage2PlanningAndConsultation";
 import PortalPhase2Consultation from "@/modules/portal/components/stages/PortalPhase2Consultation";
 import PortalPhase3Planning from "@/modules/portal/components/stages/PortalPhase3Planning";
 import PortalPhase4Execution from "@/modules/portal/components/stages/PortalPhase4Execution";
@@ -538,45 +540,45 @@ function ClientPortalContent() {
   const STAGE_META = {
     PRE_INQUIRY: {
       step: 1,
-      total: 5,
-      title: "Pre-Inquiry Onboarding",
+      total: 4,
+      title: "Discovery & Pre-Inquiry",
       shortLabel: "Stage 1",
       tagline: "Explore & Inquire",
       badgeStyle: "bg-amber-500/15 text-amber-500 border-amber-500/30",
-      progressPct: 20,
+      progressPct: 25,
     },
     CONSULTATION: {
       step: 2,
-      total: 5,
-      title: "Consultation & Scoping",
+      total: 4,
+      title: "Consultation & Planning",
       shortLabel: "Stage 2",
-      tagline: "Meeting & Quotation",
+      tagline: "Blueprints & Contract",
       badgeStyle: "bg-sky-500/15 text-sky-500 border-sky-500/30",
-      progressPct: 40,
+      progressPct: 50,
     },
     PRE_CONSTRUCTION: {
-      step: 3,
-      total: 5,
-      title: "Pre-Construction Planning",
-      shortLabel: "Stage 3",
+      step: 2,
+      total: 4,
+      title: "Consultation & Planning",
+      shortLabel: "Stage 2",
       tagline: "Blueprints & Contract",
-      badgeStyle: "bg-purple-500/15 text-purple-500 border-purple-500/30",
-      progressPct: 60,
+      badgeStyle: "bg-sky-500/15 text-sky-500 border-sky-500/30",
+      progressPct: 50,
     },
     ACTIVE_BUILD: {
-      step: 4,
-      total: 5,
+      step: 3,
+      total: 4,
       title: "Active Site Execution",
-      shortLabel: "Stage 4",
+      shortLabel: "Stage 3",
       tagline: "Live Build & Drone",
       badgeStyle: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
-      progressPct: 80,
+      progressPct: 75,
     },
     COMPLETED: {
-      step: 5,
-      total: 5,
+      step: 4,
+      total: 4,
       title: "Handover & Completed",
-      shortLabel: "Stage 5",
+      shortLabel: "Stage 4",
       tagline: "Wrapped & Warranty",
       badgeStyle: "bg-amber-500/15 text-amber-500 border-amber-500/30",
       progressPct: 100,
@@ -589,34 +591,21 @@ function ClientPortalContent() {
   const getStageNavConfig = () => {
     switch (currentStageId) {
       case "CONSULTATION":
-        return {
-          active: [
-            { id: "overview", label: "Dashboard", icon: LayoutDashboard },
-            { id: "meeting", label: "Meeting", icon: CalendarCheck },
-            { id: "documents", label: "Request Documents", icon: FileText, badge: pendingDocumentRequestsCount > 0 ? pendingDocumentRequestsCount : undefined },
-            { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
-          ],
-          upcoming: [
-            { id: "planning", label: "Blueprints & Permits", icon: Layers, unlockStage: "Stage 3 (Pre-Construction)", unlockBadge: "Stage 3" },
-            { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
-            { id: "gallery", label: "Live Drone & Webcam", icon: Camera, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
-            { id: "billing", label: "Milestone Escrow", icon: CreditCard, unlockStage: "Stage 3 & 4", unlockBadge: "Stage 3" },
-          ],
-        };
-
       case "PRE_CONSTRUCTION":
         return {
           active: [
             { id: "overview", label: "Dashboard", icon: LayoutDashboard },
-            { id: "blueprints", label: "Blueprints & Plans", icon: Layers },
-            { id: "billing", label: "Contracts & Escrow", icon: CreditCard, badge: billingLedger.length > 0 ? billingLedger.length : undefined },
-            { id: "permits", label: "Permits & Legal", icon: ShieldCheck },
+            { id: "meeting", label: "Meeting Hub", icon: CalendarCheck },
+            { id: "blueprints", label: "Blueprints & Pins", icon: Layers },
+            { id: "boq", label: "BOQ & Budget", icon: CreditCard },
+            { id: "permits", label: "Permits & Transmittals", icon: ShieldCheck, badge: pendingDocumentRequestsCount > 0 ? pendingDocumentRequestsCount : undefined },
+            { id: "contract", label: "E-Contract & Shovel", icon: FileCheck },
             { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [
-            { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
-            { id: "gallery", label: "Live Drone & Webcam", icon: Camera, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
-            { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 5 (Completed)", unlockBadge: "Stage 5" },
+            { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 3 (Active Build)", unlockBadge: "Stage 3" },
+            { id: "gallery", label: "Live Drone & Webcam", icon: Camera, unlockStage: "Stage 3 (Active Build)", unlockBadge: "Stage 3" },
+            { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 4 (Completed)", unlockBadge: "Stage 4" },
           ],
         };
 
@@ -630,7 +619,7 @@ function ClientPortalContent() {
             { id: "inquiries", label: "Inquiries Record", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [
-            { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 5 (Completed)", unlockBadge: "Stage 5" },
+            { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 4 (Completed)", unlockBadge: "Stage 4" },
           ],
         };
 
@@ -656,10 +645,9 @@ function ClientPortalContent() {
             { id: "process", label: "Process", icon: ListChecks },
           ],
           upcoming: [
-            { id: "consultation", label: "Meeting Schedule", icon: CalendarCheck, unlockStage: "Stage 2 (Inquiry Approved)", unlockBadge: "Stage 2" },
-            { id: "planning", label: "Blueprints & Permits", icon: Layers, unlockStage: "Stage 3 (Pre-Construction)", unlockBadge: "Stage 3" },
-            { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 4 (Active Build)", unlockBadge: "Stage 4" },
-            { id: "billing", label: "Milestone Escrow", icon: CreditCard, unlockStage: "Stage 3 & 4", unlockBadge: "Stage 3" },
+            { id: "consultation", label: "Consultation & Planning", icon: CalendarCheck, unlockStage: "Stage 2 (Inquiry Approved)", unlockBadge: "Stage 2" },
+            { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 3 (Active Build)", unlockBadge: "Stage 3" },
+            { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 4 (Completed)", unlockBadge: "Stage 4" },
           ],
         };
     }
@@ -1239,18 +1227,8 @@ function ClientPortalContent() {
                     <div className="h-28 bg-neutral-100 dark:bg-white/5 rounded-lg" />
                   </div>
                 </div>
-              ) : dashboardState?.stage_id === "CONSULTATION" ? (
-                <PortalPhase2Consultation
-                  mode="overview"
-                  activeProject={dashboardState.activeProject}
-                  currentUser={currentUser}
-                  showToast={showToast}
-                  onRefreshState={() => fetchClientData(currentUser?.email)}
-                  onSelectTab={(tab) => setPortalTab(tab)}
-                  inquiries={inquiries}
-                />
-              ) : dashboardState?.stage_id === "PRE_CONSTRUCTION" ? (
-                <PortalPhase3Planning
+              ) : dashboardState?.stage_id === "CONSULTATION" || dashboardState?.stage_id === "PRE_CONSTRUCTION" ? (
+                <PortalStage2PlanningAndConsultation
                   mode="overview"
                   activeProject={dashboardState.activeProject}
                   currentUser={currentUser}
@@ -1303,7 +1281,7 @@ function ClientPortalContent() {
           {/* DEDICATED MEETING TAB (STAGE 2) */}
           {portalTab === "meeting" && (
             <div className="space-y-6">
-              <PortalPhase2Consultation
+              <PortalStage2PlanningAndConsultation
                 mode="meeting"
                 activeProject={dashboardState?.activeProject}
                 currentUser={currentUser}
@@ -1311,29 +1289,31 @@ function ClientPortalContent() {
                 onRefreshState={() => fetchClientData(currentUser?.email)}
                 onSelectTab={(tab) => setPortalTab(tab)}
                 inquiries={inquiries}
+                billingLedger={billingLedger}
               />
             </div>
           )}
 
-          {/* DEDICATED DOCUMENT VAULT TAB (STAGE 2) */}
-          {portalTab === "documents" && (
+          {/* DEDICATED DOCUMENT VAULT & PERMITS TAB (STAGE 2) */}
+          {(portalTab === "documents" || portalTab === "permits") && (
             <div className="space-y-6">
-              <PortalPhase2Consultation
-                mode="documents"
+              <PortalStage2PlanningAndConsultation
+                mode="permits"
                 activeProject={dashboardState?.activeProject}
                 currentUser={currentUser}
                 showToast={showToast}
                 onRefreshState={() => fetchClientData(currentUser?.email)}
                 onSelectTab={(tab) => setPortalTab(tab)}
                 inquiries={inquiries}
+                billingLedger={billingLedger}
               />
             </div>
           )}
 
-          {/* DEDICATED BLUEPRINTS TAB (STAGE 3) */}
+          {/* DEDICATED BLUEPRINTS TAB (STAGE 2) */}
           {portalTab === "blueprints" && (
             <div className="space-y-6">
-              <PortalPhase3Planning
+              <PortalStage2PlanningAndConsultation
                 mode="blueprints"
                 activeProject={dashboardState?.activeProject}
                 currentUser={currentUser}
@@ -1346,11 +1326,27 @@ function ClientPortalContent() {
             </div>
           )}
 
-          {/* DEDICATED PERMITS TAB (STAGE 3) */}
-          {portalTab === "permits" && (
+          {/* DEDICATED BOQ TAB (STAGE 2) */}
+          {portalTab === "boq" && (
             <div className="space-y-6">
-              <PortalPhase3Planning
-                mode="permits"
+              <PortalStage2PlanningAndConsultation
+                mode="boq"
+                activeProject={dashboardState?.activeProject}
+                currentUser={currentUser}
+                showToast={showToast}
+                onRefreshState={() => fetchClientData(currentUser?.email)}
+                onSelectTab={(tab) => setPortalTab(tab)}
+                inquiries={inquiries}
+                billingLedger={billingLedger}
+              />
+            </div>
+          )}
+
+          {/* DEDICATED CONTRACT & GROUNDBREAKING TAB (STAGE 2) */}
+          {portalTab === "contract" && (
+            <div className="space-y-6">
+              <PortalStage2PlanningAndConsultation
+                mode="contract"
                 activeProject={dashboardState?.activeProject}
                 currentUser={currentUser}
                 showToast={showToast}

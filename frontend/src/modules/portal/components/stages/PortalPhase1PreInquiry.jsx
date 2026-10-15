@@ -23,10 +23,220 @@ import {
   HardHat,
   ListChecks,
   Key,
+  Calculator,
+  Calendar,
+  Clock,
+  Video,
+  MapPin,
+  Share2,
+  Copy,
+  ChevronRight,
+  PhoneCall,
 } from "lucide-react";
 import ProjectCard from "@/modules/home/components/ProjectCard";
 import ProjectDetailsModal from "@/modules/home/components/ProjectDetailsModal";
 import { deduplicateProjects } from "@/modules/shared/projectsHelper";
+import { extractRoomCode, buildMeetingUrl } from "@/modules/portal/utils/roomCodeHelper";
+import GoogleMeetRoom from "../GoogleMeetRoom";
+
+/**
+ * Interactive Dream Home Cost & Feasibility Calculator Widget
+ */
+function DreamHomeCostCalculator({ onApplyEstimate }) {
+  const [lotArea, setLotArea] = useState(120);
+  const [storeys, setStoreys] = useState(2);
+  const [finishGrade, setFinishGrade] = useState("elegant"); // "standard" | "elegant" | "luxury"
+  const [location, setLocation] = useState("Bulacan");
+
+  // Approximate floor area based on standard 65-75% lot coverage ratio
+  const estimatedFloorArea = useMemo(() => {
+    if (storeys === 1) return Math.round(lotArea * 0.7);
+    if (storeys === 2) return Math.round(lotArea * 1.15);
+    return Math.round(lotArea * 1.6);
+  }, [lotArea, storeys]);
+
+  // Rate per sqm
+  const ratePerSqm = useMemo(() => {
+    if (finishGrade === "standard") return 25000;
+    if (finishGrade === "elegant") return 32000;
+    return 42000;
+  }, [finishGrade]);
+
+  const estimatedTotalCost = useMemo(() => {
+    return estimatedFloorArea * ratePerSqm;
+  }, [estimatedFloorArea, ratePerSqm]);
+
+  const estimatedDurationMonths = useMemo(() => {
+    if (storeys === 1) return "5 - 6 Months";
+    if (storeys === 2) return "6 - 8 Months";
+    return "8 - 10 Months";
+  }, [storeys]);
+
+  // Pag-IBIG 20-year loan estimate (approx ~₱7,300 per ₱1M borrowed at 6.25% fixed)
+  const estimatedMonthlyAmortization = useMemo(() => {
+    const loanableAmount = estimatedTotalCost * 0.8; // 80% loanable
+    return Math.round((loanableAmount / 1000000) * 7300);
+  }, [estimatedTotalCost]);
+
+  const formatPHP = (val) =>
+    "₱" + Number(val).toLocaleString("en-PH", { maximumFractionDigits: 0 });
+
+  return (
+    <div className="rounded-2xl p-6 sm:p-8 bg-gradient-to-br from-neutral-900 via-[#12141c] to-neutral-950 text-white border border-amber-500/30 shadow-xl space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+        <div>
+          <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-amber-400 mb-1">
+            <Calculator className="w-4 h-4" />
+            <span>Interactive Feasibility Tool</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold font-mono uppercase text-white">
+            Dream Home Cost &amp; Amortization Calculator
+          </h2>
+          <p className="text-xs text-neutral-400 mt-1">
+            Estimate preliminary structural budget, floor area, and Pag-IBIG financing for your titled property.
+          </p>
+        </div>
+        <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono text-[11px] font-semibold shrink-0">
+          2026 Turnkey Scopes
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Input Parameters (8 cols) */}
+        <div className="lg:col-span-7 space-y-5">
+          {/* 1. Lot Area Slider */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="text-neutral-300 uppercase font-semibold">Titled Lot Area:</span>
+              <span className="text-amber-400 font-bold text-sm">{lotArea} sq.m.</span>
+            </div>
+            <input
+              type="range"
+              min="60"
+              max="400"
+              step="10"
+              value={lotArea}
+              onChange={(e) => setLotArea(Number(e.target.value))}
+              className="w-full accent-amber-500 cursor-pointer h-2 bg-neutral-800 rounded-lg"
+            />
+            <div className="flex justify-between text-[10px] font-mono text-neutral-500">
+              <span>60 sq.m.</span>
+              <span>200 sq.m.</span>
+              <span>400 sq.m.</span>
+            </div>
+          </div>
+
+          {/* 2. Storeys Selector */}
+          <div className="space-y-2">
+            <label className="block text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold">
+              Number of Storeys:
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { count: 1, label: "1-Storey Bungalow" },
+                { count: 2, label: "2-Storey Modern" },
+                { count: 3, label: "3-Storey Executive" },
+              ].map((s) => (
+                <button
+                  key={s.count}
+                  type="button"
+                  onClick={() => setStoreys(s.count)}
+                  className={`p-2.5 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer text-center border ${
+                    storeys === s.count
+                      ? "bg-amber-500 text-neutral-950 font-bold border-amber-400 shadow-md"
+                      : "bg-white/[0.04] text-neutral-300 border-white/10 hover:border-amber-500/40"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 3. Finishing Quality */}
+          <div className="space-y-2">
+            <label className="block text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold">
+              Finishing Grade:
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { id: "standard", name: "Standard Turnkey", price: "₱25k/sqm", desc: "Solid concrete, steel roof, ceramic tiles" },
+                { id: "elegant", name: "Elegant / Modern", price: "₱32k/sqm", desc: "Porcelain tiles, cove lighting, modular kitchen" },
+                { id: "luxury", name: "High-End Luxury", price: "₱42k/sqm", desc: "High ceiling, quartz counters, smart provisions" },
+              ].map((g) => (
+                <div
+                  key={g.id}
+                  onClick={() => setFinishGrade(g.id)}
+                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                    finishGrade === g.id
+                      ? "bg-amber-500/15 border-amber-400 text-white shadow-md ring-1 ring-amber-400/50"
+                      : "bg-white/[0.03] border-white/10 text-neutral-300 hover:border-white/20"
+                  }`}
+                >
+                  <div className="text-xs font-bold text-white">{g.name}</div>
+                  <div className="text-amber-400 font-mono text-[11px] font-bold mt-0.5">{g.price}</div>
+                  <div className="text-[10px] text-neutral-400 mt-1 line-clamp-2">{g.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Estimated Output Panel (5 cols) */}
+        <div className="lg:col-span-5 p-5 rounded-2xl bg-neutral-950/80 border border-white/10 flex flex-col justify-between space-y-4">
+          <div className="space-y-3">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 font-bold block">
+              Calculated Feasibility Metrics
+            </span>
+
+            <div>
+              <div className="text-xs font-mono text-neutral-400">ESTIMATED TOTAL BUDGET:</div>
+              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-amber-400">
+                {formatPHP(estimatedTotalCost)}
+              </div>
+              <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
+                Approx. {estimatedFloorArea} sq.m. Total Usable Floor Area
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 font-mono text-xs">
+              <div>
+                <span className="text-neutral-500 text-[10px] block">BUILD DURATION:</span>
+                <span className="font-bold text-white">{estimatedDurationMonths}</span>
+              </div>
+              <div>
+                <span className="text-neutral-500 text-[10px] block">EST. PAG-IBIG / MO:</span>
+                <span className="font-bold text-emerald-400">{formatPHP(estimatedMonthlyAmortization)}</span>
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 font-sans leading-relaxed">
+              💡 Zero hidden costs: Includes structural engineering blueprints, building permit processing, and 15-Year Structural Warranty.
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              onApplyEstimate({
+                lotArea,
+                storeys,
+                finishGrade,
+                estimatedFloorArea,
+                estimatedTotalCost,
+              })
+            }
+            className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 active:scale-98"
+          >
+            <Compass className="w-4 h-4" />
+            <span>Lock Estimate &amp; Start Inquiry</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function PortalPhase1PreInquiry({
   currentUser,
@@ -43,13 +253,24 @@ export default function PortalPhase1PreInquiry({
   const [selectedProjectForModal, setSelectedProjectForModal] = useState(null);
   const [activeCategory, setActiveCategory] = useState("All");
 
+  // WebRTC in-portal call state
+  const [activeCallRoomCode, setActiveCallRoomCode] = useState(null);
+  const [hasCopiedRoomLink, setHasCopiedRoomLink] = useState(false);
+
+  // Identify rejected brief if any
   const rejectedInfo = useMemo(() => {
     if (dashboardState?.hasRejectedInquiry && dashboardState?.rejectedBrief) {
       return dashboardState.rejectedBrief;
     }
     const rejectedInq = (inquiries || []).find((inq) => {
       const s = (inq.status || "").toLowerCase();
-      return inq.is_rejected || s.includes("reject") || s.includes("decline") || s.includes("discontinue") || s.includes("withdrawn");
+      return (
+        inq.is_rejected ||
+        s.includes("reject") ||
+        s.includes("decline") ||
+        s.includes("discontinue") ||
+        s.includes("withdrawn")
+      );
     });
     if (rejectedInq) {
       return {
@@ -62,7 +283,26 @@ export default function PortalPhase1PreInquiry({
     return null;
   }, [dashboardState, inquiries]);
 
-  // Fetch real portfolio from DB (No dummy data!)
+  // Identify active non-rejected inquiry (State 1B)
+  const activeInquiry = useMemo(() => {
+    return (inquiries || []).find((inq) => {
+      const s = (inq.status || "").toLowerCase();
+      const isRejected =
+        inq.is_rejected ||
+        s.includes("reject") ||
+        s.includes("decline") ||
+        s.includes("discontinue") ||
+        s.includes("withdrawn");
+      return !isRejected;
+    });
+  }, [inquiries]);
+
+  const activeRoomCode = useMemo(() => {
+    if (!activeInquiry) return null;
+    return extractRoomCode(activeInquiry);
+  }, [activeInquiry]);
+
+  // Fetch real portfolio from DB
   useEffect(() => {
     let isMounted = true;
     async function fetchProjects() {
@@ -110,7 +350,12 @@ export default function PortalPhase1PreInquiry({
     };
   }, []);
 
-  const latestInquiry = inquiries?.[0];
+  const handleCopyMeetingLink = (code) => {
+    const url = buildMeetingUrl(code);
+    navigator.clipboard?.writeText(url);
+    setHasCopiedRoomLink(true);
+    setTimeout(() => setHasCopiedRoomLink(false), 2500);
+  };
 
   const baseCategories = ["All", "Residential", "Commercial", "Luxury Villa", "Modern Zen"];
   const categories = Array.from(
@@ -130,562 +375,16 @@ export default function PortalPhase1PreInquiry({
   })();
 
   // ---------------------------------------------------------------------------
-  // MCPA SERVICES DATA (Exact match to /services UI/UX)
-  // ---------------------------------------------------------------------------
-  const servicesList = [
-    {
-      id: "residential",
-      badge: "Complete Turnkey Build",
-      icon: <Home className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Custom Residential Design & Build",
-      subtitle: "Custom family homes built to last for generations",
-      description:
-        "From initial floor plans to final key handover, we handle your entire build. Whether you envision a modern single-storey home or a multi-storey family residence, every home is built strong to withstand heavy typhoons and earthquakes.",
-      inclusions: [
-        "3D realistic color views & floor plan designs",
-        "Solid concrete foundation & certified heavy-duty steel bars",
-        "High-grade plumbing, electrical wiring & sanitary installations",
-        "Full house handover with a 15-Year Structural Warranty",
-      ],
-      ctaText: "Inquire Residential Build",
-    },
-    {
-      id: "bnpl",
-      badge: "Flexible Payment Options",
-      icon: <BadgePercent className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Build Now, Pay Later Program",
-      subtitle: "Financing built around your titled property",
-      description:
-        "An exclusive program for lot owners across Bulacan, Metro Manila, and Central Luzon. Start building your home without waiting for full cash upfront, backed by flexible step-by-step payments and loan guidance.",
-      inclusions: [
-        "Step-by-step progress billing with zero surprise costs",
-        "Pag-IBIG Housing Loan end-to-end processing & documentation",
-        "Major commercial bank loan packaging assistance",
-        "Transparent milestone billing so you only pay as each stage is done",
-      ],
-      ctaText: "Apply for BNPL",
-    },
-    {
-      id: "signed-sealed",
-      badge: "Licensed Architects & Engineers",
-      icon: <FileSignature className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Signed & Sealed Plans & Permits",
-      subtitle: "Full engineering blueprints ready for municipal approval",
-      description:
-        "Complete, fully certified architectural and engineering plans signed and sealed by licensed Architects, Civil Engineers, Master Plumbers, and Electrical Engineers, backed by full assistance in securing city building permits.",
-      inclusions: [
-        "Architectural blueprints, site plans & room layouts",
-        "Earthquake-tested structural plan & soil condition analysis",
-        "Electrical wiring layout, load computations & plumbing diagrams",
-        "Bulacan & NCR LGU Building Permit submission assistance",
-      ],
-      ctaText: "Order Blueprint Package",
-    },
-    {
-      id: "commercial",
-      badge: "Commercial & Warehouses",
-      icon: <Warehouse className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Commercial Buildings & Warehouses",
-      subtitle: "Spacious steel buildings and commercial rental spaces",
-      description:
-        "We construct durable commercial spaces, logistics buildings, retail units, and storage warehouses built with strong structural steel framing for wide open floor space and heavy daily use.",
-      inclusions: [
-        "Heavy-duty structural steel framing and wide columns",
-        "Reinforced heavy-duty concrete slab pouring for vehicle traffic",
-        "Integrated fire protection, industrial ventilation & loading bays",
-        "Clear project milestone scheduling with on-site safety standards",
-      ],
-      ctaText: "Inquire Commercial Space",
-    },
-    {
-      id: "supply",
-      badge: "In-House Materials & Supply",
-      icon: <Truck className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "In-House Project Materials & Supply",
-      subtitle: "Materials dedicated exclusively to our own construction builds",
-      description:
-        "Zero retail markups and zero site delays. MCPA is not an open retail hardware store — our direct materials supply and logistics fleet are dedicated exclusively to our own construction and design-and-build projects. We test, prepare, and transport certified steel rebars, structural concrete, and aggregates directly to your build site.",
-      inclusions: [
-        "Certified heavy-duty steel rebars tested for strength",
-        "Tested ready-mix structural concrete for strong foundations",
-        "Quality-screened clean washed sand, crushed gravel, and base aggregates",
-        "Dedicated fleet of dump trucks ensuring zero project delivery delays",
-      ],
-      ctaText: "Inquire Design & Build",
-    },
-    {
-      id: "renovation",
-      badge: "Home Renovations & Upgrades",
-      icon: <Hammer className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Renovations & Home Extensions",
-      subtitle: "Refresh, expand, and strengthen existing homes",
-      description:
-        "Complete residential extensions, modern exterior upgrades, vertical second-floor additions, and commercial tenant fit-outs with careful structural checks before any work begins.",
-      inclusions: [
-        "Thorough structural check of existing posts and foundations",
-        "Second-floor vertical expansions & roof deck conversions",
-        "Modern architectural cladding, glass railings & lighting updates",
-        "Complete plumbing and electrical re-piping & rewiring",
-      ],
-      ctaText: "Plan Renovation",
-    },
-  ];
-
-  // ---------------------------------------------------------------------------
-  // MCPA PROCESS DATA (Exact match to /process UI/UX)
-  // ---------------------------------------------------------------------------
-  const processStages = [
-    {
-      step: "01",
-      badge: "Phase 1: Initial Planning & Site Visit",
-      icon: <Compass className="w-5 h-5 text-amber-500" />,
-      title: "Discovery, Lot Check & Site Inspection",
-      subtitle: "Soil evaluation, boundary check & design planning",
-      desc: "Before any construction begins, our licensed engineers and builders visit your titled property across Bulacan, Metro Manila, or Central Luzon to verify the land title and test the ground condition.",
-      telemetry: "Land Title Verification · Ground Soil Strength Check",
-      checklist: [
-        "Land title verification with official property records",
-        "Ground and soil inspection to ensure a strong foundation",
-        "Lot boundary check and orientation survey",
-        "Personal consultation on your dream house style and budget",
-      ],
-      output: "Site Inspection Report & Estimated Project Cost Breakdown",
-    },
-    {
-      step: "02",
-      badge: "Phase 2: Architectural Blueprints & Permits",
-      icon: <FileSignature className="w-5 h-5 text-amber-500" />,
-      title: "Signed & Sealed Blueprints & City Permits",
-      subtitle: "Complete blueprints ready for municipal approval",
-      desc: "Our licensed architects and civil engineers draft your complete house plans, detailed 3D color designs, and handle municipal building permit submissions.",
-      telemetry: "Licensed Architects & Engineers · Earthquake-Resistant Design · Building Permits",
-      checklist: [
-        "Complete architectural floor plans, exterior looks & room layouts",
-        "Earthquake-resistant structural calculations for columns and foundation",
-        "Complete electrical wiring plans and plumbing layouts",
-        "Full assistance in submitting and securing City Building Permits",
-      ],
-      output: "Approved City Building Permits & Official Sealed Blueprints",
-    },
-    {
-      step: "03",
-      badge: "Phase 3: Structural Building & Framing",
-      icon: <HardHat className="w-5 h-5 text-amber-500" />,
-      title: "Solid Construction & Quality Materials",
-      subtitle: "Built with tested concrete, steel, and regular photo updates",
-      desc: "We build your home strong from the ground up. Using our dedicated supply of certified high-grade steel and strong concrete, every stage is documented with photo updates.",
-      telemetry: "Dedicated Fleet Logistics · In-House Steel & Concrete Supply",
-      checklist: [
-        "Deep foundation excavation and reinforced concrete footing pouring",
-        "Certified structural steel tying and column framing",
-        "Reinforced slab pouring with slump-tested concrete",
-        "Regular photo logs showing weekly construction progress",
-      ],
-      output: "Finished Solid House Shell & Engineering Inspection Sign-off",
-    },
-    {
-      step: "04",
-      badge: "Phase 4: Finishing & Interior Detailing",
-      icon: <Building className="w-5 h-5 text-amber-500" />,
-      title: "Premium Finishing & Interior Detailing",
-      subtitle: "Clean masonry, smooth plastering & quality fixtures",
-      desc: "We bring your house to life with clean masonry, premium tile work, secure windows, and durable roofing. Every detail is installed carefully by skilled craftsmen.",
-      telemetry: "Quality Handover Checks · Electrical & Plumbing Pressure Testing",
-      checklist: [
-        "Clean plastering and weather-proof exterior painting",
-        "Premium floor and wall tile installation in bathrooms and living areas",
-        "Heavy-duty long-span roofing with heat insulation and gutters",
-        "Pressure testing for water pipes and circuit safety checks for electricals",
-      ],
-      output: "Complete Interior & Exterior Finishes Ready for Client Inspection",
-    },
-    {
-      step: "05",
-      badge: "Phase 5: Turnover & Long-term Protection",
-      icon: <Key className="w-5 h-5 text-amber-500" />,
-      title: "Final Inspection, Handover & 15-Year Warranty",
-      subtitle: "Official key handover with complete certificate protection",
-      desc: "Before you move in, our project engineers conduct a thorough 120-point walkthrough to inspect every switch, faucet, and door. We officially hand over your new house keys backed by our 15-Year Structural Warranty.",
-      telemetry: "120-Point Inspection Walkthrough · 15-Year Structural Warranty Certificate",
-      checklist: [
-        "Full client walkthrough with zero-punchlist check",
-        "Official occupancy permit clearance documentation",
-        "Formal turnover ceremony and house keys handover",
-        "Official 15-Year Structural Warranty Certificate issued",
-      ],
-      output: "Official House Keys & Complete Structural Warranty Certificate",
-    },
-  ];
-
-  // ---------------------------------------------------------------------------
-  // VIEW: DEDICATED SERVICES TAB (When portalTab === "services")
-  // ---------------------------------------------------------------------------
-  if (mode === "services") {
-    return (
-      <div className="space-y-8 animate-in fade-in duration-300">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
-          <div>
-            <div className="inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-1 select-none">
-              <span>MCPA Services · Design &amp; Build Excellence</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-neutral-900 dark:text-white">
-              Services That Endure For Eras
-            </h1>
-            <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-1 max-w-3xl leading-relaxed">
-              MCPA Construction and Supply integrates licensed architectural design, structural engineering, and our own dedicated materials fleet. We eliminate third-party hardware markups and ensure guaranteed structural resilience from foundation to key handover.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onSelectTab && onSelectTab("overview")}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-mono font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Dashboard</span>
-            </button>
-            <button
-              type="button"
-              onClick={onStartInquiry}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Start Inquiry</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Quick Metrics Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-neutral-200 dark:bg-white/[0.08] rounded-[8px] overflow-hidden border border-neutral-200 dark:border-white/[0.08]">
-          <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
-            <div className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white leading-tight">
-              Earthquake &amp; Typhoon <span className="text-amber-600 dark:text-amber-400 font-semibold text-xs sm:text-sm">Ready</span>
-            </div>
-            <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
-              Structural Resilience
-            </p>
-          </div>
-          <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
-            <div className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white leading-tight">
-              Direct <span className="text-amber-600 dark:text-amber-400 font-semibold text-xs sm:text-sm">Supply</span>
-            </div>
-            <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
-              In-House Steel Fleet
-            </p>
-          </div>
-          <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
-            <div className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white leading-tight">
-              100<span className="text-amber-600 dark:text-amber-400 font-semibold text-xs sm:text-sm">%</span>
-            </div>
-            <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
-              PRC Signed &amp; Sealed
-            </p>
-          </div>
-          <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
-            <div className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white leading-tight">
-              BNPL <span className="text-amber-600 dark:text-amber-400 font-semibold text-xs sm:text-sm">Program</span>
-            </div>
-            <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
-              Titled Lot Financing
-            </p>
-          </div>
-        </div>
-
-        {/* Services Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {servicesList.map((svc) => (
-            <div
-              key={svc.id}
-              className="group relative rounded-[10px] p-6 sm:p-7 bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] hover:border-amber-500/40 dark:hover:border-amber-500/40 transition-[border-color,box-shadow] duration-200 flex flex-col justify-between shadow-[0_2px_8px_rgba(0,0,0,0.03)]"
-            >
-              <div>
-                {/* Clean Icon (Pure SVG, No Box) & Technical Badge */}
-                <div className="flex items-center justify-between gap-3 mb-5">
-                  <div className="text-amber-600 dark:text-amber-400 shrink-0">
-                    {svc.icon}
-                  </div>
-                  <span className="px-2 py-0.5 rounded-[4px] bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/[0.08] text-[9.5px] font-mono uppercase tracking-[0.14em] font-semibold text-neutral-600 dark:text-neutral-300">
-                    {svc.badge}
-                  </span>
-                </div>
-
-                <h2 className="text-xl font-bold tracking-tight text-neutral-950 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors duration-150">
-                  {svc.title}
-                </h2>
-                <p className="text-xs font-mono font-medium text-amber-700 dark:text-amber-400/90 mt-1 mb-3">
-                  {svc.subtitle}
-                </p>
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal mb-5">
-                  {svc.description}
-                </p>
-
-                {/* Inclusions */}
-                <div className="border-t border-neutral-100 dark:border-white/[0.06] pt-4 mb-5">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-neutral-400 dark:text-neutral-500 block mb-2.5">
-                    Scope &amp; Engineering Deliverables:
-                  </span>
-                  <ul className="space-y-2">
-                    {svc.inclusions.map((inc, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-neutral-700 dark:text-neutral-300">
-                        <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                        <span>{inc}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <button
-                type="button"
-                onClick={onStartInquiry}
-                className="w-full mt-2 py-2.5 px-4 rounded-[6px] bg-neutral-100 dark:bg-white/[0.04] hover:bg-amber-500 hover:text-neutral-950 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10 text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer group/btn"
-              >
-                <span>{svc.ctaText}</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // VIEW: DEDICATED PROCESS TAB (When portalTab === "process")
-  // ---------------------------------------------------------------------------
-  if (mode === "process") {
-    return (
-      <div className="space-y-8 animate-in fade-in duration-300">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
-          <div>
-            <div className="inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-1 select-none">
-              <span>Construction Process · Turnkey Roadmap</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-neutral-900 dark:text-white">
-              How MCPA Builds Your Sanctuary
-            </h1>
-            <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-1 max-w-3xl leading-relaxed">
-              From initial boundary verification and structural design to concrete framing, interior craftsmanship, and official 15-year warranty handover.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onSelectTab && onSelectTab("overview")}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-mono font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Dashboard</span>
-            </button>
-            <button
-              type="button"
-              onClick={onStartInquiry}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Start Inquiry</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 5 Stages Process Cards */}
-        <div className="space-y-6">
-          {processStages.map((stage) => (
-            <div
-              key={stage.step}
-              className="rounded-[10px] p-6 sm:p-8 bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] hover:border-amber-500/40 transition-colors shadow-sm space-y-5"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-100 dark:border-white/5 pb-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-bold font-mono text-amber-500">
-                    {stage.step}
-                  </span>
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-amber-600 dark:text-amber-400 font-bold">
-                      {stage.badge}
-                    </div>
-                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-                      {stage.title}
-                    </h2>
-                  </div>
-                </div>
-                <div className="text-xs font-mono text-neutral-400 dark:text-neutral-500">
-                  {stage.telemetry}
-                </div>
-              </div>
-
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal">
-                {stage.desc}
-              </p>
-
-              {/* Checklist & Output Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
-                <div className="lg:col-span-8 space-y-2">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-400 font-bold block">
-                    Execution Milestones &amp; Checks:
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {stage.checklist.map((item, idx) => (
-                      <div key={idx} className="flex items-start gap-2 text-xs text-neutral-700 dark:text-neutral-300">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                        <span>{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="lg:col-span-4 p-4 rounded-[6px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 space-y-1 font-mono flex flex-col justify-center">
-                  <span className="text-[9.5px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">
-                    Official Milestone Output:
-                  </span>
-                  <p className="text-xs font-bold text-neutral-900 dark:text-white">
-                    {stage.output}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Bottom CTA Card */}
-        <div className="p-8 sm:p-10 rounded-[10px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 text-center space-y-4 shadow-sm">
-          <h3 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white">
-            Ready to start Phase 1 for your titled property?
-          </h3>
-          <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 max-w-xl mx-auto">
-            Submit your initial lot coordinates and target architectural parameters to begin with site inspection and preliminary floor planning.
-          </p>
-          <button
-            type="button"
-            onClick={onStartInquiry}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
-          >
-            <Compass className="w-4 h-4" />
-            <span>Start Project Inquiry</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // VIEW: DEDICATED PORTFOLIO TAB (When portalTab === "portfolio")
-  // ---------------------------------------------------------------------------
-  if (mode === "portfolio") {
-    return (
-      <div className="space-y-8 animate-in fade-in duration-300">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
-          <div>
-            <div className="inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-1 select-none">
-              <span>Architectural Catalog · Master Portfolio</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-neutral-900 dark:text-white">
-              Built to Perfection
-            </h1>
-            <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-1 max-w-2xl">
-              Authentic completed projects delivered across the Philippines. Click any project to inspect photo galleries, floor plans, and architectural specifications.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onSelectTab && onSelectTab("overview")}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-mono font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Dashboard</span>
-            </button>
-            <button
-              type="button"
-              onClick={onStartInquiry}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Start Inquiry</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Category Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          {categories.map((cat) => {
-            const isActive = activeCategory.toLowerCase() === cat.toLowerCase();
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-1.5 rounded-[6px] text-xs font-mono font-bold uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? "bg-amber-500 text-neutral-950 shadow-sm"
-                    : "bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:border-amber-500/40"
-                }`}
-              >
-                {cat}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Project Cards Grid (Exact Home & Projects Page Architecture) */}
-        {isLoadingPortfolio ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="min-h-[460px] rounded-[10px] bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
-            ))}
-          </div>
-        ) : displayProjects.length === 0 ? (
-          <div className="p-16 text-center rounded-[10px] border border-dashed border-neutral-300 dark:border-neutral-800 text-xs font-mono text-neutral-400">
-            No projects found matching the selected category.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-            {displayProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onOpenDetails={(p) => setSelectedProjectForModal(p)}
-                onInquire={(p) => onStartInquiry && onStartInquiry(p)}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Architectural Details Modal */}
-        {selectedProjectForModal && (
-          <ProjectDetailsModal
-            project={selectedProjectForModal}
-            isOpen={Boolean(selectedProjectForModal)}
-            onClose={() => setSelectedProjectForModal(null)}
-            onInquire={(proj) => {
-              setSelectedProjectForModal(null);
-              if (onStartInquiry) onStartInquiry(proj);
-            }}
-          />
-        )}
-      </div>
-    );
-  }
-
-  // ---------------------------------------------------------------------------
   // VIEW: STAGE 1 EXECUTIVE DASHBOARD (When portalTab === "overview")
   // ---------------------------------------------------------------------------
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-8 animate-in fade-in duration-300 font-sans">
       {/* 0. DISCONTINUED / REJECTED CONSULTATION NOTICE BANNER */}
       {rejectedInfo && (
-        <div className="p-5 sm:p-6 rounded-[16px] bg-rose-500/[0.08] dark:bg-rose-500/[0.12] border border-rose-500/30 space-y-3 animate-in fade-in">
+        <div className="p-5 sm:p-6 rounded-2xl bg-rose-500/[0.08] dark:bg-rose-500/[0.12] border border-rose-500/30 space-y-3 animate-in fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
-              <div className="p-2.5 rounded-[10px] bg-rose-500/15 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5">
+              <div className="p-2.5 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5">
                 <AlertCircle className="w-5 h-5" />
               </div>
               <div className="space-y-1">
@@ -704,8 +403,8 @@ export default function PortalPhase1PreInquiry({
                     </span>
                   )}
                 </p>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans">
-                  You are always welcome to start a new project consultation whenever your timeline or requirements are ready.
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  You are welcome to submit a fresh inquiry with revised parameters or timelines whenever you are ready.
                 </p>
               </div>
             </div>
@@ -713,7 +412,7 @@ export default function PortalPhase1PreInquiry({
             <button
               type="button"
               onClick={onStartInquiry}
-              className="px-5 py-2.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer shadow-md flex items-center justify-center gap-2"
             >
               <Compass className="w-4 h-4" />
               <span>Submit New Inquiry</span>
@@ -722,185 +421,237 @@ export default function PortalPhase1PreInquiry({
         </div>
       )}
 
-      {/* 1. HERO ONBOARDING SECTION */}
-      <div className="relative overflow-hidden rounded-[20px] sm:rounded-[24px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-6 sm:p-10 shadow-xs dark:shadow-none space-y-6 transition-colors">
-        {/* Subtle decorative architectural glow */}
-        <div className="absolute -right-16 -top-16 w-80 h-80 bg-amber-500/5 dark:bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* =========================================================================
+          STATE 1B: CLIENT HAS AN ACTIVE INQUIRY PENDING INITIAL CONSULTATION
+          (Client stays in Phase 1 until elevated to Phase 2 by Admin)
+          ========================================================================= */}
+      {activeInquiry ? (
+        <div className="rounded-2xl bg-white dark:bg-[#11131a] border border-amber-500/30 overflow-hidden shadow-lg space-y-6 p-6 sm:p-8">
+          {/* Top Status Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-neutral-200 dark:border-white/10">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
+                <FolderKanban className="w-4 h-4" />
+                <span>Phase 1 Active · Inquiry Under Initial Review</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold uppercase text-neutral-900 dark:text-white">
+                {activeInquiry.project_type || activeInquiry.projectType || "Custom Residential Build"}
+              </h1>
+              <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                Reference Code:{" "}
+                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                  {activeInquiry.trackingId || activeInquiry.submissionId || activeInquiry.submission_id || activeInquiry.projectCode || "MCPA-INQ-ACTIVE"}
+                </span>{" "}
+                · Submitted by {currentUser?.fullName || currentUser?.name || "Client"}
+              </p>
+            </div>
 
-        {/* MCPA Official Vector Logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <Image
-            src="/assets/mcpa-logo.svg"
-            alt="MCPA Architectural Design & Construction"
-            width={180}
-            height={46}
-            unoptimized
-            className="block dark:hidden object-contain h-9 sm:h-10 w-auto"
-            priority
-          />
-          <Image
-            src="/assets/logo-white.svg"
-            alt="MCPA Architectural Design & Construction"
-            width={180}
-            height={46}
-            unoptimized
-            className="hidden dark:block object-contain h-9 sm:h-10 w-auto"
-            priority
-          />
-        </div>
+            <span className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-mono text-xs font-bold uppercase shrink-0">
+              {activeInquiry.status || "Pending Initial Review"}
+            </span>
+          </div>
 
-        {/* Heading & Welcome Copy */}
-        <div className="relative z-10 max-w-3xl space-y-3">
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white font-mono uppercase leading-tight">
-            Ready to Build Your Architectural Vision?
-          </h1>
+          {/* Stepper Timeline */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 font-mono text-xs">
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
+              <div className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400">Step 1</div>
+              <div className="font-bold flex items-center gap-1.5 mt-0.5">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Brief Submitted</span>
+              </div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-200">
+              <div className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400">Step 2 (Active)</div>
+              <div className="font-bold flex items-center gap-1.5 mt-0.5">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Engineering Evaluation</span>
+              </div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-neutral-500">
+              <div className="text-[10px] uppercase font-bold">Step 3</div>
+              <div className="font-bold mt-0.5">Initial Consultation</div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-neutral-500">
+              <div className="text-[10px] uppercase font-bold">Step 4</div>
+              <div className="font-bold mt-0.5">Phase 2 Architectural Unlock</div>
+            </div>
+          </div>
 
-          <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-300 leading-relaxed font-sans max-w-2xl">
-            Welcome, <span className="font-bold text-amber-600 dark:text-amber-400">{currentUser?.fullName || currentUser?.full_name || "Valued Client"}</span>. 
-            Your client portal tracks your construction project from concept blueprints down to actual turnkey handover. To initiate your project timeline, submit your verified architectural inquiry below.
-          </p>
-        </div>
+          {/* Grid: Inquiry Parameters & Consultation Meeting Hub */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+            {/* Left Column: Scope & Lot Details (6 cols) */}
+            <div className="lg:col-span-6 space-y-4 p-5 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10">
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+                Submitted Brief Parameters
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-[10px] font-mono text-neutral-400 uppercase block">TARGET LOCATION:</span>
+                  <span className="font-bold text-neutral-900 dark:text-white">
+                    {activeInquiry.target_location || activeInquiry.targetLocation || activeInquiry.lotAddress || "Bulacan, Central Luzon"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono text-neutral-400 uppercase block">TARGET BUDGET RANGE:</span>
+                  <span className="font-bold text-amber-600 dark:text-amber-400 font-mono">
+                    {activeInquiry.budget_range || activeInquiry.budgetRange || "₱3,500,000 - ₱5,000,000"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono text-neutral-400 uppercase block">LOT STATUS:</span>
+                  <span className="font-semibold text-neutral-900 dark:text-white">
+                    {activeInquiry.lot_status || "Titled Property (Clean TCT)"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono text-neutral-400 uppercase block">DESIRED TIMELINE:</span>
+                  <span className="font-semibold text-neutral-900 dark:text-white">
+                    {activeInquiry.target_start || "Ready within 1 - 2 months"}
+                  </span>
+                </div>
+              </div>
 
-        {/* Action Button */}
-        <div className="relative z-10 pt-2 flex flex-wrap items-center gap-4">
-          {isMultiProjectBlocked ? (
-            <button
-              type="button"
-              onClick={onRequestMultiProject}
-              className="px-6 py-3.5 rounded-[6px] bg-neutral-900 dark:bg-[#151922] hover:bg-neutral-800 dark:hover:bg-[#1c2230] text-amber-500 dark:text-amber-400 border border-amber-500/30 hover:border-amber-500/60 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2.5 shadow-lg cursor-pointer"
-            >
+              {activeInquiry.notes && (
+                <div className="pt-2 border-t border-neutral-200 dark:border-white/10">
+                  <span className="text-[10px] font-mono text-neutral-400 uppercase block">CLIENT NOTES &amp; PREFERENCES:</span>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-1 italic">
+                    &ldquo;{activeInquiry.notes}&rdquo;
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: WebRTC Initial Consultation Meeting Hub (6 cols) */}
+            <div className="lg:col-span-6 p-5 rounded-xl bg-neutral-900 text-white border border-amber-500/30 flex flex-col justify-between space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold flex items-center gap-1.5">
+                    <Video className="w-3.5 h-3.5" />
+                    <span>Initial Video Consultation Hub</span>
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold uppercase">
+                    Encrypted WebRTC
+                  </span>
+                </div>
+
+                <div>
+                  <div className="text-xs font-mono text-neutral-400">MEETING ROOM CODE:</div>
+                  <div className="text-lg font-mono font-bold text-amber-400 flex items-center gap-2 mt-0.5">
+                    <span>{activeRoomCode || "mcpa-arch-2026"}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyMeetingLink(activeRoomCode || "mcpa-arch-2026")}
+                      className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
+                      title="Copy meeting link"
+                    >
+                      {hasCopiedRoomLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-xs text-neutral-300 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                    <span>
+                      Schedule: <strong>{activeInquiry.meeting_date || activeInquiry.meetingDate || "Pending Scheduling"}</strong> (
+                      {activeInquiry.meeting_time || activeInquiry.meetingTime || "10:00 AM PHT"})
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 pt-1">
+                    Meet directly with Lead Engineer Raymart Quirante to discuss lot boundaries, preliminary design, and budget range.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action: Join Video Call */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveCallRoomCode(activeRoomCode || "mcpa-arch-2026")}
+                  className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 active:scale-98"
+                >
+                  <Video className="w-4 h-4" />
+                  <span>Enter Video Consultation Room</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Strict 1 Active Inquiry Lock Notice */}
+          <div className="p-3.5 rounded-xl bg-neutral-100 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 font-sans">
               <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0" />
-              <span>Active Inquiry Locked · View Policy</span>
-              <ArrowRight className="w-4 h-4 text-neutral-400" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onStartInquiry}
-              className="px-6 py-3.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 shadow-lg shadow-amber-500/20 hover:scale-[1.02] cursor-pointer"
-            >
-              <Compass className="w-4 h-4" />
-              Start Your Project Inquiry
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 2. STAGE 1 EXECUTIVE DASHBOARD SUMMARY CARDS (NO BACKGROUND ON ICONS) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-neutral-400 font-bold">
-            Stage 1 Portal Summary &amp; Navigation Quick Actions
-          </span>
-          <span className="text-[10px] font-mono text-amber-500 font-semibold">
-            Phase 1 of 5
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Summary Card 1: Inquiries Pipeline */}
-          <div
-            onClick={() => onSelectTab && onSelectTab("inquiries")}
-            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
-          >
-            <div className="flex items-start justify-between">
-              {/* Clean Icon Without Colored Box Background */}
-              <div className="text-amber-500">
-                <FolderKanban className="w-6 h-6" />
-              </div>
-              <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
-                inquiries.length > 0 ? "text-emerald-500" : "text-neutral-400 dark:text-neutral-500"
-              }`}>
-                {inquiries.length > 0 ? `${inquiries.length} Brief Active` : "Awaiting Brief"}
+              <span>
+                <strong>1-Active-Inquiry Policy:</strong> You have an active inquiry. Once initial consultation is concluded and preliminary scope is mutually agreed, our engineering team will advance your project to <strong>Phase 2: Architectural Blueprints &amp; Accurate BOQ</strong>.
               </span>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Inquiries Pipeline</div>
-              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
-                {latestInquiry
-                  ? (latestInquiry.project_type || "Residential Build")
-                  : "Start Your First Submission"}
-              </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                {latestInquiry
-                  ? `Status: ${latestInquiry.status || "Pending Review"} · Ref: ${latestInquiry.submission_id || "Active"}`
-                  : "Submit your architectural parameters, lot coordinates, and target budget."}
-              </p>
-            </div>
-
-            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
-              <span>View Inquiries Pipeline</span>
-              <ArrowRight className="w-4 h-4" />
-            </div>
-          </div>
-
-          {/* Summary Card 2: Portfolio Showcase */}
-          <div
-            onClick={() => onSelectTab && onSelectTab("portfolio")}
-            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
-          >
-            <div className="flex items-start justify-between">
-              {/* Clean Icon Without Colored Box Background */}
-              <div className="text-purple-500">
-                <Building className="w-6 h-6" />
-              </div>
-              <span className="text-purple-500 dark:text-purple-400 font-mono text-[10px] font-bold uppercase tracking-wider">
-                {portfolioProjects.length} Showcase Works
-              </span>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Design Portfolio</div>
-              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
-                Architectural Catalog
-              </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                Browse authentic built houses across Contemporary, Modern Tropical, and Minimalist styles.
-              </p>
-            </div>
-
-            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
-              <span>Explore Design Portfolio</span>
-              <ArrowRight className="w-4 h-4" />
-            </div>
-          </div>
-
-          {/* Summary Card 3: Account & Client Profile */}
-          <div
-            onClick={() => onSelectTab && onSelectTab("profile")}
-            className="group p-5 rounded-[18px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
-          >
-            <div className="flex items-start justify-between">
-              {/* Clean Icon Without Colored Box Background */}
-              <div className="text-sky-500">
-                <User className="w-6 h-6" />
-              </div>
-              <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-wider">
-                Verified Client
-              </span>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-xs font-mono font-bold uppercase text-neutral-500">Client Profile</div>
-              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
-                {currentUser?.fullName || currentUser?.full_name || "Valued Client"}
-              </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                {currentUser?.email || "Account Secured"} · Identity verified and ready for construction scoping.
-              </p>
-            </div>
-
-            <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs font-mono font-bold text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">
-              <span>Manage Client Profile</span>
-              <ArrowRight className="w-4 h-4" />
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        /* =========================================================================
+            STATE 1A: FRESH ACCOUNT (NO ACTIVE INQUIRY YET)
+            (Features Hero, Feasibility Calculator, and Start Inquiry Wizard)
+            ========================================================================= */
+        <div className="space-y-8">
+          {/* 1. HERO ONBOARDING SECTION */}
+          <div className="relative overflow-hidden rounded-[20px] sm:rounded-[24px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-6 sm:p-10 shadow-xs dark:shadow-none space-y-6 transition-colors">
+            <div className="absolute -right-16 -top-16 w-80 h-80 bg-amber-500/5 dark:bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* 3. SHOWCASE GALLERY (USING EXACT HOME & PROJECT PAGE PROJECTCARD ARCHITECTURE) */}
+            <div className="relative z-10 flex items-center gap-3">
+              <Image
+                src="/assets/mcpa-logo.svg"
+                alt="MCPA Architectural Design & Construction"
+                width={180}
+                height={46}
+                unoptimized
+                className="block dark:hidden object-contain h-9 sm:h-10 w-auto"
+                priority
+              />
+              <Image
+                src="/assets/logo-white.svg"
+                alt="MCPA Architectural Design & Construction"
+                width={180}
+                height={46}
+                unoptimized
+                className="hidden dark:block object-contain h-9 sm:h-10 w-auto"
+                priority
+              />
+            </div>
+
+            <div className="relative z-10 max-w-3xl space-y-3">
+              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white font-mono uppercase leading-tight">
+                Ready to Build Your Architectural Vision?
+              </h1>
+
+              <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-300 leading-relaxed font-sans max-w-2xl">
+                Welcome, <span className="font-bold text-amber-600 dark:text-amber-400">{currentUser?.fullName || currentUser?.full_name || "Valued Client"}</span>. 
+                Your client portal tracks your construction project from concept blueprints down to actual turnkey handover. To initiate your project timeline, submit your verified architectural inquiry below.
+              </p>
+            </div>
+
+            <div className="relative z-10 pt-2 flex flex-wrap items-center gap-4">
+              <button
+                type="button"
+                onClick={onStartInquiry}
+                className="px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-2 shadow-lg shadow-amber-500/20 hover:scale-[1.02] cursor-pointer"
+              >
+                <Compass className="w-4 h-4" />
+                <span>Start Your Project Inquiry</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* 2. INTERACTIVE DREAM HOME COST & FEASIBILITY CALCULATOR */}
+          <DreamHomeCostCalculator
+            onApplyEstimate={(params) => {
+              if (onStartInquiry) onStartInquiry(params);
+            }}
+          />
+        </div>
+      )}
+
+      {/* 3. SHOWCASE GALLERY (FETCHED LIVE FROM DB) */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800">
           <div>
@@ -930,11 +681,11 @@ export default function PortalPhase1PreInquiry({
         {isLoadingPortfolio ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="min-h-[460px] rounded-[10px] bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
+              <div key={i} className="min-h-[460px] rounded-xl bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
             ))}
           </div>
         ) : portfolioProjects.length === 0 ? (
-          <div className="p-12 text-center rounded-[8px] border border-dashed border-neutral-300 dark:border-neutral-800 text-xs font-mono text-neutral-400">
+          <div className="p-12 text-center rounded-xl border border-dashed border-neutral-300 dark:border-neutral-800 text-xs font-mono text-neutral-400">
             No portfolio projects published yet in the database.
           </div>
         ) : (
@@ -951,14 +702,14 @@ export default function PortalPhase1PreInquiry({
         )}
       </div>
 
-      {/* 4. COMPANY SHOWCASE QUICK JUMP STRIP (EXPLORE SERVICES & PROCESS) */}
-      <div className="rounded-[16px] p-6 bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* 4. COMPANY SHOWCASE QUICK JUMP STRIP */}
+      <div className="rounded-2xl p-6 bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
             <span>Explore Company Capabilities</span>
           </div>
           <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-            Discover Our Comprehensive Services &amp; 5-Step Construction Process
+            Discover Our Comprehensive Services &amp; 4-Stage Construction Process
           </h3>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
             Learn more about our in-house materials fleet, BNPL titled lot financing, and milestone engineering checklists.
@@ -969,7 +720,7 @@ export default function PortalPhase1PreInquiry({
           <button
             type="button"
             onClick={() => onSelectTab && onSelectTab("services")}
-            className="px-4 py-2 rounded-[6px] border border-neutral-200 dark:border-white/10 hover:border-amber-500/50 bg-neutral-50 dark:bg-white/[0.03] text-xs font-mono font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-white/10 hover:border-amber-500/50 bg-neutral-50 dark:bg-white/[0.03] text-xs font-mono font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <Hammer className="w-3.5 h-3.5 text-amber-500" />
             <span>View Services</span>
@@ -977,7 +728,7 @@ export default function PortalPhase1PreInquiry({
           <button
             type="button"
             onClick={() => onSelectTab && onSelectTab("process")}
-            className="px-4 py-2 rounded-[6px] border border-neutral-200 dark:border-white/10 hover:border-amber-500/50 bg-neutral-50 dark:bg-white/[0.03] text-xs font-mono font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-white/10 hover:border-amber-500/50 bg-neutral-50 dark:bg-white/[0.03] text-xs font-mono font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <ListChecks className="w-3.5 h-3.5 text-amber-500" />
             <span>View Process</span>
@@ -985,7 +736,7 @@ export default function PortalPhase1PreInquiry({
         </div>
       </div>
 
-      {/* Architectural Details Modal */}
+      {/* Details Modal */}
       {selectedProjectForModal && (
         <ProjectDetailsModal
           project={selectedProjectForModal}
@@ -995,6 +746,20 @@ export default function PortalPhase1PreInquiry({
             setSelectedProjectForModal(null);
             if (onStartInquiry) onStartInquiry(proj);
           }}
+        />
+      )}
+
+      {/* Embedded WebRTC Meeting Portal (Phase 1 Consultation Meeting) */}
+      {activeCallRoomCode && (
+        <GoogleMeetRoom
+          roomCode={activeCallRoomCode}
+          currentUser={currentUser}
+          activeProject={{
+            project_title: activeInquiry?.project_type || "Initial Consultation",
+            client_name: currentUser?.fullName || currentUser?.name || "Client",
+          }}
+          onLeave={() => setActiveCallRoomCode(null)}
+          isAdmin={false}
         />
       )}
     </div>

@@ -2,6 +2,7 @@ const db = require("../services/dbFailoverEngine");
 const storage = require("../services/storageService");
 const bcrypt = require("bcryptjs");
 const emailService = require("../services/emailService");
+const { generateRoomCode, formatRoomCode, extractRoomCode, buildMeetingUrl } = require("../utils/roomCodeHelper");
 
 class BriefsController {
   async getAll(req, res) {
@@ -56,6 +57,12 @@ class BriefsController {
             resolvedAvatar = "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
           }
 
+          const isOnline = (b.meeting_mode || "").toLowerCase().includes("online");
+          const resolvedRoomCode = b.meeting_room_code || (isOnline ? extractRoomCode(b.meeting_link || b) : null);
+          const resolvedMeetingLink = isOnline && resolvedRoomCode
+            ? buildMeetingUrl(resolvedRoomCode)
+            : (b.meeting_link || "");
+
           return {
             ...b,
             avatar_url: resolvedAvatar,
@@ -63,6 +70,10 @@ class BriefsController {
             auth_provider: b.auth_provider || user?.auth_provider || (isGoogle ? "google" : "local"),
             authProvider: b.auth_provider || user?.auth_provider || (isGoogle ? "google" : "local"),
             email_verified: user?.email_verified ?? b.email_verified ?? isGoogle,
+            meeting_room_code: resolvedRoomCode,
+            meetingRoomCode: resolvedRoomCode,
+            meeting_link: resolvedMeetingLink,
+            meetingLink: resolvedMeetingLink,
           };
         });
       } catch (userJoinErr) {
@@ -73,12 +84,22 @@ class BriefsController {
           if (!resolvedAvatar && (emailLower === "rayquirante@gmail.com" || emailLower === "martquirante04@gmail.com" || emailLower === "martquirante@gmail.com")) {
             resolvedAvatar = "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
           }
+          const isOnline = (b.meeting_mode || "").toLowerCase().includes("online");
+          const resolvedRoomCode = b.meeting_room_code || (isOnline ? extractRoomCode(b.meeting_link || b) : null);
+          const resolvedMeetingLink = isOnline && resolvedRoomCode
+            ? buildMeetingUrl(resolvedRoomCode)
+            : (b.meeting_link || "");
+
           return {
             ...b,
             avatar_url: resolvedAvatar,
             avatarUrl: resolvedAvatar,
             auth_provider: b.auth_provider || (emailLower.endsWith("@gmail.com") ? "google" : "local"),
             authProvider: b.auth_provider || (emailLower.endsWith("@gmail.com") ? "google" : "local"),
+            meeting_room_code: resolvedRoomCode,
+            meetingRoomCode: resolvedRoomCode,
+            meeting_link: resolvedMeetingLink,
+            meetingLink: resolvedMeetingLink,
           };
         });
       }
@@ -208,7 +229,14 @@ class BriefsController {
         }
       }
 
-      const id = submissionId || `MCPA-CPB-${Math.floor(100000 + Math.random() * 900000)}`;
+      const effectiveMeetingMode = meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting");
+      const isOnline = effectiveMeetingMode.toLowerCase().includes("online");
+      const assignedRoomCode = isOnline
+        ? (req.body.meetingRoomCode ? formatRoomCode(req.body.meetingRoomCode) : generateRoomCode())
+        : null;
+      const assignedMeetingLink = isOnline
+        ? (req.body.meetingLink || buildMeetingUrl(assignedRoomCode))
+        : (venueDetails || "");
 
       let result;
       try {
@@ -220,8 +248,9 @@ class BriefsController {
             uploaded_files, status, location_type, meeting_mode,
             meeting_date, meeting_time, map_coordinates,
             user_id, wants_meeting, venue_type, venue_details, availability_status,
-            storeys, site_address_details, spatial_wishlist, message
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending Review', $14, $15, $16, $17, $18, $19, $20, $21, $22, 'Pending Availability Confirmation', $23, $24, $25, $26)
+            storeys, site_address_details, spatial_wishlist, message,
+            meeting_link, meeting_room_code
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending Review', $14, $15, $16, $17, $18, $19, $20, $21, $22, 'Pending Availability Confirmation', $23, $24, $25, $26, $27, $28)
           RETURNING *`,
           [
             id,
@@ -238,7 +267,7 @@ class BriefsController {
             financingOption || "Milestone Progress Billing",
             uploadedFiles || [],
             locationType || "Local",
-            meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting"),
+            effectiveMeetingMode,
             meetingDate || "",
             meetingTime || "",
             mapCoordinates || "",
@@ -250,6 +279,8 @@ class BriefsController {
             siteAddressDetails ? JSON.stringify(siteAddressDetails) : null,
             spatialWishlist ? JSON.stringify(spatialWishlist) : null,
             message || null,
+            assignedMeetingLink,
+            assignedRoomCode,
           ]
         );
       } catch (insertErr) {
@@ -261,8 +292,9 @@ class BriefsController {
             lot_area, target_date, location, financing_option,
             uploaded_files, status, location_type, meeting_mode,
             meeting_date, meeting_time, map_coordinates,
-            user_id, wants_meeting, venue_type, venue_details, availability_status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending Review', $14, $15, $16, $17, $18, $19, $20, $21, $22, 'Pending Availability Confirmation')
+            user_id, wants_meeting, venue_type, venue_details, availability_status,
+            meeting_link, meeting_room_code
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending Review', $14, $15, $16, $17, $18, $19, $20, $21, $22, 'Pending Availability Confirmation', $23, $24)
           RETURNING *`,
           [
             id,
@@ -279,7 +311,7 @@ class BriefsController {
             financingOption || "Milestone Progress Billing",
             uploadedFiles || [],
             locationType || "Local",
-            meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting"),
+            effectiveMeetingMode,
             meetingDate || "",
             meetingTime || "",
             mapCoordinates || "",
@@ -287,6 +319,8 @@ class BriefsController {
             Boolean(wantsMeeting),
             venueType || null,
             venueDetails || null,
+            assignedMeetingLink,
+            assignedRoomCode,
           ]
         );
       }
@@ -396,6 +430,12 @@ class BriefsController {
         isRejectAction ? "Declined" : null
       );
 
+      const incomingMode = meetingMode || "";
+      const isOnline = incomingMode.toLowerCase().includes("online");
+      const incomingRoomCode = req.body.meetingRoomCode || (meetingLink ? extractRoomCode(meetingLink) : null);
+      const assignedRoomCode = isOnline ? (incomingRoomCode ? formatRoomCode(incomingRoomCode) : generateRoomCode()) : null;
+      const assignedMeetingLink = isOnline ? (meetingLink || buildMeetingUrl(assignedRoomCode)) : (venueDetails || meetingLink || null);
+
       const result = await db.query(
         `UPDATE client_briefs SET 
           status = $1,
@@ -409,13 +449,14 @@ class BriefsController {
           quotation_amount = COALESCE($9, quotation_amount),
           quotation_notes = COALESCE($10, quotation_notes),
           client_portal_code = COALESCE($11, client_portal_code),
-          availability_status = COALESCE($12, availability_status)
+          availability_status = COALESCE($12, availability_status),
+          meeting_room_code = COALESCE($15, meeting_room_code)
         WHERE (brief_id = $13 OR submission_id = $14) RETURNING *`,
         [
           status,
           meetingDate || null,
           meetingTime || null,
-          meetingLink || null,
+          assignedMeetingLink,
           meetingNotes || null,
           meetingMode || null,
           venueType || null,
@@ -426,12 +467,20 @@ class BriefsController {
           calculatedAvailability,
           numericId,
           cleanId,
+          assignedRoomCode,
         ]
       );
 
       const updatedBrief = result.rows[0];
       if (!updatedBrief) {
         return res.status(404).json({ success: false, message: "Consultation brief not found." });
+      }
+
+      if (updatedBrief) {
+        updatedBrief.meeting_room_code = updatedBrief.meeting_room_code || assignedRoomCode;
+        updatedBrief.meetingRoomCode = updatedBrief.meeting_room_code;
+        updatedBrief.meeting_link = updatedBrief.meeting_link || assignedMeetingLink;
+        updatedBrief.meetingLink = updatedBrief.meeting_link;
       }
 
       // Dispatch appropriate email notification based on inquiry lifecycle event

@@ -1120,7 +1120,7 @@ export default function InquiryPipelineTab({
           /* TABLE LIST VIEW: 12-Column Precision Master Rows */
           <div className="space-y-2.5">
             {/* Desktop Table Column Alignment Header */}
-            <div className="hidden xl:grid grid-cols-12 gap-4 px-5 py-2 text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold border-b border-neutral-200/70 dark:border-white/[0.06]">
+            <div className="hidden xl:grid grid-cols-12 gap-4 px-4 sm:px-4.5 py-2.5 text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold border-b border-neutral-200/70 dark:border-white/[0.06] mb-1">
               <div className="col-span-4">Client &amp; Inquiry</div>
               <div className="col-span-3">Project &amp; Location</div>
               <div className="col-span-3">Consultation Schedule</div>
@@ -1912,32 +1912,29 @@ export default function InquiryPipelineTab({
                             Select the target milestone stage to elevate this client's project. Advancing unlocks the corresponding tab modules in their Client Portal:
                           </p>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             {[
                               {
                                 id: "CONSULTATION",
-                                name: "Stage 2: Consultation",
-                                desc: "Online/F2F meetings, document upload (TCT & IDs), live architect chat.",
-                              },
-                              {
-                                id: "PRE_CONSTRUCTION",
-                                name: "Stage 3: Pre-Construction",
-                                desc: "Architectural blueprints & pin feedback, municipal permits, digital e-contract.",
+                                name: "Stage 2: Consultation & Planning",
+                                desc: "Unified: WebRTC meetings, architectural blueprints & pin drops, itemized BOQ, municipal permits, and e-contract signing.",
                               },
                               {
                                 id: "ACTIVE_BUILD",
-                                name: "Stage 4: Active Build",
-                                desc: "Live site webcam/drone gallery, weather delays, financial milestones & BNPL.",
+                                name: "Stage 3: Active Build",
+                                desc: "Physical site execution, daily drone/camera logs, milestone % tracking, and financial transparency ledger.",
                               },
                               {
                                 id: "COMPLETED",
-                                name: "Stage 5: Completed",
-                                desc: "Spotify-style Wrapped recap, before/after slider, digital handover warranty vault.",
+                                name: "Stage 4: Completed & Wrapped",
+                                desc: "100% turnkey completion: Spotify-style Construction Wrapped, before/after slider, digital 15-year warranty vault, and VIP repeat builder flow.",
                               },
                             ].map((stage) => {
+                              const currentRaw = selectedBrief.current_project_stage || selectedBrief.currentProjectStage || "CONSULTATION";
                               const isCurrent =
-                                (selectedBrief.current_project_stage || selectedBrief.currentProjectStage || "CONSULTATION") === stage.id;
-                              const isTarget = targetLifecycleStage === stage.id;
+                                currentRaw === stage.id ||
+                                (stage.id === "CONSULTATION" && currentRaw === "PRE_CONSTRUCTION");
+                              const isTarget = targetLifecycleStage === stage.id || (stage.id === "CONSULTATION" && targetLifecycleStage === "PRE_CONSTRUCTION");
 
                               return (
                                 <div
@@ -1991,7 +1988,7 @@ export default function InquiryPipelineTab({
                               className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
                             >
                               <Layers className="w-3.5 h-3.5" />
-                              <span>{isAdvancingStage ? "Advancing Stage..." : `Advance Project to ${targetLifecycleStage}`}</span>
+                              <span>{isAdvancingStage ? "Advancing Stage..." : `Advance Project to ${targetLifecycleStage === "CONSULTATION" ? "Stage 2 (Consultation & Planning)" : targetLifecycleStage === "ACTIVE_BUILD" ? "Stage 3 (Active Build)" : "Stage 4 (Completed & Wrapped)"}`}</span>
                             </button>
                           </div>
                         </div>

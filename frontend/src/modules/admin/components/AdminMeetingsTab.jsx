@@ -43,6 +43,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import GoogleMeetRoom from "@/modules/portal/components/GoogleMeetRoom";
+import { extractRoomCode, buildMeetingUrl } from "@/modules/portal/utils/roomCodeHelper";
 import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
 import { resolveClientAvatar } from "@/modules/admin/components/InquiryPipelineTab";
 import { GoogleIcon } from "@/modules/shared/Icons";
@@ -368,6 +369,7 @@ export default function AdminMeetingsTab({
             if (b.meetingTime || b.meeting_time) baseList[0].time = b.meetingTime || b.meeting_time;
             if (b.meetingMode || b.meeting_mode) baseList[0].mode = b.meetingMode || b.meeting_mode;
             if (b.projectType || b.project_type) baseList[0].projectTitle = b.projectType || b.project_type;
+            baseList[0].roomCode = extractRoomCode(b);
             const cleanCode = b.trackingId || b.submissionId || b.submission_id || b.projectCode || (b.id && isNaN(Number(b.id)) ? b.id : "MCPA-2026-MQ04B");
             baseList[0].projectCode = cleanCode;
           }
@@ -382,7 +384,7 @@ export default function AdminMeetingsTab({
             clientPhone: b.clientPhone || b.client_phone || "+63 917 000 0000",
             projectCode: briefCode,
             projectTitle: b.projectType || "Residential Construction Inquiry",
-            roomCode: b.meetingRoomCode || `mcpa-meet-${Math.random().toString(36).substring(2, 10)}`,
+            roomCode: extractRoomCode(b),
             mode: b.meetingMode || b.meeting_mode || "Online Video Call",
             date: b.meetingDate || b.meeting_date,
             displayDate: b.meetingDate || b.meeting_date,
@@ -685,7 +687,8 @@ export default function AdminMeetingsTab({
             meetingDate: newDate,
             meetingTime: newSlot,
             meetingMode: newMode,
-            meetingLink: isOnline ? (rescheduleMeeting.roomCode ? `https://meet.google.com/${rescheduleMeeting.roomCode}` : "https://meet.google.com/mcp-buil-tab") : venueFinal,
+            meetingLink: isOnline ? buildMeetingUrl(rescheduleMeeting.roomCode) : venueFinal,
+            meetingRoomCode: isOnline ? rescheduleMeeting.roomCode : null,
             isRescheduled: true,
             rescheduleReason,
             clientEmail: rescheduleMeeting.clientEmail,
@@ -1451,14 +1454,17 @@ export default function AdminMeetingsTab({
           })}
         </div>
       ) : (
-        /* TABLE LIST VIEW: 12-Column Precision Master Rows */
+        /* TABLE LIST VIEW: Precision Master Rows with 100% Deterministic Grid Tracks */
         <div className="space-y-2.5">
           {/* Desktop Table Column Alignment Header */}
-          <div className="hidden xl:grid grid-cols-12 gap-4 px-5 py-2 text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold border-b border-neutral-200/70 dark:border-white/[0.06]">
-            <div className="col-span-3">Client &amp; Project</div>
-            <div className="col-span-2">Consultation Schedule</div>
-            <div className="col-span-3">Status &amp; Channel</div>
-            <div className="col-span-4 text-right">Actions</div>
+          <div className="hidden xl:grid grid-cols-[minmax(240px,1.2fr)_180px_180px_430px] gap-4 px-4 sm:px-4.5 py-2.5 text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold border-b border-neutral-200/70 dark:border-white/[0.06] mb-1">
+            <div>Client &amp; Project</div>
+            <div>Consultation Schedule</div>
+            <div>Status &amp; Channel</div>
+            <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider pr-1">
+              <span>Outcome &amp; Deliberation</span>
+              <span className="text-right">Actions</span>
+            </div>
           </div>
 
           {filteredMeetings.map((item) => {
@@ -1476,9 +1482,9 @@ export default function AdminMeetingsTab({
                   <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 animate-pulse" />
                 )}
 
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-center">
-                  {/* Col 1 (xl:col-span-3): Client & Project Brief */}
-                  <div className="xl:col-span-3 flex items-center gap-3.5 min-w-0">
+                <div className="grid grid-cols-1 xl:grid-cols-[minmax(240px,1.2fr)_180px_180px_430px] gap-4 items-center">
+                  {/* Col 1: Client & Project Brief */}
+                  <div className="flex items-center gap-3.5 min-w-0">
                     <ClientAvatarWithFallback item={item} clientBriefs={clientBriefs} />
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-center gap-2">
@@ -1495,25 +1501,25 @@ export default function AdminMeetingsTab({
                     </div>
                   </div>
 
-                  {/* Col 2 (xl:col-span-2): Schedule & Time */}
-                  <div className="xl:col-span-2 space-y-1 min-w-0">
+                  {/* Col 2: Schedule & Time */}
+                  <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
                       <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      <span>{item.displayDate}</span>
+                      <span className="truncate">{item.displayDate}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
                       <Clock className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                      <span>{item.time}</span>
+                      <span className="truncate">{item.time}</span>
                     </div>
                     {item.duration && (
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
                         <span>Duration: {item.duration}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Col 3 (xl:col-span-3): Format & Status */}
-                  <div className="xl:col-span-3 space-y-1.5 min-w-0">
+                  {/* Col 3: Format & Status */}
+                  <div className="space-y-1.5 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       {/* Authoritative Single Status */}
                       {lifecycle.isOngoing ? (
@@ -1560,70 +1566,68 @@ export default function AdminMeetingsTab({
                     )}
                   </div>
 
-                  {/* Col 4 (xl:col-span-4): Unified Precision Action Toolbar */}
-                  <div className="xl:col-span-4 border-t xl:border-t-0 pt-3 xl:pt-0 border-neutral-100 dark:border-white/[0.06] flex flex-col xl:flex-row xl:items-center xl:justify-end gap-2 xl:gap-1.5">
-                    {/* Primary Action Button (Full-width on mobile, auto-width on desktop) */}
+                  {/* Col 4: Unified Precision Action Toolbar (Exactly 430px) */}
+                  <div className="w-full xl:w-[430px] border-t xl:border-t-0 pt-3 xl:pt-0 border-neutral-100 dark:border-white/[0.06] flex flex-col xl:flex-row xl:items-center xl:justify-end gap-2 xl:gap-1.5 shrink-0">
+                    {/* Primary Action Button */}
                     {isOnline && (lifecycle.isRoomUnlocked || lifecycle.isOngoing) ? (
                       <button
                         type="button"
                         onClick={() => handleJoinCallAsHost(item)}
-                        className="w-full xl:w-auto h-10 xl:h-8 px-4 xl:px-3 rounded-xl xl:rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs xl:text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs shrink-0"
+                        className="w-full xl:w-[150px] h-10 xl:h-8 px-3 rounded-xl xl:rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs xl:text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
                         title="Join video consultation as Lead Architect"
                       >
-                        <Video className="w-4 h-4 xl:w-3.5 xl:h-3.5" />
-                        <span>Join Live Call</span>
+                        <Video className="w-4 h-4 xl:w-3.5 xl:h-3.5 shrink-0" />
+                        <span className="truncate">Join Live Call</span>
                       </button>
                     ) : (
                       <button
                         type="button"
                         onClick={() => handleOpenOutcome(item)}
-                        className="w-full xl:w-auto h-10 xl:h-8 px-4 xl:px-3 rounded-xl xl:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-white/10 dark:hover:bg-white/15 active:scale-[0.99] text-white text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs shrink-0"
+                        className="w-full xl:w-[150px] h-10 xl:h-8 px-3 rounded-xl xl:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-white/10 dark:hover:bg-white/15 active:scale-[0.99] text-white text-xs xl:text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
                         title="Record meeting outcome or follow-up milestones"
                       >
-                        <Award className="w-4 h-4 xl:w-3.5 xl:h-3.5 text-amber-400" />
-                        <span>Consultation Outcome</span>
+                        <Award className="w-4 h-4 xl:w-3.5 xl:h-3.5 text-amber-400 shrink-0" />
+                        <span className="truncate">Consultation Outcome</span>
                       </button>
                     )}
 
-                    {/* Secondary Quick Action Tools */}
+                    {/* Secondary Quick Action Tools (Deterministic Fixed Slots) */}
                     <div className="flex items-center justify-between xl:justify-end gap-1.5 flex-1 xl:flex-initial">
                       <div className="flex items-center gap-1.5 flex-1 xl:flex-initial">
-                        {(item.isConcluded || item.clientNote || item.rating) && (
-                          <button
-                            type="button"
-                            onClick={() => setViewMinutesSession(item)}
-                            className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer flex-1 xl:flex-initial shrink-0"
-                            title="View Call Rating & Notes"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-amber-500" />
-                            <span className="text-[11px]">Notes</span>
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setViewMinutesSession(item)}
+                          className="h-8 w-full xl:w-[60px] px-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer shrink-0"
+                          title="View Call Rating & Deliberation Notes"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span className="text-[11px]">Notes</span>
+                        </button>
 
                         <button
                           type="button"
                           onClick={() => handleOpenReschedule(item)}
-                          className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer flex-1 xl:flex-initial shrink-0"
+                          className="h-8 w-full xl:w-[58px] px-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer shrink-0"
                           title="Reschedule / Change Setup"
                         >
-                          <RefreshCw className="w-3 h-3 text-neutral-400" />
+                          <RefreshCw className="w-3 h-3 text-neutral-400 shrink-0" />
                           <span className="text-[11px]">Setup</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => handleToggleArchive(item)}
-                          className="h-8 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer flex-1 xl:flex-initial shrink-0"
+                          className="h-8 w-full xl:w-[70px] px-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer shrink-0"
                           title={isArchived ? "Restore meeting to active" : "Move to Archive / Concluded"}
                         >
                           {isArchived ? (
                             <>
-                              <RotateCcw className="w-3 h-3 text-amber-500" />
+                              <RotateCcw className="w-3 h-3 text-amber-500 shrink-0" />
                               <span className="text-[11px]">Restore</span>
                             </>
                           ) : (
                             <>
-                              <Archive className="w-3 h-3 text-neutral-400" />
+                              <Archive className="w-3 h-3 text-neutral-400 shrink-0" />
                               <span className="text-[11px]">Archive</span>
                             </>
                           )}
@@ -1635,7 +1639,7 @@ export default function AdminMeetingsTab({
                           type="button"
                           onClick={() => handleSendReminder(item)}
                           disabled={isSendingReminderId === item.id}
-                          className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-600 dark:hover:text-sky-400 border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                          className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-600 dark:hover:text-sky-400 border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0"
                           title="Send pre-meeting reminder email"
                         >
                           {isSendingReminderId === item.id ? (
@@ -1647,7 +1651,7 @@ export default function AdminMeetingsTab({
 
                         <a
                           href={`mailto:${item.clientEmail}`}
-                          className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                          className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer shrink-0"
                           title={`Send direct email to ${item.clientEmail}`}
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
