@@ -90,6 +90,7 @@ export default function MeetPreJoinLobby({
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
+  const hasJoinedRef = useRef(false);
 
   // Room capacity state
   const [roomCount, setRoomCount] = useState(0);
@@ -167,7 +168,8 @@ export default function MeetPreJoinLobby({
 
     return () => {
       isCancelled = true;
-      if (localStream) {
+      // Only stop tracks if user did NOT join the call (navigated away or closed tab)
+      if (localStream && !hasJoinedRef.current) {
         localStream.getTracks().forEach((t) => t.stop());
       }
       if (animationFrameRef.current) {
@@ -260,6 +262,8 @@ export default function MeetPreJoinLobby({
     try {
       localStorage.setItem("mcpa_meet_guest_name", trimmedName);
     } catch (e) {}
+
+    hasJoinedRef.current = true;
 
     // Pass resolved participant data
     onJoin({
@@ -418,7 +422,7 @@ export default function MeetPreJoinLobby({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Engr. Raymart Quirante or Maria Santos"
+                  placeholder="Enter your full name"
                   value={displayName}
                   onChange={(e) => {
                     setDisplayName(e.target.value);
@@ -492,7 +496,7 @@ export default function MeetPreJoinLobby({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Electrical Consultant or Legal Counsel"
+                    placeholder="Enter your role or relationship"
                     value={customRoleText}
                     onChange={(e) => setCustomRoleText(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded bg-black/40 border border-white/10 text-white placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"

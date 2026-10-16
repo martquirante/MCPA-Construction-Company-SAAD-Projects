@@ -41,7 +41,10 @@ import {
   RotateCcw,
   Star,
   AlertTriangle,
+  PhoneCall,
 } from "lucide-react";
+import { io } from "socket.io-client";
+import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
 import GoogleMeetRoom from "@/modules/portal/components/GoogleMeetRoom";
 import { extractRoomCode, buildMeetingUrl } from "@/modules/portal/utils/roomCodeHelper";
 import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
@@ -138,6 +141,8 @@ export default function AdminMeetingsTab({
   // Live Instant Meeting Incoming Call Alert State & Dismiss Tracking
   const [incomingInstantCall, setIncomingInstantCall] = useState(null);
   const [instantCallSecondsLeft, setInstantCallSecondsLeft] = useState(180);
+  const [isInstantCallModalOpen, setIsInstantCallModalOpen] = useState(false);
+  const [instantCallSearch, setInstantCallSearch] = useState("");
 
   // Dynamic live countdown tick
   useEffect(() => {
@@ -159,22 +164,17 @@ export default function AdminMeetingsTab({
   useEffect(() => {
     const checkInstantCall = () => {
       try {
-        const recentlyLeft = sessionStorage.getItem("mcpa_call_recently_left");
-        if (recentlyLeft && Date.now() - Number(recentlyLeft) < 60000) {
-          setIncomingInstantCall(null);
-          return;
-        }
-
         const stored = localStorage.getItem("mcpa_instant_call_active");
-        let dismissed = null;
-        try {
-          dismissed = sessionStorage.getItem("mcpa_dismissed_instant_call");
-        } catch (e) {}
-
         if (stored) {
           const parsed = JSON.parse(stored);
+          if (parsed?.initiatedBy === "admin") return; // Admin initiated this call, do not self-alert
+
           const isExpired = parsed.startedAt && Date.now() - parsed.startedAt > 180000;
-          if (dismissed && (dismissed === parsed.roomCode || dismissed === "all")) {
+          const dismissed = sessionStorage.getItem("mcpa_dismissed_instant_call");
+          const dismissedAt = Number(sessionStorage.getItem("mcpa_dismissed_instant_call_at") || 0);
+
+          // Only ignore if call started BEFORE or AT dismissal time
+          if (dismissed && (dismissed === parsed.roomCode || dismissed === "all") && (parsed.startedAt || 0) <= dismissedAt) {
             setIncomingInstantCall(null);
             return;
           }
@@ -184,6 +184,7 @@ export default function AdminMeetingsTab({
               clientName: parsed.clientName,
               projectTitle: parsed.projectTitle || "Instant Video Consultation",
               projectCode: parsed.projectCode || "MCPA-INSTANT",
+              isInstant: true,
             });
             setIncomingInstantCall(null);
             return;
@@ -201,16 +202,13 @@ export default function AdminMeetingsTab({
 
     const handleInstantAlert = (e) => {
       if (e.detail && e.detail.active) {
-        const recentlyLeft = sessionStorage.getItem("mcpa_call_recently_left");
-        if (recentlyLeft && Date.now() - Number(recentlyLeft) < 60000) {
-          return;
-        }
+        if (e.detail.initiatedBy === "admin") return; // Admin initiated this call
+        const callStartedAt = e.detail.startedAt || Date.now();
+        const dismissed = sessionStorage.getItem("mcpa_dismissed_instant_call");
+        const dismissedAt = Number(sessionStorage.getItem("mcpa_dismissed_instant_call_at") || 0);
 
-        let dismissed = null;
-        try {
-          dismissed = sessionStorage.getItem("mcpa_dismissed_instant_call");
-        } catch (e) {}
-        if (dismissed && (dismissed === e.detail.roomCode || dismissed === "all")) {
+        // Only ignore if the incoming call is older than or equal to the explicit user dismissal
+        if (dismissed && (dismissed === e.detail.roomCode || dismissed === "all") && callStartedAt <= dismissedAt) {
           return;
         }
 
@@ -220,6 +218,7 @@ export default function AdminMeetingsTab({
             clientName: e.detail.clientName,
             projectTitle: e.detail.projectTitle || "Instant Video Consultation",
             projectCode: e.detail.projectCode || "MCPA-INSTANT",
+            isInstant: true,
           });
           setIncomingInstantCall(null);
           return;
@@ -234,8 +233,6 @@ export default function AdminMeetingsTab({
       setIncomingInstantCall(null);
       try {
         localStorage.removeItem("mcpa_instant_call_active");
-        sessionStorage.setItem("mcpa_dismissed_instant_call", e?.detail?.roomCode || "all");
-        sessionStorage.setItem("mcpa_call_recently_left", String(Date.now()));
       } catch (e) {}
     };
 
@@ -950,10 +947,68 @@ export default function AdminMeetingsTab({
     if (incomingInstantCall?.roomCode) {
       try {
         sessionStorage.setItem("mcpa_dismissed_instant_call", incomingInstantCall.roomCode);
+        sessionStorage.setItem("mcpa_dismissed_instant_call_at", String(Date.now()));
       } catch (e) {}
     }
     setIncomingInstantCall(null);
     showToast("Instant call alert dismissed.");
+  };
+
+  // ADMIN INITIATES INSTANT CONSULTATION WITH A CLIENT (VICE VERSA)
+  const handleStartAdminInstantCall = (target) => {
+    if (!target) return;
+    const briefId = target.submissionId || target.submission_id || target.id || target.projectCode || Date.now();
+    const cleanCode = String(target.projectCode || target.trackingId || `client-${briefId}`)
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    const instantRoom = `mcpa-instant-${cleanCode}`;
+
+    const clientName = target.clientName || target.client_name || "Valued Client";
+    const projectTitle = target.projectTitle || target.projectType || "Residential Architectural & Engineering Review";
+    const projectCode = target.projectCode || target.trackingId || "MCPA-CLIENT";
+
+    const callPayload = {
+      roomCode: instantRoom,
+      initiatedBy: "admin",
+      callerName: currentUser?.name || "Engr. Raymart Quirante",
+      callerRole: "Lead Project Engineer & Consultant",
+      adminName: currentUser?.name || "Engr. Raymart Quirante",
+      adminRole: "Lead Project Engineer & Consultant",
+      targetClientId: target.submissionId || target.submission_id || target.id,
+      targetClientEmail: (target.clientEmail || target.client_email || "").toLowerCase(),
+      targetClientName: clientName,
+      clientName,
+      projectTitle,
+      projectCode,
+      startedAt: Date.now(),
+    };
+
+    // Emit through socket signaling server to ring client's portal
+    try {
+      const socket = io(getSignalingServerUrl(), {
+        transports: ["polling", "websocket"],
+        timeout: 6000,
+      });
+      socket.on("connect", () => {
+        socket.emit("instant-call-start", callPayload);
+        setTimeout(() => socket.disconnect(), 1500);
+      });
+    } catch (e) {
+      console.warn("[ADMIN CALL] Socket dispatch failed:", e);
+    }
+
+    setIsInstantCallModalOpen(false);
+
+    // Enter meeting room immediately for Admin
+    setActiveCallRoom({
+      roomCode: instantRoom,
+      clientName,
+      projectTitle,
+      projectCode,
+      isInstant: true,
+    });
+
+    showToast(`Calling ${clientName}... Outgoing call sent to their portal.`);
   };
 
   return (
@@ -1156,8 +1211,20 @@ export default function AdminMeetingsTab({
           totalCount={metrics.total}
         />
 
-        {/* Search Input & View Toggle Group */}
+        {/* Search Input, Instant Call & View Toggle Group */}
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Instant Call Client Button */}
+          <button
+            type="button"
+            onClick={() => setIsInstantCallModalOpen(true)}
+            className="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-amber-500/20 shrink-0"
+            title="Ring client directly for instant consultation"
+          >
+            <PhoneCall className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Instant Call Client</span>
+            <span className="sm:hidden">Call</span>
+          </button>
+
           <div className="relative flex-1 sm:w-64 sm:flex-initial">
             <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -1359,15 +1426,46 @@ export default function AdminMeetingsTab({
                 <div className="pt-3 border-t border-neutral-100 dark:border-white/[0.06] flex flex-col gap-2">
                   {/* Tier 1: Primary Action Button (Full-width on mobile with ergonomic touch height) */}
                   {isOnline && (lifecycle.isRoomUnlocked || lifecycle.isOngoing) ? (
-                    <button
-                      type="button"
-                      onClick={() => handleJoinCallAsHost(item)}
-                      className="w-full h-10 sm:h-9 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                      title="Join video consultation as Lead Architect"
-                    >
-                      <Video className="w-4 h-4" />
-                      <span>Join Live Call</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleJoinCallAsHost(item)}
+                        className="flex-1 h-10 sm:h-9 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                        title="Join video consultation as Lead Architect"
+                      >
+                        <Video className="w-4 h-4" />
+                        <span>Join Live Call</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleStartAdminInstantCall(item)}
+                        className="h-10 sm:h-9 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono text-xs font-bold uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        title="Ring client's portal for instant video consultation"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5" />
+                        <span>Call</span>
+                      </button>
+                    </div>
+                  ) : isOnline ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStartAdminInstantCall(item)}
+                        className="flex-1 h-10 sm:h-9 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.99] text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                        title="Ring client directly on their portal"
+                      >
+                        <PhoneCall className="w-4 h-4" />
+                        <span>Instant Call Client</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenOutcome(item)}
+                        className="h-10 sm:h-9 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-white/10 dark:hover:bg-white/15 active:scale-[0.99] text-white text-xs font-medium transition-all flex items-center justify-center cursor-pointer shadow-xs"
+                        title="Record meeting outcome"
+                      >
+                        <Award className="w-4 h-4 text-amber-400" />
+                      </button>
+                    </div>
                   ) : (
                     <button
                       type="button"
@@ -1568,28 +1666,42 @@ export default function AdminMeetingsTab({
 
                   {/* Col 4: Unified Precision Action Toolbar (Exactly 430px) */}
                   <div className="w-full xl:w-[430px] border-t xl:border-t-0 pt-3 xl:pt-0 border-neutral-100 dark:border-white/[0.06] flex flex-col xl:flex-row xl:items-center xl:justify-end gap-2 xl:gap-1.5 shrink-0">
-                    {/* Primary Action Button */}
-                    {isOnline && (lifecycle.isRoomUnlocked || lifecycle.isOngoing) ? (
-                      <button
-                        type="button"
-                        onClick={() => handleJoinCallAsHost(item)}
-                        className="w-full xl:w-[150px] h-10 xl:h-8 px-3 rounded-xl xl:rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs xl:text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
-                        title="Join video consultation as Lead Architect"
-                      >
-                        <Video className="w-4 h-4 xl:w-3.5 xl:h-3.5 shrink-0" />
-                        <span className="truncate">Join Live Call</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenOutcome(item)}
-                        className="w-full xl:w-[150px] h-10 xl:h-8 px-3 rounded-xl xl:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-white/10 dark:hover:bg-white/15 active:scale-[0.99] text-white text-xs xl:text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
-                        title="Record meeting outcome or follow-up milestones"
-                      >
-                        <Award className="w-4 h-4 xl:w-3.5 xl:h-3.5 text-amber-400 shrink-0" />
-                        <span className="truncate">Consultation Outcome</span>
-                      </button>
-                    )}
+                    {/* Primary Action Button & Instant Call */}
+                    <div className="flex items-center gap-1.5 w-full xl:w-auto">
+                      {isOnline && (lifecycle.isRoomUnlocked || lifecycle.isOngoing) ? (
+                        <button
+                          type="button"
+                          onClick={() => handleJoinCallAsHost(item)}
+                          className="flex-1 xl:w-[125px] h-10 xl:h-8 px-2.5 rounded-xl xl:rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs xl:text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                          title="Join video consultation as Lead Architect"
+                        >
+                          <Video className="w-4 h-4 xl:w-3.5 xl:h-3.5 shrink-0" />
+                          <span className="truncate">Join Live</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenOutcome(item)}
+                          className="flex-1 xl:w-[125px] h-10 xl:h-8 px-2.5 rounded-xl xl:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-white/10 dark:hover:bg-white/15 active:scale-[0.99] text-white text-xs xl:text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                          title="Record meeting outcome or follow-up milestones"
+                        >
+                          <Award className="w-4 h-4 xl:w-3.5 xl:h-3.5 text-amber-400 shrink-0" />
+                          <span className="truncate">Outcome</span>
+                        </button>
+                      )}
+
+                      {isOnline && (
+                        <button
+                          type="button"
+                          onClick={() => handleStartAdminInstantCall(item)}
+                          className="h-10 xl:h-8 px-2.5 rounded-xl xl:rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono text-xs xl:text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                          title={`Directly call ${item.clientName} on their portal`}
+                        >
+                          <PhoneCall className="w-3.5 h-3.5" />
+                          <span>Call</span>
+                        </button>
+                      )}
+                    </div>
 
                     {/* Secondary Quick Action Tools (Deterministic Fixed Slots) */}
                     <div className="flex items-center justify-between xl:justify-end gap-1.5 flex-1 xl:flex-initial">
@@ -2580,6 +2692,7 @@ export default function AdminMeetingsTab({
             project_code: activeCallRoom.projectCode,
             client_name: activeCallRoom.clientName,
           }}
+          isInstantMeeting={Boolean(activeCallRoom?.isInstant || activeCallRoom?.roomCode?.includes("instant"))}
           isAdmin={true}
           onLeave={() => {
             const currentRoom = activeCallRoom?.roomCode;
@@ -2587,8 +2700,8 @@ export default function AdminMeetingsTab({
             setIncomingInstantCall(null);
             try {
               localStorage.removeItem("mcpa_instant_call_active");
-              sessionStorage.setItem("mcpa_dismissed_instant_call", currentRoom || "all");
-              sessionStorage.setItem("mcpa_call_recently_left", String(Date.now()));
+              sessionStorage.removeItem("mcpa_dismissed_instant_call");
+              sessionStorage.removeItem("mcpa_dismissed_instant_call_at");
               window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoom } }));
             } catch (e) {}
             showToast("Left video consultation room.");
@@ -2693,6 +2806,170 @@ export default function AdminMeetingsTab({
                 className="px-4 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
               >
                 Close Notes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INSTANT VIDEO CALL CLIENT SELECTOR MODAL */}
+      {isInstantCallModalOpen && (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-xl rounded-2xl bg-white dark:bg-[#12141c] border border-amber-500/30 text-neutral-900 dark:text-white shadow-2xl p-6 sm:p-7 space-y-5 max-h-[90vh] flex flex-col"
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  <PhoneCall className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold font-mono uppercase tracking-tight text-neutral-900 dark:text-white">
+                    Start Instant Video Call
+                  </h3>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    Directly ring a client&apos;s portal for a live, spontaneous video consultation.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsInstantCallModalOpen(false);
+                  setInstantCallSearch("");
+                }}
+                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search client */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={instantCallSearch}
+                onChange={(e) => setInstantCallSearch(e.target.value)}
+                placeholder="Search client name, email, or project code..."
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors font-sans"
+              />
+            </div>
+
+            {/* Clients List */}
+            <div className="flex-1 overflow-y-auto space-y-2 max-h-[360px] pr-1">
+              {(() => {
+                const allTargets = [];
+                const seenKeys = new Set();
+
+                const addTarget = (t) => {
+                  const key = (t.clientEmail || t.client_email || t.projectCode || t.submissionId || t.id || "").toLowerCase();
+                  if (key && !seenKeys.has(key)) {
+                    seenKeys.add(key);
+                    allTargets.push(t);
+                  }
+                };
+
+                if (Array.isArray(clientBriefs)) {
+                  clientBriefs.forEach(addTarget);
+                }
+                if (Array.isArray(meetingsList)) {
+                  meetingsList.forEach(addTarget);
+                }
+
+                const query = instantCallSearch.toLowerCase().trim();
+                const filtered = allTargets.filter((t) => {
+                  if (!query) return true;
+                  const name = (t.clientName || t.client_name || "").toLowerCase();
+                  const email = (t.clientEmail || t.client_email || "").toLowerCase();
+                  const code = (t.projectCode || t.trackingId || t.submissionId || "").toLowerCase();
+                  const title = (t.projectTitle || t.projectType || "").toLowerCase();
+                  return name.includes(query) || email.includes(query) || code.includes(query) || title.includes(query);
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-8 text-center text-xs text-neutral-400 font-mono space-y-2">
+                      <p>No matching client found.</p>
+                      {query && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleStartAdminInstantCall({
+                              clientName: query,
+                              projectCode: "MCPA-DIRECT",
+                              projectTitle: "Direct Instant Video Consultation",
+                            })
+                          }
+                          className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold uppercase tracking-wider text-xs font-mono transition-colors"
+                        >
+                          Call &quot;{query}&quot; Directly
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+
+                return filtered.map((c, idx) => {
+                  const name = c.clientName || c.client_name || "Valued Client";
+                  const email = c.clientEmail || c.client_email || "No email on record";
+                  const code = c.projectCode || c.trackingId || c.submissionId || "MCPA-CLIENT";
+                  const title = c.projectTitle || c.projectType || "Residential Architectural Review";
+
+                  return (
+                    <div
+                      key={c.id || c.submissionId || idx}
+                      className="p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/70 dark:border-white/5 hover:border-amber-500/30 transition-all flex items-center justify-between gap-3 group"
+                    >
+                      <div className="min-w-0 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 font-bold font-mono text-sm flex items-center justify-center shrink-0">
+                          {name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                            {name}
+                          </h4>
+                          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono truncate">
+                            {email}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-neutral-400 font-mono">
+                            <span className="text-amber-600 dark:text-amber-400 font-bold">{code}</span>
+                            <span>·</span>
+                            <span className="truncate max-w-[180px]">{title}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleStartAdminInstantCall(c)}
+                        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-95 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm shadow-emerald-500/20 shrink-0 cursor-pointer"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5" />
+                        <span>Call Now</span>
+                      </button>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Direct Room Code Call */}
+            <div className="pt-3 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between gap-3">
+              <span className="text-[11px] text-neutral-400 font-mono">
+                Rings target client&apos;s active portal screen in real time.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsInstantCallModalOpen(false);
+                  setInstantCallSearch("");
+                }}
+                className="px-4 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

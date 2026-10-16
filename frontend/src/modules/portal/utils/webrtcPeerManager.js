@@ -197,7 +197,10 @@ export class WebRTCPeerManager {
 
     if (this.peers.has(socketId)) {
       const existing = this.peers.get(socketId);
-      if (user && !existing.user) existing.user = user;
+      if (user && (!existing.user || !existing.user.name || existing.user.name === "Participant")) {
+        existing.user = user;
+        this.notifyPeersChange();
+      }
       return existing;
     }
 
@@ -349,10 +352,11 @@ export class WebRTCPeerManager {
   /**
    * Creates and sends an SDP offer to a specific peer
    * @param {string} targetSocketId 
+   * @param {object} [user]
    */
-  async createAndSendOffer(targetSocketId) {
+  async createAndSendOffer(targetSocketId, user = null) {
     if (!targetSocketId) return;
-    const peer = this.getOrCreatePeer(targetSocketId, null, true);
+    const peer = this.getOrCreatePeer(targetSocketId, user, true);
     if (!peer) return;
 
     try {
@@ -395,6 +399,11 @@ export class WebRTCPeerManager {
     const peer = this.getOrCreatePeer(fromSocketId, sender, false);
     if (!peer) return;
 
+    if (sender && (!peer.user || !peer.user.name)) {
+      peer.user = sender;
+      this.notifyPeersChange();
+    }
+
     try {
       await peer.pc.setRemoteDescription(new RTCSessionDescription(sdpOffer));
 
@@ -434,14 +443,20 @@ export class WebRTCPeerManager {
    * Handles an incoming answer from a remote peer
    * @param {RTCSessionDescriptionInit} sdpAnswer 
    * @param {string} fromSocketId 
+   * @param {object} [sender]
    */
-  async handleAnswer(sdpAnswer, fromSocketId) {
+  async handleAnswer(sdpAnswer, fromSocketId, sender = null) {
     let peer = this.peers.get(fromSocketId);
     if (!peer && this.peers.size === 1) {
       // Fallback for single peer if fromSocketId is not explicitly tagged
       peer = Array.from(this.peers.values())[0];
     }
     if (!peer) return;
+
+    if (sender && (!peer.user || !peer.user.name)) {
+      peer.user = sender;
+      this.notifyPeersChange();
+    }
 
     try {
       await peer.pc.setRemoteDescription(new RTCSessionDescription(sdpAnswer));

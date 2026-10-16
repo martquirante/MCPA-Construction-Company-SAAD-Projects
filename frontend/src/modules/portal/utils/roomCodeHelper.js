@@ -70,14 +70,32 @@ export function extractRoomCode(briefOrLink) {
     if (briefOrLink.meetingLink) return extractRoomCode(briefOrLink.meetingLink);
     if (briefOrLink.room_code) return formatRoomCode(briefOrLink.room_code);
     if (briefOrLink.roomCode) return formatRoomCode(briefOrLink.roomCode);
-    if (briefOrLink.submission_id) {
-      // Deterministic fallback derived from submission ID
-      const num = String(briefOrLink.submission_id).replace(/\D/g, "").slice(-4) || "2026";
+
+    const rawId =
+      briefOrLink.submission_id ||
+      briefOrLink.submissionId ||
+      briefOrLink.trackingId ||
+      briefOrLink.tracking_id ||
+      briefOrLink.projectCode ||
+      briefOrLink.project_code ||
+      briefOrLink.brief_id ||
+      briefOrLink.inquiry_id ||
+      briefOrLink.id;
+
+    if (rawId) {
+      const num = String(rawId).replace(/\D/g, "").slice(-4) || "2026";
       return `mcpa-inq-${num}`;
     }
+
+    return generateRoomCode();
   }
 
-  return formatRoomCode(String(briefOrLink));
+  const str = String(briefOrLink).trim();
+  if (str === "[object Object]" || !str) {
+    return generateRoomCode();
+  }
+
+  return formatRoomCode(str);
 }
 
 /**

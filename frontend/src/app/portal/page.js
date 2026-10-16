@@ -76,6 +76,10 @@ import { getBookingIntent, clearBookingIntent } from "@/modules/shared/bookingAu
 import { isMeetingPast } from "@/modules/shared/meetingHelper";
 import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
 import { loadDocumentRequests } from "@/modules/portal/utils/documentRequestsHelper";
+import ClientIncomingCallManager from "@/modules/portal/components/ClientIncomingCallManager";
+import GoogleMeetRoom from "@/modules/portal/components/GoogleMeetRoom";
+import { io } from "socket.io-client";
+import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
 
 function ClientPortalContent() {
   const router = useRouter();
@@ -157,6 +161,7 @@ function ClientPortalContent() {
 
   // Modal & Toast states
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
+  const [activePortalCallRoom, setActivePortalCallRoom] = useState(null);
   const [toastMessage, setToastMessage] = useState("");
   const [isUploadingPfp, setIsUploadingPfp] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
@@ -2207,6 +2212,52 @@ function ClientPortalContent() {
           setPortalTab("inquiries");
         }}
       />
+
+      {/* GLOBAL CLIENT INCOMING CONSULTATION DISPATCH WITH AUDIO RINGTONE */}
+      <ClientIncomingCallManager
+        currentUser={currentUser}
+        primaryInquiry={inquiries?.[0]}
+        activeProject={dashboardState?.activeProject}
+        onAnswerCall={(call) => {
+          setActivePortalCallRoom(call);
+        }}
+        showToast={showToast}
+      />
+
+      {/* ACTIVE FULLSCREEN CONSULTATION ROOM (INSTANT CALL FROM ADMIN) */}
+      {activePortalCallRoom && (
+        <GoogleMeetRoom
+          roomCode={activePortalCallRoom.roomCode}
+          currentUser={{
+            name: currentUser?.name || currentUser?.fullName || "Valued Client",
+            role: "Primary Client / Property Owner",
+            affiliation: "client",
+            avatar_url: currentUser?.avatar_url || currentUser?.avatarUrl,
+            id: currentUser?.id || `client-${Date.now()}`,
+          }}
+          userProfile={currentUser}
+          activeProject={dashboardState?.activeProject}
+          isInstantMeeting={true}
+          isAdmin={false}
+          onLeave={() => {
+            const currentRoom = activePortalCallRoom?.roomCode;
+            setActivePortalCallRoom(null);
+            try {
+              sessionStorage.removeItem("mcpa_client_dismissed_call");
+              window.dispatchEvent(
+                new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoom } })
+              );
+              const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"] });
+              socket.on("connect", () => {
+                socket.emit("instant-call-ended", { roomCode: currentRoom });
+                setTimeout(() => socket.disconnect(), 1000);
+              });
+            } catch (e) {}
+            showToast("Left video consultation.");
+          }}
+          showToast={showToast}
+        />
+      )}
     </div>
   );
 }

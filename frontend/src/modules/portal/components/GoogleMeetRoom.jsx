@@ -549,7 +549,7 @@ export default function GoogleMeetRoom({
           ringbackToneRef.current = null;
         }
         participants.forEach((p) => {
-          peerManager.createAndSendOffer(p.socketId);
+          peerManager.createAndSendOffer(p.socketId, p.user || p);
         });
       }
     });
@@ -563,14 +563,17 @@ export default function GoogleMeetRoom({
         ringbackToneRef.current = null;
       }
       showToast(`${user?.name || "Participant"} joined the call.`);
+      if (socketId) {
+        peerManager.getOrCreatePeer(socketId, user);
+      }
     });
 
-    socket.on("webrtc-offer", async ({ fromSocketId, sdpOffer }) => {
-      await peerManager.handleOfferAndSendAnswer(sdpOffer, fromSocketId);
+    socket.on("webrtc-offer", async ({ fromSocketId, sdpOffer, sender }) => {
+      await peerManager.handleOfferAndSendAnswer(sdpOffer, fromSocketId, sender);
     });
 
-    socket.on("webrtc-answer", async ({ fromSocketId, sdpAnswer }) => {
-      await peerManager.handleAnswer(sdpAnswer, fromSocketId);
+    socket.on("webrtc-answer", async ({ fromSocketId, sdpAnswer, sender }) => {
+      await peerManager.handleAnswer(sdpAnswer, fromSocketId, sender);
     });
 
     socket.on("ice-candidate", async ({ fromSocketId, candidate }) => {

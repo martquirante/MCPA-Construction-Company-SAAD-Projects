@@ -63,15 +63,19 @@ export default function AdminIncomingCallManager({
     // Client started an instant call
     socket.on("instant-call-incoming", (payload) => {
       if (!payload || payload.answered) return;
+      if (payload.initiatedBy === "admin") return;
 
       const startedAt = payload.startedAt || Date.now();
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       if (elapsed >= 180) return; // Expired
 
-      // Check if dismissed in this session
+      // Check if dismissed in this session (only ignore if call started BEFORE or AT dismissal time)
       try {
         const dismissed = sessionStorage.getItem("mcpa_dismissed_instant_call");
-        if (dismissed && dismissed === payload.roomCode) return;
+        const dismissedAt = Number(sessionStorage.getItem("mcpa_dismissed_instant_call_at") || 0);
+        if (dismissed && (dismissed === payload.roomCode || dismissed === "all") && startedAt <= dismissedAt) {
+          return;
+        }
       } catch (e) {}
 
       console.log("[INCOMING CALL MGR] Incoming instant call received:", payload);
@@ -209,6 +213,7 @@ export default function AdminIncomingCallManager({
     const roomCode = incomingCall.roomCode;
     try {
       sessionStorage.setItem("mcpa_dismissed_instant_call", roomCode);
+      sessionStorage.setItem("mcpa_dismissed_instant_call_at", String(Date.now()));
     } catch (e) {}
 
     if (socketRef.current?.connected) {
