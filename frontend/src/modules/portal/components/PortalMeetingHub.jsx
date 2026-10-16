@@ -72,8 +72,8 @@ export default function PortalMeetingHub({
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedMeetingMode, setSelectedMeetingMode] = useState("Online Meeting"); // "Online Meeting" | "In-Person Meeting"
   const [inPersonVenueType, setInPersonVenueType] = useState("office"); // "office" | "site" | "cafe"
-  const [cafeVenueName, setCafeVenueName] = useState("Starbucks — WalterMart Plaridel");
-  const [preferredDate, setPreferredDate] = useState("2026-10-15");
+  const [cafeVenueName, setCafeVenueName] = useState("");
+  const [preferredDate, setPreferredDate] = useState(() => new Date(Date.now() + 86400000).toISOString().split("T")[0]);
   const [preferredSlot, setPreferredSlot] = useState("10:00 AM - 11:30 AM PHT");
   const [meetingNotes, setMeetingNotes] = useState("");
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
@@ -97,9 +97,9 @@ export default function PortalMeetingHub({
   // Active / Upcoming Meeting info derived from project / inquiry / defaults
   const [activeMeetingInfo, setActiveMeetingInfo] = useState({
     mode: primaryInquiry?.meeting_mode || primaryInquiry?.meetingMode || "Online Meeting",
-    date: primaryInquiry?.meeting_date || primaryInquiry?.meetingDate || "2026-10-22",
-    time: primaryInquiry?.meeting_time || primaryInquiry?.meetingTime || "02:00 PM - 03:30 PM PHT",
-    status: primaryInquiry?.availability_status || "Scheduled",
+    date: primaryInquiry?.meeting_date || primaryInquiry?.meetingDate || "",
+    time: primaryInquiry?.meeting_time || primaryInquiry?.meetingTime || "",
+    status: primaryInquiry?.availability_status || "Pending Schedule",
     leadConsultant: "Engr. Raymart Quirante",
     leadRole: "Lead Project Engineer & Consultant",
     officeAddress: "MCPA Tabang Central Office, MacArthur Highway, Plaridel, Bulacan",
@@ -368,6 +368,25 @@ export default function PortalMeetingHub({
     };
   }, [showToast]);
 
+  // Synchronize with primaryInquiry updates
+  useEffect(() => {
+    if (primaryInquiry && (primaryInquiry.meeting_date || primaryInquiry.meetingDate)) {
+      setActiveMeetingInfo((prev) => ({
+        ...prev,
+        mode: primaryInquiry.meeting_mode || primaryInquiry.meetingMode || prev.mode,
+        date: primaryInquiry.meeting_date || primaryInquiry.meetingDate || prev.date,
+        time: primaryInquiry.meeting_time || primaryInquiry.meetingTime || prev.time,
+        status: primaryInquiry.availability_status || primaryInquiry.availabilityStatus || prev.status,
+        agenda: primaryInquiry.meeting_notes || prev.agenda,
+        attendanceConfirmed: Boolean(
+          primaryInquiry.availability_status === "Attendance Confirmed" ||
+          primaryInquiry.availabilityStatus === "Attendance Confirmed" ||
+          prev.attendanceConfirmed
+        ),
+      }));
+    }
+  }, [primaryInquiry]);
+
   const handleCopyCode = () => {
     const url = buildMeetingUrl(roomCode);
     navigator.clipboard?.writeText(url);
@@ -523,8 +542,8 @@ export default function PortalMeetingHub({
       clientEmail: currentUser?.email || activeProject?.client_email || "",
       clientAvatar,
       clientPhone,
-      projectCode: activeProject?.project_code || "MCPA-2026-MQ04B",
-      projectTitle: activeProject?.project_title || "Residential Consultation",
+      projectCode: activeProject?.project_code || primaryInquiry?.trackingId || "",
+      projectTitle: activeProject?.project_title || primaryInquiry?.projectType || "Residential Consultation",
       startedAt: Date.now(),
       answered: false,
       adminJoined: false,
@@ -563,10 +582,16 @@ export default function PortalMeetingHub({
             Client Appointments Hub
           </h1>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            Manage your face-to-face appointments and online video engineering sessions for{" "}
-            <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">
-              {activeProject?.project_code || "MCPA-2026-MQ04B"}
-            </span>.
+            Manage your face-to-face appointments and online video engineering sessions
+            {(activeProject?.project_code || primaryInquiry?.trackingId) && (
+              <>
+                {" "}for{" "}
+                <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">
+                  {activeProject?.project_code || primaryInquiry?.trackingId}
+                </span>
+              </>
+            )}
+            .
           </p>
         </div>
 
@@ -700,6 +725,27 @@ export default function PortalMeetingHub({
 
       {/* 3. FEATURED APPOINTMENT CARD (HERO CARD - CLEAN SCHEDULE INFO) */}
       {(hubTab === "all" || hubTab === "active") && (
+        !activeMeetingInfo.date ? (
+          <div className="p-8 rounded-[12px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 text-center space-y-3">
+            <Calendar className="w-8 h-8 text-neutral-400 dark:text-neutral-600 mx-auto" />
+            <h3 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white">
+              No Consultation Scheduled Yet
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans max-w-md mx-auto">
+              You do not have an active or upcoming consultation appointment scheduled yet. You can launch an instant online alignment meeting with our engineering team whenever needed.
+            </p>
+            <div className="pt-2 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setIsInstantNoticeModalOpen(true)}
+                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:shadow-md"
+              >
+                <Zap className="w-4 h-4" />
+                <span>Launch Instant Online Meeting</span>
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="relative overflow-hidden rounded-[12px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 shadow-sm dark:shadow-xl transition-all">
         <div className="p-6 space-y-6">
           {/* Header Row: Mode Pill, Dynamic Status Pill, Scheduled Time */}
@@ -924,6 +970,7 @@ export default function PortalMeetingHub({
           </div>
         </div>
       </div>
+        )
       )}
 
       {/* 4. MEETING HISTORY & ARCHIVED SESSIONS SECTION */}

@@ -595,8 +595,8 @@ function ClientPortalContent() {
         return {
           active: [
             { id: "overview", label: "Dashboard", icon: LayoutDashboard },
-            { id: "meeting", label: "Meeting Hub", icon: CalendarCheck },
-            { id: "blueprints", label: "Blueprints & Pins", icon: Layers },
+            { id: "meeting", label: "Meeting", icon: CalendarCheck },
+            { id: "blueprints", label: "Blueprints & Plans", icon: Layers },
             { id: "boq", label: "BOQ & Budget", icon: CreditCard },
             { id: "permits", label: "Permits & Transmittals", icon: ShieldCheck, badge: pendingDocumentRequestsCount > 0 ? pendingDocumentRequestsCount : undefined },
             { id: "contract", label: "E-Contract & Shovel", icon: FileCheck },

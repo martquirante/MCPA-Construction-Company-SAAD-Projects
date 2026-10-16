@@ -13,7 +13,6 @@ import {
   FileUp,
   ExternalLink,
   MessageSquare,
-  ShieldCheck,
   Layers,
   Sparkles,
   FolderKanban,
@@ -30,20 +29,23 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Minimize2,
+  Move,
   MapPin,
   Compass,
   CreditCard,
   PenTool,
   RotateCcw,
   Download,
-  Send,
   User,
   Shield,
   HelpCircle,
+  ChevronDown,
 } from "lucide-react";
 import { authFetch } from "@/modules/shared/authFetch";
 import PortalMeetingHub from "../PortalMeetingHub";
 import DocumentUploadModal from "@/modules/shared/DocumentUploadModal";
+import LordIcon from "@/modules/shared/LordIcon";
 import {
   loadDocumentRequests,
   saveDocumentRequests,
@@ -104,15 +106,7 @@ export default function PortalStage2PlanningAndConsultation({
   const [quotationRequested, setQuotationRequested] = useState(false);
 
   // -------------------------------------------------------------
-  // 2. Chat & Communication State
-  // -------------------------------------------------------------
-  const [messages, setMessages] = useState([]);
-  const [chatInput, setChatInput] = useState("");
-  const [isSendingMsg, setIsSendingMsg] = useState(false);
-  const chatScrollRef = useRef(null);
-
-  // -------------------------------------------------------------
-  // 3. Document Requests & Permits State
+  // 2. Document Requests & Permits State
   // -------------------------------------------------------------
   const [documents, setDocuments] = useState([]);
   const [documentRequests, setDocumentRequests] = useState([]);
@@ -198,70 +192,59 @@ export default function PortalStage2PlanningAndConsultation({
   // -------------------------------------------------------------
   // 4. Interactive Blueprints & Pin-Drop State
   // -------------------------------------------------------------
+  const [allBlueprints, setAllBlueprints] = useState([]);
+  const [selectedDiscipline, setSelectedDiscipline] = useState("ALL");
   const [blueprints, setBlueprints] = useState([]);
-  const [selectedDiscipline, setSelectedDiscipline] = useState("ARCHITECTURAL");
   const [currentBlueprint, setCurrentBlueprint] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [pins, setPins] = useState([
-    {
-      id: "pin-1",
-      x: 35,
-      y: 42,
-      note: "Provision for 2.4m glass sliding door to lanai area.",
-      author: "Arch. Quirante",
-      timestamp: "2026-10-12T14:30:00Z",
-      status: "Resolved",
-    },
-    {
-      id: "pin-2",
-      x: 68,
-      y: 58,
-      note: "Confirm electrical outlet placement for double-door refrigerator.",
-      author: currentUser?.fullName || "Client",
-      timestamp: "2026-10-14T09:15:00Z",
-      status: "In Review",
-    },
-  ]);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [pins, setPins] = useState([]);
   const [activePin, setActivePin] = useState(null);
   const [isAddingPin, setIsAddingPin] = useState(false);
+  const canvasContainerRef = useRef(null);
+  const imgRef = useRef(null);
+
+  const parsePinsSafe = (raw) => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  };
+
+  // Compute all available disciplines dynamically (including any custom disciplines from Admin)
+  const availableDisciplines = useMemo(() => {
+    const list = [
+      { id: "ALL", label: "All Plan Disciplines" },
+      { id: "ARCHITECTURAL", label: "Architectural" },
+      { id: "STRUCTURAL", label: "Structural" },
+      { id: "ELECTRICAL", label: "Electrical" },
+      { id: "PLUMBING", label: "Plumbing" },
+      { id: "3D_ELEVATION", label: "3D Elevation" },
+      { id: "3D_WALKTHROUGH", label: "3D Walkthrough Video" },
+    ];
+    const existing = new Set(list.map((d) => d.id));
+    (allBlueprints || []).forEach((b) => {
+      if (b.discipline && !existing.has(b.discipline)) {
+        existing.add(b.discipline);
+        list.push({
+          id: b.discipline,
+          label: b.discipline.replace(/_/g, " "),
+        });
+      }
+    });
+    return list;
+  }, [allBlueprints]);
 
   // -------------------------------------------------------------
   // 5. Municipal Permits Tracker State
   // -------------------------------------------------------------
-  const [permits, setPermits] = useState([
-    {
-      id: "perm-1",
-      name: "Barangay Construction Clearance",
-      issuing_agency: "Barangay Local Government Unit",
-      status: "APPROVED",
-      issue_date: "2026-10-08",
-      ref_number: "BRGY-CLR-2026-0941",
-    },
-    {
-      id: "perm-2",
-      name: "Zoning & Locational Clearance",
-      issuing_agency: "City Planning & Development Coordinator (CPDC)",
-      status: "APPROVED",
-      issue_date: "2026-10-11",
-      ref_number: "CPDC-ZN-2026-4412",
-    },
-    {
-      id: "perm-3",
-      name: "Fire Safety Evaluation Clearance (FSEC)",
-      issuing_agency: "Bureau of Fire Protection (BFP)",
-      status: "IN_PROGRESS",
-      issue_date: null,
-      ref_number: "FSEC-APP-2026-118",
-    },
-    {
-      id: "perm-4",
-      name: "City / Municipal Building Permit Approval",
-      issuing_agency: "Office of the Building Official (OBO)",
-      status: "PENDING_FSEC",
-      issue_date: null,
-      ref_number: "OBO-BP-PENDING",
-    },
-  ]);
+  const [permits, setPermits] = useState([]);
 
   // -------------------------------------------------------------
   // 6. Contract & E-Signature State
@@ -277,7 +260,7 @@ export default function PortalStage2PlanningAndConsultation({
   // 7. Groundbreaking Ceremony Scheduler State
   // -------------------------------------------------------------
   const [groundbreakingDate, setGroundbreakingDate] = useState(
-    activeProject?.groundbreaking_date || "2026-11-05T09:00"
+    activeProject?.groundbreaking_date || ""
   );
   const [isSavingGroundbreaking, setIsSavingGroundbreaking] = useState(false);
 
@@ -332,17 +315,20 @@ export default function PortalStage2PlanningAndConsultation({
       })
       .catch((e) => console.warn("Documents fetch error:", e));
 
-    // Load blueprints
-    authFetch(`/api/projects/${projectId}/blueprints?discipline=${selectedDiscipline}`)
+    // Load all blueprints for this project
+    authFetch(`/api/projects/${projectId}/blueprints`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success && Array.isArray(d.blueprints) && d.blueprints.length > 0) {
-          setBlueprints(d.blueprints);
-          setCurrentBlueprint(d.blueprints[0]);
-          if (d.blueprints[0].pins?.length) setPins(d.blueprints[0].pins);
+        if (d.success && Array.isArray(d.blueprints)) {
+          setAllBlueprints(d.blueprints);
+        } else {
+          setAllBlueprints([]);
         }
       })
-      .catch((e) => console.warn("Blueprints fetch error:", e));
+      .catch((e) => {
+        console.warn("Blueprints fetch error:", e);
+        setAllBlueprints([]);
+      });
 
     // Load contract
     authFetch(`/api/projects/${projectId}/contract`)
@@ -351,12 +337,107 @@ export default function PortalStage2PlanningAndConsultation({
         if (d.success && d.contract) setContract(d.contract);
       })
       .catch((e) => console.warn("Contract fetch error:", e));
-  }, [projectId, selectedDiscipline]);
+  }, [projectId]);
+
+  // Synchronize filtered blueprints when discipline or allBlueprints changes
+  useEffect(() => {
+    const filtered =
+      selectedDiscipline === "ALL"
+        ? allBlueprints
+        : allBlueprints.filter((b) => b.discipline === selectedDiscipline);
+
+    setBlueprints(filtered);
+    if (filtered.length > 0) {
+      const stillThere = filtered.find((b) => b.blueprint_id === currentBlueprint?.blueprint_id);
+      const chosen = stillThere || filtered[0];
+      setCurrentBlueprint(chosen);
+      setPins(parsePinsSafe(chosen.pins));
+    } else {
+      setCurrentBlueprint(null);
+      setPins([]);
+    }
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, [allBlueprints, selectedDiscipline]);
+
+  // Handle Fullscreen state change
+  useEffect(() => {
+    const handleFs = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFs);
+    return () => document.removeEventListener("fullscreenchange", handleFs);
+  }, []);
+
+  // Pan & Drag handlers with window-level listeners for silky smooth drag
+  const handleMouseDown = (e) => {
+    if (isAddingPin) return;
+    if (e.button !== 0) return;
+    setIsPanning(true);
+    setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+  };
+
+  useEffect(() => {
+    if (!isPanning) return;
+    const onWindowMove = (e) => {
+      setPanOffset({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y,
+      });
+    };
+    const onWindowUp = () => {
+      setIsPanning(false);
+    };
+    window.addEventListener("mousemove", onWindowMove);
+    window.addEventListener("mouseup", onWindowUp);
+    return () => {
+      window.removeEventListener("mousemove", onWindowMove);
+      window.removeEventListener("mouseup", onWindowUp);
+    };
+  }, [isPanning, panStart]);
+
+  const handleWheel = (e) => {
+    if (!currentBlueprint || currentBlueprint.media_type === "video") return;
+    const delta = e.deltaY > 0 ? -0.15 : 0.15;
+    setZoomLevel((z) => Math.min(3.5, Math.max(0.5, Number((z + delta).toFixed(2)))));
+  };
+
+  const resetCanvasView = () => {
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  const toggleFullscreen = () => {
+    if (!canvasContainerRef.current) return;
+    if (!document.fullscreenElement) {
+      if (canvasContainerRef.current.requestFullscreen) {
+        canvasContainerRef.current.requestFullscreen().catch(() => {
+          setIsFullscreen((prev) => !prev);
+        });
+      } else {
+        setIsFullscreen((prev) => !prev);
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsFullscreen(false);
+    }
+  };
 
   // Blueprint Canvas Pin click handler
   const handleCanvasClick = async (e) => {
     if (!isAddingPin) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    if (!imgRef.current) return;
+    const rect = imgRef.current.getBoundingClientRect();
+    if (
+      e.clientX < rect.left ||
+      e.clientX > rect.right ||
+      e.clientY < rect.top ||
+      e.clientY > rect.bottom
+    ) {
+      return;
+    }
     const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
     const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
 
@@ -388,6 +469,14 @@ export default function PortalStage2PlanningAndConsultation({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pins: updatedPins }),
         });
+        // Update allBlueprints locally so pins persist across discipline/sheet changes
+        setAllBlueprints((prev) =>
+          prev.map((b) =>
+            b.blueprint_id === currentBlueprint.blueprint_id
+              ? { ...b, pins: updatedPins }
+              : b
+          )
+        );
       } catch (err) {
         console.error("Save pin error:", err);
       }
@@ -456,97 +545,18 @@ export default function PortalStage2PlanningAndConsultation({
     }
   };
 
-  // Chat send message
-  const handleSendMessage = async (e) => {
-    e?.preventDefault();
-    if (!chatInput.trim()) return;
-
-    const newMsg = {
-      id: `msg-${Date.now()}`,
-      sender: "CLIENT",
-      senderName: currentUser?.fullName || "Client",
-      text: chatInput.trim(),
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, newMsg]);
-    setChatInput("");
-
-    if (projectId) {
-      try {
-        await authFetch(`/api/projects/${projectId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: newMsg.text }),
-        });
-      } catch (err) {
-        console.warn("Message sync error:", err);
-      }
-    }
-  };
-
-  // Accurate Itemized BOQ Data
+  // Itemized BOQ Data from Project / Backend
   const boqData = useMemo(() => {
-    return [
-      {
-        category: "1. General Requirements & Engineering Compliance",
-        items: [
-          { item: "Mobilization & Demobilization of Equipment", qty: "1 Lot", unitCost: 45000, total: 45000 },
-          { item: "Temporary Facilities, Power & Water Tapping", qty: "1 Lot", unitCost: 35000, total: 35000 },
-          { item: "Building Permits Processing & Municipal Clearances", qty: "1 Lot", unitCost: 65000, total: 65000 },
-          { item: "Occupational Safety & Health Program (DOLE Compliance)", qty: "1 Lot", unitCost: 28000, total: 28000 },
-        ],
-      },
-      {
-        category: "2. Earthworks & Substructure Works",
-        items: [
-          { item: "Site Clearing, Staking & Batterboard Layout", qty: "120 sqm", unitCost: 250, total: 30000 },
-          { item: "Structural Excavation for Footings & Tie Beams", qty: "48 cu.m", unitCost: 850, total: 40800 },
-          { item: "Gravel Bedding & Soil Poisoning (Termite Barrier)", qty: "12 cu.m", unitCost: 1800, total: 21600 },
-          { item: "Reinforced Concrete Foundation (3,000 PSI at 28 Days)", qty: "24 cu.m", unitCost: 6800, total: 163200 },
-        ],
-      },
-      {
-        category: "3. Superstructure & Framing (SteelAsia Rebars & Curing)",
-        items: [
-          { item: "Reinforced Concrete Columns & Suspended Beams", qty: "32 cu.m", unitCost: 7200, total: 230400 },
-          { item: "Deformed Steel Bars Grade 40 (SteelAsia Certified)", qty: "4,800 kg", unitCost: 58, total: 278400 },
-          { item: "Suspended Slab Concrete Pouring (Second Floor)", qty: "85 sqm", unitCost: 2400, total: 204000 },
-        ],
-      },
-      {
-        category: "4. Masonry, Plastering & Roofing System",
-        items: [
-          { item: "6-inch Exterior Load-bearing CHB with Reinforcements", qty: "220 sqm", unitCost: 950, total: 209000 },
-          { item: "4-inch Interior CHB Partitions & Smooth Plaster", qty: "180 sqm", unitCost: 780, total: 140400 },
-          { item: "Rib-type 0.50mm Pre-painted Longspan Metal Roofing", qty: "95 sqm", unitCost: 1450, total: 137750 },
-          { item: "Double-sided Aluminum Thermal Radiant Barrier", qty: "95 sqm", unitCost: 320, total: 30400 },
-        ],
-      },
-      {
-        category: "5. Doors, Windows & Architectural Finishes",
-        items: [
-          { item: "Custom Solid Mahogany Main Pivot Door with Smart Lock", qty: "1 Set", unitCost: 48000, total: 48000 },
-          { item: "Heavy-duty Powder-coated Aluminum Casement Windows", qty: "14 Sets", unitCost: 12500, total: 175000 },
-          { item: "60x60 Vitrified Porcelain Tiles (Ground & Second Floor)", qty: "160 sqm", unitCost: 1650, total: 264000 },
-          { item: "Premium Boysen Permacoat Paint System (3 Coats)", qty: "650 sqm", unitCost: 380, total: 247000 },
-        ],
-      },
-      {
-        category: "6. MEPFS & Solar Ready Rough-Ins",
-        items: [
-          { item: "PPR Hot & Cold Water Distribution Line Network", qty: "1 Lot", unitCost: 75000, total: 75000 },
-          { item: "Sanitary Drainage & 3-Chamber Septic Tank", qty: "1 Lot", unitCost: 68000, total: 68000 },
-          { item: "Electrical Panel Board & Circuit Breaker Layout", qty: "1 Lot", unitCost: 95000, total: 95000 },
-          { item: "Rooftop Solar Ready Conduit Network & Inverter Prep", qty: "1 Lot", unitCost: 32000, total: 32000 },
-        ],
-      },
-    ];
-  }, []);
+    if (activeProject?.boq_items && Array.isArray(activeProject.boq_items) && activeProject.boq_items.length > 0) {
+      return activeProject.boq_items;
+    }
+    return [];
+  }, [activeProject]);
 
   const totalBOQAmount = useMemo(() => {
     return boqData.reduce((acc, cat) => {
-      return acc + cat.items.reduce((s, it) => s + it.total, 0);
+      const items = cat.items || [];
+      return acc + items.reduce((s, it) => s + (Number(it.total) || 0), 0);
     }, 0);
   }, [boqData]);
 
@@ -556,146 +566,99 @@ export default function PortalStage2PlanningAndConsultation({
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* ------------------------------------------------------------- */}
-      {/* 1. STAGE 2 UNIFIED HERO HEADER                                */}
+      {/* 1. STAGE 2 UNIFIED HERO HEADER (SHOWN ONLY ON DASHBOARD)       */}
       {/* ------------------------------------------------------------- */}
-      <div className="p-6 sm:p-8 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 shadow-sm transition-colors">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-neutral-200 dark:border-white/5">
-          <div>
-            <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2">
-              <Compass className="w-4 h-4" />
-              <span>Unified Stage 2 · Progressive Disclosure</span>
+      {activeSubTab === "overview" && (
+        <div className="p-6 sm:p-8 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 shadow-sm transition-colors">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-neutral-200 dark:border-white/5">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white font-mono uppercase tracking-tight">
+                Consultation &amp; Pre-Construction Planning
+              </h1>
+              <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1 max-w-2xl font-sans">
+                Collaborate directly with Lead Engineer Raymart Quirante: review architectural blueprints, drop pin-point revisions, track municipal permits, and execute binding construction contracts.
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white font-mono uppercase tracking-tight">
-              Consultation &amp; Pre-Construction Planning
-            </h1>
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1 max-w-2xl font-sans">
-              Collaborate directly with Lead Engineer Raymart Quirante: review architectural blueprints, drop pin-point revisions, track municipal permits, and execute binding construction contracts.
-            </p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => onSelectTab ? onSelectTab("meeting") : setActiveSubTab("meeting")}
+                className="px-4 py-2.5 rounded-[10px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-2 shadow-xs cursor-pointer"
+              >
+                <Video className="w-4 h-4 stroke-[2.5]" />
+                <span>Consultation</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectTab ? onSelectTab("blueprints") : setActiveSubTab("blueprints")}
+                className="px-4 py-2.5 rounded-[10px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-2 cursor-pointer"
+              >
+                <Layers className="w-4 h-4" />
+                <span>Blueprints Viewer</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setActiveSubTab("meeting")}
-              className="px-4 py-2.5 rounded-[10px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-2 shadow-xs cursor-pointer"
+          {/* 3-Step Milestone Stepper for Stage 2 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-6">
+            <div
+              onClick={() => onSelectTab ? onSelectTab("meeting") : setActiveSubTab("meeting")}
+              className="p-3.5 rounded-[12px] border text-left cursor-pointer transition-all bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/10"
             >
-              <Video className="w-4 h-4 stroke-[2.5]" />
-              <span>Consultation Hub</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveSubTab("blueprints")}
-              className="px-4 py-2.5 rounded-[10px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-2 cursor-pointer"
-            >
-              <Layers className="w-4 h-4" />
-              <span>Blueprints Viewer</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 3-Step Milestone Stepper for Stage 2 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-6">
-          <div
-            onClick={() => setActiveSubTab("meeting")}
-            className={`p-3.5 rounded-[12px] border text-left cursor-pointer transition-all ${
-              activeSubTab === "meeting" || activeSubTab === "overview"
-                ? "bg-amber-500/10 border-amber-500/40 text-neutral-900 dark:text-white"
-                : "bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/10"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                Milestone A
-              </span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            </div>
-            <p className="text-xs font-bold font-mono">1. Video Consultation &amp; Scoping</p>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-1">
-              Initial brief review, preliminary estimate, and lot orientation.
-            </p>
-          </div>
-
-          <div
-            onClick={() => setActiveSubTab("blueprints")}
-            className={`p-3.5 rounded-[12px] border text-left cursor-pointer transition-all ${
-              activeSubTab === "blueprints" || activeSubTab === "boq"
-                ? "bg-amber-500/10 border-amber-500/40 text-neutral-900 dark:text-white"
-                : "bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/10"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                Milestone B
-              </span>
-              <span className="text-[10px] font-mono font-bold text-sky-500">In Progress</span>
-            </div>
-            <p className="text-xs font-bold font-mono">2. Blueprints &amp; Pin Feedback</p>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-1">
-              2D/3D floor plans, pin-drop revisions, and locked itemized BOQ.
-            </p>
-          </div>
-
-          <div
-            onClick={() => setActiveSubTab("contract")}
-            className={`p-3.5 rounded-[12px] border text-left cursor-pointer transition-all ${
-              activeSubTab === "contract" || activeSubTab === "permits"
-                ? "bg-amber-500/10 border-amber-500/40 text-neutral-900 dark:text-white"
-                : "bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/10"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                Milestone C
-              </span>
-              <span className="text-[10px] font-mono font-bold text-neutral-400">Upcoming</span>
-            </div>
-            <p className="text-xs font-bold font-mono">3. Permits, Contract &amp; Shovel</p>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-1">
-              LGU permits, cryptographic e-signing, and Ground Breaking clock.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ------------------------------------------------------------- */}
-      {/* 2. SUB-TAB NAVIGATION BAR                                      */}
-      {/* ------------------------------------------------------------- */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-white/5 scrollbar-none">
-        {[
-          { id: "overview", label: "Executive Overview", icon: Compass },
-          { id: "meeting", label: "Consultation & Meetings", icon: Video },
-          { id: "blueprints", label: "Interactive Blueprints", icon: Layers, badge: pins.length },
-          { id: "boq", label: "Itemized BOQ Quotation", icon: CreditCard },
-          { id: "permits", label: "Permits & Transmittals", icon: ShieldCheck, badge: clientRequests.filter(r => r.status === "pending").length || undefined },
-          { id: "contract", label: "E-Contract & Groundbreaking", icon: FileCheck },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeSubTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveSubTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-[10px] text-xs font-mono font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-                isActive
-                  ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 shadow-sm"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-              {tab.badge !== undefined && tab.badge > 0 && (
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-                  isActive ? "bg-amber-500 text-neutral-950" : "bg-neutral-200 dark:bg-white/10 text-neutral-800 dark:text-neutral-200"
-                }`}>
-                  {tab.badge}
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
+                  Video Consultation &amp; Scoping
+                </p>
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-500 shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Completed</span>
                 </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-1">
+                Initial brief review, preliminary estimate, and lot orientation.
+              </p>
+            </div>
+
+            <div
+              onClick={() => onSelectTab ? onSelectTab("blueprints") : setActiveSubTab("blueprints")}
+              className="p-3.5 rounded-[12px] border text-left cursor-pointer transition-all bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/10"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
+                  Blueprints &amp; Pin Feedback
+                </p>
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-sky-500 shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                  <span>In Progress</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-1">
+                2D/3D floor plans, pin-drop revisions, and locked itemized BOQ.
+              </p>
+            </div>
+
+            <div
+              onClick={() => onSelectTab ? onSelectTab("contract") : setActiveSubTab("contract")}
+              className="p-3.5 rounded-[12px] border text-left cursor-pointer transition-all bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/10"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
+                  Permits, Contract &amp; Shovel
+                </p>
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-neutral-400 shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+                  <span>Upcoming</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-1">
+                LGU permits, cryptographic e-signing, and Ground Breaking clock.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ------------------------------------------------------------- */}
       {/* SUB-TAB 1: EXECUTIVE OVERVIEW                                 */}
@@ -710,7 +673,7 @@ export default function PortalStage2PlanningAndConsultation({
                   Project Dossier &amp; Brief Specifications
                 </span>
                 <span className="text-xs font-mono font-bold text-neutral-500">
-                  REF: {activeInquiry?.submission_id || activeInquiry?.id || projectCode}
+                  REF: {activeInquiry?.submission_id || activeInquiry?.id || activeProject?.project_code || "Pending"}
                 </span>
               </div>
 
@@ -718,25 +681,25 @@ export default function PortalStage2PlanningAndConsultation({
                 <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/5">
                   <span className="text-[10px] font-mono text-neutral-500 uppercase block">Lot Location</span>
                   <p className="text-xs font-bold text-neutral-900 dark:text-white mt-0.5 truncate">
-                    {activeInquiry?.location || activeProject?.location || "Bulacan, Central Luzon"}
+                    {activeInquiry?.location || activeProject?.location || "Not specified"}
                   </p>
                 </div>
                 <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/5">
                   <span className="text-[10px] font-mono text-neutral-500 uppercase block">Floor Area</span>
                   <p className="text-xs font-bold text-neutral-900 dark:text-white mt-0.5">
-                    {activeInquiry?.lot_area || "180 sqm"}
+                    {activeInquiry?.lot_area ? (String(activeInquiry.lot_area).includes("sq") ? activeInquiry.lot_area : `${activeInquiry.lot_area} sqm`) : "TBD"}
                   </p>
                 </div>
                 <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/5">
                   <span className="text-[10px] font-mono text-neutral-500 uppercase block">Design Style</span>
                   <p className="text-xs font-bold text-neutral-900 dark:text-white mt-0.5 truncate">
-                    {activeInquiry?.preferred_style || "Contemporary Modern"}
+                    {activeInquiry?.design_style || activeInquiry?.preferred_style || "TBD"}
                   </p>
                 </div>
                 <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/5">
                   <span className="text-[10px] font-mono text-neutral-500 uppercase block">Target Budget</span>
                   <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-                    {activeInquiry?.budget_range || "₱4.5M - ₱6.0M"}
+                    {activeInquiry?.budget ? formatPHP(activeInquiry.budget) : (activeInquiry?.budget_range || "Pending quotation")}
                   </p>
                 </div>
               </div>
@@ -769,38 +732,47 @@ export default function PortalStage2PlanningAndConsultation({
             </div>
 
             {/* Ground Breaking Countdown Widget */}
-            <div className="p-6 rounded-[16px] bg-gradient-to-br from-neutral-900 via-[#141620] to-neutral-950 text-white border border-amber-500/30 shadow-xl flex flex-col justify-between">
+            <div className="p-6 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 shadow-sm flex flex-col justify-between transition-colors">
               <div>
-                <div className="inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 mb-2">
+                <div className="inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2">
                   <Clock className="w-3.5 h-3.5" />
                   <span>Ground Breaking Countdown</span>
                 </div>
-                <h3 className="text-lg font-bold font-mono uppercase text-white">
-                  Target Shovel-in-Ground
+                <h3 className="text-lg font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                  Target Ground Breaking
                 </h3>
-                <p className="text-xs text-neutral-400 mt-1">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   Scheduled ceremony at your project site in Bulacan.
                 </p>
               </div>
 
-              <div className="grid grid-cols-4 gap-2 my-5 text-center">
-                <div className="p-2.5 rounded-lg bg-white/5 border border-white/10">
-                  <span className="text-xl font-bold font-mono text-amber-400 block">{countdown.days}</span>
-                  <span className="text-[9px] font-mono text-neutral-400 uppercase">Days</span>
+              {groundbreakingDate && (countdown.days > 0 || countdown.hours > 0 || countdown.minutes > 0 || countdown.seconds > 0) ? (
+                <div className="grid grid-cols-4 gap-2 my-5 text-center">
+                  <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
+                    <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 block">{countdown.days}</span>
+                    <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Days</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
+                    <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white block">{countdown.hours}</span>
+                    <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Hours</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
+                    <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white block">{countdown.minutes}</span>
+                    <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Mins</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
+                    <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white block">{countdown.seconds}</span>
+                    <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Secs</span>
+                  </div>
                 </div>
-                <div className="p-2.5 rounded-lg bg-white/5 border border-white/10">
-                  <span className="text-xl font-bold font-mono text-white block">{countdown.hours}</span>
-                  <span className="text-[9px] font-mono text-neutral-400 uppercase">Hours</span>
+              ) : (
+                <div className="my-5 p-4 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/5 text-center">
+                  <Clock className="w-5 h-5 text-neutral-400 mx-auto mb-1.5" />
+                  <p className="text-xs font-mono text-neutral-600 dark:text-neutral-400">
+                    Target Ground Breaking date pending contract execution.
+                  </p>
                 </div>
-                <div className="p-2.5 rounded-lg bg-white/5 border border-white/10">
-                  <span className="text-xl font-bold font-mono text-white block">{countdown.minutes}</span>
-                  <span className="text-[9px] font-mono text-neutral-400 uppercase">Mins</span>
-                </div>
-                <div className="p-2.5 rounded-lg bg-white/5 border border-white/10">
-                  <span className="text-xl font-bold font-mono text-white block">{countdown.seconds}</span>
-                  <span className="text-[9px] font-mono text-neutral-400 uppercase">Secs</span>
-                </div>
-              </div>
+              )}
 
               <button
                 type="button"
@@ -811,71 +783,6 @@ export default function PortalStage2PlanningAndConsultation({
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
-          </div>
-
-          {/* Real-time Architect Chat & Q&A */}
-          <div className="p-6 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-200 dark:border-white/5 pb-3">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-amber-500" />
-                <h3 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white">
-                  Direct Line: Lead Engineer &amp; Architect Raymart Quirante
-                </h3>
-              </div>
-              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Available Online
-              </span>
-            </div>
-
-            <div className="h-56 overflow-y-auto space-y-3 p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/5">
-              {messages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center text-neutral-400 text-xs font-mono">
-                  <MessageSquare className="w-6 h-6 text-neutral-300 dark:text-neutral-700 mb-1" />
-                  <span>No consultation messages yet. Ask any question regarding your blueprints or budget below.</span>
-                </div>
-              ) : (
-                messages.map((m, idx) => {
-                  const isMe = m.sender === "CLIENT" || m.senderName === currentUser?.fullName;
-                  return (
-                    <div key={m.id || idx} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                      <div className={`max-w-[80%] rounded-[12px] p-3 text-xs leading-relaxed ${
-                        isMe
-                          ? "bg-amber-500 text-neutral-950 font-medium"
-                          : "bg-white dark:bg-[#181a24] border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200"
-                      }`}>
-                        <span className="text-[9px] font-mono block opacity-75 mb-0.5">
-                          {m.senderName || (isMe ? "You" : "Engr. Raymart")}
-                        </span>
-                        {m.text}
-                      </div>
-                      <span className="text-[9px] font-mono text-neutral-400 mt-0.5 px-1">
-                        {m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={chatScrollRef} />
-            </div>
-
-            <form onSubmit={handleSendMessage} className="flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Type your message to Lead Engineer Raymart Quirante..."
-                className="flex-1 px-4 py-2.5 rounded-[10px] bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-mono"
-              />
-              <button
-                type="submit"
-                disabled={!chatInput.trim()}
-                className="px-5 py-2.5 rounded-[10px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs shrink-0"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Send</span>
-              </button>
-            </form>
           </div>
         </div>
       )}
@@ -899,44 +806,97 @@ export default function PortalStage2PlanningAndConsultation({
       {/* ------------------------------------------------------------- */}
       {activeSubTab === "blueprints" && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5">
-            <div>
-              <h2 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white">
-                Interactive Engineering Blueprint Canvas
-              </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
-                Drop pins directly on the floor plans to communicate revisions with zero ambiguity.
-              </p>
+          <div className="flex flex-col gap-3 p-5 rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                  Interactive Engineering Blueprint Canvas
+                </h2>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+                  Drop pins directly on the floor plans to communicate revisions with zero ambiguity.
+                </p>
+              </div>
+
+              {/* Discipline Combobox Selector */}
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 shrink-0 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Discipline:</span>
+                </label>
+                <div className="relative min-w-[210px]">
+                  <select
+                    value={selectedDiscipline}
+                    onChange={(e) => {
+                      setSelectedDiscipline(e.target.value);
+                      setPanOffset({ x: 0, y: 0 });
+                      setZoomLevel(1);
+                    }}
+                    className="w-full appearance-none pl-3 pr-8 py-2 rounded-[8px] bg-neutral-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-xs font-mono font-bold text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-xs"
+                  >
+                    {availableDisciplines.map((d) => {
+                      const count =
+                        d.id === "ALL"
+                          ? allBlueprints.length
+                          : allBlueprints.filter((b) => b.discipline === d.id).length;
+                      return (
+                        <option
+                          key={d.id}
+                          value={d.id}
+                          className="bg-white dark:bg-[#12151c] text-neutral-900 dark:text-white font-mono"
+                        >
+                          {d.label} ({count} {count === 1 ? "sheet" : "sheets"})
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-neutral-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
             </div>
 
-            {/* Discipline Selector */}
-            <div className="flex flex-wrap items-center gap-2">
-              {["ARCHITECTURAL", "STRUCTURAL", "ELECTRICAL", "PLUMBING", "3D_ELEVATION"].map((disc) => (
-                <button
-                  key={disc}
-                  type="button"
-                  onClick={() => setSelectedDiscipline(disc)}
-                  className={`px-3 py-1.5 rounded-[6px] text-[11px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                    selectedDiscipline === disc
-                      ? "bg-amber-500 text-neutral-950"
-                      : "bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-                  }`}
-                >
-                  {disc.replace("_", " ")}
-                </button>
-              ))}
-            </div>
+            {/* Sub-Sheet / Floor Plan Selector (When multiple plans exist under current discipline) */}
+            {blueprints.length > 0 && (
+              <div className="pt-3 border-t border-neutral-150 dark:border-white/[0.08] flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wider shrink-0 font-bold flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-amber-500" />
+                  Available Plan Sheets ({blueprints.length}):
+                </span>
+                {blueprints.map((bp, idx) => {
+                  const isSelected = currentBlueprint?.blueprint_id === bp.blueprint_id;
+                  return (
+                    <button
+                      key={bp.blueprint_id || idx}
+                      type="button"
+                      onClick={() => {
+                        setCurrentBlueprint(bp);
+                        setPins(parsePinsSafe(bp.pins));
+                        setZoomLevel(1);
+                        setPanOffset({ x: 0, y: 0 });
+                      }}
+                      className={`px-3 py-1.5 rounded-[8px] text-xs font-mono font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                        isSelected
+                          ? "bg-amber-500 text-neutral-950 shadow-xs"
+                          : "bg-neutral-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-neutral-700 dark:text-neutral-300 hover:border-amber-500 hover:text-neutral-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <span className="font-extrabold">{bp.sheet_number || `Sheet ${idx + 1}`}</span>
+                      <span className="opacity-80 font-normal truncate max-w-[200px]">· {bp.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Left: Interactive Canvas (3 Cols) */}
             <div className="lg:col-span-3 space-y-3">
               {/* Controls Toolbar */}
-              <div className="flex items-center justify-between p-3 rounded-[10px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 text-xs font-mono">
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-[10px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 text-xs font-mono">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.25))}
+                    onClick={() => setZoomLevel((z) => Math.min(3.5, z + 0.25))}
                     className="p-1.5 rounded bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 text-neutral-800 dark:text-neutral-200 cursor-pointer"
                     title="Zoom In"
                   >
@@ -944,7 +904,7 @@ export default function PortalStage2PlanningAndConsultation({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setZoomLevel((z) => Math.max(0.75, z - 0.25))}
+                    onClick={() => setZoomLevel((z) => Math.max(0.5, z - 0.25))}
                     className="p-1.5 rounded bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 text-neutral-800 dark:text-neutral-200 cursor-pointer"
                     title="Zoom Out"
                   >
@@ -952,109 +912,246 @@ export default function PortalStage2PlanningAndConsultation({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setZoomLevel(1)}
+                    onClick={resetCanvasView}
                     className="p-1.5 rounded bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 text-neutral-800 dark:text-neutral-200 cursor-pointer"
-                    title="Reset Zoom"
+                    title="Reset Scale & Center"
                   >
                     <RotateCcw className="w-4 h-4" />
                   </button>
-                  <span className="text-[11px] text-neutral-500 ml-1">
+                  <button
+                    type="button"
+                    onClick={toggleFullscreen}
+                    className="p-1.5 rounded bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 text-neutral-800 dark:text-neutral-200 cursor-pointer"
+                    title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Canvas"}
+                  >
+                    {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  </button>
+                  <span className="text-[11px] text-neutral-500 font-bold ml-1">
                     {Math.round(zoomLevel * 100)}% Scale
                   </span>
+                  {currentBlueprint && currentBlueprint.media_type !== "video" && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-neutral-400 font-sans ml-2">
+                      <Move className="w-3.5 h-3.5" /> Drag plan to pan
+                    </span>
+                  )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setIsAddingPin((p) => !p)}
-                  className={`px-3 py-1.5 rounded-[6px] font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
-                    isAddingPin
-                      ? "bg-rose-500 text-white animate-pulse"
-                      : "bg-amber-500 text-neutral-950 hover:bg-amber-400"
-                  }`}
-                >
-                  <PenTool className="w-3.5 h-3.5" />
-                  <span>{isAddingPin ? "Click Anywhere on Plan to Pin" : "+ Drop Revision Pin"}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!currentBlueprint}
+                    onClick={() => setIsAddingPin((p) => !p)}
+                    className={`px-3 py-1.5 rounded-[6px] font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      isAddingPin
+                        ? "bg-rose-500 text-white animate-pulse"
+                        : !currentBlueprint
+                        ? "bg-neutral-200 dark:bg-white/10 text-neutral-400 cursor-not-allowed"
+                        : "bg-amber-500 text-neutral-950 hover:bg-amber-400"
+                    }`}
+                  >
+                    <PenTool className="w-3.5 h-3.5" />
+                    <span>{isAddingPin ? "Click Plan to Pin" : "+ Drop Revision Pin"}</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Blueprint Canvas Box */}
+              {/* Blueprint Canvas Box with Adaptive Light & Dark Theme */}
               <div
-                onClick={handleCanvasClick}
-                className={`relative w-full h-[520px] rounded-[16px] overflow-hidden border border-neutral-300 dark:border-white/10 bg-[#0d1017] flex items-center justify-center transition-all ${
-                  isAddingPin ? "cursor-crosshair ring-2 ring-amber-500" : "cursor-default"
+                ref={canvasContainerRef}
+                onMouseDown={handleMouseDown}
+                onWheel={handleWheel}
+                onClick={currentBlueprint && currentBlueprint.media_type !== "video" ? handleCanvasClick : undefined}
+                className={`relative w-full rounded-[16px] overflow-hidden border border-neutral-300 dark:border-white/10 bg-neutral-100/90 dark:bg-[#0a0d14] bg-[radial-gradient(#d1d5db_1.2px,transparent_1.2px)] dark:bg-[radial-gradient(#1f2937_1.2px,transparent_1.2px)] [background-size:20px_20px] flex items-center justify-center transition-all ${
+                  isFullscreen ? "fixed inset-0 z-50 h-screen w-screen rounded-none bg-neutral-100 dark:bg-[#0a0d14] p-4" : "h-[560px]"
+                } ${
+                  isAddingPin
+                    ? "cursor-crosshair ring-2 ring-amber-500"
+                    : isPanning
+                    ? "cursor-grabbing"
+                    : "cursor-grab"
                 }`}
+                style={isFullscreen ? { backgroundColor: "var(--tw-canvas-bg, inherit)" } : undefined}
               >
-                {/* SVG Blueprint Plan Simulation if no image uploaded yet */}
-                <div
-                  className="w-full h-full relative p-6 flex items-center justify-center select-none"
-                  style={{ transform: `scale(${zoomLevel})`, transformOrigin: "center center" }}
-                >
-                  <svg
-                    viewBox="0 0 800 600"
-                    className="w-full h-full stroke-sky-400/60 fill-sky-950/20 stroke-1"
-                  >
-                    {/* Architectural Grid Lines */}
-                    <defs>
-                      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
-                      </pattern>
-                    </defs>
-                    <rect width="800" height="600" fill="url(#grid)" />
+                {/* Fullscreen Floating Controls Bar (Top HUD) */}
+                {isFullscreen && (
+                  <div className="absolute top-4 left-4 right-4 z-50 flex items-center justify-between gap-3 pointer-events-none">
+                    {/* Left HUD: Sheet title & Sheet Switcher */}
+                    <div className="flex items-center gap-2 pointer-events-auto bg-white/95 dark:bg-black/90 backdrop-blur-md px-3.5 py-2 rounded-[12px] border border-neutral-300 dark:border-white/15 shadow-xl">
+                      <span className="font-mono text-xs font-bold text-neutral-900 dark:text-white uppercase tracking-wider">
+                        {currentBlueprint?.sheet_number || selectedDiscipline.replace("_", " ")}
+                      </span>
+                      {currentBlueprint?.title && (
+                        <span className="text-xs text-neutral-600 dark:text-neutral-400 font-sans max-w-[220px] truncate hidden sm:inline">
+                          · {currentBlueprint.title}
+                        </span>
+                      )}
 
-                    {/* Exterior Foundation Walls */}
-                    <rect x="80" y="80" width="640" height="440" stroke="#38bdf8" strokeWidth="3" fill="rgba(14, 165, 233, 0.05)" />
-                    {/* Master Bedroom */}
-                    <rect x="80" y="80" width="280" height="220" stroke="#38bdf8" strokeWidth="2" fill="none" />
-                    <text x="140" y="200" fill="#94a3b8" fontSize="12" fontFamily="monospace">MASTER BEDROOM (18.5 sqm)</text>
-                    
-                    {/* En-suite Bath */}
-                    <rect x="80" y="300" width="140" height="120" stroke="#38bdf8" strokeWidth="1.5" fill="none" />
-                    <text x="100" y="365" fill="#64748b" fontSize="10" fontFamily="monospace">T&amp;B 1</text>
-
-                    {/* Living & Dining Area */}
-                    <rect x="360" y="80" width="360" height="280" stroke="#38bdf8" strokeWidth="2" fill="none" />
-                    <text x="440" y="220" fill="#94a3b8" fontSize="14" fontFamily="monospace">HIGH-CEILING LIVING &amp; DINING</text>
-
-                    {/* Kitchen & Pantry */}
-                    <rect x="360" y="360" width="220" height="160" stroke="#38bdf8" strokeWidth="2" fill="none" />
-                    <text x="400" y="445" fill="#94a3b8" fontSize="11" fontFamily="monospace">MODERN ISLAND KITCHEN</text>
-
-                    {/* Lanai Patio */}
-                    <rect x="580" y="360" width="140" height="160" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 4" fill="rgba(245, 158, 11, 0.04)" />
-                    <text x="610" y="445" fill="#f59e0b" fontSize="10" fontFamily="monospace">OUTDOOR LANAI</text>
-
-                    {/* Dimensions & Orientation Compass */}
-                    <line x1="80" y1="540" x2="720" y2="540" stroke="#94a3b8" strokeWidth="1" />
-                    <text x="380" y="555" fill="#94a3b8" fontSize="10" fontFamily="monospace">16.00 METERS</text>
-                  </svg>
-
-                  {/* Render Active Revision Pins */}
-                  {pins.map((pin) => (
-                    <div
-                      key={pin.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActivePin(pin);
-                      }}
-                      style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10"
-                    >
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center font-mono font-bold text-[10px] shadow-lg transition-transform group-hover:scale-125 ${
-                        pin.status === "Resolved"
-                          ? "bg-emerald-500 text-neutral-950"
-                          : "bg-amber-500 text-neutral-950 animate-bounce"
-                      }`}>
-                        📍
-                      </div>
-
-                      {/* Tooltip on hover */}
-                      <div className="hidden group-hover:block absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 rounded-lg bg-neutral-900 text-white text-[10px] font-mono shadow-xl border border-white/10 z-20 pointer-events-none">
-                        <span className="font-bold text-amber-400 block mb-0.5">{pin.author}</span>
-                        <p className="leading-tight text-neutral-300">{pin.note}</p>
-                      </div>
+                      {/* Quick Sheet Switcher Pills in Fullscreen */}
+                      {blueprints.length > 1 && (
+                        <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-neutral-200 dark:border-white/10">
+                          {blueprints.map((bp) => {
+                            const isSel = currentBlueprint?.blueprint_id === bp.blueprint_id;
+                            return (
+                              <button
+                                key={bp.blueprint_id}
+                                type="button"
+                                onClick={() => {
+                                  setCurrentBlueprint(bp);
+                                  setPins(parsePinsSafe(bp.pins));
+                                  setZoomLevel(1);
+                                  setPanOffset({ x: 0, y: 0 });
+                                }}
+                                className={`px-2 py-1 rounded text-[10px] font-mono font-bold cursor-pointer transition-all ${
+                                  isSel
+                                    ? "bg-amber-500 text-neutral-950"
+                                    : "bg-neutral-100 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white"
+                                }`}
+                              >
+                                {bp.sheet_number}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+
+                    {/* Right HUD: Zoom Controls, Pin Drop, and Exit Fullscreen */}
+                    <div className="flex items-center gap-2 pointer-events-auto bg-white/95 dark:bg-black/90 backdrop-blur-md px-3 py-1.5 rounded-[12px] border border-neutral-300 dark:border-white/15 shadow-xl">
+                      <button
+                        type="button"
+                        onClick={() => setZoomLevel((z) => Math.min(3.5, z + 0.25))}
+                        className="p-1.5 rounded bg-neutral-100 dark:bg-white/10 hover:bg-neutral-200 dark:hover:bg-white/20 text-neutral-800 dark:text-white cursor-pointer"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setZoomLevel((z) => Math.max(0.5, z - 0.25))}
+                        className="p-1.5 rounded bg-neutral-100 dark:bg-white/10 hover:bg-neutral-200 dark:hover:bg-white/20 text-neutral-800 dark:text-white cursor-pointer"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetCanvasView}
+                        className="p-1.5 rounded bg-neutral-100 dark:bg-white/10 hover:bg-neutral-200 dark:hover:bg-white/20 text-neutral-800 dark:text-white cursor-pointer"
+                        title="Reset View"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <span className="text-xs font-mono font-bold text-neutral-700 dark:text-neutral-200 px-1">
+                        {Math.round(zoomLevel * 100)}%
+                      </span>
+
+                      {currentBlueprint && currentBlueprint.media_type !== "video" && (
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingPin((p) => !p)}
+                          className={`px-3 py-1 rounded-[6px] font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                            isAddingPin
+                              ? "bg-rose-500 text-white animate-pulse"
+                              : "bg-amber-500 text-neutral-950 hover:bg-amber-400"
+                          }`}
+                        >
+                          <PenTool className="w-3.5 h-3.5" />
+                          <span>{isAddingPin ? "Click Plan to Pin" : "+ Drop Pin"}</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={toggleFullscreen}
+                        className="p-1.5 rounded bg-neutral-200 dark:bg-white/20 hover:bg-neutral-300 dark:hover:bg-white/30 text-neutral-800 dark:text-white cursor-pointer ml-1"
+                        title="Exit Fullscreen (Esc)"
+                      >
+                        <Minimize2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {currentBlueprint?.file_url || currentBlueprint?.image_url || currentBlueprint?.url ? (
+                  currentBlueprint.media_type === "video" || String(currentBlueprint.file_url || "").match(/\.(mp4|webm|mov)$/i) ? (
+                    <div className="w-full h-full p-6 flex flex-col items-center justify-center space-y-3">
+                      <video
+                        controls
+                        playsInline
+                        className="max-w-full max-h-[460px] rounded-lg shadow-2xl bg-black border border-neutral-300 dark:border-white/10"
+                        src={currentBlueprint.file_url || currentBlueprint.image_url || currentBlueprint.url}
+                      />
+                      <span className="text-[11px] font-mono text-neutral-600 dark:text-neutral-400">
+                        {currentBlueprint.title || "3D Walkthrough Video"} · {currentBlueprint.revision_no || "Rev 0"}
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                        transformOrigin: "center center",
+                      }}
+                      className="relative select-none max-w-full max-h-full flex items-center justify-center transition-transform duration-75"
+                    >
+                      {/* Real Blueprint Plan Image */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        ref={imgRef}
+                        src={currentBlueprint.file_url || currentBlueprint.image_url || currentBlueprint.url}
+                        alt={currentBlueprint.title || `${selectedDiscipline} Blueprint`}
+                        className="max-w-[85vw] max-h-[70vh] object-contain pointer-events-none select-none rounded-[4px] shadow-2xl border border-neutral-300/80 dark:border-white/10"
+                        draggable={false}
+                      />
+
+                      {/* Render Active Revision Pins glued to the plan */}
+                      {pins.map((pin) => (
+                        <div
+                          key={pin.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActivePin(pin);
+                          }}
+                          style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+                          className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10"
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-full flex items-center justify-center font-mono font-bold text-[10px] shadow-lg transition-transform group-hover:scale-125 ${
+                              pin.status === "Resolved"
+                                ? "bg-emerald-500 text-neutral-950"
+                                : "bg-amber-500 text-neutral-950 animate-bounce"
+                            }`}
+                          >
+                            📍
+                          </div>
+
+                          {/* Tooltip on hover */}
+                          <div className="hidden group-hover:block absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 rounded-lg bg-neutral-900 text-white text-[10px] font-mono shadow-xl border border-white/10 z-20 pointer-events-none">
+                            <span className="font-bold text-amber-400 block mb-0.5">{pin.author}</span>
+                            <p className="leading-tight text-neutral-300">{pin.note}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  /* Clean, human-designed empty state with animated LordIcon and pure text adapting to Light/Dark theme */
+                  <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center space-y-3 select-none">
+                    <LordIcon
+                      src="https://cdn.lordicon.com/wzwygmng.json"
+                      size={76}
+                      colors="primary:#f59e0b,secondary:#38bdf8"
+                      fallback={Layers}
+                    />
+                    <div className="space-y-1.5 max-w-md">
+                      <h3 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white tracking-wide">
+                        No {selectedDiscipline.replace("_", " ")} Blueprint Uploaded Yet
+                      </h3>
+                      <p className="text-xs text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed">
+                        Official CAD architectural sheets and engineering plans for this section will appear here once published by the MCPA engineering team. Once a plan is uploaded, you can zoom, inspect, and drop coordinate revision pins directly on the sheet.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1068,36 +1165,44 @@ export default function PortalStage2PlanningAndConsultation({
               </div>
 
               <div className="space-y-2.5 max-h-[460px] overflow-y-auto">
-                {pins.map((pin, idx) => (
-                  <div
-                    key={pin.id || idx}
-                    onClick={() => setActivePin(pin)}
-                    className={`p-3 rounded-lg border text-left cursor-pointer transition-all ${
-                      activePin?.id === pin.id
-                        ? "bg-amber-500/10 border-amber-500/40"
-                        : "bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 hover:border-neutral-300 dark:hover:border-white/10"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-mono font-bold text-neutral-800 dark:text-neutral-200">
-                        Pin #{idx + 1} ({pin.x}%, {pin.y}%)
-                      </span>
-                      <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold uppercase ${
-                        pin.status === "Resolved"
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                      }`}>
-                        {pin.status || "Pending"}
+                {pins.length === 0 ? (
+                  <div className="py-8 px-4 text-center text-xs font-mono text-neutral-400 space-y-1.5">
+                    <MapPin className="w-5 h-5 text-neutral-300 dark:text-neutral-700 mx-auto mb-1" />
+                    <p className="font-bold text-neutral-700 dark:text-neutral-300">No Revision Pins Dropped</p>
+                    <p className="text-[11px] text-neutral-400">Click &quot;Add Pin&quot; above to annotate changes on the blueprint canvas.</p>
+                  </div>
+                ) : (
+                  pins.map((pin, idx) => (
+                    <div
+                      key={pin.id || idx}
+                      onClick={() => setActivePin(pin)}
+                      className={`p-3 rounded-lg border text-left cursor-pointer transition-all ${
+                        activePin?.id === pin.id
+                          ? "bg-amber-500/10 border-amber-500/40"
+                          : "bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 hover:border-neutral-300 dark:hover:border-white/10"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-mono font-bold text-neutral-800 dark:text-neutral-200">
+                          Pin #{idx + 1} ({pin.x}%, {pin.y}%)
+                        </span>
+                        <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold uppercase ${
+                          pin.status === "Resolved"
+                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                        }`}>
+                          {pin.status || "Pending"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-snug line-clamp-2">
+                        {pin.note}
+                      </p>
+                      <span className="text-[9px] font-mono text-neutral-400 block mt-1">
+                        By {pin.author}
                       </span>
                     </div>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-snug line-clamp-2">
-                      {pin.note}
-                    </p>
-                    <span className="text-[9px] font-mono text-neutral-400 block mt-1">
-                      By {pin.author}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -1126,48 +1231,60 @@ export default function PortalStage2PlanningAndConsultation({
             <div className="text-right">
               <span className="text-[10px] font-mono text-neutral-500 uppercase block">Total Turnkey Investment</span>
               <p className="text-xl sm:text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
-                {formatPHP(totalBOQAmount)}
+                {totalBOQAmount > 0 ? formatPHP(totalBOQAmount) : "Pending Estimation"}
               </p>
             </div>
           </div>
 
           {/* Trade-by-Trade Tables */}
           <div className="space-y-5">
-            {boqData.map((sec, idx) => (
-              <div
-                key={idx}
-                className="rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 overflow-hidden"
-              >
-                <div className="px-5 py-3 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-200 dark:border-white/5 flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
-                    {sec.category}
-                  </span>
-                  <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400">
-                    {formatPHP(sec.items.reduce((s, it) => s + it.total, 0))}
-                  </span>
-                </div>
-
-                <div className="divide-y divide-neutral-200 dark:divide-white/5">
-                  {sec.items.map((row, rIdx) => (
-                    <div
-                      key={rIdx}
-                      className="px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium text-neutral-800 dark:text-neutral-200">{row.item}</p>
-                      </div>
-                      <div className="flex items-center gap-6 font-mono text-neutral-500">
-                        <span className="w-20 text-right">{row.qty}</span>
-                        <span className="w-28 text-right">{formatPHP(row.unitCost)} / unit</span>
-                        <span className="w-28 text-right font-bold text-neutral-900 dark:text-white">
-                          {formatPHP(row.total)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            {boqData.length === 0 ? (
+              <div className="p-12 text-center rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-2">
+                <CreditCard className="w-8 h-8 text-neutral-300 dark:text-neutral-700 mx-auto mb-2" />
+                <h3 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                  No BOQ Quotation Generated Yet
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans max-w-md mx-auto">
+                  The itemized Bill of Quantities breakdown will be published here by the MCPA Estimating Department once architectural plans and engineering specifications are finalized.
+                </p>
               </div>
-            ))}
+            ) : (
+              boqData.map((sec, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 overflow-hidden"
+                >
+                  <div className="px-5 py-3 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-200 dark:border-white/5 flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+                      {sec.category}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400">
+                      {formatPHP((sec.items || []).reduce((s, it) => s + (Number(it.total) || 0), 0))}
+                    </span>
+                  </div>
+
+                  <div className="divide-y divide-neutral-200 dark:divide-white/5">
+                    {(sec.items || []).map((row, rIdx) => (
+                      <div
+                        key={rIdx}
+                        className="px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium text-neutral-800 dark:text-neutral-200">{row.item}</p>
+                        </div>
+                        <div className="flex items-center gap-6 font-mono text-neutral-500">
+                          <span className="w-20 text-right">{row.qty}</span>
+                          <span className="w-28 text-right">{formatPHP(row.unitCost)} / unit</span>
+                          <span className="w-28 text-right font-bold text-neutral-900 dark:text-white">
+                            {formatPHP(row.total)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -1188,41 +1305,53 @@ export default function PortalStage2PlanningAndConsultation({
 
           {/* Permits Tracker Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {permits.map((perm) => (
-              <div
-                key={perm.id}
-                className="p-5 rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-3"
-              >
-                <div className="flex items-center justify-between border-b border-neutral-200 dark:border-white/5 pb-2.5">
-                  <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
-                    {perm.issuing_agency}
-                  </span>
-                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${
-                    perm.status === "APPROVED"
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                      : perm.status === "IN_PROGRESS"
-                      ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 animate-pulse"
-                      : "bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
-                  }`}>
-                    {perm.status.replace("_", " ")}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-bold text-neutral-900 dark:text-white font-mono">
-                    {perm.name}
-                  </h3>
-                  <p className="text-xs font-mono text-neutral-500 mt-1">
-                    Ref #: {perm.ref_number}
-                  </p>
-                  {perm.issue_date && (
-                    <p className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
-                      ✓ Cleared on {new Date(perm.issue_date).toLocaleDateString("en-PH", { dateStyle: "medium" })}
-                    </p>
-                  )}
-                </div>
+            {permits.length === 0 ? (
+              <div className="col-span-full p-8 text-center rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-2">
+                <Shield className="w-7 h-7 text-neutral-300 dark:text-neutral-700 mx-auto mb-1" />
+                <h3 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                  No Municipal Permits Logged Yet
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans max-w-md mx-auto">
+                  Municipal building permits, zoning clearances, and barangay construction transmittals will be posted here as they are processed by the engineering team.
+                </p>
               </div>
-            ))}
+            ) : (
+              permits.map((perm) => (
+                <div
+                  key={perm.id}
+                  className="p-5 rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-3"
+                >
+                  <div className="flex items-center justify-between border-b border-neutral-200 dark:border-white/5 pb-2.5">
+                    <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
+                      {perm.issuing_agency}
+                    </span>
+                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${
+                      perm.status === "APPROVED"
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : perm.status === "IN_PROGRESS"
+                        ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 animate-pulse"
+                        : "bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
+                    }`}>
+                      {perm.status.replace("_", " ")}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white font-mono">
+                      {perm.name}
+                    </h3>
+                    <p className="text-xs font-mono text-neutral-500 mt-1">
+                      Ref #: {perm.ref_number}
+                    </p>
+                    {perm.issue_date && (
+                      <p className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        ✓ Cleared on {new Date(perm.issue_date).toLocaleDateString("en-PH", { dateStyle: "medium" })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Client Document Requests from Admin */}
@@ -1359,7 +1488,7 @@ export default function PortalStage2PlanningAndConsultation({
               <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-mono uppercase text-amber-700 dark:text-amber-400 block font-bold">
-                    Countdown to Shovel-in-Ground
+                    Countdown to Ground Breaking
                   </span>
                   <span className="text-sm font-bold font-mono text-neutral-900 dark:text-white">
                     {countdown.days}d {countdown.hours}h {countdown.minutes}m remaining

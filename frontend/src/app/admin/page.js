@@ -11,11 +11,12 @@ import ProjectsTab from "@/modules/admin/components/ProjectsTab";
 import AccountsTab from "@/modules/admin/components/AccountsTab";
 import AdminMeetingsTab from "@/modules/admin/components/AdminMeetingsTab";
 import AdminDocumentRequestsTab from "@/modules/admin/components/AdminDocumentRequestsTab";
+import AdminBlueprintsTab from "@/modules/admin/components/AdminBlueprintsTab";
 import AdminIncomingCallManager from "@/modules/admin/components/AdminIncomingCallManager";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
 import { useAuthoritativeClock } from "@/modules/admin/hooks/useAuthoritativeClock";
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
-import { CalendarCheck as CalendarIcon, FileText as FileTextIcon } from "lucide-react";
+import { CalendarCheck as CalendarIcon, FileText as FileTextIcon, Layers as LayersIcon } from "lucide-react";
 import { loadDocumentRequests } from "@/modules/portal/utils/documentRequestsHelper";
 import {
   LockIcon,
@@ -1346,6 +1347,7 @@ export default function AdminPage() {
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
     { id: "projects", label: "Projects", icon: FolderKanbanIcon },
+    { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
     { id: "meetings", label: "Meetings", icon: CalendarIcon, badge: meetingsCount > 0 ? meetingsCount : undefined },
     { id: "briefs", label: "Inquiries", icon: ClipboardListIcon, badge: unreadInquiriesCount > 0 ? unreadInquiriesCount : undefined },
     { id: "documents", label: "Documents", icon: FileTextIcon, badge: pendingDocsCount > 0 ? pendingDocsCount : undefined },
@@ -1889,6 +1891,18 @@ export default function AdminPage() {
             onToggleFeatured={handleToggleFeaturedProject}
             showToast={showToast}
             isLoading={isLoadingData}
+          />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: BLUEPRINTS & ENGINEERING PLANS                               */}
+        {/* ================================================================= */}
+        {activeTab === "blueprints" && (
+          <AdminBlueprintsTab
+            clientBriefs={clientBriefs}
+            allProjects={allProjects}
+            currentUser={currentUser}
+            showToast={showToast}
           />
         )}
 

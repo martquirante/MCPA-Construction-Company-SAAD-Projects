@@ -682,6 +682,173 @@ class StageEngineService {
   }
 
   /**
+   * BLUEPRINT VIEWER: Create / upload new blueprint or plan sheet
+   */
+  async createBlueprint(projectId, data) {
+    const {
+      discipline,
+      sheet_number,
+      title,
+      revision_no = "Rev 0",
+      file_url,
+      thumbnail_url = null,
+      media_type = "image",
+      notes = null,
+      pins = [],
+    } = data;
+
+    const res = await db.query(
+      `INSERT INTO public.blueprints (
+        client_project_id, discipline, sheet_number, title, revision_no, file_url, thumbnail_url, media_type, notes, pins, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      RETURNING *;`,
+      [
+        projectId,
+        discipline,
+        sheet_number || "Sheet 1",
+        title,
+        revision_no,
+        file_url,
+        thumbnail_url,
+        media_type,
+        notes,
+        JSON.stringify(pins),
+      ]
+    );
+    return res.rows[0];
+  }
+
+  /**
+   * BLUEPRINT VIEWER: Update plan metadata or revision
+   */
+  async updateBlueprint(blueprintId, data) {
+    const existing = await db.query(`SELECT * FROM public.blueprints WHERE blueprint_id = $1`, [blueprintId]);
+    if (!existing.rows.length) throw new Error("Blueprint not found");
+    const current = existing.rows[0];
+
+    const discipline = data.discipline !== undefined ? data.discipline : current.discipline;
+    const sheet_number = data.sheet_number !== undefined ? data.sheet_number : current.sheet_number;
+    const title = data.title !== undefined ? data.title : current.title;
+    const revision_no = data.revision_no !== undefined ? data.revision_no : current.revision_no;
+    const file_url = data.file_url !== undefined ? data.file_url : current.file_url;
+    const thumbnail_url = data.thumbnail_url !== undefined ? data.thumbnail_url : current.thumbnail_url;
+    const media_type = data.media_type !== undefined ? data.media_type : current.media_type;
+    const notes = data.notes !== undefined ? data.notes : current.notes;
+    const pins = data.pins !== undefined ? JSON.stringify(data.pins) : current.pins;
+
+    const res = await db.query(
+      `UPDATE public.blueprints
+       SET discipline = $1, sheet_number = $2, title = $3, revision_no = $4, file_url = $5, thumbnail_url = $6, media_type = $7, notes = $8, pins = $9, updated_at = NOW()
+       WHERE blueprint_id = $10
+       RETURNING *;`,
+      [discipline, sheet_number, title, revision_no, file_url, thumbnail_url, media_type, notes, pins, blueprintId]
+    );
+    return res.rows[0];
+  }
+
+  /**
+   * BLUEPRINT VIEWER: Delete blueprint sheet
+   */
+  async deleteBlueprint(blueprintId) {
+    const res = await db.query(`DELETE FROM public.blueprints WHERE blueprint_id = $1 RETURNING *;`, [blueprintId]);
+    if (!res.rows.length) throw new Error("Blueprint not found");
+    return res.rows[0];
+  }
+
+  /**
+   * ADMIN BLUEPRINTS OVERVIEW:
+   * Aggregates all client projects with blueprint metrics, stage status,
+   * and identifies who is in Phase 2 / needs uploads.
+   */
+  async getAdminBlueprintsOverview() {
+    const query = `
+      SELECT 
+        cp.client_project_id,
+        cp.project_code,
+        cp.project_title,
+        cp.stage_id,
+        cp.created_at,
+        cp.groundbreaking_date,
+        cp.revision_requests_count,
+        cb.brief_id,
+        COALESCE(cb.client_name, u.full_name, 'Valued Client') AS client_name,
+        COALESCE(cb.client_email, u.email) AS client_email,
+        cb.client_phone,
+        cb.project_type,
+        cb.location,
+        u.avatar_url AS avatar_url,
+        COALESCE(b_stats.total_blueprints, 0)::INT AS total_blueprints,
+        COALESCE(b_stats.total_videos, 0)::INT AS total_videos,
+        COALESCE(b_stats.architectural_count, 0)::INT AS architectural_count,
+        COALESCE(b_stats.structural_count, 0)::INT AS structural_count,
+        COALESCE(b_stats.electrical_count, 0)::INT AS electrical_count,
+        COALESCE(b_stats.plumbing_count, 0)::INT AS plumbing_count,
+        COALESCE(b_stats.elevation_count, 0)::INT AS elevation_count,
+        COALESCE(b_stats.walkthrough_count, 0)::INT AS walkthrough_count
+      FROM public.client_projects cp
+      LEFT JOIN public.client_briefs cb ON cp.brief_id = cb.brief_id
+      LEFT JOIN public.users u ON cp.user_id = u.user_id
+      LEFT JOIN (
+        SELECT 
+          client_project_id,
+          COUNT(*)::INT AS total_blueprints,
+          COUNT(CASE WHEN media_type = 'video' THEN 1 END)::INT AS total_videos,
+          COUNT(CASE WHEN discipline = 'ARCHITECTURAL' THEN 1 END)::INT AS architectural_count,
+          COUNT(CASE WHEN discipline = 'STRUCTURAL' THEN 1 END)::INT AS structural_count,
+          COUNT(CASE WHEN discipline = 'ELECTRICAL' THEN 1 END)::INT AS electrical_count,
+          COUNT(CASE WHEN discipline = 'PLUMBING' THEN 1 END)::INT AS plumbing_count,
+          COUNT(CASE WHEN discipline = '3D_ELEVATION' THEN 1 END)::INT AS elevation_count,
+          COUNT(CASE WHEN discipline = '3D_WALKTHROUGH' THEN 1 END)::INT AS walkthrough_count
+        FROM public.blueprints
+        GROUP BY client_project_id
+      ) b_stats ON cp.client_project_id = b_stats.client_project_id
+      ORDER BY 
+        CASE WHEN cp.stage_id = 'CONSULTATION' THEN 0 ELSE 1 END,
+        cp.client_project_id DESC;
+    `;
+    const res = await db.query(query);
+    return (res.rows || []).map((row) => ({
+      ...row,
+      is_phase2: row.stage_id === "CONSULTATION",
+      needs_upload: (row.stage_id === "CONSULTATION" || row.stage_id === "PRE_CONSTRUCTION") && row.total_blueprints === 0,
+    }));
+  }
+
+  /**
+   * BLUEPRINT VIEWER: Update status of a specific client revision pin
+   */
+  async updateBlueprintPinStatus(blueprintId, pinId, status = "Resolved", resolutionNote = null) {
+    const bpRes = await db.query(`SELECT pins FROM public.blueprints WHERE blueprint_id = $1`, [blueprintId]);
+    if (!bpRes.rows.length) throw new Error("Blueprint not found");
+    let pins = bpRes.rows[0].pins || [];
+    if (typeof pins === "string") {
+      try {
+        pins = JSON.parse(pins);
+      } catch {
+        pins = [];
+      }
+    }
+    pins = pins.map((p) => {
+      if (p.id === pinId) {
+        return {
+          ...p,
+          status,
+          resolved: status === "Resolved",
+          resolution_note: resolutionNote,
+          resolved_at: status === "Resolved" ? new Date().toISOString() : null,
+        };
+      }
+      return p;
+    });
+
+    const updateRes = await db.query(
+      `UPDATE public.blueprints SET pins = $1, updated_at = NOW() WHERE blueprint_id = $2 RETURNING *;`,
+      [JSON.stringify(pins), blueprintId]
+    );
+    return updateRes.rows[0];
+  }
+
+  /**
    * PERMITS & REVISIONS TRACKER
    */
   async getProjectPermits(projectId) {

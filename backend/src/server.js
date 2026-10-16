@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
 const multer = require("multer");
 
 const db = require("./services/dbFailoverEngine");
@@ -60,10 +61,12 @@ const otpLimiter = rateLimit({
   },
 });
 
-// Setup Multer for memory buffering
+// Setup Multer for memory buffering (Unlimited file size for large 3D walkthrough videos & high-res CAD sets)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit per file
+  limits: {
+    fieldSize: 100 * 1024 * 1024, // 100MB for text/form fields; no fileSize limit for videos/blueprints
+  },
 });
 
 // Middleware
@@ -82,6 +85,13 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // -----------------------------------------------------------------------------
 app.use("/assets", express.static(path.join(__dirname, "assets")));
 app.use("/api/icons", express.static(path.join(__dirname, "assets/icons")));
+const uploadsRoot = path.join(__dirname, "../../public/uploads");
+if (!fs.existsSync(uploadsRoot)) {
+  try {
+    fs.mkdirSync(uploadsRoot, { recursive: true });
+  } catch (e) {}
+}
+app.use("/uploads", express.static(uploadsRoot));
 
 // -----------------------------------------------------------------------------
 // ROOT STATUS ROUTE
@@ -256,8 +266,13 @@ app.get("/api/projects/:id/messages", requireAuth, (req, res) => subStageControl
 app.post("/api/projects/:id/messages", requireAuth, (req, res) => subStageController.sendMessage(req, res));
 
 // Pre-Construction & Planning (Blueprints, Permits, Groundbreaking, Contracts)
+app.get("/api/admin/blueprints/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminBlueprintsOverview(req, res));
 app.get("/api/projects/:id/blueprints", requireAuth, (req, res) => subStageController.getBlueprints(req, res));
+app.post("/api/projects/:id/blueprints", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.createBlueprint(req, res));
+app.patch("/api/projects/:id/blueprints/:blueprintId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updateBlueprint(req, res));
+app.delete("/api/projects/:id/blueprints/:blueprintId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.deleteBlueprint(req, res));
 app.post("/api/projects/:id/blueprints/:blueprintId/pins", requireAuth, (req, res) => subStageController.saveBlueprintPins(req, res));
+app.patch("/api/admin/blueprints/:blueprintId/pins/:pinId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updateBlueprintPinStatus(req, res));
 app.get("/api/projects/:id/permits", requireAuth, (req, res) => subStageController.getPermits(req, res));
 app.patch("/api/admin/permits/:permitId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updatePermit(req, res));
 app.post("/api/projects/:id/groundbreaking", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.scheduleGroundbreaking(req, res));
@@ -313,7 +328,15 @@ app.get("/api/legal/pdf/:docType", (req, res) => legalPdfController.downloadLega
 // -----------------------------------------------------------------------------
 // STANDALONE UPLOAD ROUTE (Direct Azure / Supabase file upload)
 // -----------------------------------------------------------------------------
-app.post("/api/upload", upload.single("file"), async (req, res) => {
+app.post("/api/upload", (req, res, next) => {
+  upload.single("file")(req, res, (err) => {
+    if (err) {
+      console.error("[Upload API] Multer upload error:", err);
+      return res.status(400).json({ success: false, message: "Upload failed: " + err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file provided." });

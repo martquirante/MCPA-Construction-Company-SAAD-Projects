@@ -203,6 +203,61 @@ class SubStageController {
   }
 
   /**
+   * POST /api/projects/:id/blueprints
+   */
+  async createBlueprint(req, res) {
+    try {
+      const projectId = parseInt(req.params.id, 10);
+      const { discipline, sheet_number, title, revision_no, file_url, thumbnail_url, media_type, notes } = req.body || {};
+      if (!discipline || !title || !file_url) {
+        return res.status(400).json({ success: false, message: "Discipline, sheet title, and file URL are required." });
+      }
+      const blueprint = await stageEngineService.createBlueprint(projectId, {
+        discipline,
+        sheet_number,
+        title,
+        revision_no: revision_no || "Rev 0",
+        file_url,
+        thumbnail_url: thumbnail_url || null,
+        media_type: media_type || "image",
+        notes: notes || null,
+      });
+      return res.status(201).json({ success: true, blueprint });
+    } catch (err) {
+      console.error("[SubStageController.createBlueprint] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * PATCH /api/projects/:id/blueprints/:blueprintId
+   */
+  async updateBlueprint(req, res) {
+    try {
+      const blueprintId = parseInt(req.params.blueprintId, 10);
+      const updated = await stageEngineService.updateBlueprint(blueprintId, req.body || {});
+      return res.status(200).json({ success: true, blueprint: updated });
+    } catch (err) {
+      console.error("[SubStageController.updateBlueprint] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * DELETE /api/projects/:id/blueprints/:blueprintId
+   */
+  async deleteBlueprint(req, res) {
+    try {
+      const blueprintId = parseInt(req.params.blueprintId, 10);
+      await stageEngineService.deleteBlueprint(blueprintId);
+      return res.status(200).json({ success: true, message: "Blueprint deleted successfully." });
+    } catch (err) {
+      console.error("[SubStageController.deleteBlueprint] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
    * POST /api/projects/:id/blueprints/:blueprintId/pins
    */
   async saveBlueprintPins(req, res) {
@@ -213,6 +268,35 @@ class SubStageController {
       return res.status(200).json({ success: true, blueprint: updated });
     } catch (err) {
       console.error("[SubStageController.saveBlueprintPins] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * GET /api/admin/blueprints/overview
+   */
+  async getAdminBlueprintsOverview(req, res) {
+    try {
+      const overview = await stageEngineService.getAdminBlueprintsOverview();
+      return res.status(200).json({ success: true, clients: overview });
+    } catch (err) {
+      console.error("[SubStageController.getAdminBlueprintsOverview] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * PATCH /api/admin/blueprints/:blueprintId/pins/:pinId
+   */
+  async updateBlueprintPinStatus(req, res) {
+    try {
+      const blueprintId = parseInt(req.params.blueprintId, 10);
+      const pinId = req.params.pinId;
+      const { status = "Resolved", resolutionNote = null } = req.body || {};
+      const updated = await stageEngineService.updateBlueprintPinStatus(blueprintId, pinId, status, resolutionNote);
+      return res.status(200).json({ success: true, blueprint: updated });
+    } catch (err) {
+      console.error("[SubStageController.updateBlueprintPinStatus] Error:", err);
       return res.status(500).json({ success: false, message: err.message });
     }
   }
