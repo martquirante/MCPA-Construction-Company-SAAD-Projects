@@ -32,6 +32,7 @@ import {
   ArrowRight,
   ExternalLink,
   Move,
+  Users,
 } from "lucide-react";
 import authFetch, { getStoredAuthToken } from "@/modules/shared/authFetch";
 import LordIcon from "@/modules/shared/LordIcon";
@@ -274,12 +275,8 @@ export default function AdminBlueprintsTab({
       const data = await res.json();
       if (res.ok && data.success && Array.isArray(data.clients)) {
         setClients(data.clients);
-        // Default select first client if none selected
-        if (!selectedClient && data.clients.length > 0) {
-          // Prefer client in Consultation/Phase 2
-          const phase2 = data.clients.find((c) => c.stage_id === "CONSULTATION") || data.clients[0];
-          setSelectedClient(phase2);
-        } else if (selectedClient) {
+        // Only refresh selected client if one has already been chosen by admin
+        if (selectedClient) {
           const updated = data.clients.find((c) => c.client_project_id === selectedClient.client_project_id);
           if (updated) setSelectedClient(updated);
         }
@@ -632,6 +629,11 @@ export default function AdminBlueprintsTab({
             <button
               type="button"
               onClick={() => {
+                if (!selectedClient) {
+                  showToast("Please select a client and construction project first.", "warning");
+                  setIsClientDropdownOpen(true);
+                  return;
+                }
                 setUploadForm({
                   discipline: selectedDiscipline === "ALL" ? "ARCHITECTURAL" : selectedDiscipline,
                   sheet_number:
@@ -699,9 +701,34 @@ export default function AdminBlueprintsTab({
                   </div>
                 </div>
               ) : (
-                <span className="text-xs text-neutral-400">Choose a client project to manage plans...</span>
+                <div className="flex items-center gap-2.5 py-1 text-neutral-400 dark:text-neutral-500">
+                  <Users className="w-4 h-4 text-amber-500/80 shrink-0" />
+                  <span className="text-xs font-mono font-medium">Select a client & active construction project...</span>
+                </div>
               )}
-              <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0 ml-2" />
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                {selectedClient && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedClient(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.stopPropagation();
+                        setSelectedClient(null);
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+                    title="Clear selection"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </span>
+                )}
+                <ChevronDown className="w-4 h-4 text-neutral-400" />
+              </div>
             </button>
 
             {/* Dropdown Menu */}
@@ -720,6 +747,23 @@ export default function AdminBlueprintsTab({
                     />
                   </div>
                 </div>
+
+                {/* Clear Selection Option in Dropdown */}
+                {selectedClient && (
+                  <div className="p-1.5 border-b border-neutral-150 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.02]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedClient(null);
+                        setIsClientDropdownOpen(false);
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-[6px] text-left flex items-center gap-2 text-xs font-mono text-neutral-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5 text-neutral-400 hover:text-rose-500" />
+                      <span>Clear selection (Unselect project)</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Clients List */}
                 <div className="max-h-64 overflow-y-auto divide-y divide-neutral-100 dark:divide-white/[0.04]">
@@ -800,7 +844,7 @@ export default function AdminBlueprintsTab({
           </div>
 
           {/* Quick Client Telemetry / Stage Status */}
-          {selectedClient && (
+          {selectedClient ? (
             <div className="p-3 rounded-[10px] bg-neutral-100/70 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/5 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider block">
@@ -827,6 +871,12 @@ export default function AdminBlueprintsTab({
                   </span>
                 )}
               </div>
+            </div>
+          ) : (
+            <div className="p-3 rounded-[10px] bg-neutral-100/40 dark:bg-white/[0.02] border border-dashed border-neutral-200 dark:border-white/10 flex items-center justify-center text-center">
+              <span className="text-[11px] font-mono text-neutral-400">
+                No active project selected
+              </span>
             </div>
           )}
         </div>
@@ -914,6 +964,34 @@ export default function AdminBlueprintsTab({
           <p className="text-xs font-mono text-neutral-400 uppercase tracking-wider">
             Loading official blueprint drawings from cloud storage...
           </p>
+        </div>
+      ) : !selectedClient ? (
+        /* Clean Empty State when no client project has been chosen yet */
+        <div className="py-20 px-6 text-center bg-white dark:bg-[#0e1117] rounded-[16px] border border-neutral-200/90 dark:border-white/10 space-y-4 select-none">
+          <LordIcon
+            src="https://cdn.lordicon.com/wzwygmng.json"
+            size={80}
+            colors="primary:#f59e0b,secondary:#38bdf8"
+            fallback={Layers}
+          />
+          <div className="max-w-md mx-auto space-y-2">
+            <h3 className="text-base font-bold font-mono uppercase tracking-tight text-neutral-900 dark:text-white">
+              No Client Project Selected
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans leading-relaxed">
+              Please choose a client and active construction project from the selector above to review drawings, view revisions, or publish new blueprint sheets.
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setIsClientDropdownOpen(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
+            >
+              <Users className="w-4 h-4" />
+              <span>Select Client Project</span>
+            </button>
+          </div>
         </div>
       ) : filteredBlueprints.length === 0 ? (
         /* Clean Human-Designed Empty State without Button-like Background Pills */
