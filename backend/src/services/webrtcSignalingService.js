@@ -216,7 +216,7 @@ class WebRTCSignalingService {
                 socket.emit("screen-share-rejected", {
                   reason: "ANOTHER_PRESENTER_ACTIVE",
                   presenterName: currentPresenter,
-                  message: `Hindi pwedeng sabay-sabay mag-share screen. Kasalukuyang nagpe-present si ${currentPresenter}. Isa lang ang pwedeng mag-share screen sa room.`,
+                  message: `Cannot share screen while another participant is presenting. ${currentPresenter} is currently sharing their screen.`,
                 });
                 return;
               }

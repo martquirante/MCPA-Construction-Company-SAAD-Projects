@@ -920,7 +920,7 @@ export default function GoogleMeetRoom({
       setIsScreenSharing(false);
       showToastRef.current?.(
         message ||
-          `⚠️ Hindi pwedeng sabay-sabay mag-share screen. Kasalukuyang nagpe-present si ${presenterName || "isa sa mga kalahok"}.`
+          `⚠️ Cannot share screen while another participant is presenting. ${presenterName || "Another participant"} is currently sharing their screen.`
       );
     });
 
@@ -1103,8 +1103,8 @@ export default function GoogleMeetRoom({
       // Rule 1: Single Presenter Rule (Only ONE participant can share screen at a time in the room)
       const remotePresenter = peers.find((p) => peerMediaStates[p.socketId]?.isScreenSharing);
       if (remotePresenter) {
-        const presenterName = remotePresenter.user?.name || "Isa sa mga kalahok";
-        showToast(`⚠️ Hindi pwedeng sabay-sabay mag-share screen. Kasalukuyang nagpe-present si ${presenterName}. Isa lang ang pwedeng mag-share screen sa room.`);
+        const presenterName = remotePresenter.user?.name || "Another participant";
+        showToast(`⚠️ Cannot share screen while another participant is presenting. ${presenterName} is currently sharing their screen.`);
         return;
       }
 
@@ -1937,8 +1937,8 @@ export default function GoogleMeetRoom({
               type="button"
               onClick={() => {
                 if (isAnotherPresenterActive) {
-                  const presenterName = activeScreenShare?.presenterName || "Isa sa mga kalahok";
-                  showToast(`⚠️ Hindi pwedeng sabay-sabay mag-share screen. Kasalukuyang nagpe-present si ${presenterName}. Isa lang ang pwedeng mag-share screen sa room.`);
+                  const presenterName = activeScreenShare?.presenterName || "Another participant";
+                  showToast(`⚠️ Cannot share screen while another participant is presenting. ${presenterName} is currently sharing their screen.`);
                   return;
                 }
                 handleToggleScreenShare();
