@@ -1597,17 +1597,23 @@ export default function AdminPage() {
           {navSections.map((section, sIdx) => (
             <div key={section.title || sIdx} className="space-y-1">
               {/* Section Header with Centered Straight-Line Divider */}
-              {!isSidebarCollapsed ? (
-                <div className="relative flex items-center pt-3 pb-1.5 px-2 select-none">
-                  <div className="flex-grow border-t border-neutral-200 dark:border-white/10" />
-                  <span className="flex-shrink mx-2 text-[8px] sm:text-[8.5px] font-mono font-bold tracking-[0.14em] uppercase text-neutral-400 dark:text-neutral-500 whitespace-nowrap">
-                    {section.title}
-                  </span>
-                  <div className="flex-grow border-t border-neutral-200 dark:border-white/10" />
-                </div>
-              ) : (
-                sIdx > 0 && <div className="my-2 border-t border-neutral-200 dark:border-white/5 w-6 mx-auto" />
+              {/* Desktop Collapsed View: compact 24px hairline divider */}
+              {isSidebarCollapsed && sIdx > 0 && (
+                <div className="hidden lg:block my-2 border-t border-neutral-200 dark:border-white/5 w-6 mx-auto" />
               )}
+
+              {/* Full Section Header with Label: Always visible on Mobile Drawer, and on Desktop when Expanded */}
+              <div
+                className={`relative items-center pt-3 pb-1.5 px-2 select-none ${
+                  isSidebarCollapsed ? "flex lg:hidden" : "flex"
+                }`}
+              >
+                <div className="flex-grow border-t border-neutral-200 dark:border-white/10" />
+                <span className="flex-shrink mx-2 text-[8px] sm:text-[8.5px] font-mono font-bold tracking-[0.14em] uppercase text-neutral-400 dark:text-neutral-500 whitespace-nowrap">
+                  {section.title}
+                </span>
+                <div className="flex-grow border-t border-neutral-200 dark:border-white/10" />
+              </div>
 
               {/* Items in Section */}
               {section.items.map((item) => {
