@@ -12,11 +12,22 @@ import AccountsTab from "@/modules/admin/components/AccountsTab";
 import AdminMeetingsTab from "@/modules/admin/components/AdminMeetingsTab";
 import AdminDocumentRequestsTab from "@/modules/admin/components/AdminDocumentRequestsTab";
 import AdminBlueprintsTab from "@/modules/admin/components/AdminBlueprintsTab";
+import SiteProgressTab from "@/modules/admin/components/SiteProgressTab";
+import DelayManagementTab from "@/modules/admin/components/DelayManagementTab";
+import BillingLedgerTab from "@/modules/admin/components/BillingLedgerTab";
+import WarrantyTicketsTab from "@/modules/admin/components/WarrantyTicketsTab";
 import AdminIncomingCallManager from "@/modules/admin/components/AdminIncomingCallManager";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
 import { useAuthoritativeClock } from "@/modules/admin/hooks/useAuthoritativeClock";
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
-import { CalendarCheck as CalendarIcon, FileText as FileTextIcon, Layers as LayersIcon } from "lucide-react";
+import {
+  CalendarCheck as CalendarIcon,
+  FileText as FileTextIcon,
+  Layers as LayersIcon,
+  HardHat as HardHatIcon,
+  Clock as ClockIcon,
+  CreditCard as CreditCardIcon,
+} from "lucide-react";
 import { loadDocumentRequests } from "@/modules/portal/utils/documentRequestsHelper";
 import {
   LockIcon,
@@ -1344,15 +1355,95 @@ export default function AdminPage() {
     return !isRead && !isClosedOrArchived;
   }).length;
 
-  const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
-    { id: "projects", label: "Projects", icon: FolderKanbanIcon },
-    { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
-    { id: "meetings", label: "Meetings", icon: CalendarIcon, badge: meetingsCount > 0 ? meetingsCount : undefined },
-    { id: "briefs", label: "Inquiries", icon: ClipboardListIcon, badge: unreadInquiriesCount > 0 ? unreadInquiriesCount : undefined },
-    { id: "documents", label: "Documents", icon: FileTextIcon, badge: pendingDocsCount > 0 ? pendingDocsCount : undefined },
-    { id: "accounts", label: "Accounts", icon: UserIcon },
+  const pendingBillsCount = (billingLedger || []).filter((b) => b.status === "Pending").length;
+  const activeWarrantyCount = (warrantyTickets || []).filter((w) => (w.status || "").toLowerCase() !== "resolved").length;
+
+  const navSections = [
+    {
+      title: "Overview & Website",
+      stageBadge: null,
+      items: [
+        { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
+        { id: "projects", label: "Projects Showcase", icon: FolderKanbanIcon },
+        { id: "accounts", label: "Accounts & Roles", icon: UserIcon },
+      ],
+    },
+    {
+      title: "Stage 1: Pre-Inquiry",
+      stageBadge: "Stage 1",
+      items: [
+        {
+          id: "briefs",
+          label: "Inquiries Pipeline",
+          icon: ClipboardListIcon,
+          badge: unreadInquiriesCount > 0 ? unreadInquiriesCount : undefined,
+        },
+      ],
+    },
+    {
+      title: "Stage 2: Consultation",
+      stageBadge: "Stage 2",
+      items: [
+        {
+          id: "meetings",
+          label: "Consultation Meetings",
+          icon: CalendarIcon,
+          badge: meetingsCount > 0 ? meetingsCount : undefined,
+        },
+      ],
+    },
+    {
+      title: "Stage 3: Pre-Construction",
+      stageBadge: "Stage 3",
+      items: [
+        { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
+        {
+          id: "documents",
+          label: "Documents & Permits",
+          icon: FileTextIcon,
+          badge: pendingDocsCount > 0 ? pendingDocsCount : undefined,
+        },
+      ],
+    },
+    {
+      title: "Stage 4: Active Build",
+      stageBadge: "Stage 4",
+      items: [
+        {
+          id: "site-progress",
+          label: "Site Progress & Logs",
+          icon: HardHatIcon,
+          badge: siteProject?.progress_pct ? `${siteProject.progress_pct}%` : undefined,
+        },
+        {
+          id: "delays",
+          label: "Delay Management",
+          icon: ClockIcon,
+          badge: delayEvents.length > 0 ? delayEvents.length : undefined,
+        },
+      ],
+    },
+    {
+      title: "Stage 5: Turnover & Warranty",
+      stageBadge: "Stage 5",
+      items: [
+        {
+          id: "billing",
+          label: "Billing & Ledger",
+          icon: CreditCardIcon,
+          badge: pendingBillsCount > 0 ? pendingBillsCount : undefined,
+        },
+        {
+          id: "warranty",
+          label: "Warranty & Tickets",
+          icon: ShieldCheckIcon,
+          badge: activeWarrantyCount > 0 ? activeWarrantyCount : undefined,
+        },
+      ],
+    },
   ];
+
+  const navItems = navSections.flatMap((s) => s.items);
 
   const currentTabInfo = navItems.find((n) => n.id === activeTab) || navItems[0];
 
@@ -1505,116 +1596,136 @@ export default function AdminPage() {
 
         {/* Navigation Menu */}
         <nav
-          className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden p-2.5 ${
-            isSidebarCollapsed ? "lg:p-2" : "lg:p-2.5"
+          className={`flex-1 space-y-3 overflow-y-auto overflow-x-hidden p-2 sm:p-2.5 ${
+            isSidebarCollapsed ? "lg:p-2 space-y-2" : "lg:p-2.5"
           }`}
         >
-          <div className="px-2 pb-1.5 pt-1 text-[9.5px] font-mono uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500 font-bold block lg:hidden">
-            Main Menu
-          </div>
+          {navSections.map((section, sIdx) => (
+            <div key={section.title || sIdx} className="space-y-1">
+              {/* Section Header with Stage Badge */}
+              {!isSidebarCollapsed ? (
+                <div className="px-2.5 pt-2 pb-1 flex items-center justify-between text-[9.5px] font-mono font-bold tracking-[0.12em] uppercase text-neutral-400 dark:text-neutral-500 select-none">
+                  <span className="truncate">{section.title}</span>
+                  {section.stageBadge && (
+                    <span className="ml-1 text-[8.5px] px-1.5 py-0.2 rounded-[3px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 font-bold shrink-0">
+                      {section.stageBadge}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                sIdx > 0 && <div className="my-2 border-t border-neutral-200 dark:border-white/5 w-6 mx-auto" />
+              )}
 
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <div key={item.id} className="relative group flex justify-center">
-                <button
-                  id={`tab-btn-${item.id}`}
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    setIsMobileSidebarOpen(false);
-                  }}
-                  title={item.label}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[4px] text-xs font-mono tracking-wider transition-colors cursor-pointer relative ${
-                    isSidebarCollapsed
-                      ? "lg:h-10 lg:justify-center lg:px-0"
-                      : "justify-between"
-                  } ${
-                    isActive
-                      ? "bg-amber-500 text-neutral-950 font-bold"
-                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04]"
-                  }`}
-                >
-                  <div
-                    className={`flex items-center min-w-0 gap-3 ${
-                      isSidebarCollapsed ? "lg:justify-center lg:gap-0" : ""
-                    }`}
-                  >
-                    <div className="relative flex items-center justify-center shrink-0">
-                      <Icon
-                        className={`w-4 h-4 shrink-0 ${
-                          isActive
-                            ? "text-neutral-950"
-                            : "text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500"
-                        }`}
-                      />
-                      {/* Collapsed Mode Overlay Badge: Nakapatong sa top-right ng icon */}
-                      {isSidebarCollapsed && item.badge !== undefined && item.badge > 0 && (
-                        <span
-                          className={`hidden lg:flex absolute -top-1.5 -right-2 min-w-[14px] h-[14px] px-1 rounded-full text-[9px] font-mono font-bold items-center justify-center shadow-sm leading-none pointer-events-none select-none ${
-                            isActive
-                              ? "bg-neutral-950 text-amber-400 border border-neutral-900"
-                              : "bg-amber-500 text-neutral-950 border border-white dark:border-[#101218]"
-                          }`}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
-                    </div>
-
-                    <span
-                      className={`truncate ${
-                        isSidebarCollapsed ? "block lg:hidden" : "block"
+              {/* Items in Section */}
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <div key={item.id} className="relative group flex justify-center">
+                    <button
+                      id={`tab-btn-${item.id}`}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setIsMobileSidebarOpen(false);
+                      }}
+                      title={item.label}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-[4px] text-xs font-mono tracking-wider transition-colors cursor-pointer relative ${
+                        isSidebarCollapsed
+                          ? "lg:h-10 lg:justify-center lg:px-0"
+                          : "justify-between"
+                      } ${
+                        isActive
+                          ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
+                          : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.04]"
                       }`}
                     >
-                      {item.label}
-                    </span>
-                  </div>
-
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <>
-                      {/* Mobile Badge */}
-                      <span
-                        className={`lg:hidden px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono font-bold shrink-0 ${
-                          isActive
-                            ? "bg-neutral-950 text-white dark:bg-neutral-950 dark:text-white"
-                            : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                      <div
+                        className={`flex items-center min-w-0 gap-3 ${
+                          isSidebarCollapsed ? "lg:justify-center lg:gap-0" : ""
                         }`}
                       >
-                        {item.badge}
-                      </span>
+                        <div className="relative flex items-center justify-center shrink-0">
+                          <Icon
+                            className={`w-4 h-4 shrink-0 ${
+                              isActive
+                                ? "text-neutral-950"
+                                : "text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500"
+                            }`}
+                          />
+                          {/* Collapsed Mode Overlay Badge */}
+                          {isSidebarCollapsed && item.badge !== undefined && (
+                            <span
+                              className={`hidden lg:flex absolute -top-1.5 -right-2 min-w-[14px] h-[14px] px-1 rounded-full text-[9px] font-mono font-bold items-center justify-center shadow-sm leading-none pointer-events-none select-none ${
+                                isActive
+                                  ? "bg-neutral-950 text-amber-400 border border-neutral-900"
+                                  : "bg-amber-500 text-neutral-950 border border-white dark:border-[#101218]"
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
 
-                      {/* Desktop Expanded Mode Badge */}
-                      <span
-                        className={`hidden ${
-                          isSidebarCollapsed
-                            ? "hidden"
-                            : "lg:inline-block px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono font-bold shrink-0 " +
-                              (isActive
+                        <span
+                          className={`truncate ${
+                            isSidebarCollapsed ? "block lg:hidden" : "block"
+                          }`}
+                        >
+                          {item.label}
+                        </span>
+                      </div>
+
+                      {item.badge !== undefined && (
+                        <>
+                          {/* Mobile Badge */}
+                          <span
+                            className={`lg:hidden px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono font-bold shrink-0 ${
+                              isActive
                                 ? "bg-neutral-950 text-white dark:bg-neutral-950 dark:text-white"
-                                : "bg-amber-500/15 text-amber-700 dark:text-amber-400")
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
-                    </>
-                  )}
-                </button>
+                                : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
 
-                {/* Floating Tooltip in Collapsed Mode */}
-                {isSidebarCollapsed && (
-                  <div className="hidden lg:flex absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1 rounded-[4px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 items-center gap-2">
-                    <span>{item.label}</span>
-                    {item.badge !== undefined && item.badge > 0 && (
-                      <span className="px-1 py-0.2 rounded-[2px] bg-amber-500 text-neutral-950 font-bold text-[9px]">
-                        {item.badge}
-                      </span>
+                          {/* Desktop Expanded Mode Badge */}
+                          <span
+                            className={`hidden ${
+                              isSidebarCollapsed
+                                ? "hidden"
+                                : "lg:inline-block px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono font-bold shrink-0 " +
+                                  (isActive
+                                    ? "bg-neutral-950 text-white dark:bg-neutral-950 dark:text-white"
+                                    : "bg-amber-500/15 text-amber-700 dark:text-amber-400")
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Floating Tooltip in Collapsed Mode */}
+                    {isSidebarCollapsed && (
+                      <div className="hidden lg:flex absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1 rounded-[4px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 items-center gap-2">
+                        <span>{item.label}</span>
+                        {section.stageBadge && (
+                          <span className="text-[9px] px-1 py-0.2 rounded-[2px] bg-white/10 text-neutral-300">
+                            {section.stageBadge}
+                          </span>
+                        )}
+                        {item.badge !== undefined && (
+                          <span className="px-1 py-0.2 rounded-[2px] bg-amber-500 text-neutral-950 font-bold text-[9px]">
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Bottom User Profile Section & Logout */}
@@ -1933,6 +2044,55 @@ export default function AdminPage() {
           <AdminDocumentRequestsTab
             clientBriefs={clientBriefs}
             currentUser={currentUser}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: SITE PROGRESS & INSPECTION LOGS (STAGE 4: ACTIVE BUILD)     */}
+        {/* ================================================================= */}
+        {activeTab === "site-progress" && (
+          <SiteProgressTab
+            project={siteProject}
+            milestones={siteMilestones}
+            photos={sitePhotos}
+            onUpdateMilestone={handleUpdateMilestone}
+            onAddPhoto={handleAddPhoto}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: DELAY MANAGEMENT & CRITICAL PATH (STAGE 4: ACTIVE BUILD)     */}
+        {/* ================================================================= */}
+        {activeTab === "delays" && (
+          <DelayManagementTab
+            project={siteProject}
+            delays={delayEvents}
+            onLogDelay={handleLogDelay}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: BILLING & FINANCIAL LEDGER (STAGE 5: TURNOVER & WARRANTY)   */}
+        {/* ================================================================= */}
+        {activeTab === "billing" && (
+          <BillingLedgerTab
+            project={siteProject}
+            billing={billingLedger}
+            onVerifyPayment={handleVerifyPayment}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: WARRANTY & MAINTENANCE (STAGE 5: TURNOVER & WARRANTY)        */}
+        {/* ================================================================= */}
+        {activeTab === "warranty" && (
+          <WarrantyTicketsTab
+            warranty={warrantyTickets}
+            onUpdateStatus={handleUpdateWarranty}
             showToast={showToast}
           />
         )}
