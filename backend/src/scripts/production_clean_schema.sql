@@ -263,6 +263,38 @@ CREATE TABLE IF NOT EXISTS public.expenses_ocr (
 
 CREATE INDEX IF NOT EXISTS idx_expenses_proj_code ON public.expenses_ocr(project_code);
 
+-- 3.8 MEETING_HISTORY_LOGS TABLE (Instant & Scheduled Call Sessions History)
+CREATE TABLE IF NOT EXISTS public.meeting_history_logs (
+  history_id SERIAL PRIMARY KEY,
+  session_id VARCHAR(100) UNIQUE NOT NULL,
+  room_code VARCHAR(100),
+  round_title VARCHAR(255) NOT NULL,
+  meeting_date VARCHAR(50),
+  display_date VARCHAR(100),
+  meeting_time VARCHAR(100),
+  duration VARCHAR(50) DEFAULT '0s',
+  duration_seconds INT DEFAULT 0,
+  mode VARCHAR(100) DEFAULT 'Instant Online Meeting',
+  venue VARCHAR(255),
+  lead_consultant VARCHAR(255) DEFAULT 'Engr. Raymart Quirante',
+  lead_role VARCHAR(255) DEFAULT 'Lead Project Engineer & Consultant',
+  client_name VARCHAR(255),
+  client_email VARCHAR(255),
+  project_code VARCHAR(100),
+  project_title VARCHAR(255),
+  status VARCHAR(50) DEFAULT 'Concluded',
+  rating INT DEFAULT 5,
+  client_note TEXT,
+  minutes TEXT,
+  action_items JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_meeting_hist_client_email ON public.meeting_history_logs(client_email);
+CREATE INDEX IF NOT EXISTS idx_meeting_hist_created ON public.meeting_history_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_meeting_hist_session_id ON public.meeting_history_logs(session_id);
+
 -- =============================================================================
 -- 4. ROW LEVEL SECURITY (RLS) POLICIES (SUPABASE COMPATIBLE)
 -- =============================================================================

@@ -14,6 +14,7 @@ const constructionController = require("./controllers/constructionController");
 const legalPdfController = require("./controllers/legalPdfController");
 const stageController = require("./controllers/stageController");
 const subStageController = require("./controllers/subStageController");
+const meetingHistoryController = require("./controllers/meetingHistoryController");
 const { requireStage, STAGE_ORDER } = require("./middleware/stageGate");
 const initializeDatabase = require("./scripts/initDb");
 const { translateDictionary } = require("./services/translationService");
@@ -304,6 +305,15 @@ app.post("/api/meetings/:id/send-reminder", (req, res) => briefsController.sendM
 app.post("/api/meetings/:id/record-outcome", requireAuth, requireRole("admin", "super_admin"), (req, res) => briefsController.recordMeetingOutcome(req, res));
 app.post("/api/portal/consultation/:id/withdraw", requireAuth, (req, res) => briefsController.withdrawConsultation(req, res));
 app.post("/api/portal/consultation/withdraw", requireAuth, (req, res) => briefsController.withdrawConsultation(req, res));
+
+// -----------------------------------------------------------------------------
+// CONCLUDED CONSULTATION SESSIONS & INSTANT MEETING HISTORY (NEON / SUPABASE)
+// -----------------------------------------------------------------------------
+app.get("/api/meetings/history", (req, res) => meetingHistoryController.getAll(req, res));
+app.post("/api/meetings/history", (req, res) => meetingHistoryController.recordConcluded(req, res));
+app.patch("/api/meetings/history/:sessionId", (req, res) => meetingHistoryController.updateRatingAndNote(req, res));
+app.put("/api/meetings/history/:sessionId/rating", (req, res) => meetingHistoryController.updateRatingAndNote(req, res));
+app.delete("/api/meetings/history/:sessionId", requireAuth, requireRole("admin", "super_admin"), (req, res) => meetingHistoryController.delete(req, res));
 
 // -----------------------------------------------------------------------------
 // CONSTRUCTION SITE EXECUTION ROUTES (SAAD FLOWCHART PHASE 5)

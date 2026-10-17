@@ -517,8 +517,14 @@ export default function GoogleMeetRoom({
             leadConsultant: "Engr. Raymart Quirante",
             leadRole: "Lead Project Engineer & Consultant",
             clientName: resolvedClientName,
+            clientEmail:
+              activeProject?.client_email ||
+              activeProject?.clientEmail ||
+              (!isAdmin ? effectiveUser?.email : "martquirante@gmail.com") ||
+              "",
             projectCode: activeProject?.project_code || "MCPA-CONSULTATION",
             projectTitle: activeProject?.project_title || "Residential Consultation",
+            roomCode: canonicalRoomCode,
           });
         } catch (e) {}
       }

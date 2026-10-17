@@ -319,6 +319,40 @@ async function initializeDatabase() {
     `);
     console.log("[OK] Table 'expenses_ocr' verified/created.");
 
+    // 12. Create MEETING_HISTORY_LOGS table (Persistent Instant & Scheduled Consultations Cloud Archive)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS meeting_history_logs (
+        history_id SERIAL PRIMARY KEY,
+        session_id VARCHAR(100) UNIQUE NOT NULL,
+        room_code VARCHAR(100),
+        round_title VARCHAR(255) NOT NULL,
+        meeting_date VARCHAR(50),
+        display_date VARCHAR(100),
+        meeting_time VARCHAR(100),
+        duration VARCHAR(50) DEFAULT '0s',
+        duration_seconds INT DEFAULT 0,
+        mode VARCHAR(100) DEFAULT 'Instant Online Meeting',
+        venue VARCHAR(255),
+        lead_consultant VARCHAR(255) DEFAULT 'Engr. Raymart Quirante',
+        lead_role VARCHAR(255) DEFAULT 'Lead Project Engineer & Consultant',
+        client_name VARCHAR(255),
+        client_email VARCHAR(255),
+        project_code VARCHAR(100),
+        project_title VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'Concluded',
+        rating INT DEFAULT 5,
+        client_note TEXT,
+        minutes TEXT,
+        action_items JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_meeting_hist_client_email ON meeting_history_logs(client_email);
+      CREATE INDEX IF NOT EXISTS idx_meeting_hist_created ON meeting_history_logs(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_meeting_hist_session_id ON meeting_history_logs(session_id);
+    `);
+    console.log("[OK] Table 'meeting_history_logs' verified/created.");
+
     const defaultAdmins = [
       { email: "admin@mcpa.com", pass: "mcpa2026", name: "MCPA Lead Administrator" },
       { email: "dbprojectmartquirante@gmail.com", pass: "mcpa2026", name: "Engr. Raymart Quirante (MCPA Admin)" },

@@ -54,6 +54,7 @@ import VenueCombobox from "@/modules/book/components/VenueCombobox";
 import MeetingFilterCombobox from "@/modules/admin/components/MeetingFilterCombobox";
 import {
   getConsultationHistory,
+  fetchConsultationHistoryFromCloud,
   isDummyConsultationSession,
   formatMeetingDuration,
 } from "@/modules/portal/utils/meetingHistoryService";
@@ -300,6 +301,15 @@ export default function AdminMeetingsTab({
         }
       }
     } catch (e) {}
+
+    // Fetch fresh cloud meeting history from PostgreSQL (Neon / Supabase)
+    fetchConsultationHistoryFromCloud()
+      .then((items) => {
+        if (Array.isArray(items)) {
+          setConcludedHistory(items);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Synchronize meeting updates from Client Portal in real-time

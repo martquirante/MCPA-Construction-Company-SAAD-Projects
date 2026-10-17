@@ -4,7 +4,8 @@
  * - Aggregation of ALL meetings: Instant Online, Scheduled Google Meet, and In-Person (F2F)
  * - Exact duration calculation and formatting (e.g. "1h 30m", "23 mins", "18m 24s")
  * - Client star ratings (1 to 5 stars) and deliberation feedback notes
- * - Real-time synchronization across portal and admin tabs via BroadcastChannel & window events
+ * - Dual persistence: Immediate local cache (localStorage) + Full cloud storage in PostgreSQL (Neon / Supabase)
+ * - Real-time cross-device synchronization via Cloud API, BroadcastChannel & window events
  */
 
 export const STORAGE_KEY_CONSULTATION_HISTORY = "mcpa_consultation_history";
@@ -48,13 +49,13 @@ const LEGACY_DUMMY_IDS = new Set([
  */
 export function isDummyConsultationSession(item) {
   if (!item) return true;
-  const id = String(item.id || "").toLowerCase();
+  const id = String(item.id || item.sessionId || "").toLowerCase();
   const title = String(item.roundTitle || item.projectTitle || "").toLowerCase();
   const note = String(item.clientNote || item.notes || item.minutes || "").toLowerCase();
   const venue = String(item.venue || "").toLowerCase();
 
   // Genuine dynamically created sessions with real numeric timestamp IDs are preserved
-  if (/^hist-\d{12,14}-[a-z0-9]+$/i.test(item.id)) {
+  if (/^hist-\d{12,14}-[a-z0-9]+$/i.test(id)) {
     return false;
   }
 
@@ -136,7 +137,7 @@ export function getConsultationHistory() {
 }
 
 /**
- * Save updated list and broadcast event
+ * Save updated list to localStorage and broadcast event across local tabs
  */
 export function saveConsultationHistory(items) {
   if (typeof window === "undefined") return;
@@ -151,7 +152,56 @@ export function saveConsultationHistory(items) {
 }
 
 /**
+ * Fetch consultation history from Cloud Database (Neon / Supabase)
+ * Merges with local storage and notifies components
+ */
+export async function fetchConsultationHistoryFromCloud() {
+  if (typeof window === "undefined") return [];
+  try {
+    const res = await fetch("/api/meetings/history", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!res.ok) {
+      return getConsultationHistory();
+    }
+
+    const data = await res.json();
+    if (data.success && Array.isArray(data.history)) {
+      const cloudItems = data.history.filter((item) => item && !isDummyConsultationSession(item));
+
+      // Merge with existing local items (preserving any pending uploads)
+      const localItems = getConsultationHistory();
+      const sessionMap = new Map();
+
+      // Cloud items take precedence
+      cloudItems.forEach((item) => {
+        const key = item.id || item.sessionId;
+        if (key) sessionMap.set(key, item);
+      });
+
+      // Keep any local item not yet in cloud
+      localItems.forEach((item) => {
+        const key = item.id || item.sessionId;
+        if (key && !sessionMap.has(key)) {
+          sessionMap.set(key, item);
+        }
+      });
+
+      const merged = Array.from(sessionMap.values());
+      saveConsultationHistory(merged);
+      return merged;
+    }
+  } catch (err) {
+    console.warn("[MCPA] Cloud meeting history fetch fallback:", err.message);
+  }
+  return getConsultationHistory();
+}
+
+/**
  * Add a concluded meeting session (instant or scheduled)
+ * Saves to local cache + POSTs to Cloud Database (Neon / Supabase)
  */
 export function recordConcludedMeeting({
   roundTitle,
@@ -168,6 +218,7 @@ export function recordConcludedMeeting({
   clientEmail = "martquirante@gmail.com",
   projectCode = "MCPA-2026-MQ04B",
   projectTitle = "Modern Tropical Residence",
+  roomCode = null,
 }) {
   const current = getConsultationHistory();
   const now = new Date();
@@ -188,10 +239,17 @@ export function recordConcludedMeeting({
   });
 
   const formattedDuration = formatMeetingDuration(durationSeconds);
+  const sessionId = `hist-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
   const newSession = {
-    id: `hist-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    roundTitle: roundTitle || (mode.toLowerCase().includes("instant") ? "Instant Video Consultation" : "Online Engineering Consultation"),
+    id: sessionId,
+    sessionId,
+    roomCode,
+    roundTitle:
+      roundTitle ||
+      (mode.toLowerCase().includes("instant")
+        ? "Instant Video Consultation"
+        : "Online Engineering Consultation"),
     date: now.toISOString().split("T")[0],
     displayDate: phDateStr,
     time: `${phTimeStr} PHT`,
@@ -207,31 +265,95 @@ export function recordConcludedMeeting({
     projectTitle,
     status: "Concluded",
     rating: typeof rating === "number" ? Math.max(1, Math.min(5, rating)) : 5,
-    clientNote: clientNote.trim() || (mode.toLowerCase().includes("instant") ? "Instant consultation concluded with engineering team." : "Consultation finished successfully."),
-    minutes: minutes.trim() || `Deliberation session concluded. Duration: ${formattedDuration}. Client feedback: "${clientNote.trim() || "All specifications aligned."}"`,
+    clientNote:
+      clientNote.trim() ||
+      (mode.toLowerCase().includes("instant")
+        ? "Instant consultation concluded with engineering team."
+        : "Consultation finished successfully."),
+    minutes:
+      minutes.trim() ||
+      `Deliberation session concluded. Duration: ${formattedDuration}. Client feedback: "${clientNote.trim() || "All specifications aligned."}"`,
     actionItems,
   };
 
-  const updated = [newSession, ...current];
+  // 1. Optimistic local cache update for instant UI feedback
+  const updated = [newSession, ...current.filter((item) => (item.id || item.sessionId) !== sessionId)];
   saveConsultationHistory(updated);
+
+  // 2. Cloud Database persistence to PostgreSQL (Neon / Supabase)
+  if (typeof window !== "undefined") {
+    fetch("/api/meetings/history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newSession),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.session) {
+          // Replace optimistic item with server verified record
+          const latest = getConsultationHistory().map((item) =>
+            (item.id || item.sessionId) === sessionId ? { ...item, ...data.session } : item
+          );
+          saveConsultationHistory(latest);
+        }
+      })
+      .catch((err) => {
+        console.warn("[MCPA] Failed to sync concluded meeting to cloud database:", err.message);
+      });
+  }
+
   return newSession;
 }
 
 /**
  * Update rating and note for an existing meeting session
+ * Updates local cache + PATCHes to Cloud Database (Neon / Supabase)
  */
 export function updateMeetingRatingAndNote(sessionId, rating, clientNote) {
   const current = getConsultationHistory();
+  const safeRating = typeof rating === "number" ? Math.max(1, Math.min(5, rating)) : 5;
+  const safeNote = typeof clientNote === "string" ? clientNote.trim() : "";
+
   const updated = current.map((item) => {
-    if (item.id === sessionId) {
+    if ((item.id || item.sessionId) === sessionId) {
       return {
         ...item,
-        rating: typeof rating === "number" ? Math.max(1, Math.min(5, rating)) : item.rating,
-        clientNote: typeof clientNote === "string" ? clientNote.trim() : item.clientNote,
+        rating: safeRating,
+        clientNote: safeNote,
       };
     }
     return item;
   });
+
   saveConsultationHistory(updated);
+
+  // Sync update to Cloud Database
+  if (typeof window !== "undefined") {
+    fetch(`/api/meetings/history/${encodeURIComponent(sessionId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rating: safeRating, clientNote: safeNote }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.session) {
+          const synced = getConsultationHistory().map((item) =>
+            (item.id || item.sessionId) === sessionId ? { ...item, ...data.session } : item
+          );
+          saveConsultationHistory(synced);
+        }
+      })
+      .catch((err) => {
+        console.warn("[MCPA] Failed to update meeting rating in cloud database:", err.message);
+      });
+  }
+
   return updated;
+}
+
+// Auto-sync with cloud on client initial load if in browser
+if (typeof window !== "undefined") {
+  setTimeout(() => {
+    fetchConsultationHistoryFromCloud().catch(() => {});
+  }, 1000);
 }

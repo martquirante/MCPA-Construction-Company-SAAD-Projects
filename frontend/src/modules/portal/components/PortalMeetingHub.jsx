@@ -48,6 +48,7 @@ import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
 import { GoogleIcon } from "@/modules/shared/Icons";
 import {
   getConsultationHistory,
+  fetchConsultationHistoryFromCloud,
   updateMeetingRatingAndNote,
   isDummyConsultationSession,
   formatMeetingDuration,
@@ -220,6 +221,15 @@ export default function PortalMeetingHub({
         }
       }
     } catch (e) {}
+
+    // Pull fresh meeting history from PostgreSQL Cloud Database (Neon / Supabase)
+    fetchConsultationHistoryFromCloud()
+      .then((items) => {
+        if (Array.isArray(items)) {
+          setConsultationHistoryList(items);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Listen for meeting history updates across tabs and events
