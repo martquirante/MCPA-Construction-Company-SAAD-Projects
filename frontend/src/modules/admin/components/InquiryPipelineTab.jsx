@@ -810,9 +810,9 @@ export default function InquiryPipelineTab({
               Track and manage all client inquiries through the 5-phase architectural workflow
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <span className="text-xs font-mono text-neutral-500">Total Leads:</span>
-            <span className="px-2.5 py-1 rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 font-mono font-bold text-xs border border-amber-500/30">
+            <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
               {clientBriefs.length}
             </span>
           </div>
