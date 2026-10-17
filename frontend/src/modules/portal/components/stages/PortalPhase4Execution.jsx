@@ -181,14 +181,14 @@ export default function PortalPhase4Execution({
         </div>
       </div>
 
-      {/* 2. STAGE 4 EXECUTIVE DASHBOARD SUMMARY CARDS (SUMMARIZES OTHER ACTIVE NAV TABS) */}
+      {/* 2. STAGE 3 EXECUTIVE DASHBOARD SUMMARY CARDS (SUMMARIZES OTHER ACTIVE NAV TABS) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-neutral-400 font-bold">
-            Stage 4 Execution Executive Summary &amp; Tab Shortcuts
+            Stage 3 Execution Executive Summary &amp; Tab Shortcuts
           </span>
           <span className="text-[10px] font-mono text-amber-500 font-semibold">
-            Phase 4 of 5
+            Phase 3 of 4 · Active Build
           </span>
         </div>
 

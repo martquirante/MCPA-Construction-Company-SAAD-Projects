@@ -60,6 +60,7 @@ export default function PortalMeetingHub({
   meetingRoom,
   inquiries = [],
   showToast = () => {},
+  onRefreshState,
 }) {
   // Mode: 'schedule' (hub) vs 'in_call' (google meet)
   const [viewState, setViewState] = useState("schedule"); // 'schedule' | 'in_call'
@@ -342,13 +343,23 @@ export default function PortalMeetingHub({
       const saved = localStorage.getItem("mcpa_shared_meeting_schedule");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && (parsed.date || parsed.mode)) {
+        const currentSubId =
+          primaryInquiry?.submission_id ||
+          primaryInquiry?.submissionId ||
+          primaryInquiry?.id ||
+          activeProject?.project_code;
+        const matchesCurrentInquiry =
+          !primaryInquiry ||
+          (parsed?.submissionId && String(parsed.submissionId) === String(currentSubId));
+
+        if (parsed && matchesCurrentInquiry && (parsed.date || parsed.mode)) {
           setActiveMeetingInfo((prev) => ({
             ...prev,
             mode: parsed.mode || prev.mode,
             date: parsed.date || prev.date,
             time: parsed.time || prev.time,
             status: parsed.status || prev.status,
+            officeAddress: parsed.venue || prev.officeAddress,
             agenda: parsed.agenda || prev.agenda,
             round: parsed.round || prev.round,
             roundTitle: parsed.roundTitle || prev.roundTitle,
@@ -369,6 +380,7 @@ export default function PortalMeetingHub({
           date: data.date || prev.date,
           time: data.time || prev.time,
           status: data.status || prev.status,
+          officeAddress: data.venue || prev.officeAddress,
           agenda: data.agenda || prev.agenda,
           round: data.round || prev.round,
           roundTitle: data.roundTitle || prev.roundTitle,
@@ -388,15 +400,21 @@ export default function PortalMeetingHub({
       window.removeEventListener("mcpa-meeting-updated", handleSync);
       window.removeEventListener("storage", handleSync);
     };
-  }, [showToast]);
+  }, [showToast, primaryInquiry, activeProject]);
 
   // Synchronize with primaryInquiry updates (including F2F mode even before exact date is finalized)
   useEffect(() => {
     if (primaryInquiry) {
-      const inquiryMode =
-        primaryInquiry.venue_type || primaryInquiry.venueType
-          ? `In-Person (${primaryInquiry.venue_type || primaryInquiry.venueType})`
-          : primaryInquiry.meeting_mode || primaryInquiry.meetingMode;
+      const rawVenueType = primaryInquiry.venue_type || primaryInquiry.venueType || "";
+      const hasPhysicalVenue = Boolean(
+        rawVenueType &&
+        !rawVenueType.toLowerCase().includes("online") &&
+        !rawVenueType.toLowerCase().includes("video") &&
+        !rawVenueType.toLowerCase().includes("google")
+      );
+      const inquiryMode = hasPhysicalVenue
+        ? `In-Person (${rawVenueType})`
+        : primaryInquiry.meeting_mode || primaryInquiry.meetingMode;
 
       setActiveMeetingInfo((prev) => ({
         ...prev,
@@ -432,6 +450,7 @@ export default function PortalMeetingHub({
       const targetId = primaryInquiry?.submission_id || primaryInquiry?.id || activeProject?.project_code || "1";
       const payload = {
         ...activeMeetingInfo,
+        submissionId: targetId,
         attendanceConfirmed: true,
         attendanceConfirmedAt: new Date().toISOString(),
         status: "Attendance Confirmed",
@@ -472,23 +491,39 @@ export default function PortalMeetingHub({
     try {
       const isOnline = selectedMeetingMode.toLowerCase().includes("online");
       let calculatedVenue = "Google Meet Secure Room";
+      let resolvedVenueTypeLabel = null;
       let calculatedMode = isOnline ? "Online Video Call" : "In-Person Consultation";
 
       if (!isOnline) {
         if (inPersonVenueType === "office") {
+          resolvedVenueTypeLabel = "MCPA Head Office";
           calculatedVenue = "MCPA Construction & Supply Head Office, 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan";
         } else if (inPersonVenueType === "site") {
+          resolvedVenueTypeLabel = "Project Site";
           calculatedVenue = activeProject?.location
             ? `Proposed Project Site (${activeProject.location})`
             : "Proposed Project Site (On-Site Ocular)";
         } else if (inPersonVenueType === "cafe") {
+          resolvedVenueTypeLabel = "Coffee Shop / Public Venue";
           calculatedVenue = cafeVenueName.trim() || "Starbucks / Coffee Shop Venue";
         }
+        calculatedMode = `In-Person (${resolvedVenueTypeLabel})`;
       }
 
+      const targetId =
+        primaryInquiry?.submission_id ||
+        primaryInquiry?.submissionId ||
+        primaryInquiry?.brief_id ||
+        primaryInquiry?.id ||
+        activeProject?.brief_id ||
+        activeProject?.project_code ||
+        "1";
+
       const updatedInfo = {
+        submissionId: targetId,
         mode: calculatedMode,
         venue: calculatedVenue,
+        officeAddress: calculatedVenue,
         date: preferredDate,
         time: preferredSlot,
         status: "Rescheduled",
@@ -512,7 +547,6 @@ export default function PortalMeetingHub({
       } catch (e) {}
 
       // Call backend API to notify admin & persist update to database
-      const targetId = primaryInquiry?.submission_id || primaryInquiry?.id || activeProject?.project_code || "1";
       try {
         await fetch(`/api/briefs/${encodeURIComponent(targetId)}`, {
           method: "PATCH",
@@ -520,6 +554,8 @@ export default function PortalMeetingHub({
           body: JSON.stringify({
             status: "Meeting Scheduled",
             meetingMode: calculatedMode,
+            venueType: isOnline ? "" : resolvedVenueTypeLabel,
+            venueDetails: isOnline ? "" : calculatedVenue,
             meetingDate: preferredDate,
             meetingTime: preferredSlot,
             meetingLink: isOnline ? (meetingRoom?.room_code ? `https://meet.google.com/${meetingRoom.room_code}` : "https://meet.google.com/mcpa-meet-7ecea339") : calculatedVenue,
@@ -529,6 +565,9 @@ export default function PortalMeetingHub({
             updatedByClient: true,
           }),
         });
+        if (onRefreshState) {
+          onRefreshState();
+        }
       } catch (apiErr) {
         // Safe offline fallback
       }

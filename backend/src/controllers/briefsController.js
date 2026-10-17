@@ -882,7 +882,7 @@ class BriefsController {
         );
         updatedBrief = updateRes.rows[0];
 
-        // Advance project to Stage 3: PRE_CONSTRUCTION
+        // Advance project to Pre-Construction Planning (Stage 2)
         try {
           const stageEngineService = require("../services/stageEngineService");
           await stageEngineService.advanceProjectStage({

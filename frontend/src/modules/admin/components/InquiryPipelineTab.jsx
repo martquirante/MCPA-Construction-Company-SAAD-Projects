@@ -229,12 +229,21 @@ function GoogleIcon({ className = "w-3 h-3" }) {
 }
 
 function MeetingTypeBadge({ brief, mode }) {
+  const venueType = brief?.venueType || brief?.venue_type || "";
+  const venueDetails = brief?.venueDetails || brief?.venue_details || "";
+  const hasPhysicalVenue =
+    Boolean(venueType) &&
+    !venueType.toLowerCase().includes("online") &&
+    !venueType.toLowerCase().includes("video") &&
+    !venueType.toLowerCase().includes("virtual");
+
   const effectiveMode = mode || brief?.meetingMode || brief?.meeting_mode || "";
   const isOnline =
-    effectiveMode?.toLowerCase().includes("online") ||
-    effectiveMode?.toLowerCase().includes("virtual") ||
-    effectiveMode?.toLowerCase().includes("meet") ||
-    effectiveMode?.toLowerCase().includes("zoom");
+    !hasPhysicalVenue &&
+    (effectiveMode?.toLowerCase().includes("online") ||
+      effectiveMode?.toLowerCase().includes("virtual") ||
+      effectiveMode?.toLowerCase().includes("meet") ||
+      effectiveMode?.toLowerCase().includes("zoom"));
 
   if (isOnline) {
     return (
@@ -245,10 +254,7 @@ function MeetingTypeBadge({ brief, mode }) {
     );
   }
 
-  const venueType = brief?.venueType || brief?.venue_type || "";
-  const venueDetails = brief?.venueDetails || brief?.venue_details || "";
-
-  if (venueType === "Office" || venueType === "MCPA Office") {
+  if (venueType === "Office" || venueType === "MCPA Office" || venueType === "MCPA Head Office") {
     return (
       <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400 text-[11px] font-mono font-semibold uppercase tracking-wider whitespace-nowrap">
         <Building2 className="w-3.5 h-3.5 shrink-0 text-amber-500" />
@@ -378,11 +384,19 @@ export default function InquiryPipelineTab({
     setSelectedBrief(brief);
     setTargetLifecycleStage(brief.current_project_stage || brief.currentProjectStage || "CONSULTATION");
     setStageAdvanceReason("");
-    const isOnline = (brief.meetingMode || brief.meeting_mode || "").toLowerCase().includes("online");
+    const rawVenueType = brief.venueType || brief.venue_type || "";
+    const hasPhysicalVenue =
+      Boolean(rawVenueType) &&
+      !rawVenueType.toLowerCase().includes("online") &&
+      !rawVenueType.toLowerCase().includes("video") &&
+      !rawVenueType.toLowerCase().includes("virtual");
+    const isOnline =
+      !hasPhysicalVenue &&
+      (brief.meetingMode || brief.meeting_mode || "").toLowerCase().includes("online");
     const defaultF2FVenue =
       brief.venueDetails ||
       brief.venue_details ||
-      (brief.venueType === "Office"
+      (rawVenueType === "Office" || rawVenueType === "MCPA Head Office"
         ? "MCPA Head Office, Tabang, Plaridel, Bulacan"
         : brief.location || "MCPA Head Office");
 
@@ -393,7 +407,13 @@ export default function InquiryPipelineTab({
     );
     setMeetingDate(brief.meetingDate || brief.meeting_date || "");
     setMeetingTime(brief.meetingTime || brief.meeting_time || "09:00 AM - 10:30 AM");
-    setMeetingMode(isOnline ? "Online Video Call" : "Face-to-Face");
+    setMeetingMode(
+      isOnline
+        ? "Online Video Call"
+        : rawVenueType
+          ? `In-Person (${rawVenueType})`
+          : "Face-to-Face"
+    );
     setMeetingNotes(brief.meetingNotes || brief.meeting_notes || "");
   };
 
@@ -401,24 +421,49 @@ export default function InquiryPipelineTab({
     if (!selectedBrief) return;
     setIsAdvancingStage(true);
     try {
-      const targetProjectRef = selectedBrief.client_project_id || selectedBrief.submissionId || selectedBrief.id || selectedBrief.brief_id;
-      const res = await authFetch(`/api/admin/projects/${targetProjectRef}/advance-stage`, {
+      const targetProjectRef = selectedBrief.client_project_id || selectedBrief.brief_id || selectedBrief.id || selectedBrief.submissionId;
+      const res = await authFetch(`/api/admin/projects/${encodeURIComponent(targetProjectRef)}/advance-stage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetStage: newStage,
-          briefId: selectedBrief.brief_id || selectedBrief.id,
+          briefId: selectedBrief.brief_id || selectedBrief.id || selectedBrief.submissionId,
           reason: stageAdvanceReason || `Administrative progression to ${newStage}`,
         }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        const updatedStage = newStage;
         setSelectedBrief((prev) => ({
           ...prev,
-          current_project_stage: newStage,
-          currentProjectStage: newStage,
+          current_project_stage: updatedStage,
+          currentProjectStage: updatedStage,
+          client_project_id: data.project?.client_project_id || prev?.client_project_id,
         }));
-        showToast?.(`Project stage successfully advanced to ${newStage}!`);
+
+        if (typeof onUpdateStatus === "function") {
+          const targetRef = selectedBrief.submissionId || selectedBrief.id || selectedBrief.brief_id;
+          onUpdateStatus(targetRef, selectedBrief.status, {
+            current_project_stage: updatedStage,
+            currentProjectStage: updatedStage,
+            client_project_id: data.project?.client_project_id || selectedBrief.client_project_id,
+          });
+        }
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("mcpa-project-stage-updated", {
+              detail: {
+                briefId: selectedBrief.brief_id || selectedBrief.id,
+                submissionId: selectedBrief.submissionId,
+                targetStage: updatedStage,
+                project: data.project,
+              },
+            })
+          );
+        }
+
+        showToast?.(`Project stage successfully advanced to ${newStage === "ACTIVE_BUILD" ? "Stage 3 (Active Build)" : newStage}!`);
       } else {
         showToast?.(`Failed to advance stage: ${data.message || "Server error"}`);
       }
@@ -463,10 +508,13 @@ export default function InquiryPipelineTab({
     // Sync to shared schedule for client portal immediate real-time update
     try {
       const payload = {
+        submissionId: selectedBrief.submissionId || selectedBrief.id,
         mode: meetingMode,
         date: meetingDate,
         time: meetingTime,
         link: meetingLink,
+        venueType: selectedBrief.venueType || selectedBrief.venue_type,
+        venue: selectedBrief.venueDetails || selectedBrief.venue_details || meetingLink,
         status: "Confirmed",
         agenda: meetingNotes || selectedBrief.message,
         updatedAt: new Date().toISOString(),
@@ -570,6 +618,7 @@ export default function InquiryPipelineTab({
       // Broadcast and persist shared schedule for client portal immediate real-time sync
       try {
         const payload = {
+          submissionId: selectedBrief.submissionId || selectedBrief.id,
           mode: rescheduleMode,
           date: rescheduleDate,
           time: rescheduleTime,

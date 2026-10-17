@@ -1471,54 +1471,110 @@ class StageEngineService {
     }
 
     let project = null;
-    if (projectId) {
+    const parsedProjectId = parseInt(projectId, 10);
+
+    // 1. Resolve by client_project_id if numeric
+    if (!isNaN(parsedProjectId) && parsedProjectId > 0) {
       const currentRes = await db.query(
         "SELECT * FROM public.client_projects WHERE client_project_id = $1 LIMIT 1;",
-        [projectId]
+        [parsedProjectId]
       );
       if (currentRes.rows && currentRes.rows.length > 0) {
         project = currentRes.rows[0];
       }
     }
 
+    // 2. Resolve by project_code if string
+    if (!project && projectId && typeof projectId === "string" && isNaN(Number(projectId))) {
+      const codeRes = await db.query(
+        "SELECT * FROM public.client_projects WHERE project_code = $1 LIMIT 1;",
+        [projectId.trim()]
+      );
+      if (codeRes.rows && codeRes.rows.length > 0) {
+        project = codeRes.rows[0];
+      }
+    }
+
+    // 3. Resolve by briefId or fallback identifier
     if (!project && (briefId || projectId)) {
       const bIdentifier = briefId || projectId;
-      const resByBrief = await db.query(
-        "SELECT * FROM public.client_projects WHERE brief_id = $1 LIMIT 1;",
-        [bIdentifier]
-      );
-      if (resByBrief.rows && resByBrief.rows.length > 0) {
-        project = resByBrief.rows[0];
-      } else {
-        const briefRes = await db.query(
-          "SELECT * FROM public.client_briefs WHERE brief_id = $1 OR submission_id = $2 LIMIT 1;",
-          [isNaN(Number(bIdentifier)) ? -1 : Number(bIdentifier), String(bIdentifier)]
+      const numBId = parseInt(bIdentifier, 10);
+      const isNum = !isNaN(numBId) && numBId > 0;
+
+      // 3.1 Check if client_projects already has this numeric brief_id
+      if (isNum) {
+        const resByBrief = await db.query(
+          "SELECT * FROM public.client_projects WHERE brief_id = $1 LIMIT 1;",
+          [numBId]
         );
+        if (resByBrief.rows && resByBrief.rows.length > 0) {
+          project = resByBrief.rows[0];
+        }
+      }
+
+      // 3.2 Query client_briefs safely without SQL type errors
+      if (!project) {
+        const briefRes = await db.query(
+          "SELECT * FROM public.client_briefs WHERE (brief_id = $1 AND $1 > 0) OR submission_id = $2 LIMIT 1;",
+          [isNum ? numBId : -1, String(bIdentifier).trim()]
+        );
+
         if (briefRes.rows && briefRes.rows.length > 0) {
           const b = briefRes.rows[0];
-          let uid = b.user_id;
-          if (!uid) {
-            const uRes = await db.query(
-              "SELECT user_id FROM public.users WHERE LOWER(email) = LOWER($1) LIMIT 1;",
-              [b.client_email]
-            );
-            if (uRes.rows && uRes.rows.length > 0) uid = uRes.rows[0].user_id;
-          }
-          if (uid) {
-            project = await this.createInquiryProject({
-              userId: uid,
-              projectTitle: `${b.project_type || "Residential"} Project (${b.client_name || "Client"})`,
-              projectType: b.project_type || "Residential",
-              targetLocation: b.location || null,
-              briefId: b.brief_id,
-            });
+
+          // Check if a client_projects record already exists for this brief
+          const projCheck = await db.query(
+            "SELECT * FROM public.client_projects WHERE brief_id = $1 LIMIT 1;",
+            [b.brief_id]
+          );
+
+          if (projCheck.rows && projCheck.rows.length > 0) {
+            project = projCheck.rows[0];
+          } else {
+            // Find existing user or auto-provision client user record
+            let uid = b.user_id;
+            if (!uid && b.client_email) {
+              const uRes = await db.query(
+                "SELECT user_id FROM public.users WHERE LOWER(email) = LOWER($1) LIMIT 1;",
+                [b.client_email.trim()]
+              );
+              if (uRes.rows && uRes.rows.length > 0) {
+                uid = uRes.rows[0].user_id;
+              } else {
+                const bcrypt = require("bcryptjs");
+                const portalCode = `MCPA-${(b.client_name || "CLI").replace(/[^a-zA-Z]/g, "").slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+                const tempPass = portalCode.toLowerCase();
+                const hashed = await bcrypt.hash(tempPass, 10);
+                const newU = await db.query(
+                  "INSERT INTO public.users (email, password_hash, full_name, role) VALUES ($1, $2, $3, 'client') RETURNING user_id;",
+                  [b.client_email.trim(), hashed, b.client_name || "Valued Client"]
+                );
+                if (newU.rows && newU.rows.length > 0) {
+                  uid = newU.rows[0].user_id;
+                }
+              }
+
+              if (uid && b.brief_id) {
+                await db.query("UPDATE public.client_briefs SET user_id = $1 WHERE brief_id = $2;", [uid, b.brief_id]).catch(() => {});
+              }
+            }
+
+            if (uid) {
+              project = await this.createInquiryProject({
+                userId: uid,
+                projectTitle: `${b.project_type || "Residential"} Project (${b.client_name || "Client"})`,
+                projectType: b.project_type || "Residential",
+                targetLocation: b.location || null,
+                briefId: b.brief_id,
+              });
+            }
           }
         }
       }
     }
 
     if (!project) {
-      const err = new Error("Target project not found.");
+      const err = new Error("Target project not found. Please ensure the client brief has an associated valid record.");
       err.statusCode = 404;
       throw err;
     }
@@ -1526,7 +1582,7 @@ class StageEngineService {
     const resolvedProjectId = project.client_project_id;
     const fromStage = project.stage_id;
 
-    // Update project stage
+    // 4. Update client_projects stage
     const updateRes = await db.query(
       `UPDATE public.client_projects 
        SET stage_id = $1, updated_at = NOW() 
@@ -1535,7 +1591,74 @@ class StageEngineService {
       [targetStage, resolvedProjectId]
     );
 
-    // Record transition audit
+    const updatedProject = updateRes.rows[0];
+
+    // 5. Synchronize client_briefs bridge if linked
+    const linkedBriefId = project.brief_id;
+    if (linkedBriefId) {
+      await db.query(
+        `UPDATE public.client_briefs 
+         SET current_stage_status = $1, client_project_id = $2 
+         WHERE brief_id = $3;`,
+        [targetStage, resolvedProjectId, linkedBriefId]
+      ).catch(() => {});
+    }
+
+    // 6. If advancing to Stage 3 (ACTIVE_BUILD), ensure site_projects & milestones are seeded for telemetry
+    if (targetStage === "ACTIVE_BUILD") {
+      try {
+        const pCode = updatedProject.site_project_code || updatedProject.project_code || `PRJ-${resolvedProjectId}`;
+        const uRes = await db.query(
+          "SELECT email, full_name FROM public.users WHERE user_id = $1 LIMIT 1;",
+          [updatedProject.user_id]
+        );
+        const clientEmail = uRes.rows[0]?.email || "";
+        const clientName = uRes.rows[0]?.full_name || "Valued Client";
+
+        const spCheck = await db.query(
+          "SELECT project_id FROM public.site_projects WHERE project_code = $1 OR (client_email = $2 AND $2 != '') LIMIT 1;",
+          [pCode, clientEmail]
+        );
+
+        if (!spCheck.rows || spCheck.rows.length === 0) {
+          await db.query(
+            `INSERT INTO public.site_projects (
+              project_code, name, client_name, client_email, location,
+              contract_date, original_turnover, revised_turnover,
+              progress_pct, current_phase, lead_engineer, status
+            ) VALUES ($1, $2, $3, $4, $5, NOW(), 'Q4 2026', 'Q4 2026', 15, 'Mobilization & Foundation', 'Engr. Raymart Quirante, CE', 'Active Site Execution')
+            ON CONFLICT (project_code) DO NOTHING;`,
+            [pCode, updatedProject.project_title || "Residential Construction", clientName, clientEmail, updatedProject.target_location || "Bulacan"]
+          );
+
+          await db.query(
+            "UPDATE public.client_projects SET site_project_code = $1 WHERE client_project_id = $2;",
+            [pCode, resolvedProjectId]
+          );
+
+          const defaultMilestones = [
+            { code: 'M1', name: 'Mobilization & Earthworks', pct: 80, status: 'In Progress', date: 'Month 1', weight: 15, notes: 'Excavation & temporary facility setup' },
+            { code: 'M2', name: 'Foundation & Substructure', pct: 25, status: 'In Progress', date: 'Month 2', weight: 25, notes: 'Footing tie beams and rebar installation' },
+            { code: 'M3', name: 'Structural Framing', pct: 0, status: 'Upcoming', date: 'Month 4', weight: 25, notes: 'Columns, 2nd floor beams, slab pouring' },
+            { code: 'M4', name: 'Enclosure & Masonry', pct: 0, status: 'Upcoming', date: 'Month 6', weight: 15, notes: 'CHB wall laying, plastering, door frames' },
+            { code: 'M5', name: 'MEPF Rough-ins', pct: 0, status: 'Upcoming', date: 'Month 8', weight: 10, notes: 'Plumbing conduits, electrical rough-in' },
+            { code: 'M6', name: 'Architectural Finishes & Turnover', pct: 0, status: 'Upcoming', date: 'Month 10', weight: 10, notes: 'Tiles, paint, fixtures, final inspection' },
+          ];
+
+          for (const m of defaultMilestones) {
+            await db.query(
+              `INSERT INTO public.site_milestones (project_code, phase_code, phase_name, completion_pct, status, target_date, weight, notes)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`,
+              [pCode, m.code, m.name, m.pct, m.status, m.date, m.weight, m.notes]
+            ).catch(() => {});
+          }
+        }
+      } catch (spErr) {
+        console.warn("[stageEngineService] site_projects setup notice:", spErr.message);
+      }
+    }
+
+    // 7. Record transition audit
     await db.query(
       `INSERT INTO public.stage_transitions (
         client_project_id,
@@ -1549,7 +1672,7 @@ class StageEngineService {
       [resolvedProjectId, fromStage, targetStage, adminUserId, reason, JSON.stringify(metadata)]
     );
 
-    return updateRes.rows[0];
+    return updatedProject;
   }
 }
 

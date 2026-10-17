@@ -581,6 +581,11 @@ export default function AdminPage() {
       };
       window.addEventListener("mcpa-theme-change", handleThemeChange);
 
+      const handleStageSync = () => {
+        loadProjectsAndBriefs(false);
+      };
+      window.addEventListener("mcpa-project-stage-updated", handleStageSync);
+
       // Background silent auto-sync every 15 seconds (never shows skeleton)
       const syncInterval = setInterval(() => {
         loadProjectsAndBriefs(false);
@@ -588,6 +593,7 @@ export default function AdminPage() {
       return () => {
         clearInterval(syncInterval);
         window.removeEventListener("mcpa-theme-change", handleThemeChange);
+        window.removeEventListener("mcpa-project-stage-updated", handleStageSync);
         if (cleanupPromise && typeof cleanupPromise.then === "function") {
           cleanupPromise.then((clean) => typeof clean === "function" && clean());
         }
