@@ -309,6 +309,8 @@ ALTER TABLE public.billing_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.delay_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.warranty_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expenses_ocr ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.meeting_history_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.email_verifications ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
@@ -345,5 +347,11 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'expenses_ocr' AND policyname = 'Allow all expenses_ocr') THEN
     CREATE POLICY "Allow all expenses_ocr" ON public.expenses_ocr FOR ALL USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'meeting_history_logs' AND policyname = 'Allow all meeting_history_logs') THEN
+    CREATE POLICY "Allow all meeting_history_logs" ON public.meeting_history_logs FOR ALL USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'email_verifications' AND policyname = 'Allow all email_verifications') THEN
+    CREATE POLICY "Allow all email_verifications" ON public.email_verifications FOR ALL USING (true);
   END IF;
 END $$;

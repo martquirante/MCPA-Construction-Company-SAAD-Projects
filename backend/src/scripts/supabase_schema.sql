@@ -245,6 +245,8 @@ ALTER TABLE public.billing_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.delay_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.warranty_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expenses_ocr ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.meeting_history_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.email_verifications ENABLE ROW LEVEL SECURITY;
 
 -- Allow service_role and anon access for API operations
 DO $$ 
@@ -260,6 +262,8 @@ BEGIN
   EXECUTE 'CREATE POLICY "Allow all delay_events" ON public.delay_events FOR ALL USING (true);';
   EXECUTE 'CREATE POLICY "Allow all warranty_tickets" ON public.warranty_tickets FOR ALL USING (true);';
   EXECUTE 'CREATE POLICY "Allow all expenses_ocr" ON public.expenses_ocr FOR ALL USING (true);';
+  EXECUTE 'CREATE POLICY "Allow all meeting_history_logs" ON public.meeting_history_logs FOR ALL USING (true);';
+  EXECUTE 'CREATE POLICY "Allow all email_verifications" ON public.email_verifications FOR ALL USING (true);';
 EXCEPTION WHEN duplicate_object THEN
   -- Policies already created
   NULL;
