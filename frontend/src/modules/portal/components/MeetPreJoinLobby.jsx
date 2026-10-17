@@ -17,7 +17,12 @@ import {
   Sparkles,
   Lock,
 } from "lucide-react";
-import { formatRoomCode } from "../utils/roomCodeHelper";
+import {
+  formatRoomCode,
+  getRoomExpiryState,
+  markRoomConcluded,
+  clearRoomConcluded,
+} from "../utils/roomCodeHelper";
 import { getSignalingServerUrl } from "../utils/signalingUrl";
 import { io } from "socket.io-client";
 
@@ -92,75 +97,120 @@ export default function MeetPreJoinLobby({
   const animationFrameRef = useRef(null);
   const hasJoinedRef = useRef(false);
 
-  // Room capacity state
+  // Room capacity & expiration state
   const [roomCount, setRoomCount] = useState(0);
   const [isRoomFull, setIsRoomFull] = useState(false);
+  const [isRoomExpired, setIsRoomExpired] = useState(false);
+  const [expirySecondsLeft, setExpirySecondsLeft] = useState(null);
   const [isCheckingCapacity, setIsCheckingCapacity] = useState(true);
+
+  const streamRef = useRef(null);
+  const isLobbyMountedRef = useRef(false);
 
   // Initialize camera preview
   useEffect(() => {
-    let localStream = null;
     let isCancelled = false;
+    isLobbyMountedRef.current = true;
 
     async function startMedia() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: "user",
-          },
-        });
+        let stream =
+          streamRef.current &&
+          streamRef.current.getTracks().some((t) => t.readyState === "live")
+            ? streamRef.current
+            : null;
 
-        if (isCancelled) {
-          stream.getTracks().forEach((t) => t.stop());
+        if (!stream) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                facingMode: "user",
+              },
+            });
+          } catch (primaryErr) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: true,
+              });
+            } catch (basicErr) {
+              try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                  audio: false,
+                  video: true,
+                });
+              } catch (videoOnlyErr) {
+                stream = await navigator.mediaDevices.getUserMedia({
+                  audio: true,
+                  video: false,
+                });
+              }
+            }
+          }
+        }
+
+        if (isCancelled || !isLobbyMountedRef.current) {
+          if (!hasJoinedRef.current && !isLobbyMountedRef.current) {
+            stream.getTracks().forEach((t) => t.stop());
+          }
           return;
         }
 
-        localStream = stream;
+        const hasLiveVideo = stream.getVideoTracks().some((t) => t.readyState === "live");
+        streamRef.current = stream;
         setMediaStream(stream);
-        setMediaPermissionDenied(false);
+        setMediaPermissionDenied(!hasLiveVideo);
+        if (!hasLiveVideo) {
+          setIsVideoOn(false);
+        }
 
-        if (videoPreviewRef.current) {
+        if (videoPreviewRef.current && hasLiveVideo) {
+          videoPreviewRef.current.muted = true;
           videoPreviewRef.current.srcObject = stream;
+          videoPreviewRef.current.play().catch(() => {});
         }
 
         // Web Audio Analyser for live mic sensitivity meter
-        try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          if (AudioContext) {
-            const ctx = new AudioContext();
-            audioContextRef.current = ctx;
-            const analyser = ctx.createAnalyser();
-            analyser.fftSize = 64;
-            analyserRef.current = analyser;
+        if (stream.getAudioTracks().length > 0) {
+          try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+              const ctx = new AudioContext();
+              audioContextRef.current = ctx;
+              const analyser = ctx.createAnalyser();
+              analyser.fftSize = 64;
+              analyserRef.current = analyser;
 
-            const source = ctx.createMediaStreamSource(stream);
-            source.connect(analyser);
+              const source = ctx.createMediaStreamSource(stream);
+              source.connect(analyser);
 
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
+              const bufferLength = analyser.frequencyBinCount;
+              const dataArray = new Uint8Array(bufferLength);
 
-            const updateMeter = () => {
-              if (isCancelled) return;
-              analyser.getByteFrequencyData(dataArray);
-              let sum = 0;
-              for (let i = 0; i < bufferLength; i++) {
-                sum += dataArray[i];
-              }
-              const avg = sum / bufferLength;
-              setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
-              animationFrameRef.current = requestAnimationFrame(updateMeter);
-            };
-            updateMeter();
+              const updateMeter = () => {
+                if (isCancelled) return;
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                  sum += dataArray[i];
+                }
+                const avg = sum / bufferLength;
+                setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
+                animationFrameRef.current = requestAnimationFrame(updateMeter);
+              };
+              updateMeter();
+            }
+          } catch (e) {
+            console.warn("[LOBBY] Web Audio meter error:", e);
           }
-        } catch (e) {
-          console.warn("[LOBBY] Web Audio meter error:", e);
         }
       } catch (err) {
         console.warn("[LOBBY] Media device access notice:", err);
         setMediaPermissionDenied(true);
+        setIsVideoOn(false);
       }
     }
 
@@ -168,16 +218,20 @@ export default function MeetPreJoinLobby({
 
     return () => {
       isCancelled = true;
-      // Only stop tracks if user did NOT join the call (navigated away or closed tab)
-      if (localStream && !hasJoinedRef.current) {
-        localStream.getTracks().forEach((t) => t.stop());
-      }
+      isLobbyMountedRef.current = false;
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
       if (audioContextRef.current && audioContextRef.current.state !== "closed") {
         audioContextRef.current.close().catch(() => {});
       }
+      // Defer stopping tracks so React StrictMode remount does not kill the camera preview
+      setTimeout(() => {
+        if (!isLobbyMountedRef.current && !hasJoinedRef.current && streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+      }, 150);
     };
   }, []);
 
@@ -198,9 +252,25 @@ export default function MeetPreJoinLobby({
     }
   }, [isVideoOn, mediaStream]);
 
-  // Query Room Capacity
+  // Query Room Capacity & 5-Minute Post-Call Expiry
   useEffect(() => {
     let socket = null;
+
+    const syncExpiryState = (serverStatus = null) => {
+      const expiry = getRoomExpiryState(normalizedCode, serverStatus);
+      setIsRoomExpired(Boolean(expiry.isExpired));
+      if (expiry.endedAt && !expiry.isExpired) {
+        setExpirySecondsLeft(Math.max(0, Math.ceil(expiry.remainingMs / 1000)));
+      } else {
+        setExpirySecondsLeft(null);
+      }
+    };
+
+    syncExpiryState();
+    const expiryTick = setInterval(() => {
+      syncExpiryState();
+    }, 1000);
+
     try {
       const serverUrl = getSignalingServerUrl();
       socket = io(serverUrl, {
@@ -212,8 +282,15 @@ export default function MeetPreJoinLobby({
 
       socket.on("room-capacity-status", (status) => {
         if (status) {
-          setRoomCount(status.currentCount || 0);
-          setIsRoomFull(Boolean(status.isFull || (status.currentCount >= 8)));
+          const count = status.currentCount || 0;
+          setRoomCount(count);
+          setIsRoomFull(Boolean(status.isFull || count >= 8));
+          if (count > 0) {
+            clearRoomConcluded(normalizedCode);
+          } else if (status.endedAt) {
+            markRoomConcluded(normalizedCode, status.endedAt);
+          }
+          syncExpiryState(status);
         }
         setIsCheckingCapacity(false);
       });
@@ -224,6 +301,7 @@ export default function MeetPreJoinLobby({
     }
 
     return () => {
+      clearInterval(expiryTick);
       if (socket) socket.disconnect();
     };
   }, [normalizedCode]);
@@ -249,6 +327,10 @@ export default function MeetPreJoinLobby({
 
   const handleJoinSubmit = (e) => {
     e.preventDefault();
+    if (isRoomExpired) {
+      setFormError("This consultation room has expired (5 minutes after the call ended). Please create or request a new room link.");
+      return;
+    }
     if (isRoomFull) {
       setFormError("This consultation room is currently at maximum capacity (8/8 participants).");
       return;
@@ -409,8 +491,24 @@ export default function MeetPreJoinLobby({
               </p>
             </div>
 
+            {/* Room Expiration / Grace Window Guard Notice */}
+            {isRoomExpired && (
+              <div className="mb-5 p-3 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs leading-relaxed">
+                ⏰ <strong>Room Expired:</strong> This consultation room expired 5 minutes after the call ended. Please request or generate a new meeting room link.
+              </div>
+            )}
+
+            {!isRoomExpired && expirySecondsLeft !== null && roomCount === 0 && (
+              <div className="mb-5 p-3 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs leading-relaxed flex items-center justify-between gap-2">
+                <span>⏳ <strong>Call Ended:</strong> Room expires in</span>
+                <span className="font-mono font-bold text-amber-400">
+                  {Math.floor(expirySecondsLeft / 60)}:{String(expirySecondsLeft % 60).padStart(2, "0")}
+                </span>
+              </div>
+            )}
+
             {/* Room Capacity Guard Notice */}
-            {isRoomFull && (
+            {!isRoomExpired && isRoomFull && (
               <div className="mb-5 p-3 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs leading-relaxed">
                 ⚠️ <strong>Room Capacity Reached:</strong> The room currently has {roomCount} participants. You may enter if replacing a participant or please wait for a slot.
               </div>
@@ -519,17 +617,23 @@ export default function MeetPreJoinLobby({
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={!displayName.trim() || isRoomFull}
+                  disabled={!displayName.trim() || isRoomFull || isRoomExpired}
                   className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 ${
-                    displayName.trim() && !isRoomFull
+                    displayName.trim() && !isRoomFull && !isRoomExpired
                       ? "bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-lg shadow-amber-500/25 cursor-pointer active:scale-[0.98]"
                       : "bg-neutral-800/80 text-neutral-400 border border-neutral-700/60 cursor-not-allowed opacity-80"
                   }`}
                 >
-                  <span>{isRoomFull ? "Room Full (8/8)" : "Join Consultation"}</span>
+                  <span>
+                    {isRoomExpired
+                      ? "Room Expired"
+                      : isRoomFull
+                        ? "Room Full (8/8)"
+                        : "Join Consultation"}
+                  </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                {!displayName.trim() && !isRoomFull && (
+                {!displayName.trim() && !isRoomFull && !isRoomExpired && (
                   <p className="mt-2 text-[11px] text-amber-400/90 font-mono text-center flex items-center justify-center gap-1.5 animate-pulse">
                     <span>✍️</span> Enter your full name above to enable Join
                   </p>

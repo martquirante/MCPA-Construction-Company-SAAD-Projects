@@ -106,3 +106,103 @@ export function buildMeetingUrl(roomCode, origin = "") {
   const base = origin || (typeof window !== "undefined" ? window.location.origin : "https://mcpa-construction.vercel.app");
   return `${base}/meet/${code}`;
 }
+
+export const ROOM_EXPIRY_GRACE_MS = 5 * 60 * 1000; // 5 minutes after call ends
+const CONCLUDED_ROOMS_STORAGE_KEY = "mcpa_concluded_rooms";
+
+/**
+ * Records the timestamp when a room's call ended so it expires 5 minutes later
+ */
+export function markRoomConcluded(roomCode, endedAt = Date.now()) {
+  if (typeof window === "undefined" || !roomCode) return;
+  try {
+    const code = formatRoomCode(roomCode);
+    const raw = localStorage.getItem(CONCLUDED_ROOMS_STORAGE_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[code] = endedAt;
+    localStorage.setItem(CONCLUDED_ROOMS_STORAGE_KEY, JSON.stringify(map));
+  } catch (e) {}
+}
+
+/**
+ * Clears the concluded timestamp if a room is rejoined within the 5-minute window or restarted
+ */
+export function clearRoomConcluded(roomCode) {
+  if (typeof window === "undefined" || !roomCode) return;
+  try {
+    const code = formatRoomCode(roomCode);
+    const raw = localStorage.getItem(CONCLUDED_ROOMS_STORAGE_KEY);
+    if (!raw) return;
+    const map = JSON.parse(raw);
+    if (map && code in map) {
+      delete map[code];
+      localStorage.setItem(CONCLUDED_ROOMS_STORAGE_KEY, JSON.stringify(map));
+    }
+  } catch (e) {}
+}
+
+/**
+ * Evaluates whether a room has expired (5 minutes after call ended)
+ */
+export function getRoomExpiryState(roomCode, serverStatus = null) {
+  const code = formatRoomCode(roomCode);
+  const now = Date.now();
+
+  // 1. Check authoritative server status if provided
+  if (serverStatus && (serverStatus.endedAt || serverStatus.isExpired)) {
+    const endedAt = Number(serverStatus.endedAt) || now - ROOM_EXPIRY_GRACE_MS;
+    const expiresAt = Number(serverStatus.expiresAt) || endedAt + ROOM_EXPIRY_GRACE_MS;
+    const remainingMs = Math.max(0, expiresAt - now);
+    return {
+      hasEnded: true,
+      isExpired: Boolean(serverStatus.isExpired || now >= expiresAt),
+      endedAt,
+      expiresAt,
+      remainingMs,
+      remainingSeconds: Math.ceil(remainingMs / 1000),
+    };
+  }
+
+  // If server says there are active participants currently in the room, it is not expired
+  if (serverStatus && Number(serverStatus.currentCount) > 0) {
+    return {
+      hasEnded: false,
+      isExpired: false,
+      endedAt: null,
+      expiresAt: null,
+      remainingMs: null,
+      remainingSeconds: null,
+    };
+  }
+
+  // 2. Check local concluded rooms registry
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(CONCLUDED_ROOMS_STORAGE_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      const endedAt = Number(map?.[code] || 0);
+      if (endedAt > 0) {
+        const expiresAt = endedAt + ROOM_EXPIRY_GRACE_MS;
+        const remainingMs = Math.max(0, expiresAt - now);
+        return {
+          hasEnded: true,
+          isExpired: now >= expiresAt,
+          endedAt,
+          expiresAt,
+          remainingMs,
+          remainingSeconds: Math.ceil(remainingMs / 1000),
+        };
+      }
+    } catch (e) {}
+  }
+
+  return {
+    hasEnded: false,
+    isExpired: false,
+    endedAt: null,
+    expiresAt: null,
+    remainingMs: null,
+    remainingSeconds: null,
+  };
+}
+

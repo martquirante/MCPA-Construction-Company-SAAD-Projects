@@ -395,6 +395,82 @@ async function initializeDatabase() {
       );
     `);
 
+    // Ensure client_quotations table exists for Phase 2 Budget & Quotation Engine
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS client_quotations (
+        quotation_id SERIAL PRIMARY KEY,
+        client_project_id INT REFERENCES client_projects(client_project_id) ON DELETE CASCADE,
+        brief_id INT REFERENCES client_briefs(brief_id) ON DELETE SET NULL,
+        project_code VARCHAR(50),
+        client_name VARCHAR(255) NOT NULL,
+        client_email VARCHAR(255) NOT NULL,
+        client_phone VARCHAR(50),
+        project_type VARCHAR(100),
+        location VARCHAR(255),
+        floor_area_sqm NUMERIC(10, 2),
+        duration_months NUMERIC(4, 1) DEFAULT 6,
+        financing_type VARCHAR(100) DEFAULT 'Milestone Progress Billing',
+        status VARCHAR(50) DEFAULT 'REQUESTED',
+        client_target_budget NUMERIC(14, 2),
+        materials_cost NUMERIC(14, 2) DEFAULT 0,
+        labor_cost NUMERIC(14, 2) DEFAULT 0,
+        labor_rate_basis VARCHAR(100) DEFAULT 'Standard 35% Labor Factor',
+        architect_fee NUMERIC(14, 2) DEFAULT 0,
+        engineer_fee NUMERIC(14, 2) DEFAULT 0,
+        contractor_profit_pct NUMERIC(5, 2) DEFAULT 12.00,
+        contractor_profit_amount NUMERIC(14, 2) DEFAULT 0,
+        total_amount NUMERIC(14, 2) DEFAULT 0,
+        variance_amount NUMERIC(14, 2) DEFAULT 0,
+        variance_pct NUMERIC(6, 2) DEFAULT 0,
+        items_breakdown JSONB DEFAULT '[]'::jsonb,
+        payment_milestones JSONB DEFAULT '[]'::jsonb,
+        client_notes TEXT,
+        admin_notes TEXT,
+        requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        published_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_client_quotations_proj ON client_quotations(client_project_id);
+      CREATE INDEX IF NOT EXISTS idx_client_quotations_email ON client_quotations(client_email);
+      CREATE INDEX IF NOT EXISTS idx_client_quotations_status ON client_quotations(status);
+    `);
+    console.log("[OK] Table 'client_quotations' verified/created.");
+
+    // Ensure groundbreaking columns on client_projects and create groundbreaking_history table
+    try {
+      await db.query(`
+        ALTER TABLE client_projects ADD COLUMN IF NOT EXISTS groundbreaking_date TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE client_projects ADD COLUMN IF NOT EXISTS groundbreaking_status VARCHAR(50) DEFAULT 'PENDING';
+        ALTER TABLE client_projects ADD COLUMN IF NOT EXISTS groundbreaking_venue VARCHAR(255);
+        ALTER TABLE client_projects ADD COLUMN IF NOT EXISTS groundbreaking_officiant VARCHAR(150);
+        ALTER TABLE client_projects ADD COLUMN IF NOT EXISTS groundbreaking_notes TEXT;
+        ALTER TABLE client_projects ADD COLUMN IF NOT EXISTS groundbreaking_rescheduled_count INT DEFAULT 0;
+        ALTER TABLE client_projects ADD COLUMN IF NOT EXISTS groundbreaking_updated_at TIMESTAMP WITH TIME ZONE;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS public.groundbreaking_history (
+          history_id SERIAL PRIMARY KEY,
+          client_project_id INT NOT NULL REFERENCES public.client_projects(client_project_id) ON DELETE CASCADE,
+          scheduled_date TIMESTAMP WITH TIME ZONE NOT NULL,
+          previous_date TIMESTAMP WITH TIME ZONE,
+          status VARCHAR(50) DEFAULT 'SCHEDULED',
+          reschedule_reason TEXT,
+          days_shifted INT DEFAULT 0,
+          venue VARCHAR(255),
+          officiant VARCHAR(150),
+          notes TEXT,
+          created_by INT REFERENCES public.users(user_id) ON DELETE SET NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_gb_history_project ON public.groundbreaking_history(client_project_id);
+        CREATE INDEX IF NOT EXISTS idx_gb_history_created ON public.groundbreaking_history(created_at DESC);
+      `);
+      console.log("[OK] Table 'groundbreaking_history' and client_projects ceremony columns verified/created.");
+    } catch (gbErr) {
+      console.warn("[initDb] Groundbreaking schema migration notice:", gbErr.message);
+    }
+
     console.log("\n[SUCCESS] Database initialization completed successfully!\n");
     isInitialized = true;
     return true;

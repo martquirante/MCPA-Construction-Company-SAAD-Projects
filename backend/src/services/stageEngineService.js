@@ -1048,31 +1048,261 @@ class StageEngineService {
   }
 
   /**
-   * GROUNDBREAKING CEREMONY SCHEDULER
+   * GROUNDBREAKING CEREMONY ENGINE (PHASE 2 PRE-CONSTRUCTION KICKOFF)
    */
-  async scheduleGroundbreaking({ projectId, groundbreakingDate, adminUserId = null }) {
-    const res = await db.query(
+  async getAdminGroundbreakingOverview() {
+    const query = `
+      SELECT 
+        cp.client_project_id,
+        cp.project_code,
+        cp.project_title,
+        cp.stage_id,
+        cp.target_location,
+        cp.created_at,
+        cp.groundbreaking_date,
+        cp.groundbreaking_status,
+        cp.groundbreaking_venue,
+        cp.groundbreaking_officiant,
+        cp.groundbreaking_notes,
+        cp.groundbreaking_rescheduled_count,
+        cp.groundbreaking_updated_at,
+        cb.brief_id,
+        COALESCE(cb.client_name, u.full_name, 'Valued Client') AS client_name,
+        COALESCE(cb.client_email, u.email) AS client_email,
+        cb.client_phone,
+        cb.project_type,
+        cb.location,
+        u.avatar_url AS avatar_url,
+        u.auth_provider,
+        u.email_verified
+      FROM public.client_projects cp
+      LEFT JOIN public.client_briefs cb ON cp.brief_id = cb.brief_id
+      LEFT JOIN public.users u ON cp.user_id = u.user_id
+      WHERE cp.is_archived = FALSE
+      ORDER BY 
+        CASE 
+          WHEN cp.groundbreaking_date IS NOT NULL AND cp.groundbreaking_date >= NOW() THEN 1
+          WHEN cp.groundbreaking_date IS NOT NULL AND cp.groundbreaking_date < NOW() THEN 2
+          ELSE 3 
+        END,
+        cp.groundbreaking_date ASC NULLS LAST,
+        cp.client_project_id DESC;
+    `;
+    const res = await db.query(query);
+    const projects = res.rows || [];
+
+    // Fetch history audit trail for all projects
+    let historyMap = new Map();
+    try {
+      const histRes = await db.query(
+        `SELECT gh.*, u.full_name as author_name 
+         FROM public.groundbreaking_history gh 
+         LEFT JOIN public.users u ON gh.created_by = u.user_id 
+         ORDER BY gh.created_at DESC;`
+      );
+      (histRes.rows || []).forEach((h) => {
+        const pId = h.client_project_id;
+        if (!historyMap.has(pId)) historyMap.set(pId, []);
+        historyMap.get(pId).push(h);
+      });
+    } catch (e) {
+      console.warn("[getAdminGroundbreakingOverview] History fetch notice:", e.message);
+    }
+
+    return projects.map((p) => ({
+      ...p,
+      history: historyMap.get(p.client_project_id) || [],
+    }));
+  }
+
+  async getProjectGroundbreaking(projectId) {
+    const pRes = await db.query(
+      `SELECT 
+        cp.client_project_id,
+        cp.project_code,
+        cp.project_title,
+        cp.stage_id,
+        cp.target_location,
+        cp.groundbreaking_date,
+        cp.groundbreaking_status,
+        cp.groundbreaking_venue,
+        cp.groundbreaking_officiant,
+        cp.groundbreaking_notes,
+        cp.groundbreaking_rescheduled_count,
+        cp.groundbreaking_updated_at,
+        cb.location,
+        cb.client_name
+       FROM public.client_projects cp
+       LEFT JOIN public.client_briefs cb ON cp.brief_id = cb.brief_id
+       WHERE cp.client_project_id = $1
+       LIMIT 1;`,
+      [projectId]
+    );
+
+    if (!pRes.rows || pRes.rows.length === 0) return null;
+    const project = pRes.rows[0];
+
+    let history = [];
+    try {
+      const histRes = await db.query(
+        `SELECT gh.*, u.full_name as author_name 
+         FROM public.groundbreaking_history gh 
+         LEFT JOIN public.users u ON gh.created_by = u.user_id 
+         WHERE gh.client_project_id = $1 
+         ORDER BY gh.created_at DESC;`,
+        [projectId]
+      );
+      history = histRes.rows || [];
+    } catch (e) {}
+
+    return { ...project, history };
+  }
+
+  async scheduleGroundbreaking({
+    projectId,
+    groundbreakingDate,
+    venue = null,
+    officiant = null,
+    notes = null,
+    status = null,
+    rescheduleReason = null,
+    adminUserId = null,
+  }) {
+    // 1. Fetch current project state
+    const currentRes = await db.query(
+      `SELECT groundbreaking_date, groundbreaking_status, groundbreaking_rescheduled_count, target_location, groundbreaking_venue, groundbreaking_officiant 
+       FROM public.client_projects WHERE client_project_id = $1;`,
+      [projectId]
+    );
+
+    if (!currentRes.rows || currentRes.rows.length === 0) {
+      throw new Error(`Project with ID ${projectId} not found.`);
+    }
+
+    const current = currentRes.rows[0];
+    const prevDate = current.groundbreaking_date;
+    const isReschedule = Boolean(prevDate && groundbreakingDate && new Date(prevDate).getTime() !== new Date(groundbreakingDate).getTime());
+
+    let daysShifted = 0;
+    let newRescheduleCount = current.groundbreaking_rescheduled_count || 0;
+    let resolvedStatus = status;
+
+    if (isReschedule) {
+      newRescheduleCount += 1;
+      const prevMs = new Date(prevDate).getTime();
+      const newMs = new Date(groundbreakingDate).getTime();
+      daysShifted = Math.round((newMs - prevMs) / (1000 * 60 * 60 * 24));
+      if (!resolvedStatus) {
+        resolvedStatus = "RESCHEDULED";
+      }
+    } else if (!resolvedStatus) {
+      resolvedStatus = current.groundbreaking_status === "COMPLETED" ? "COMPLETED" : "SCHEDULED";
+    }
+
+    const resolvedVenue =
+      typeof venue === "string"
+        ? (venue.trim() || null)
+        : current.groundbreaking_venue || null;
+
+    const resolvedOfficiant =
+      typeof officiant === "string"
+        ? (officiant.trim() || null)
+        : current.groundbreaking_officiant || null;
+
+    const resolvedNotes =
+      typeof notes === "string"
+        ? (notes.trim() || null)
+        : current.groundbreaking_notes || null;
+
+    // 2. Update client_projects
+    const updateRes = await db.query(
       `UPDATE public.client_projects 
-       SET groundbreaking_date = $1, updated_at = NOW()
-       WHERE client_project_id = $2
+       SET groundbreaking_date = $1,
+           groundbreaking_status = $2,
+           groundbreaking_venue = $3,
+           groundbreaking_officiant = $4,
+           groundbreaking_notes = $5,
+           groundbreaking_rescheduled_count = $6,
+           groundbreaking_updated_at = NOW(),
+           updated_at = NOW()
+       WHERE client_project_id = $7
        RETURNING *;`,
-      [groundbreakingDate, projectId]
+      [
+        groundbreakingDate,
+        resolvedStatus,
+        resolvedVenue,
+        resolvedOfficiant,
+        resolvedNotes,
+        newRescheduleCount,
+        projectId,
+      ]
     );
 
-    await db.query(
-      `INSERT INTO public.stage_transitions (
-        client_project_id,
-        from_stage,
-        to_stage,
-        transitioned_by,
-        reason,
-        metadata,
-        created_at
-      ) VALUES ($1, 'PRE_CONSTRUCTION', 'PRE_CONSTRUCTION', $2, 'Groundbreaking ceremony scheduled', $3, NOW());`,
-      [projectId, adminUserId, JSON.stringify({ groundbreakingDate })]
-    );
+    // 3. Record in groundbreaking_history
+    try {
+      await db.query(
+        `INSERT INTO public.groundbreaking_history (
+          client_project_id,
+          scheduled_date,
+          previous_date,
+          status,
+          reschedule_reason,
+          days_shifted,
+          venue,
+          officiant,
+          notes,
+          created_by,
+          created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW());`,
+        [
+          projectId,
+          groundbreakingDate,
+          prevDate || null,
+          resolvedStatus,
+          rescheduleReason || (isReschedule ? (daysShifted > 0 ? `Delayed by ${daysShifted} days` : `Moved earlier by ${Math.abs(daysShifted)} days`) : "Official kickoff date established"),
+          daysShifted,
+          resolvedVenue,
+          resolvedOfficiant,
+          resolvedNotes,
+          adminUserId,
+        ]
+      );
+    } catch (histErr) {
+      console.warn("[scheduleGroundbreaking] History insert notice:", histErr.message);
+    }
 
-    return res.rows[0];
+    // 4. Record in stage_transitions
+    try {
+      await db.query(
+        `INSERT INTO public.stage_transitions (
+          client_project_id,
+          from_stage,
+          to_stage,
+          transitioned_by,
+          reason,
+          metadata,
+          created_at
+        ) VALUES ($1, 'PRE_CONSTRUCTION', 'PRE_CONSTRUCTION', $2, $3, $4, NOW());`,
+        [
+          projectId,
+          adminUserId,
+          isReschedule ? `Groundbreaking ceremony rescheduled (${daysShifted >= 0 ? `+${daysShifted}d delay` : `${daysShifted}d advanced`})` : "Groundbreaking ceremony officially scheduled",
+          JSON.stringify({
+            groundbreakingDate,
+            previousDate: prevDate,
+            daysShifted,
+            status: resolvedStatus,
+            rescheduleReason,
+            venue: resolvedVenue,
+            officiant: resolvedOfficiant,
+          }),
+        ]
+      );
+    } catch (transErr) {}
+
+    const projectData = updateRes.rows[0];
+    const fullProject = await this.getProjectGroundbreaking(projectId);
+    return fullProject || projectData;
   }
 
   /**

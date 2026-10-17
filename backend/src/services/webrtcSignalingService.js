@@ -7,10 +7,42 @@ const { Server } = require("socket.io");
  * between Clients and Engineers/Admins without routing media streams through
  * the server (zero video bandwidth costs).
  */
+const ROOM_EXPIRY_GRACE_MS = 5 * 60 * 1000; // 5 minutes after call ends
+
 class WebRTCSignalingService {
   constructor() {
     this.io = null;
     this.rooms = new Map(); // roomCode -> Map(socketId -> { user, role, socketId, joinedAt })
+    this.roomMeta = new Map(); // roomCode -> { endedAt, expiresAt }
+  }
+
+  /**
+   * Evaluates whether a room has expired (5 minutes after all participants left / call ended)
+   * @param {string} roomCode
+   */
+  getRoomExpiryInfo(roomCode) {
+    const activeCount = this.rooms.has(roomCode) ? this.rooms.get(roomCode).size : 0;
+    const meta = this.roomMeta.get(roomCode);
+    if (!meta || !meta.endedAt || activeCount > 0) {
+      return {
+        isExpired: false,
+        endedAt: null,
+        expiresAt: null,
+        remainingMs: null,
+      };
+    }
+
+    const expiresAt = meta.expiresAt || meta.endedAt + ROOM_EXPIRY_GRACE_MS;
+    const now = Date.now();
+    const remainingMs = Math.max(0, expiresAt - now);
+    const isExpired = now >= expiresAt;
+
+    return {
+      isExpired,
+      endedAt: meta.endedAt,
+      expiresAt,
+      remainingMs,
+    };
   }
 
   /**
@@ -47,16 +79,21 @@ class WebRTCSignalingService {
       console.log(`[WEBRTC SIGNALING] Socket connected: ${socket.id}`);
 
       // 1. Client or Admin joins a consultation room
-      // 1a. Pre-join query for room participant count & capacity check
+      // 1a. Pre-join query for room participant count, capacity & 5-minute post-call expiration check
       socket.on("check-room-capacity", ({ roomCode }) => {
         if (!roomCode) return;
         const currentCount = this.rooms.has(roomCode) ? this.rooms.get(roomCode).size : 0;
         const maxCapacity = 8;
+        const expiry = this.getRoomExpiryInfo(roomCode);
         socket.emit("room-capacity-status", {
           roomCode,
           currentCount,
           maxCapacity,
           isFull: currentCount >= maxCapacity,
+          isExpired: expiry.isExpired,
+          endedAt: expiry.endedAt,
+          expiresAt: expiry.expiresAt,
+          remainingMs: expiry.remainingMs,
         });
       });
 
@@ -64,9 +101,26 @@ class WebRTCSignalingService {
       socket.on("join-room", ({ roomCode, user = {}, role = "client" }) => {
         if (!roomCode) return;
 
+        const expiry = this.getRoomExpiryInfo(roomCode);
+        if (expiry.isExpired) {
+          console.warn(
+            `[WEBRTC] Room ${roomCode} expired 5 minutes after call ended. Rejecting socket ${socket.id}`
+          );
+          socket.emit("room-expired", {
+            roomCode,
+            endedAt: expiry.endedAt,
+            expiresAt: expiry.expiresAt,
+            message: "This consultation room has expired (5 minutes after the call ended).",
+          });
+          return;
+        }
+
         if (!this.rooms.has(roomCode)) {
           this.rooms.set(roomCode, new Map());
         }
+
+        // Room is active again (joined within 5-minute grace window or fresh start)
+        this.roomMeta.set(roomCode, { endedAt: null, expiresAt: null });
 
         const roomParticipants = this.rooms.get(roomCode);
         const maxCapacity = 8;
@@ -271,6 +325,9 @@ class WebRTCSignalingService {
           ? `Admin (${payload?.adminName || payload?.callerName || "Admin"}) targeting [${payload?.targetClientEmail || payload?.clientName || "Client"}]`
           : `Client (${payload?.clientName || "Client"})`;
         console.log(`[WEBRTC] Instant call started by ${callerDesc} in room: ${payload?.roomCode}`);
+        if (payload?.roomCode) {
+          this.roomMeta.delete(payload.roomCode);
+        }
         this.activeInstantCall = {
           ...payload,
           startedAt: payload?.startedAt || Date.now(),
@@ -293,6 +350,13 @@ class WebRTCSignalingService {
         console.log(`[WEBRTC] Instant call ended (Room: ${roomCode})`);
         if (this.activeInstantCall && (!roomCode || this.activeInstantCall.roomCode === roomCode || String(roomCode).includes(this.activeInstantCall.roomCode) || String(this.activeInstantCall.roomCode).includes(roomCode))) {
           this.activeInstantCall = null;
+        }
+        if (roomCode && (!this.rooms.has(roomCode) || this.rooms.get(roomCode).size === 0)) {
+          const endedAt = Date.now();
+          this.roomMeta.set(roomCode, {
+            endedAt,
+            expiresAt: endedAt + ROOM_EXPIRY_GRACE_MS,
+          });
         }
         this.io.emit("instant-call-ended", { roomCode });
       });
@@ -341,6 +405,14 @@ class WebRTCSignalingService {
 
     if (roomParticipants.size === 0) {
       this.rooms.delete(roomCode);
+      const endedAt = Date.now();
+      this.roomMeta.set(roomCode, {
+        endedAt,
+        expiresAt: endedAt + ROOM_EXPIRY_GRACE_MS,
+      });
+      console.log(
+        `[WEBRTC] Room "${roomCode}" ended. Expires in 5 minutes at ${new Date(endedAt + ROOM_EXPIRY_GRACE_MS).toISOString()}`
+      );
     }
   }
 

@@ -486,6 +486,20 @@ export default function PortalPhase2Consultation({
   };
 
   const primaryInquiry = inquiries?.[0];
+  const resolvedModeStr = (
+    primaryInquiry?.venue_type || primaryInquiry?.venueType
+      ? `In-Person (${primaryInquiry.venue_type || primaryInquiry.venueType})`
+      : primaryInquiry?.meeting_mode ||
+        primaryInquiry?.meetingMode ||
+        activeProject?.meeting_mode ||
+        activeProject?.meetingMode ||
+        "Online Meeting"
+  ).toLowerCase();
+  const isF2FConsultation =
+    resolvedModeStr.includes("in-person") ||
+    resolvedModeStr.includes("face-to-face") ||
+    resolvedModeStr.includes("f2f") ||
+    (!resolvedModeStr.includes("online") && !resolvedModeStr.includes("video") && !resolvedModeStr.includes("google"));
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -537,7 +551,13 @@ export default function PortalPhase2Consultation({
             {[
               { title: "Inquiry Submitted", status: "Completed", date: "Verified" },
               { title: "Document & Lot Review", status: documents.length > 0 ? "Under Review" : "Action Needed", date: "TCT / Valid IDs" },
-              { title: "Video Consultation", status: isInCall ? "In Session" : "Room Ready", date: meetingRoom?.room_code || "Scheduled" },
+              {
+                title: isF2FConsultation ? "In-Person Consultation" : "Video Consultation",
+                status: isF2FConsultation ? "F2F Slot" : isInCall ? "In Session" : "Room Ready",
+                date: isF2FConsultation
+                  ? primaryInquiry?.meeting_date || primaryInquiry?.meetingDate || "In-Person Visit"
+                  : meetingRoom?.room_code || "Scheduled",
+              },
               { title: "Formal Quotation", status: quotationRequested ? "In Preparation" : "Pending Meeting", date: "Cost Index" },
             ].map((item, idx) => (
               <div
@@ -578,18 +598,29 @@ export default function PortalPhase2Consultation({
                   <CalendarCheck className="w-6 h-6" />
                 </div>
                 <span className="text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                  <Zap className="w-3 h-3 fill-current" />
-                  <span>Instant &amp; Scheduled</span>
+                  {isF2FConsultation ? (
+                    <>
+                      <Building className="w-3 h-3" />
+                      <span>Face-to-Face (F2F)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3 h-3 fill-current" />
+                      <span>Instant &amp; Scheduled</span>
+                    </>
+                  )}
                 </span>
               </div>
 
               <div className="space-y-1">
                 <div className="text-xs font-mono font-bold uppercase text-neutral-500">Appointments</div>
                 <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
-                  Meeting Schedule &amp; Instant Video
+                  {isF2FConsultation ? "In-Person Schedule & Venue" : "Meeting Schedule & Instant Video"}
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                  Request an on-demand instant consultation, join virtual Google Meet sessions, or coordinate face-to-face visits.
+                  {isF2FConsultation
+                    ? "View your face-to-face consultation schedule, physical venue directions, and required documents to bring."
+                    : "Request an on-demand instant consultation, join virtual Google Meet sessions, or coordinate face-to-face visits."}
                 </p>
               </div>
 
@@ -783,7 +814,7 @@ export default function PortalPhase2Consultation({
                         >
                           <td className="py-3.5 px-4 min-w-[220px]">
                             <div className="space-y-1">
-                              <span className="inline-block px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                                 {req.category}
                               </span>
                               <p className="font-bold text-neutral-900 dark:text-white leading-tight">
@@ -898,19 +929,24 @@ export default function PortalPhase2Consultation({
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                          <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-mono font-bold uppercase tracking-wider">
+                            <span className="text-amber-600 dark:text-amber-400">
                               {req.category}
                             </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-[3px] text-[10px] font-mono font-bold uppercase tracking-wider ${
-                                req.urgency?.toLowerCase().includes("urgent")
-                                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
-                                  : "bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
-                              }`}
-                            >
-                              {req.urgency}
-                            </span>
+                            {req.urgency && (
+                              <>
+                                <span className="text-neutral-400 dark:text-neutral-600">•</span>
+                                <span
+                                  className={
+                                    req.urgency?.toLowerCase().includes("urgent")
+                                      ? "text-rose-600 dark:text-rose-400"
+                                      : "text-neutral-500 dark:text-neutral-400"
+                                  }
+                                >
+                                  {req.urgency}
+                                </span>
+                              </>
+                            )}
                           </div>
 
                           <span

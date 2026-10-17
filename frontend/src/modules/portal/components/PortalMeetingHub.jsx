@@ -95,15 +95,27 @@ export default function PortalMeetingHub({
     return extractRoomCode(primaryInquiry || meetingRoom);
   }, [primaryInquiry, meetingRoom]);
 
+  const resolvedInitialMode =
+    primaryInquiry?.venue_type || primaryInquiry?.venueType
+      ? `In-Person (${primaryInquiry.venue_type || primaryInquiry.venueType})`
+      : primaryInquiry?.meeting_mode ||
+        primaryInquiry?.meetingMode ||
+        activeProject?.meeting_mode ||
+        activeProject?.meetingMode ||
+        "Online Meeting";
+
   // Active / Upcoming Meeting info derived from project / inquiry / defaults
   const [activeMeetingInfo, setActiveMeetingInfo] = useState({
-    mode: primaryInquiry?.meeting_mode || primaryInquiry?.meetingMode || "Online Meeting",
+    mode: resolvedInitialMode,
     date: primaryInquiry?.meeting_date || primaryInquiry?.meetingDate || "",
     time: primaryInquiry?.meeting_time || primaryInquiry?.meetingTime || "",
     status: primaryInquiry?.availability_status || "Pending Schedule",
     leadConsultant: "Engr. Raymart Quirante",
     leadRole: "Lead Project Engineer & Consultant",
-    officeAddress: "MCPA Tabang Central Office, MacArthur Highway, Plaridel, Bulacan",
+    officeAddress:
+      primaryInquiry?.venue_details ||
+      primaryInquiry?.venueDetails ||
+      "MCPA Tabang Central Office, MacArthur Highway, Plaridel, Bulacan",
     agenda: primaryInquiry?.meeting_notes || "Discussion regarding your project requirements, house design preferences, and estimated construction budget.",
     round: 1,
     roundTitle: "Project Consultation & Discussion",
@@ -330,7 +342,7 @@ export default function PortalMeetingHub({
       const saved = localStorage.getItem("mcpa_shared_meeting_schedule");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.date) {
+        if (parsed && (parsed.date || parsed.mode)) {
           setActiveMeetingInfo((prev) => ({
             ...prev,
             mode: parsed.mode || prev.mode,
@@ -378,15 +390,24 @@ export default function PortalMeetingHub({
     };
   }, [showToast]);
 
-  // Synchronize with primaryInquiry updates
+  // Synchronize with primaryInquiry updates (including F2F mode even before exact date is finalized)
   useEffect(() => {
-    if (primaryInquiry && (primaryInquiry.meeting_date || primaryInquiry.meetingDate)) {
+    if (primaryInquiry) {
+      const inquiryMode =
+        primaryInquiry.venue_type || primaryInquiry.venueType
+          ? `In-Person (${primaryInquiry.venue_type || primaryInquiry.venueType})`
+          : primaryInquiry.meeting_mode || primaryInquiry.meetingMode;
+
       setActiveMeetingInfo((prev) => ({
         ...prev,
-        mode: primaryInquiry.meeting_mode || primaryInquiry.meetingMode || prev.mode,
+        mode: inquiryMode || prev.mode,
         date: primaryInquiry.meeting_date || primaryInquiry.meetingDate || prev.date,
         time: primaryInquiry.meeting_time || primaryInquiry.meetingTime || prev.time,
         status: primaryInquiry.availability_status || primaryInquiry.availabilityStatus || prev.status,
+        officeAddress:
+          primaryInquiry.venue_details ||
+          primaryInquiry.venueDetails ||
+          prev.officeAddress,
         agenda: primaryInquiry.meeting_notes || prev.agenda,
         attendanceConfirmed: Boolean(
           primaryInquiry.availability_status === "Attendance Confirmed" ||
@@ -625,7 +646,12 @@ export default function PortalMeetingHub({
     setIsTimeoutModalOpen(true);
   }, [roomCode, isInstantMode]);
 
-  const isOnlineMode = activeMeetingInfo.mode.toLowerCase().includes("online");
+  const modeLower = (activeMeetingInfo.mode || "").toLowerCase();
+  const isOnlineMode =
+    (modeLower.includes("online") || modeLower.includes("video") || modeLower.includes("google")) &&
+    !modeLower.includes("in-person") &&
+    !modeLower.includes("face-to-face") &&
+    !modeLower.includes("f2f");
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 font-sans">
@@ -787,20 +813,44 @@ export default function PortalMeetingHub({
           <div className="p-8 rounded-[12px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 text-center space-y-3">
             <Calendar className="w-8 h-8 text-neutral-400 dark:text-neutral-600 mx-auto" />
             <h3 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white">
-              No Consultation Scheduled Yet
+              {isOnlineMode ? "No Consultation Scheduled Yet" : "Face-to-Face (In-Person) Consultation Pending Schedule"}
             </h3>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans max-w-md mx-auto">
-              You do not have an active or upcoming consultation appointment scheduled yet. You can launch an instant online alignment meeting with our engineering team whenever needed.
+              {isOnlineMode
+                ? "You do not have an active or upcoming consultation appointment scheduled yet. You can launch an instant online alignment meeting with our engineering team whenever needed."
+                : `Your preferred consultation mode is ${activeMeetingInfo.mode}. You may set your preferred visit date & venue or view directions to our office below.`}
             </p>
-            <div className="pt-2 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setIsInstantNoticeModalOpen(true)}
-                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:shadow-md"
-              >
-                <Zap className="w-4 h-4" />
-                <span>Launch Instant Online Meeting</span>
-              </button>
+            <div className="pt-2 flex flex-wrap justify-center gap-2.5">
+              {isOnlineMode ? (
+                <button
+                  type="button"
+                  onClick={() => setIsInstantNoticeModalOpen(true)}
+                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:shadow-md"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>Launch Instant Online Meeting</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsBookingModalOpen(true)}
+                    className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:shadow-md"
+                  >
+                    <CalendarCheck className="w-4 h-4" />
+                    <span>Set Preferred F2F Schedule</span>
+                  </button>
+                  <a
+                    href="https://maps.app.goo.gl/hPB6X66NdhViSvCp7"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    <span>View Venue &amp; Directions</span>
+                  </a>
+                </>
+              )}
             </div>
           </div>
         ) : (

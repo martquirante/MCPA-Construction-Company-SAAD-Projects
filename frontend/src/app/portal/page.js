@@ -602,9 +602,8 @@ function ClientPortalContent() {
             { id: "overview", label: "Dashboard", icon: LayoutDashboard },
             { id: "meeting", label: "Meeting", icon: CalendarCheck },
             { id: "blueprints", label: "Blueprints & Plans", icon: Layers },
-            { id: "boq", label: "BOQ & Budget", icon: CreditCard },
+            { id: "boq", label: "Budget & Quotation", icon: CreditCard },
             { id: "documents", label: "Documents & Permits", icon: FileText, badge: pendingDocumentRequestsCount > 0 ? pendingDocumentRequestsCount : undefined },
-            { id: "contract", label: "E-Contract & Shovel", icon: FileCheck },
             { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [
@@ -1435,7 +1434,7 @@ function ClientPortalContent() {
                     </div>
                     <div className="lg:col-span-5">
                       <PortalSiteSupervisorCard
-                        leadEngineer={siteProject.lead_engineer || "Engr. Aris Reyes"}
+                        leadEngineer={siteProject.lead_engineer || "MCPA Project Engineer"}
                         phoneNumber="+63 949 775 8239"
                       />
                     </div>

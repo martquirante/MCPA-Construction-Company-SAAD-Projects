@@ -195,6 +195,7 @@ export class WebRTCPeerManager {
     const list = Array.from(this.peers.values()).map((p) => ({
       socketId: p.socketId,
       stream: p.remoteStream,
+      streamVersion: p.streamVersion || 0,
       user: p.user,
       connectionState: p.pc?.connectionState || "new",
     }));
@@ -236,8 +237,10 @@ export class WebRTCPeerManager {
       socketId,
       pc,
       remoteStream,
+      streamVersion: 0,
       user: user || { socketId },
       isInitiator,
+      makingOffer: false,
       pendingCandidates: [],
     };
 
@@ -260,37 +263,56 @@ export class WebRTCPeerManager {
     // so the answerer attaches tracks in handleOfferAndSendAnswer after setRemoteDescription.
     if (isInitiator) {
       try {
-        pc.addTransceiver("audio", { direction: "sendrecv" });
-        pc.addTransceiver("video", { direction: "sendrecv" });
+        const audioTrack =
+          this.localStream?.getAudioTracks?.()?.find((t) => t.readyState === "live") || null;
+        const videoTrack =
+          this.localStream?.getVideoTracks?.()?.find((t) => t.readyState === "live") || null;
+        const streams = this.localStream ? [this.localStream] : [];
+        pc.addTransceiver(audioTrack || "audio", { direction: "sendrecv", streams });
+        pc.addTransceiver(videoTrack || "video", { direction: "sendrecv", streams });
       } catch (e) {}
-
-      if (this.localStream) {
-        this.attachLocalTracksToPeer(pc, this.localStream);
-      }
     }
 
     // 3. Handle incoming remote audio and video tracks
     pc.ontrack = (event) => {
       console.log(`[WEBRTC MESH] Incoming track (${event.track.kind}) from peer ${socketId}:`, event.track.id);
 
-      event.track.onunmute = () => {
-        console.log(`[WEBRTC MESH] Track unmuted (${event.track.kind}) from peer ${socketId}`);
+      const refreshRemoteStream = () => {
+        const currentTracks = peerObj.remoteStream ? peerObj.remoteStream.getTracks() : [];
+        const incomingTracks =
+          event.streams && event.streams[0] ? event.streams[0].getTracks() : [event.track];
+
+        const trackMap = new Map();
+        currentTracks.forEach((t) => {
+          if (t.readyState !== "ended") {
+            trackMap.set(t.kind, t);
+          }
+        });
+        incomingTracks.forEach((t) => {
+          trackMap.set(t.kind, t);
+        });
+
+        peerObj.remoteStream = new MediaStream(Array.from(trackMap.values()));
+        peerObj.streamVersion = (peerObj.streamVersion || 0) + 1;
         this.notifyPeersChange();
       };
 
-      if (event.streams && event.streams[0]) {
-        event.streams[0].getTracks().forEach((track) => {
-          if (!remoteStream.getTracks().some((t) => t.id === track.id)) {
-            remoteStream.addTrack(track);
-          }
-        });
-      } else {
-        if (!remoteStream.getTracks().some((t) => t.id === event.track.id)) {
-          remoteStream.addTrack(event.track);
-        }
-      }
+      event.track.onunmute = () => {
+        console.log(`[WEBRTC MESH] Track unmuted (${event.track.kind}) from peer ${socketId}`);
+        refreshRemoteStream();
+      };
 
-      this.notifyPeersChange();
+      event.track.onmute = () => {
+        peerObj.streamVersion = (peerObj.streamVersion || 0) + 1;
+        this.notifyPeersChange();
+      };
+
+      event.track.onended = () => {
+        peerObj.streamVersion = (peerObj.streamVersion || 0) + 1;
+        this.notifyPeersChange();
+      };
+
+      refreshRemoteStream();
     };
 
     // 4. Relay ICE candidates to targeted remote peer
@@ -319,34 +341,61 @@ export class WebRTCPeerManager {
 
   /**
    * Attaches local audio and video tracks to a specific RTCPeerConnection
+   * @returns {Promise<boolean>} true if renegotiation is required
    */
-  async attachLocalTracksToPeer(pc, stream) {
-    if (!pc || !stream) return;
+  async attachLocalTracksToPeer(pc, stream, peerObj = null) {
+    if (!pc || !stream) return false;
+
+    // Do not pre-attach tracks on the answerer before setRemoteDescription(offer),
+    // as pc.addTrack would create duplicate un-associated transceivers.
+    if (peerObj && !peerObj.isInitiator && !pc.remoteDescription) {
+      return false;
+    }
 
     const senders = typeof pc.getSenders === "function" ? pc.getSenders() : [];
+    let needsRenegotiation = false;
 
     for (const track of stream.getTracks()) {
+      if (track.readyState === "ended") continue;
+
       // NOTE: never force track.enabled here — mute / camera-off state is owned by the UI.
       const t = findTransceiverForKind(pc, track.kind);
 
       if (t && t.sender) {
         t.direction = "sendrecv";
         try {
-          await t.sender.replaceTrack(track);
+          if (t.sender.track !== track) {
+            await t.sender.replaceTrack(track);
+          }
         } catch (err) {
           console.warn(`[WEBRTC] replaceTrack failed for ${track.kind}:`, err);
+        }
+        if (
+          pc.remoteDescription &&
+          t.currentDirection &&
+          t.currentDirection !== "sendrecv" &&
+          t.currentDirection !== "sendonly"
+        ) {
+          needsRenegotiation = true;
         }
       } else {
         const s = senders.find((snd) => snd.track && snd.track.kind === track.kind);
         if (s) {
-          await s.replaceTrack(track).catch(() => {});
+          if (s.track !== track) {
+            await s.replaceTrack(track).catch(() => {});
+          }
         } else {
           try {
             pc.addTrack(track, stream);
+            if (pc.remoteDescription) {
+              needsRenegotiation = true;
+            }
           } catch (e) {}
         }
       }
     }
+
+    return needsRenegotiation;
   }
 
   /**
@@ -357,7 +406,10 @@ export class WebRTCPeerManager {
     this.localStream = stream;
 
     for (const peer of this.peers.values()) {
-      await this.attachLocalTracksToPeer(peer.pc, stream);
+      const needsRenegotiation = await this.attachLocalTracksToPeer(peer.pc, stream, peer);
+      if (needsRenegotiation && peer.pc.signalingState === "stable") {
+        await this.createAndSendOffer(peer.socketId, peer.user);
+      }
     }
   }
 
@@ -383,8 +435,17 @@ export class WebRTCPeerManager {
     if (!peer) return;
 
     try {
+      peer.makingOffer = true;
+
+      const transceivers = typeof peer.pc.getTransceivers === "function" ? peer.pc.getTransceivers() : [];
+      transceivers.forEach((t) => {
+        if (!t.stopped && t.direction !== "stopped") {
+          t.direction = "sendrecv";
+        }
+      });
+
       if (this.localStream) {
-        await this.attachLocalTracksToPeer(peer.pc, this.localStream);
+        await this.attachLocalTracksToPeer(peer.pc, this.localStream, peer);
       }
 
       const offer = await peer.pc.createOffer({
@@ -408,6 +469,8 @@ export class WebRTCPeerManager {
       });
     } catch (err) {
       console.error(`[WEBRTC MESH] Failed to create offer for ${targetSocketId}:`, err);
+    } finally {
+      peer.makingOffer = false;
     }
   }
 
@@ -428,6 +491,21 @@ export class WebRTCPeerManager {
     }
 
     try {
+      const myId = String(this.socket?.id || "");
+      const theirId = String(fromSocketId || "");
+      const isPolite = !myId || myId > theirId;
+      const offerCollision = Boolean(peer.makingOffer || peer.pc.signalingState !== "stable");
+
+      if (offerCollision) {
+        if (!isPolite) {
+          console.warn(`[WEBRTC MESH] Impolite peer ignoring colliding offer from ${fromSocketId}`);
+          return;
+        }
+        try {
+          await peer.pc.setLocalDescription({ type: "rollback" });
+        } catch (e) {}
+      }
+
       await peer.pc.setRemoteDescription(new RTCSessionDescription(sdpOffer));
 
       // Explicitly set non-stopped transceivers to sendrecv so the answerer transmits video & audio
@@ -439,7 +517,7 @@ export class WebRTCPeerManager {
       });
 
       if (this.localStream) {
-        await this.attachLocalTracksToPeer(peer.pc, this.localStream);
+        await this.attachLocalTracksToPeer(peer.pc, this.localStream, peer);
       }
 
       // Flush buffered ICE candidates
@@ -540,11 +618,25 @@ export class WebRTCPeerManager {
   async replaceVideoTrack(newVideoTrack) {
     for (const peer of this.peers.values()) {
       try {
+        if (!peer.isInitiator && !peer.pc.remoteDescription) {
+          continue;
+        }
+
         const videoTransceiver = findTransceiverForKind(peer.pc, "video");
 
         if (videoTransceiver && videoTransceiver.sender) {
           videoTransceiver.direction = "sendrecv";
           await videoTransceiver.sender.replaceTrack(newVideoTrack);
+          if (
+            newVideoTrack &&
+            peer.pc.signalingState === "stable" &&
+            peer.pc.remoteDescription &&
+            videoTransceiver.currentDirection &&
+            videoTransceiver.currentDirection !== "sendrecv" &&
+            videoTransceiver.currentDirection !== "sendonly"
+          ) {
+            await this.createAndSendOffer(peer.socketId, peer.user);
+          }
           continue;
         }
 
@@ -552,6 +644,11 @@ export class WebRTCPeerManager {
         const videoSender = senders.find((s) => s.track && s.track.kind === "video");
         if (videoSender) {
           await videoSender.replaceTrack(newVideoTrack);
+        } else if (newVideoTrack && this.localStream) {
+          peer.pc.addTrack(newVideoTrack, this.localStream);
+          if (peer.pc.signalingState === "stable" && peer.pc.remoteDescription) {
+            await this.createAndSendOffer(peer.socketId, peer.user);
+          }
         }
       } catch (err) {
         console.error(`[WEBRTC MESH] Failed to replace video track for peer ${peer.socketId}:`, err);
@@ -567,11 +664,24 @@ export class WebRTCPeerManager {
     if (!newAudioTrack) return;
     for (const peer of this.peers.values()) {
       try {
+        if (!peer.isInitiator && !peer.pc.remoteDescription) {
+          continue;
+        }
+
         const audioTransceiver = findTransceiverForKind(peer.pc, "audio");
 
         if (audioTransceiver && audioTransceiver.sender) {
           audioTransceiver.direction = "sendrecv";
           await audioTransceiver.sender.replaceTrack(newAudioTrack);
+          if (
+            peer.pc.signalingState === "stable" &&
+            peer.pc.remoteDescription &&
+            audioTransceiver.currentDirection &&
+            audioTransceiver.currentDirection !== "sendrecv" &&
+            audioTransceiver.currentDirection !== "sendonly"
+          ) {
+            await this.createAndSendOffer(peer.socketId, peer.user);
+          }
           continue;
         }
 
@@ -579,6 +689,11 @@ export class WebRTCPeerManager {
         const audioSender = senders.find((s) => s.track && s.track.kind === "audio");
         if (audioSender) {
           await audioSender.replaceTrack(newAudioTrack);
+        } else if (this.localStream) {
+          peer.pc.addTrack(newAudioTrack, this.localStream);
+          if (peer.pc.signalingState === "stable" && peer.pc.remoteDescription) {
+            await this.createAndSendOffer(peer.socketId, peer.user);
+          }
         }
       } catch (err) {
         console.error(`[WEBRTC MESH] Failed to replace audio track for peer ${peer.socketId}:`, err);

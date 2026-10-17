@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Image from "next/image";
 import {
   Calendar,
@@ -42,6 +42,7 @@ import {
   ShieldCheck,
   HelpCircle,
   ChevronDown,
+  Upload,
 } from "lucide-react";
 import { authFetch } from "@/modules/shared/authFetch";
 import PortalMeetingHub from "../PortalMeetingHub";
@@ -73,8 +74,8 @@ export default function PortalStage2PlanningAndConsultation({
   billingLedger = [],
   mode = "overview",
 }) {
-  const projectId = activeProject?.client_project_id;
-  const projectCode = activeProject?.site_project_code || activeProject?.project_code || "MCPA-PRJ-2026";
+  const projectId = activeProject?.client_project_id || activeProject?.id || activeInquiry?.client_project_id || activeInquiry?.id;
+  const projectCode = activeProject?.site_project_code || activeProject?.project_code || activeInquiry?.projectCode || activeInquiry?.submissionId || activeInquiry?.submission_id || "MCPA-PRJ-2026";
 
   // Sub-tab state: "overview" | "meeting" | "blueprints" | "boq" | "permits" | "contract"
   const [activeSubTab, setActiveSubTab] = useState(() => {
@@ -105,7 +106,73 @@ export default function PortalStage2PlanningAndConsultation({
   // 1. WebRTC & Meeting State
   // -------------------------------------------------------------
   const [meetingRoom, setMeetingRoom] = useState(null);
-  const [quotationRequested, setQuotationRequested] = useState(false);
+
+  // -------------------------------------------------------------
+  // 1.1 Quotation & BOQ State
+  // -------------------------------------------------------------
+  const [quotationData, setQuotationData] = useState(null);
+  const [briefData, setBriefData] = useState(null);
+  const [isLoadingQuotation, setIsLoadingQuotation] = useState(false);
+  const [isRequestingQuotation, setIsRequestingQuotation] = useState(false);
+  const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
+  const [quotationRequestNotes, setQuotationRequestNotes] = useState("");
+
+  const fetchQuotation = async () => {
+    if (!projectId) return;
+    setIsLoadingQuotation(true);
+    try {
+      const res = await authFetch(`/api/projects/${projectId}/quotation`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setQuotationData(data.quotation || null);
+          if (data.brief) setBriefData(data.brief);
+        }
+      }
+    } catch (e) {
+      console.warn("fetchQuotation error:", e);
+    } finally {
+      setIsLoadingQuotation(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuotation();
+
+    const handleSync = () => {
+      fetchQuotation();
+    };
+    window.addEventListener("mcpa-quotations-updated", handleSync);
+    return () => {
+      window.removeEventListener("mcpa-quotations-updated", handleSync);
+    };
+  }, [projectId]);
+
+  const handleRequestQuotation = async () => {
+    if (!projectId) return;
+    setIsRequestingQuotation(true);
+    try {
+      const res = await authFetch(`/api/projects/${projectId}/quotation/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customNotes: quotationRequestNotes }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setQuotationData(data.quotation);
+        setIsQuotationModalOpen(false);
+        setQuotationRequestNotes("");
+        showToast?.("Quotation request submitted to MCPA estimating office.", "success");
+        window.dispatchEvent(new CustomEvent("mcpa-quotations-updated"));
+      } else {
+        showToast?.(data.message || "Failed to submit request.", "error");
+      }
+    } catch (e) {
+      showToast?.("Network connection issue while submitting request.", "error");
+    } finally {
+      setIsRequestingQuotation(false);
+    }
+  };
 
   // -------------------------------------------------------------
   // 2. Document Requests & Permits State
@@ -341,20 +408,52 @@ export default function PortalStage2PlanningAndConsultation({
   const [isDrawing, setIsDrawing] = useState(false);
 
   // -------------------------------------------------------------
-  // 7. Groundbreaking Ceremony Scheduler State
+  // 7. Groundbreaking Ceremony Official State (Admin Authoritative Schedule)
   // -------------------------------------------------------------
-  const [groundbreakingDate, setGroundbreakingDate] = useState(
-    activeProject?.groundbreaking_date || ""
-  );
-  const [isSavingGroundbreaking, setIsSavingGroundbreaking] = useState(false);
+  const [groundbreakingDetails, setGroundbreakingDetails] = useState({
+    groundbreaking_date: activeProject?.groundbreaking_date || null,
+    groundbreaking_status: activeProject?.groundbreaking_status || "PENDING",
+    groundbreaking_venue: activeProject?.groundbreaking_venue || activeProject?.target_location || "",
+    groundbreaking_officiant: activeProject?.groundbreaking_officiant || "Bulacan Parish Priest & MCPA Site Team",
+    groundbreaking_notes: activeProject?.groundbreaking_notes || "",
+    groundbreaking_rescheduled_count: activeProject?.groundbreaking_rescheduled_count || 0,
+    history: [],
+  });
 
-  // Real-time countdown to Ground Breaking
+  const fetchGroundbreakingData = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const res = await authFetch(`/api/projects/${projectId}/groundbreaking`);
+      if (res.ok) {
+        const d = await res.json();
+        if (d.success && d.ceremony) {
+          setGroundbreakingDetails(d.ceremony);
+        }
+      }
+    } catch (e) {
+      console.warn("Groundbreaking fetch error:", e);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchGroundbreakingData();
+    const handleSync = () => fetchGroundbreakingData();
+    window.addEventListener("mcpa-groundbreaking-updated", handleSync);
+    return () => window.removeEventListener("mcpa-groundbreaking-updated", handleSync);
+  }, [fetchGroundbreakingData]);
+
+  const activeGroundbreakingDate = groundbreakingDetails?.groundbreaking_date || activeProject?.groundbreaking_date || "";
+
+  // Real-time authoritative countdown to Ground Breaking Ceremony
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
-    if (!groundbreakingDate) return;
+    if (!activeGroundbreakingDate) {
+      setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      return;
+    }
     const calculateTimeLeft = () => {
-      const diff = new Date(groundbreakingDate).getTime() - new Date().getTime();
+      const diff = new Date(activeGroundbreakingDate).getTime() - new Date().getTime();
       if (diff > 0) {
         setCountdown({
           days: Math.floor(diff / (1000 * 60 * 60 * 24)),
@@ -369,7 +468,7 @@ export default function PortalStage2PlanningAndConsultation({
     calculateTimeLeft();
     const timer = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(timer);
-  }, [groundbreakingDate]);
+  }, [activeGroundbreakingDate]);
 
   // Load initial backend planning and consultation data
   useEffect(() => {
@@ -631,21 +730,61 @@ export default function PortalStage2PlanningAndConsultation({
 
   // Itemized BOQ Data from Project / Backend
   const boqData = useMemo(() => {
-    if (activeProject?.boq_items && Array.isArray(activeProject.boq_items) && activeProject.boq_items.length > 0) {
-      return activeProject.boq_items;
-    }
-    return [];
-  }, [activeProject]);
+    const raw = (quotationData?.items_breakdown && Array.isArray(quotationData.items_breakdown))
+      ? quotationData.items_breakdown
+      : (activeProject?.boq_items && Array.isArray(activeProject.boq_items))
+      ? activeProject.boq_items
+      : [];
+    return raw.filter((cat) => Array.isArray(cat.items) && cat.items.length > 0 && cat.items.some((it) => it.item && String(it.item).trim()));
+  }, [quotationData, activeProject]);
 
   const totalBOQAmount = useMemo(() => {
+    if (quotationData?.total_amount) {
+      return Number(quotationData.total_amount) || 0;
+    }
     return boqData.reduce((acc, cat) => {
       const items = cat.items || [];
       return acc + items.reduce((s, it) => s + (Number(it.total) || 0), 0);
     }, 0);
-  }, [boqData]);
+  }, [quotationData, boqData]);
+
+  // Client target budget from inquiry baseline
+  const clientTargetBudget = useMemo(() => {
+    if (quotationData?.client_target_budget) {
+      return Number(quotationData.client_target_budget) || 0;
+    }
+    const rawBudget = briefData?.budget_range || activeInquiry?.budgetRange || activeInquiry?.budget_range || 0;
+    if (typeof rawBudget === "number") return rawBudget;
+    if (typeof rawBudget === "string") {
+      const match = rawBudget.replace(/,/g, "").match(/\d+(\.\d+)?/g);
+      if (match && match.length > 0) {
+        const val = parseFloat(match[0]);
+        if (rawBudget.toLowerCase().includes("m")) {
+          return val < 100 ? val * 1000000 : val;
+        } else if (rawBudget.toLowerCase().includes("k")) {
+          return val * 1000;
+        }
+        return val;
+      }
+    }
+    return 0;
+  }, [quotationData, briefData, activeInquiry]);
+
+  const budgetVariance = useMemo(() => {
+    if (!clientTargetBudget || !totalBOQAmount) {
+      return { diff: 0, pct: 0, status: "neutral" };
+    }
+    const diff = totalBOQAmount - clientTargetBudget;
+    const pct = (diff / clientTargetBudget) * 100;
+    return {
+      diff,
+      pct,
+      status: diff > 0 ? "over" : diff < 0 ? "under" : "exact",
+    };
+  }, [clientTargetBudget, totalBOQAmount]);
 
   const formatPHP = (val) =>
-    "₱" + Number(val).toLocaleString("en-PH", { maximumFractionDigits: 0 });
+    "₱" + Number(val || 0).toLocaleString("en-PH", { maximumFractionDigits: 0 });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -724,12 +863,12 @@ export default function PortalStage2PlanningAndConsultation({
             </div>
 
             <div
-              onClick={() => onSelectTab ? onSelectTab("contract") : setActiveSubTab("contract")}
+              onClick={() => onSelectTab ? onSelectTab("documents") : setActiveSubTab("documents")}
               className="p-3.5 rounded-[12px] border text-left cursor-pointer transition-all bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/10"
             >
               <div className="flex items-start justify-between gap-2 mb-1">
                 <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
-                  Permits, Contract &amp; Shovel
+                  Documents &amp; Permits Vault
                 </p>
                 <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-neutral-400 shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
@@ -737,7 +876,7 @@ export default function PortalStage2PlanningAndConsultation({
                 </span>
               </div>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-1">
-                LGU permits, cryptographic e-signing, and Ground Breaking clock.
+                LGU clearances, municipal permits, and official transmittals.
               </p>
             </div>
           </div>
@@ -815,57 +954,141 @@ export default function PortalStage2PlanningAndConsultation({
               </div>
             </div>
 
-            {/* Ground Breaking Countdown Widget */}
-            <div className="p-6 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 shadow-sm flex flex-col justify-between transition-colors">
+            {/* Ground Breaking Ceremony Official Card */}
+            <div className="p-6 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 shadow-sm flex flex-col justify-between transition-colors space-y-4">
               <div>
-                <div className="inline-flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Ground Breaking Countdown</span>
+                <div className="flex items-center justify-between border-b border-neutral-200/80 dark:border-white/5 pb-2.5 mb-3">
+                  <div className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Physical Site Kickoff</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-wider">
+                    Bulacan Tradition
+                  </span>
                 </div>
-                <h3 className="text-lg font-bold font-mono uppercase text-neutral-900 dark:text-white">
-                  Target Ground Breaking
-                </h3>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  Scheduled ceremony at your project site in Bulacan.
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-lg font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                      Ground Breaking Ceremony
+                    </h3>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
+                      Site blessing, priest invocation, and ceremonial golden shovel turning.
+                    </p>
+                  </div>
+                  {activeGroundbreakingDate ? (
+                    (groundbreakingDetails?.groundbreaking_status === "RESCHEDULED" || (groundbreakingDetails?.groundbreaking_rescheduled_count || 0) > 0) ? (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap">
+                        Rescheduled ({groundbreakingDetails?.groundbreaking_rescheduled_count || 1}x)
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+                        Locked In
+                      </span>
+                    )
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-neutral-200/60 dark:bg-white/10 text-neutral-600 dark:text-neutral-400 whitespace-nowrap">
+                      Pending Schedule
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {groundbreakingDate && (countdown.days > 0 || countdown.hours > 0 || countdown.minutes > 0 || countdown.seconds > 0) ? (
-                <div className="grid grid-cols-4 gap-2 my-5 text-center">
-                  <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
-                    <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 block">{countdown.days}</span>
-                    <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Days</span>
+              {activeGroundbreakingDate ? (
+                <div className="space-y-4">
+                  {/* Scheduled Date Display */}
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                    <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-amber-700 dark:text-amber-400 block mb-1">
+                      Official Ceremony Date &amp; Time
+                    </span>
+                    <p className="text-sm font-mono font-bold text-neutral-900 dark:text-white">
+                      {new Date(activeGroundbreakingDate).toLocaleDateString("en-PH", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}{" "}
+                      •{" "}
+                      {new Date(activeGroundbreakingDate).toLocaleTimeString("en-PH", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
-                    <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white block">{countdown.hours}</span>
-                    <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Hours</span>
+
+                  {/* Reschedule Advisory Note if moved */}
+                  {Boolean(groundbreakingDetails?.groundbreaking_notes || (groundbreakingDetails?.groundbreaking_rescheduled_count || 0) > 0) && (
+                    <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/70 dark:border-white/10">
+                      <span className="text-[10px] font-mono font-bold uppercase text-amber-600 dark:text-amber-400 block mb-0.5">
+                        Schedule Update Advisory
+                      </span>
+                      <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed font-sans">
+                        {groundbreakingDetails?.groundbreaking_notes || "The date was adjusted by MCPA Project Management to align with municipal permit clearance and weather conditions. Site team is fully mobilized."}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Live Countdown Grid */}
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 block mb-1.5 font-bold">
+                      Countdown to Site Blessing
+                    </span>
+                    <div className="grid grid-cols-4 gap-2 text-center">
+                      <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
+                        <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 block">{countdown.days}</span>
+                        <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Days</span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
+                        <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white block">{countdown.hours}</span>
+                        <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Hours</span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
+                        <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white block">{countdown.minutes}</span>
+                        <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Mins</span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
+                        <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white block">{countdown.seconds}</span>
+                        <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Secs</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
-                    <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white block">{countdown.minutes}</span>
-                    <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Mins</span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10">
-                    <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white block">{countdown.seconds}</span>
-                    <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400 uppercase">Secs</span>
+
+                  {/* Officiant & Venue meta */}
+                  <div className="pt-1 text-[11px] font-mono text-neutral-500 space-y-1">
+                    <p className="truncate">
+                      <span className="text-neutral-400">Venue: </span>
+                      <span className="text-neutral-700 dark:text-neutral-300 font-medium">
+                        {groundbreakingDetails?.groundbreaking_venue || activeProject?.target_location || "To be confirmed by MCPA"}
+                      </span>
+                    </p>
+                    <p className="truncate">
+                      <span className="text-neutral-400">Officiant: </span>
+                      <span className="text-neutral-700 dark:text-neutral-300 font-medium">
+                        {groundbreakingDetails?.groundbreaking_officiant || "To be announced by MCPA"}
+                      </span>
+                    </p>
                   </div>
                 </div>
               ) : (
-                <div className="my-5 p-4 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/5 text-center">
-                  <Clock className="w-5 h-5 text-neutral-400 mx-auto mb-1.5" />
-                  <p className="text-xs font-mono text-neutral-600 dark:text-neutral-400">
-                    Target Ground Breaking date pending contract execution.
+                <div className="my-2 p-4 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/60 dark:border-white/5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span className="text-xs font-mono font-bold text-neutral-800 dark:text-neutral-200">
+                      Coordinating Kickoff Schedule
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed font-sans">
+                    MCPA Project Management is currently scheduling the ceremony date with the Bulacan parish officiant and heavy equipment mobilization team. Your dashboard will automatically update once the date is locked.
+                  </p>
+                  <p className="text-[10px] font-mono text-neutral-400">
+                    Location: {activeProject?.target_location || "Bulacan Project Site"}
                   </p>
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => setActiveSubTab("contract")}
-                className="w-full py-2.5 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <span>Manage Ground Breaking Date</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="pt-2 border-t border-neutral-200/60 dark:border-white/5 flex items-center justify-between text-[11px] font-mono text-neutral-500">
+                <span>Tradition: Ceremonial Golden Shovel</span>
+                <span className="text-amber-600 dark:text-amber-400 font-bold">Bulacan Standard</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1296,82 +1519,452 @@ export default function PortalStage2PlanningAndConsultation({
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* SUB-TAB 4: ITEMIZED BOQ (BILL OF QUANTITIES) QUOTATION        */}
+      {/* SUB-TAB 4: BUDGET & OFFICIAL QUOTATION (BOQ)                  */}
       {/* ------------------------------------------------------------- */}
       {activeSubTab === "boq" && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5">
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Header Card */}
+          <div className="p-5 sm:p-6 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
             <div>
-              <div className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Standardized Architectural Cost Accounting</span>
+              <div className="flex items-center gap-2 mb-1 text-[11px] font-mono">
+                <span className="font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Engineering Cost Accounting
+                </span>
+                <span className="text-neutral-400">
+                  •
+                </span>
+                <span className="text-neutral-400">
+                  {projectCode}
+                </span>
               </div>
-              <h2 className="text-base sm:text-lg font-bold font-mono uppercase text-neutral-900 dark:text-white">
-                Detailed Bill of Quantities (BOQ) Breakdown
+              <h2 className="text-base sm:text-lg font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-amber-500" />
+                <span>Budget &amp; Official Construction Quotation</span>
               </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
-                Itemized trade-by-trade breakdown ensuring 100% price certainty and zero hidden change orders.
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5 max-w-2xl leading-relaxed">
+                Itemized trade-by-trade Bill of Quantities (BOQ), verified materials takeoff, and client budget reconciliation formulated by MCPA Quantity Surveyors.
               </p>
             </div>
 
-            <div className="text-right">
-              <span className="text-[10px] font-mono text-neutral-500 uppercase block">Total Turnkey Investment</span>
+            <div className="text-right shrink-0">
+              <span className="text-[10px] font-mono text-neutral-500 uppercase block">
+                {quotationData?.status === "PUBLISHED" || quotationData?.status === "ACCEPTED"
+                  ? "Turnkey Construction Total"
+                  : quotationData?.status === "REQUESTED"
+                  ? "Quotation Status"
+                  : "Target Budget Baseline"}
+              </span>
               <p className="text-xl sm:text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
-                {totalBOQAmount > 0 ? formatPHP(totalBOQAmount) : "Pending Estimation"}
+                {quotationData?.status === "PUBLISHED" || quotationData?.status === "ACCEPTED"
+                  ? formatPHP(totalBOQAmount)
+                  : quotationData?.status === "REQUESTED"
+                  ? "In Preparation"
+                  : clientTargetBudget > 0
+                  ? formatPHP(clientTargetBudget)
+                  : "To Be Formulated"}
               </p>
             </div>
           </div>
 
-          {/* Trade-by-Trade Tables */}
-          <div className="space-y-5">
-            {boqData.length === 0 ? (
-              <div className="p-12 text-center rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-2">
-                <CreditCard className="w-8 h-8 text-neutral-300 dark:text-neutral-700 mx-auto mb-2" />
-                <h3 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white">
-                  No BOQ Quotation Generated Yet
+          {/* Body based on Quotation Status */}
+          {isLoadingQuotation ? (
+            <div className="p-12 text-center rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5">
+              <RefreshCw className="w-8 h-8 text-amber-500 animate-spin mx-auto mb-3" />
+              <p className="text-xs font-mono uppercase tracking-wider text-neutral-500">
+                Loading official quotation and cost accounting data...
+              </p>
+            </div>
+          ) : !quotationData ? (
+            /* EMPTY STATE 1: No quotation requested yet */
+            <div className="p-10 sm:p-14 text-center rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-6">
+              <LordIcon
+                src="https://cdn.lordicon.com/qhgmphtg.json"
+                size={92}
+                trigger="loop"
+                colors="primary:#f59e0b,secondary:#38bdf8"
+                fallback={CreditCard}
+              />
+              <div className="max-w-xl mx-auto space-y-2">
+                <h3 className="text-base sm:text-lg font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                  No Official Quotation Formulated Yet
                 </h3>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans max-w-md mx-auto">
-                  The itemized Bill of Quantities breakdown will be published here by the MCPA Estimating Department once architectural plans and engineering specifications are finalized.
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans leading-relaxed">
+                  MCPA Quantity Surveyors formulate comprehensive line-item Bill of Quantities (BOQ), materials takeoff, and labor schedules for all architectural designs to ensure 100% price certainty and zero hidden change orders.
                 </p>
               </div>
-            ) : (
-              boqData.map((sec, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 overflow-hidden"
+
+              {/* Inquiry Baseline Parameters */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 max-w-3xl mx-auto text-left">
+                <div className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">Target Budget</span>
+                  <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
+                    {clientTargetBudget > 0 ? formatPHP(clientTargetBudget) : (activeInquiry?.budgetRange || "Pending Confirmation")}
+                  </p>
+                </div>
+                <div className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">Financing Scheme</span>
+                  <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white truncate">
+                    {briefData?.financing_option || activeInquiry?.financing_option || "Bank Financing / Cash"}
+                  </p>
+                </div>
+                <div className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">Project Scope</span>
+                  <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white truncate">
+                    {briefData?.project_type || activeInquiry?.projectType || "Residential Construction"}
+                  </p>
+                </div>
+                <div className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">Location</span>
+                  <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white truncate">
+                    {briefData?.location || activeInquiry?.location || "Bulacan / Metro Manila"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsQuotationModalOpen(true)}
+                  className="px-6 py-3 rounded-[10px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider inline-flex items-center gap-2 transition-all shadow-sm cursor-pointer"
                 >
-                  <div className="px-5 py-3 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-200 dark:border-white/5 flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
-                      {sec.category}
+                  <FileText className="w-4 h-4" />
+                  <span>Request Official Quotation</span>
+                </button>
+              </div>
+            </div>
+          ) : quotationData?.status === "REQUESTED" ? (
+            /* EMPTY STATE 2: Quotation has been requested by client, awaiting admin formulation */
+            <div className="p-10 sm:p-14 text-center rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-6">
+              <LordIcon
+                src="https://cdn.lordicon.com/wzwygmng.json"
+                size={92}
+                trigger="loop"
+                colors="primary:#f59e0b,secondary:#38bdf8"
+                fallback={FileText}
+              />
+              <div className="max-w-xl mx-auto space-y-2">
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">
+                  Quotation In Preparation
+                </span>
+                <h3 className="text-base sm:text-lg font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                  Quotation Request Under Engineering Takeoff
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans leading-relaxed">
+                  Your formal request was submitted on {formatDocDate(quotationData.created_at || quotationData.requested_at || new Date())}. MCPA Quantity Surveyors and registered Civil Engineers are currently performing the structural takeoff, labor crew sizing, and trade line-item formulation based on your blueprints.
+                </p>
+              </div>
+
+              {quotationData.client_notes && (
+                <div className="max-w-lg mx-auto p-4 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 text-left text-xs">
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-1 font-bold">
+                    Client Notes / Special Requirements:
+                  </span>
+                  <p className="text-neutral-700 dark:text-neutral-300 font-sans italic">
+                    &quot;{quotationData.client_notes}&quot;
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto text-left">
+                <div className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">Target Budget</span>
+                  <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
+                    {clientTargetBudget > 0 ? formatPHP(clientTargetBudget) : "Pending Review"}
+                  </p>
+                </div>
+                <div className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">Target Duration</span>
+                  <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
+                    {Number(quotationData.duration_months) >= 12
+                      ? `${Math.floor(quotationData.duration_months / 12)} ${Math.floor(quotationData.duration_months / 12) === 1 ? "Year" : "Years"}${quotationData.duration_months % 12 > 0 ? ` & ${quotationData.duration_months % 12} ${quotationData.duration_months % 12 === 1 ? "Month" : "Months"}` : ""} Estimated`
+                      : `${quotationData.duration_months || 6} ${Number(quotationData.duration_months) === 1 ? "Month" : "Months"} Estimated`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* PUBLISHED OFFICIAL QUOTATION VIEW */
+            <div className="space-y-6">
+              {/* 1. Executive Summary: 4 KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Total Turnkey Amount */}
+                <div className="p-5 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs">
+                  <div className="flex items-center justify-between text-neutral-400 text-xs font-mono uppercase mb-2">
+                    <span>Turnkey Investment</span>
+                    <CreditCard className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <p className="text-2xl font-bold font-mono text-neutral-900 dark:text-white">
+                    {formatPHP(totalBOQAmount)}
+                  </p>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
+                    100% Fixed-Price Contract Guarantee
+                  </p>
+                </div>
+
+                {/* Target Budget Baseline */}
+                <div className="p-5 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs">
+                  <div className="flex items-center justify-between text-neutral-400 text-xs font-mono uppercase mb-2">
+                    <span>Target Budget</span>
+                    <Clock className="w-4 h-4 text-sky-500" />
+                  </div>
+                  <p className="text-2xl font-bold font-mono text-neutral-900 dark:text-white">
+                    {clientTargetBudget > 0 ? formatPHP(clientTargetBudget) : "Not Specified"}
+                  </p>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
+                    Original Client Inquiry Baseline
+                  </p>
+                </div>
+
+                {/* Real-Time Budget Variance (+/- % and ₱) */}
+                <div className="p-5 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs">
+                  <div className="flex items-center justify-between text-neutral-400 text-xs font-mono uppercase mb-2">
+                    <span>Budget Variance</span>
+                    {budgetVariance.status === "under" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-500" />
+                    )}
+                  </div>
+                  <p
+                    className={`text-2xl font-bold font-mono ${
+                      budgetVariance.status === "under"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : budgetVariance.status === "over"
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-blue-600 dark:text-blue-400"
+                    }`}
+                  >
+                    {clientTargetBudget > 0
+                      ? budgetVariance.status === "under"
+                        ? `-${formatPHP(Math.abs(budgetVariance.diff))}`
+                        : budgetVariance.status === "over"
+                        ? `+${formatPHP(budgetVariance.diff)}`
+                        : "₱0"
+                      : "Balanced"}
+                  </p>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
+                    {clientTargetBudget > 0
+                      ? budgetVariance.status === "under"
+                        ? `-${Math.abs(budgetVariance.pct).toFixed(1)}% Under Target Budget`
+                        : budgetVariance.status === "over"
+                        ? `+${budgetVariance.pct.toFixed(1)}% Above Target Budget`
+                        : "0.0% Exact Budget Match"
+                      : "Full Value Engineering Applied"}
+                  </p>
+                </div>
+
+                {/* Timeline & Financing Scheme */}
+                <div className="p-5 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs">
+                  <div className="flex items-center justify-between text-neutral-400 text-xs font-mono uppercase mb-2">
+                    <span>Duration &amp; Terms</span>
+                    <Building className="w-4 h-4 text-indigo-500" />
+                  </div>
+                  <p className="text-2xl font-bold font-mono text-neutral-900 dark:text-white">
+                    {quotationData.duration_months || 6} Months
+                  </p>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 font-sans truncate">
+                    {quotationData.financing_type || "Milestone Escrow"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Banner with Pure Backend Word-Style A4 PDF Download */}
+              <div className="p-4 sm:p-5 rounded-[14px] bg-neutral-900 text-white dark:bg-white/[0.03] border border-neutral-800 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-wider text-amber-400">
+                    Official A4 Construction Quotation Document
+                  </h4>
+                  <p className="text-xs text-neutral-300 font-sans mt-0.5">
+                    Official monochrome Word-style contract estimate prepared by MCPA licensed civil engineers. Strictly generated server-side.
+                  </p>
+                </div>
+
+                <a
+                  href={`/api/projects/${projectId}/quotation/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors shrink-0 shadow-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Official A4 Quotation (PDF)</span>
+                </a>
+              </div>
+
+              {/* 2. Four-Pillar Cost Breakdown Summary */}
+              <div className="p-5 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-4">
+                <div className="border-b border-neutral-200 dark:border-white/5 pb-3 flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+                    Cost Breakdown Accounting
+                  </span>
+                  <span className="text-[11px] font-mono text-neutral-400">
+                    Transparent General Contractor Sizing
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
+                    <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">1. Direct Materials</span>
+                    <p className="text-sm font-bold font-mono text-neutral-900 dark:text-white">
+                      {formatPHP(quotationData.materials_cost || 0)}
+                    </p>
+                    <span className="text-[10px] text-neutral-500 font-sans">Full Structural &amp; Finishes Takeoff</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
+                    <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">
+                      2. Direct Labor ({quotationData.duration_months || 6} mos)
                     </span>
-                    <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400">
-                      {formatPHP((sec.items || []).reduce((s, it) => s + (Number(it.total) || 0), 0))}
+                    <p className="text-sm font-bold font-mono text-neutral-900 dark:text-white">
+                      {formatPHP(quotationData.labor_cost || 0)}
+                    </p>
+                    <span className="text-[10px] text-neutral-500 font-sans">Foreman, Skilled Trades &amp; Helpers</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
+                    <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">3. Professional Fees</span>
+                    <p className="text-sm font-bold font-mono text-neutral-900 dark:text-white">
+                      {formatPHP((Number(quotationData.architect_fee) || 0) + (Number(quotationData.engineer_fee) || 0))}
+                    </p>
+                    <span className="text-[10px] text-neutral-500 font-sans">
+                      Archi: {formatPHP(quotationData.architect_fee || 0)} | Engr: {formatPHP(quotationData.engineer_fee || 0)}
                     </span>
                   </div>
 
-                  <div className="divide-y divide-neutral-200 dark:divide-white/5">
-                    {(sec.items || []).map((row, rIdx) => (
+                  <div className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5">
+                    <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">
+                      4. Contractor Margin ({quotationData.contractor_profit_pct || 12}%)
+                    </span>
+                    <p className="text-sm font-bold font-mono text-amber-600 dark:text-amber-400">
+                      {formatPHP(quotationData.contractor_profit_amount || 0)}
+                    </p>
+                    <span className="text-[10px] text-neutral-500 font-sans">Supervision, Equipment &amp; Overhead</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Trade-by-Trade BOQ Itemized Tables */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-xs font-mono font-bold uppercase text-neutral-900 dark:text-white tracking-wider">
+                    Itemized Bill of Quantities (BOQ)
+                  </h3>
+                  <span className="text-[11px] font-mono text-neutral-400">
+                    {boqData.length} Work Packages
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  {boqData.map((sec, idx) => {
+                    const isOthers = sec.category?.toLowerCase().includes("other") || sec.category?.toLowerCase().includes("special");
+                    return (
                       <div
-                        key={rIdx}
-                        className="px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                        key={idx}
+                        className={`rounded-[14px] bg-white dark:bg-[#101218] border overflow-hidden ${
+                          isOthers
+                            ? "border-amber-500/30"
+                            : "border-neutral-200 dark:border-white/5"
+                        }`}
                       >
-                        <div className="flex-1">
-                          <p className="font-medium text-neutral-800 dark:text-neutral-200">{row.item}</p>
-                        </div>
-                        <div className="flex items-center gap-6 font-mono text-neutral-500">
-                          <span className="w-20 text-right">{row.qty}</span>
-                          <span className="w-28 text-right">{formatPHP(row.unitCost)} / unit</span>
-                          <span className="w-28 text-right font-bold text-neutral-900 dark:text-white">
-                            {formatPHP(row.total)}
+                        <div className="px-5 py-3.5 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-200 dark:border-white/5 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+                              {sec.category}
+                            </span>
+                            {isOthers && (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                                Custom Specified Scopes
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white">
+                            {formatPHP((sec.items || []).reduce((s, it) => s + (Number(it.total) || 0), 0))}
                           </span>
                         </div>
+
+                        <div className="divide-y divide-neutral-200 dark:divide-white/5">
+                          {(sec.items || []).map((row, rIdx) => (
+                            <div
+                              key={rIdx}
+                              className="px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                            >
+                              <div className="flex-1 pr-4">
+                                <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                                  {row.item}
+                                </p>
+                                {row.notes && (
+                                  <p className="text-[11px] text-neutral-400 font-sans mt-0.5">
+                                    {row.notes}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-6 font-mono text-neutral-500 shrink-0">
+                                <span className="w-20 text-right">
+                                  {row.qty} {row.unit || "lot"}
+                                </span>
+                                <span className="w-28 text-right">
+                                  {formatPHP(row.unitCost)}
+                                </span>
+                                <span className="w-28 text-right font-bold text-neutral-900 dark:text-white">
+                                  {formatPHP(row.total)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. Progressive Milestone Payment Schedule */}
+              {quotationData.payment_milestones && Array.isArray(quotationData.payment_milestones) && quotationData.payment_milestones.length > 0 && (
+                <div className="p-5 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-4">
+                  <div className="border-b border-neutral-200 dark:border-white/5 pb-3">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+                      Progressive Milestone Payment Schedule
+                    </span>
+                    <p className="text-xs text-neutral-500 font-sans mt-0.5">
+                      Payments are strictly disbursed against independently verified engineering milestones, protecting client capital.
+                    </p>
+                  </div>
+
+                  <div className="divide-y divide-neutral-200 dark:divide-white/5">
+                    {quotationData.payment_milestones.map((ms, idx) => (
+                      <div key={idx} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono font-bold text-[11px] flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <div>
+                            <span className="font-bold text-neutral-900 dark:text-white font-mono uppercase">
+                              {ms.milestone} ({ms.percentage}%)
+                            </span>
+                            <p className="text-[11px] text-neutral-500 font-sans">{ms.trigger}</p>
+                          </div>
+                        </div>
+                        <span className="font-mono font-bold text-sm text-neutral-900 dark:text-white text-right">
+                          {formatPHP(ms.amount)}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              )}
+
+              {/* 5. Scope Clarifications & Inclusions/Exclusions */}
+              {quotationData.admin_notes && (
+                <div className="p-5 rounded-[16px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 text-xs space-y-2">
+                  <span className="text-[10px] font-mono uppercase font-bold text-neutral-400 block tracking-wider">
+                    Engineering Inclusions, Exclusions &amp; Warranty Terms:
+                  </span>
+                  <p className="text-neutral-700 dark:text-neutral-300 font-sans whitespace-pre-line leading-relaxed">
+                    {quotationData.admin_notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1516,14 +2109,17 @@ export default function PortalStage2PlanningAndConsultation({
                 return (
                   <div key={req.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-1 min-w-0 flex-1 pr-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25">
+                      <div className="flex items-center gap-2 flex-wrap text-[10px] font-mono font-bold uppercase tracking-wider">
+                        <span className="text-amber-600 dark:text-amber-400">
                           {req.category || "Required Document"}
                         </span>
                         {req.urgency && req.urgency.toLowerCase().includes("urgent") && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25">
-                            {req.urgency}
-                          </span>
+                          <>
+                            <span className="text-neutral-400 dark:text-neutral-600">•</span>
+                            <span className="text-rose-600 dark:text-rose-400">
+                              {req.urgency}
+                            </span>
+                          </>
                         )}
                       </div>
                       <p className="text-sm font-bold text-neutral-900 dark:text-white font-sans">
@@ -1736,64 +2332,6 @@ export default function PortalStage2PlanningAndConsultation({
                 </button>
               )}
             </div>
-
-            {/* Ground Breaking Ceremony Scheduler Card */}
-            <div className="p-6 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-4">
-              <div className="flex items-center justify-between border-b border-neutral-200 dark:border-white/5 pb-3">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                  Physical Site Kickoff
-                </span>
-                <span className="text-xs font-mono font-bold text-neutral-500">
-                  BULACAN TRADITION
-                </span>
-              </div>
-
-              <div>
-                <h3 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white">
-                  Ground Breaking Ceremony Date
-                </h3>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
-                  Select your auspicious date for site blessing, priest invocation, and ceremonial golden shovel turning with MCPA engineers.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
-                  Selected Date &amp; Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={groundbreakingDate}
-                  onChange={(e) => setGroundbreakingDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-[10px] bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                />
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-mono uppercase text-amber-700 dark:text-amber-400 block font-bold">
-                    Countdown to Ground Breaking
-                  </span>
-                  <span className="text-sm font-bold font-mono text-neutral-900 dark:text-white">
-                    {countdown.days}d {countdown.hours}h {countdown.minutes}m remaining
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSavingGroundbreaking(true);
-                    setTimeout(() => {
-                      setIsSavingGroundbreaking(false);
-                      showToast?.("Ground Breaking Date locked & site team alerted!");
-                    }, 800);
-                  }}
-                  disabled={isSavingGroundbreaking}
-                  className="px-3.5 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  {isSavingGroundbreaking ? "Locking..." : "Lock In Date"}
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}
@@ -1880,6 +2418,99 @@ export default function PortalStage2PlanningAndConsultation({
                   <span>{isSigning ? "Cryptographically Sealing..." : "Confirm & Sign"}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL: REQUEST OFFICIAL QUOTATION MODAL                       */}
+      {/* ------------------------------------------------------------- */}
+      {isQuotationModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-[20px] bg-white dark:bg-[#12141c] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-neutral-200 dark:border-white/10 pb-3">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-0.5">
+                  MCPA Quantity Surveying &amp; Cost Control
+                </span>
+                <h3 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                  Request Official Construction Quotation
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsQuotationModalOpen(false)}
+                className="p-1 rounded text-neutral-400 hover:text-neutral-900 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Baseline Parameters Info */}
+            <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 space-y-2 text-xs">
+              <div className="flex justify-between font-mono">
+                <span className="text-neutral-400">Project Reference:</span>
+                <span className="font-bold text-neutral-900 dark:text-white">{projectCode}</span>
+              </div>
+              <div className="flex justify-between font-mono">
+                <span className="text-neutral-400">Target Budget Baseline:</span>
+                <span className="font-bold text-neutral-900 dark:text-white">
+                  {clientTargetBudget > 0 ? formatPHP(clientTargetBudget) : (activeInquiry?.budgetRange || "Pending Confirmation")}
+                </span>
+              </div>
+              <div className="flex justify-between font-mono">
+                <span className="text-neutral-400">Preferred Financing:</span>
+                <span className="font-bold text-neutral-900 dark:text-white truncate max-w-[240px]">
+                  {briefData?.financing_option || activeInquiry?.financing_option || "Bank Loan / Milestone Escrow"}
+                </span>
+              </div>
+            </div>
+
+            {/* Custom Notes / Priority Scopes */}
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                Special Scopes, Inclusions or Finish Priorities (Optional)
+              </label>
+              <textarea
+                rows={4}
+                value={quotationRequestNotes}
+                onChange={(e) => setQuotationRequestNotes(e.target.value)}
+                placeholder="Specify any custom requirements such as perimeter fencing, deep well, solar power system, high-end imported tiles, extra ceiling height, or smart home automation..."
+                className="w-full px-3.5 py-2.5 rounded-[10px] bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 text-xs font-sans text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
+              />
+              <p className="text-[10px] font-sans text-neutral-400 leading-relaxed">
+                MCPA estimators will cross-reference your architectural blueprints to compile verified material takeoffs and labor crew schedules.
+              </p>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-200 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setIsQuotationModalOpen(false)}
+                className="px-4 py-2 rounded-[8px] text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRequestQuotation}
+                disabled={isRequestingQuotation}
+                className="px-5 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {isRequestingQuotation ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Transmitting Request...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Submit Quotation Request</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

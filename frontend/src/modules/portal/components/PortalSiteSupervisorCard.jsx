@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 
 export default function PortalSiteSupervisorCard({
-  leadEngineer = "Engr. Aris Reyes",
+  leadEngineer = "MCPA Project Engineer",
   phoneNumber = "+63 949 775 8239",
-  email = "aris.reyes@mcpaprojects.ph",
+  email = "mcpa.construction@gmail.com",
 }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [inputMsg, setInputMsg] = useState("");

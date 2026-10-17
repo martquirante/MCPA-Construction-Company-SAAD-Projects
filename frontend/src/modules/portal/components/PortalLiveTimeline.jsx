@@ -82,7 +82,7 @@ export default function PortalLiveTimeline({
                 </p>
 
                 <div className="text-[10px] font-mono text-neutral-400 pt-0.5">
-                  Inspector: {log.inspector || "Engr. Aris Reyes"}
+                  Inspector: {log.inspector || "MCPA Site QC Team"}
                 </div>
               </div>
             </div>

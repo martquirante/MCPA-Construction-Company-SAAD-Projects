@@ -454,13 +454,50 @@ class SubStageController {
   }
 
   /**
+   * GET /api/admin/groundbreaking/overview
+   */
+  async getAdminGroundbreakingOverview(req, res) {
+    try {
+      const overview = await stageEngineService.getAdminGroundbreakingOverview();
+      return res.status(200).json({ success: true, projects: overview });
+    } catch (err) {
+      console.error("[SubStageController.getAdminGroundbreakingOverview] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * GET /api/projects/:id/groundbreaking
+   */
+  async getGroundbreaking(req, res) {
+    try {
+      const projectId = parseInt(req.params.id, 10);
+      const ceremony = await stageEngineService.getProjectGroundbreaking(projectId);
+      if (!ceremony) {
+        return res.status(404).json({ success: false, message: "Project ceremony not found." });
+      }
+      return res.status(200).json({ success: true, ceremony });
+    } catch (err) {
+      console.error("[SubStageController.getGroundbreaking] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
    * POST /api/projects/:id/groundbreaking
    */
   async scheduleGroundbreaking(req, res) {
     try {
       const adminUserId = req.user?.userId || req.user?.user_id;
       const projectId = parseInt(req.params.id, 10);
-      const { groundbreakingDate } = req.body || {};
+      const {
+        groundbreakingDate,
+        venue,
+        officiant,
+        notes,
+        status,
+        rescheduleReason,
+      } = req.body || {};
 
       if (!groundbreakingDate) {
         return res.status(400).json({ success: false, message: "groundbreakingDate is required." });
@@ -469,6 +506,11 @@ class SubStageController {
       const updated = await stageEngineService.scheduleGroundbreaking({
         projectId,
         groundbreakingDate,
+        venue,
+        officiant,
+        notes,
+        status,
+        rescheduleReason,
         adminUserId,
       });
 

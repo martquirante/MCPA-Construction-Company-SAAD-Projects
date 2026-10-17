@@ -15,6 +15,7 @@ const legalPdfController = require("./controllers/legalPdfController");
 const stageController = require("./controllers/stageController");
 const subStageController = require("./controllers/subStageController");
 const meetingHistoryController = require("./controllers/meetingHistoryController");
+const quotationController = require("./controllers/quotationController");
 const { requireStage, STAGE_ORDER } = require("./middleware/stageGate");
 const initializeDatabase = require("./scripts/initDb");
 const { translateDictionary } = require("./services/translationService");
@@ -283,9 +284,20 @@ app.post("/api/projects/:id/blueprints/:blueprintId/pins", requireAuth, (req, re
 app.patch("/api/admin/blueprints/:blueprintId/pins/:pinId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updateBlueprintPinStatus(req, res));
 app.get("/api/projects/:id/permits", requireAuth, (req, res) => subStageController.getPermits(req, res));
 app.patch("/api/admin/permits/:permitId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updatePermit(req, res));
+app.get("/api/admin/groundbreaking/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminGroundbreakingOverview(req, res));
+app.get("/api/projects/:id/groundbreaking", optionalAuth, (req, res) => subStageController.getGroundbreaking(req, res));
 app.post("/api/projects/:id/groundbreaking", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.scheduleGroundbreaking(req, res));
 app.get("/api/projects/:id/contract", requireAuth, (req, res) => subStageController.getContract(req, res));
 app.post("/api/contracts/:id/sign", requireAuth, (req, res) => subStageController.signContract(req, res));
+
+// Budget & Quotation Engine (Phase 2 Consultation & Client Portal)
+app.get("/api/projects/:id/quotation", optionalAuth, (req, res) => quotationController.getQuotationByProject(req, res));
+app.post("/api/projects/:id/quotation/request", optionalAuth, (req, res) => quotationController.requestQuotation(req, res));
+app.get("/api/admin/quotations/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => quotationController.getAdminQuotationsOverview(req, res));
+app.post("/api/admin/quotations", requireAuth, requireRole("admin", "super_admin"), (req, res) => quotationController.saveAdminQuotation(req, res));
+app.put("/api/admin/quotations/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => quotationController.saveAdminQuotation(req, res));
+app.get("/api/projects/:id/quotation/pdf", (req, res) => quotationController.downloadQuotationPdf(req, res));
+app.get("/api/quotations/:id/pdf", (req, res) => quotationController.downloadQuotationPdf(req, res));
 
 // Execution & Transparency (Loans & BNPL)
 app.get("/api/projects/:id/loans", requireAuth, (req, res) => subStageController.getLoans(req, res));

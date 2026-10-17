@@ -37,7 +37,12 @@ import {
   formatMeetingDuration,
   recordConcludedMeeting,
 } from "@/modules/portal/utils/meetingHistoryService";
-import { buildMeetingUrl, formatRoomCode } from "@/modules/portal/utils/roomCodeHelper";
+import {
+  buildMeetingUrl,
+  formatRoomCode,
+  markRoomConcluded,
+  clearRoomConcluded,
+} from "@/modules/portal/utils/roomCodeHelper";
 
 // Studio-grade WebRTC DSP constraints for noise isolation and echo cancellation
 const OPTIMAL_AUDIO_CONSTRAINTS = {
@@ -63,7 +68,7 @@ const FALLBACK_AUDIO_CONSTRAINTS = {
  * Audio playback element for an individual remote peer.
  * Separates audio from the video element to guarantee zero-drop audio rendering across all platforms.
  */
-function RemotePeerAudio({ stream }) {
+function RemotePeerAudio({ stream, streamVersion = 0 }) {
   const audioRef = useRef(null);
   useEffect(() => {
     if (audioRef.current && stream) {
@@ -74,7 +79,7 @@ function RemotePeerAudio({ stream }) {
       audioRef.current.volume = 1.0;
       audioRef.current.play().catch(() => {});
     }
-  }, [stream]);
+  }, [stream, streamVersion]);
   return <audio ref={audioRef} autoPlay playsInline />;
 }
 
@@ -94,10 +99,19 @@ function ParticipantVideoCard({
   const videoRef = useRef(null);
   const [isStreamPlaying, setIsStreamPlaying] = useState(false);
 
+  const videoTracks = participant.stream ? participant.stream.getVideoTracks() : [];
+  const streamTrackSignature = videoTracks
+    .map((t) => `${t.id}:${t.enabled ? 1 : 0}:${t.muted ? 1 : 0}:${t.readyState}`)
+    .join("|");
+
   useEffect(() => {
     const videoEl = videoRef.current;
     const stream = participant.stream;
     if (!videoEl) return;
+
+    // Always mute the <video> element itself because <RemotePeerAudio> plays remote audio.
+    // Keeping <video> muted guarantees browsers never block remote video playback via Autoplay Policy.
+    videoEl.muted = true;
 
     if (stream) {
       if (videoEl.srcObject !== stream) {
@@ -114,7 +128,11 @@ function ParticipantVideoCard({
       const hasLiveTrack = vTracks.some((t) => t.enabled && t.readyState === "live");
       if (!hasLiveTrack) {
         setIsStreamPlaying(false);
-      } else if (videoEl.readyState >= 2 || videoEl.videoWidth > 0) {
+      } else if (
+        videoEl.readyState >= 2 ||
+        videoEl.videoWidth > 0 ||
+        vTracks.some((t) => t.enabled && t.readyState === "live" && !t.muted)
+      ) {
         setIsStreamPlaying(true);
       }
     };
@@ -125,7 +143,7 @@ function ParticipantVideoCard({
     };
 
     const handlePlaying = () => {
-      setIsStreamPlaying(true);
+      checkTrackState();
     };
 
     const handleWaitingOrPause = () => {
@@ -133,6 +151,10 @@ function ParticipantVideoCard({
     };
 
     videoEl.addEventListener("loadedmetadata", handleLoadedMetadata);
+    videoEl.addEventListener("loadeddata", handleLoadedMetadata);
+    videoEl.addEventListener("canplay", handleLoadedMetadata);
+    videoEl.addEventListener("resize", handlePlaying);
+    videoEl.addEventListener("timeupdate", handlePlaying);
     videoEl.addEventListener("playing", handlePlaying);
     videoEl.addEventListener("pause", handleWaitingOrPause);
     videoEl.addEventListener("waiting", handleWaitingOrPause);
@@ -171,6 +193,10 @@ function ParticipantVideoCard({
 
       return () => {
         videoEl.removeEventListener("loadedmetadata", handleLoadedMetadata);
+        videoEl.removeEventListener("loadeddata", handleLoadedMetadata);
+        videoEl.removeEventListener("canplay", handleLoadedMetadata);
+        videoEl.removeEventListener("resize", handlePlaying);
+        videoEl.removeEventListener("timeupdate", handlePlaying);
         videoEl.removeEventListener("playing", handlePlaying);
         videoEl.removeEventListener("pause", handleWaitingOrPause);
         videoEl.removeEventListener("waiting", handleWaitingOrPause);
@@ -186,11 +212,15 @@ function ParticipantVideoCard({
 
     return () => {
       videoEl.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      videoEl.removeEventListener("loadeddata", handleLoadedMetadata);
+      videoEl.removeEventListener("canplay", handleLoadedMetadata);
+      videoEl.removeEventListener("resize", handlePlaying);
+      videoEl.removeEventListener("timeupdate", handlePlaying);
       videoEl.removeEventListener("playing", handlePlaying);
       videoEl.removeEventListener("pause", handleWaitingOrPause);
       videoEl.removeEventListener("waiting", handleWaitingOrPause);
     };
-  }, [participant.stream, participant.isVideoOn]);
+  }, [participant.stream, participant.streamVersion, participant.isVideoOn, streamTrackSignature]);
 
   const hasLiveVideoTrack =
     participant.isVideoOn !== false &&
@@ -214,7 +244,7 @@ function ParticipantVideoCard({
         ref={videoRef}
         autoPlay
         playsInline
-        muted={isLocal}
+        muted
         className={`w-full h-full object-cover transition-opacity duration-200 ${
           showVideo ? "opacity-100" : "opacity-0 pointer-events-none absolute inset-0"
         } ${isLocal && facingMode === "user" ? "-scale-x-100" : ""}`}
@@ -560,6 +590,10 @@ export default function GoogleMeetRoom({
       screenAudioMixerRef.current = null;
     }
 
+    if (!options?.skipExpiryMark) {
+      markRoomConcluded(canonicalRoomCode);
+    }
+
     if (onLeaveRef.current) {
       onLeaveRef.current();
     }
@@ -580,29 +614,71 @@ export default function GoogleMeetRoom({
     });
   };
 
+  const isMediaMountedRef = useRef(false);
+
   // INITIALIZE MEDIA: Use preloaded stream if passed from lobby, or acquire new
   useEffect(() => {
     let active = true;
+    isMediaMountedRef.current = true;
+
+    async function syncStreamWithPeers(stream) {
+      if (!stream) return;
+      const hasLiveVideo = stream.getVideoTracks().some((t) => t.readyState === "live");
+      const hasLiveAudio = stream.getAudioTracks().some((t) => t.readyState === "live");
+
+      const targetMic = hasLiveAudio ? localMediaStateRef.current.isMicOn : false;
+      const targetVideo = hasLiveVideo ? localMediaStateRef.current.isVideoOn : false;
+
+      stream.getAudioTracks().forEach((t) => {
+        t.enabled = targetMic;
+      });
+      stream.getVideoTracks().forEach((t) => {
+        t.enabled = targetVideo;
+      });
+
+      if (!hasLiveVideo && localMediaStateRef.current.isVideoOn) {
+        localMediaStateRef.current.isVideoOn = false;
+        setIsVideoOn(false);
+      }
+      if (!hasLiveAudio && localMediaStateRef.current.isMicOn) {
+        localMediaStateRef.current.isMicOn = false;
+        setIsMicOn(false);
+      }
+
+      setLocalStream(stream);
+
+      if (peerManagerRef.current) {
+        await peerManagerRef.current.attachLocalTracks(stream);
+      }
+
+      if (socketRef.current?.connected) {
+        socketRef.current.emit("peer-state-change", {
+          roomCode: canonicalRoomCode,
+          isMicOn: targetMic,
+          isVideoOn: targetVideo,
+          isScreenSharing: localMediaStateRef.current.isScreenSharing,
+        });
+      }
+    }
 
     async function setupLocalMedia() {
-      if (preloadedMediaStream) {
+      // 1. Reuse preloaded stream if it still has live tracks
+      if (
+        preloadedMediaStream &&
+        preloadedMediaStream.getTracks().some((t) => t.readyState === "live")
+      ) {
         console.log("[WEBRTC] Adopting preloaded media stream from pre-join lobby.");
         localStreamRef.current = preloadedMediaStream;
-        // Apply initial mic and video states to preloaded tracks
-        preloadedMediaStream.getAudioTracks().forEach((t) => {
-          t.enabled = initialMicOn;
-        });
-        preloadedMediaStream.getVideoTracks().forEach((t) => {
-          t.enabled = initialVideoOn;
-        });
-        setLocalStream(preloadedMediaStream);
-        if (peerManagerRef.current) {
-          peerManagerRef.current.attachLocalTracks(preloadedMediaStream);
-          const cam = preloadedMediaStream.getVideoTracks()[0];
-          const mic = preloadedMediaStream.getAudioTracks()[0];
-          if (cam) peerManagerRef.current.replaceVideoTrack(cam).catch(() => {});
-          if (mic) peerManagerRef.current.replaceAudioTrack(mic).catch(() => {});
-        }
+        await syncStreamWithPeers(preloadedMediaStream);
+        return;
+      }
+
+      // 2. Reuse existing localStreamRef if already live (e.g. across React StrictMode remount)
+      if (
+        localStreamRef.current &&
+        localStreamRef.current.getTracks().some((t) => t.readyState === "live")
+      ) {
+        await syncStreamWithPeers(localStreamRef.current);
         return;
       }
 
@@ -618,36 +694,52 @@ export default function GoogleMeetRoom({
             audio: OPTIMAL_AUDIO_CONSTRAINTS,
           });
         } catch (optimalErr) {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: FALLBACK_AUDIO_CONSTRAINTS,
-          });
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+              audio: FALLBACK_AUDIO_CONSTRAINTS,
+            });
+          } catch (stdErr) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true,
+              });
+            } catch (basicErr) {
+              try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                  video: true,
+                  audio: false,
+                });
+              } catch (videoOnlyErr) {
+                stream = await navigator.mediaDevices.getUserMedia({
+                  video: false,
+                  audio: FALLBACK_AUDIO_CONSTRAINTS,
+                });
+              }
+            }
+          }
         }
 
-        if (!active) {
+        if (!active || !isMediaMountedRef.current) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
 
         localStreamRef.current = stream;
-        stream.getAudioTracks().forEach((t) => {
-          t.enabled = localMediaStateRef.current.isMicOn;
-        });
-        stream.getVideoTracks().forEach((t) => {
-          t.enabled = localMediaStateRef.current.isVideoOn;
-        });
-        setLocalStream(stream);
-
-        if (peerManagerRef.current) {
-          peerManagerRef.current.attachLocalTracks(stream);
-          const cam = stream.getVideoTracks()[0];
-          const mic = stream.getAudioTracks()[0];
-          if (cam) peerManagerRef.current.replaceVideoTrack(cam).catch(() => {});
-          if (mic) peerManagerRef.current.replaceAudioTrack(mic).catch(() => {});
-        }
+        await syncStreamWithPeers(stream);
       } catch (err) {
-        console.warn("[WEBRTC] Could not access camera/mic, falling back to audio-only or avatar:", err);
+        console.warn("[WEBRTC] Could not access camera/mic, falling back to avatar:", err);
+        localMediaStateRef.current.isVideoOn = false;
         setIsVideoOn(false);
+        if (socketRef.current?.connected) {
+          socketRef.current.emit("peer-state-change", {
+            roomCode: canonicalRoomCode,
+            isMicOn: localMediaStateRef.current.isMicOn,
+            isVideoOn: false,
+            isScreenSharing: localMediaStateRef.current.isScreenSharing,
+          });
+        }
       }
     }
 
@@ -655,11 +747,17 @@ export default function GoogleMeetRoom({
 
     return () => {
       active = false;
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
+      isMediaMountedRef.current = false;
+      // Defer track stop so React StrictMode's immediate unmount+remount cycle
+      // does not kill live camera/microphone tracks.
+      setTimeout(() => {
+        if (!isMediaMountedRef.current && localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach((t) => t.stop());
+          localStreamRef.current = null;
+        }
+      }, 150);
     };
-  }, [preloadedMediaStream, initialMicOn, initialVideoOn]);
+  }, [preloadedMediaStream, canonicalRoomCode]);
 
   // INITIALIZE WEBRTC & SOCKET.IO SIGNALING
   useEffect(() => {
@@ -749,11 +847,23 @@ export default function GoogleMeetRoom({
       showToastRef.current?.(
         message || "This consultation room has reached its maximum capacity (8/8 participants)."
       );
-      performActualLeave(null, "", { skipRecord: true });
+      performActualLeave(null, "", { skipRecord: true, skipExpiryMark: true });
+    });
+
+    // Room expired handler (5 minutes after call ended)
+    socket.on("room-expired", ({ message, endedAt }) => {
+      if (endedAt) {
+        markRoomConcluded(canonicalRoomCode, endedAt);
+      }
+      showToastRef.current?.(
+        message || "⏰ This consultation room has expired (5 minutes after the call ended)."
+      );
+      performActualLeave(null, "", { skipRecord: true, skipExpiryMark: true });
     });
 
     // Existing participants in room
     socket.on("room-joined", ({ participants }) => {
+      clearRoomConcluded(canonicalRoomCode);
       if (participants && participants.length > 0) {
         console.log("[WEBRTC MESH] Existing peers in room:", participants);
         hasRemoteEverJoinedRef.current = true;
@@ -980,13 +1090,42 @@ export default function GoogleMeetRoom({
   }, [isInstantMeeting, isAdmin, isCallAnswered]);
 
   // Toggle Microphone
-  const toggleAudio = () => {
+  const toggleAudio = async () => {
     const nextState = !isMicOn;
-    if (localStreamRef.current) {
+    const liveAudioTracks = localStreamRef.current
+      ? localStreamRef.current.getAudioTracks().filter((t) => t.readyState === "live")
+      : [];
+
+    if (nextState && liveAudioTracks.length === 0 && navigator?.mediaDevices?.getUserMedia) {
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: FALLBACK_AUDIO_CONSTRAINTS,
+          video: false,
+        });
+        const newAudioTrack = audioStream.getAudioTracks()[0];
+        if (newAudioTrack) {
+          newAudioTrack.enabled = true;
+          const existingVideoTracks = localStreamRef.current
+            ? localStreamRef.current.getVideoTracks().filter((t) => t.readyState === "live")
+            : [];
+          const updatedStream = new MediaStream([...existingVideoTracks, newAudioTrack]);
+          localStreamRef.current = updatedStream;
+          setLocalStream(updatedStream);
+          if (peerManagerRef.current) {
+            peerManagerRef.current.localStream = updatedStream;
+            await peerManagerRef.current.replaceAudioTrack(newAudioTrack);
+          }
+        }
+      } catch (err) {
+        showToast("Unable to access microphone. Please check browser permissions.");
+        return;
+      }
+    } else if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach((t) => {
         t.enabled = nextState;
       });
     }
+
     if (screenAudioMixerRef.current?.micGain) {
       screenAudioMixerRef.current.micGain.gain.setValueAtTime(
         nextState ? 1.0 : 0.0,
@@ -1005,13 +1144,55 @@ export default function GoogleMeetRoom({
   };
 
   // Toggle Camera
-  const toggleVideo = () => {
+  const toggleVideo = async () => {
     const nextState = !isVideoOn;
-    if (localStreamRef.current) {
+    const liveVideoTracks = localStreamRef.current
+      ? localStreamRef.current.getVideoTracks().filter((t) => t.readyState === "live")
+      : [];
+
+    if (nextState && liveVideoTracks.length === 0 && navigator?.mediaDevices?.getUserMedia) {
+      try {
+        let camStream = null;
+        try {
+          camStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        } catch (errConstraint) {
+          camStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        }
+        const newVideoTrack = camStream.getVideoTracks()[0];
+        if (newVideoTrack) {
+          newVideoTrack.enabled = true;
+          const existingAudioTracks = localStreamRef.current
+            ? localStreamRef.current.getAudioTracks().filter((t) => t.readyState === "live")
+            : [];
+          const updatedStream = new MediaStream([...existingAudioTracks, newVideoTrack]);
+          localStreamRef.current = updatedStream;
+          setLocalStream(updatedStream);
+          if (peerManagerRef.current) {
+            peerManagerRef.current.localStream = updatedStream;
+            if (!isScreenSharing) {
+              await peerManagerRef.current.replaceVideoTrack(newVideoTrack);
+            }
+          }
+        }
+      } catch (err) {
+        showToast("Unable to access camera. Check browser permissions or if another app is using it.");
+        return;
+      }
+    } else if (localStreamRef.current) {
       localStreamRef.current.getVideoTracks().forEach((t) => {
         t.enabled = nextState;
       });
+      if (nextState && peerManagerRef.current && !isScreenSharing && liveVideoTracks[0]) {
+        peerManagerRef.current.replaceVideoTrack(liveVideoTracks[0]).catch(() => {});
+      }
     }
+
     setIsVideoOn(nextState);
     if (socketRef.current?.connected) {
       socketRef.current.emit("peer-state-change", {
@@ -1298,6 +1479,7 @@ export default function GoogleMeetRoom({
         role: userRole,
         affiliation,
         stream: localStream,
+        streamVersion: 0,
         isLocal: true,
         isVideoOn,
         isMicOn,
@@ -1315,6 +1497,7 @@ export default function GoogleMeetRoom({
         role: peer.user?.role || (peer.user?.affiliation === "mcpa" ? "MCPA Team" : "Client"),
         affiliation: peer.user?.affiliation || "client",
         stream: peer.stream,
+        streamVersion: peer.streamVersion || 0,
         isLocal: false,
         isVideoOn: state.isVideoOn !== false,
         isMicOn: state.isMicOn !== false,
@@ -1333,6 +1516,7 @@ export default function GoogleMeetRoom({
         isLocal: true,
         presenterName: displayName,
         stream: screenStream,
+        streamVersion: 0,
       };
     }
     const remotePresenter = peers.find((p) => peerMediaStates[p.socketId]?.isScreenSharing);
@@ -1341,6 +1525,7 @@ export default function GoogleMeetRoom({
         isLocal: false,
         presenterName: remotePresenter.user?.name || "Participant",
         stream: remotePresenter.stream,
+        streamVersion: remotePresenter.streamVersion || 0,
       };
     }
     return null;
@@ -1351,7 +1536,9 @@ export default function GoogleMeetRoom({
   // Connect screen share video element
   useEffect(() => {
     if (screenVideoRef.current && activeScreenShare?.stream) {
-      screenVideoRef.current.srcObject = activeScreenShare.stream;
+      if (screenVideoRef.current.srcObject !== activeScreenShare.stream) {
+        screenVideoRef.current.srcObject = activeScreenShare.stream;
+      }
       screenVideoRef.current.play().catch(() => {});
     }
   }, [activeScreenShare]);
@@ -1368,7 +1555,11 @@ export default function GoogleMeetRoom({
     >
       {/* Remote Audio Track Elements (Guarantees zero audio dropouts for all peers) */}
       {peers.map((peer) => (
-        <RemotePeerAudio key={peer.socketId} stream={peer.stream} />
+        <RemotePeerAudio
+          key={peer.socketId}
+          stream={peer.stream}
+          streamVersion={peer.streamVersion || 0}
+        />
       ))}
 
       {/* Floating PiP Restore Button */}

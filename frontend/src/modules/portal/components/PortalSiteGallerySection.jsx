@@ -135,7 +135,7 @@ export default function PortalSiteGallerySection({
               <div>
                 <h4 className="text-sm font-bold">{lightboxPhoto.title}</h4>
                 <span className="text-[10px] font-mono text-neutral-400">
-                  {lightboxPhoto.log_date} • Inspector: {lightboxPhoto.inspector || "Engr. Aris Reyes"}
+                  {lightboxPhoto.log_date} | Inspector: {lightboxPhoto.inspector || "MCPA Site QC Team"}
                 </span>
               </div>
 

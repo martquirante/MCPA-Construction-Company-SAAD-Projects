@@ -12,6 +12,8 @@ import AccountsTab from "@/modules/admin/components/AccountsTab";
 import AdminMeetingsTab from "@/modules/admin/components/AdminMeetingsTab";
 import AdminDocumentRequestsTab from "@/modules/admin/components/AdminDocumentRequestsTab";
 import AdminBlueprintsTab from "@/modules/admin/components/AdminBlueprintsTab";
+import AdminBudgetQuotationTab from "@/modules/admin/components/AdminBudgetQuotationTab";
+import AdminGroundbreakingTab from "@/modules/admin/components/AdminGroundbreakingTab";
 import SiteProgressTab from "@/modules/admin/components/SiteProgressTab";
 import DelayManagementTab from "@/modules/admin/components/DelayManagementTab";
 import BillingLedgerTab from "@/modules/admin/components/BillingLedgerTab";
@@ -27,6 +29,7 @@ import {
   HardHat as HardHatIcon,
   Clock as ClockIcon,
   CreditCard as CreditCardIcon,
+  Sparkles as SparklesIcon,
 } from "lucide-react";
 import { loadDocumentRequests } from "@/modules/portal/utils/documentRequestsHelper";
 import {
@@ -97,11 +100,13 @@ function AdminAvatar({ user, sizeClasses = "w-8 h-8", textClasses = "text-xs" })
   const resolvedUrl = useMemo(() => resolveAdminAvatar(user), [user]);
   const [currentSrc, setCurrentSrc] = useState(resolvedUrl);
   const [hasFailed, setHasFailed] = useState(false);
+  const [prevResolvedUrl, setPrevResolvedUrl] = useState(resolvedUrl);
 
-  useEffect(() => {
+  if (resolvedUrl !== prevResolvedUrl) {
+    setPrevResolvedUrl(resolvedUrl);
     setCurrentSrc(resolvedUrl);
     setHasFailed(false);
-  }, [resolvedUrl]);
+  }
 
   const initials = useMemo(() => {
     const rawName = user?.fullName || user?.name || "Raymart Quirante";
@@ -218,6 +223,25 @@ export default function AdminPage() {
       window.removeEventListener("mcpa-document-requests-updated", checkRequests);
       window.removeEventListener("storage", checkRequests);
     };
+  }, []);
+
+  // Budget & Quotation pending requests badge counter
+  const [pendingQuotationsCount, setPendingQuotationsCount] = useState(0);
+  useEffect(() => {
+    const fetchPendingQuotations = async () => {
+      try {
+        const res = await authFetch("/api/admin/quotations/overview");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && typeof data.pendingRequestsCount === "number") {
+            setPendingQuotationsCount(data.pendingRequestsCount);
+          }
+        }
+      } catch (e) {}
+    };
+    fetchPendingQuotations();
+    window.addEventListener("mcpa-quotations-updated", fetchPendingQuotations);
+    return () => window.removeEventListener("mcpa-quotations-updated", fetchPendingQuotations);
   }, []);
 
   const toggleSidebarCollapse = () => {
@@ -1397,6 +1421,17 @@ export default function AdminPage() {
           icon: FileTextIcon,
           badge: pendingDocsCount > 0 ? pendingDocsCount : undefined,
         },
+        {
+          id: "quotations",
+          label: "Budget & Quotation",
+          icon: CreditCardIcon,
+          badge: pendingQuotationsCount > 0 ? pendingQuotationsCount : undefined,
+        },
+        {
+          id: "groundbreaking",
+          label: "Groundbreaking Kickoff",
+          icon: SparklesIcon,
+        },
       ],
     },
     {
@@ -2043,6 +2078,29 @@ export default function AdminPage() {
           <AdminDocumentRequestsTab
             clientBriefs={clientBriefs}
             currentUser={currentUser}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: BUDGET & QUOTATION (BOQ & COST RECONCILIATION)               */}
+        {/* ================================================================= */}
+        {activeTab === "quotations" && (
+          <AdminBudgetQuotationTab
+            clientBriefs={clientBriefs}
+            allProjects={allProjects}
+            currentUser={currentUser}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: GROUNDBREAKING CEREMONIES (STAGE 2 / PHASE 2 KICKOFF)        */}
+        {/* ================================================================= */}
+        {activeTab === "groundbreaking" && (
+          <AdminGroundbreakingTab
+            currentUser={currentUser}
+            allProjects={allProjects}
             showToast={showToast}
           />
         )}

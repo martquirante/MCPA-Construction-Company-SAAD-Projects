@@ -27,6 +27,32 @@ import {
   Info,
 } from "lucide-react";
 
+function FacebookIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+    </svg>
+  );
+}
+
+function InstagramIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+    </svg>
+  );
+}
+
+function TikTokIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.29 0 .58.04.85.12V9.41a6.33 6.33 0 0 0-.85-.06 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 9.38 5.53 6.34 6.34 0 0 0 3.3-5.53V8.87a8.28 8.28 0 0 0 4.84 1.56V6.99c-.38-.01-.74-.11-1.07-.3z" />
+    </svg>
+  );
+}
+
 function BookingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -139,137 +165,170 @@ function BookingPageContent() {
           hasActiveInquiry ? (
             /* BLOCKED STATE: Bespoke Architectural Locked Dossier View */
             <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 my-auto">
-              <div className="relative rounded-[22px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 shadow-2xl shadow-black/10 dark:shadow-black/60 overflow-hidden">
+              <div className="relative rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-neutral-800 shadow-xl shadow-black/5 dark:shadow-black/40 overflow-hidden">
                 {/* Architectural top golden precision accent */}
-                <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600" />
+                <div className="h-1 bg-amber-500" />
 
-                <div className="p-6 sm:p-10 space-y-7">
-                  {/* Protocol Badge & Header */}
-                  <div className="space-y-3">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 font-mono text-[11px] font-bold uppercase tracking-[0.16em]">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                      <span>MCPA Technical Protocol · 1 Active Inquiry Limit</span>
-                    </div>
+                <div className="p-6 sm:p-10 space-y-8">
+                  {/* Protocol Header (No pill badge, no pulsing dot) */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                      MCPA Architectural Protocol
+                    </p>
 
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white leading-tight">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
                       Active Architectural Consultation on Record
                     </h1>
 
-                    <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-300 leading-relaxed font-sans max-w-2xl">
+                    <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-300 leading-relaxed font-sans max-w-2xl pt-1">
                       Hello, <strong className="text-neutral-900 dark:text-white font-semibold">{currentUser.fullName || currentUser.full_name || currentUser.email}</strong>. 
-                      To preserve our rigorous engineering standards and dedicated structural oversight, MCPA enforces a strict{" "}
-                      <strong className="text-neutral-900 dark:text-white font-semibold">single active project consultation policy per client</strong>.
+                      To preserve our engineering standards and dedicated structural oversight, MCPA maintains a strict single active project consultation policy per client.
                     </p>
                   </div>
 
-                  {/* ACTIVE BRIEF DOSSIER CARD */}
-                  <div className="rounded-[16px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 p-5 sm:p-6 space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-neutral-200 dark:border-white/10">
-                      <div className="flex items-center gap-2.5">
-                        <FolderKanban className="w-5 h-5 text-amber-500 shrink-0" />
-                        <div>
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 block">
-                            Active Reference Code
-                          </span>
-                          <span className="font-mono text-sm sm:text-base font-bold text-neutral-900 dark:text-white">
-                            {activeInquiryData?.submissionId || activeInquiryData?.submission_id || "MCPA-ACTIVE"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span>{activeInquiryData?.status || "Under Technical Review"}</span>
+                  {/* ACTIVE BRIEF SPECIFICATIONS (Clean architectural grid, no pill badges, no dots, no box backgrounds on text) */}
+                  <div className="py-5 border-y border-neutral-200 dark:border-neutral-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    <div>
+                      <span className="block text-[11px] font-medium uppercase tracking-wider text-neutral-400">
+                        Reference Code
+                      </span>
+                      <span className="mt-1 block text-sm font-semibold text-neutral-900 dark:text-white font-mono">
+                        {activeInquiryData?.submissionId || activeInquiryData?.submission_id || "MCPA-ACTIVE"}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs sm:text-sm">
-                      <div>
-                        <span className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400">
-                          Project Scope
-                        </span>
-                        <span className="font-semibold text-neutral-900 dark:text-white truncate block">
-                          {activeInquiryData?.projectType || "Residential Design & Build"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400">
-                          Site Location
-                        </span>
-                        <span className="font-semibold text-neutral-900 dark:text-white truncate block">
-                          {activeInquiryData?.location || "Bulacan / Metro Manila"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400">
-                          Account Email
-                        </span>
-                        <span className="font-medium text-neutral-700 dark:text-neutral-300 truncate block">
-                          {currentUser.email}
-                        </span>
-                      </div>
+                    <div>
+                      <span className="block text-[11px] font-medium uppercase tracking-wider text-neutral-400">
+                        Current Stage
+                      </span>
+                      <span className="mt-1 block text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                        {activeInquiryData?.status || "Consultation Under Review"}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="block text-[11px] font-medium uppercase tracking-wider text-neutral-400">
+                        Project Scope
+                      </span>
+                      <span className="mt-1 block text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate">
+                        {activeInquiryData?.projectType || "Residential Design & Build"}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="block text-[11px] font-medium uppercase tracking-wider text-neutral-400">
+                        Site Location
+                      </span>
+                      <span className="mt-1 block text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate">
+                        {activeInquiryData?.location || "Bulacan / Metro Manila"}
+                      </span>
                     </div>
                   </div>
 
-                  {/* RATIONALE NOTE */}
-                  <div className="p-4 rounded-[14px] bg-amber-500/[0.07] border border-amber-500/25 flex items-start gap-3.5">
-                    <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <h3 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white">
-                        Why is multi-booking restricted?
-                      </h3>
-                      <p className="text-xs sm:text-[13px] text-neutral-600 dark:text-neutral-300 leading-relaxed font-sans">
-                        Each architectural project is assigned a dedicated resident civil engineer and licensed PRC architect. We commit full engineering time, soil-bearing evaluations, and bespoke 3D blueprints to one project at a time to ensure our 15-year structural warranty is never compromised.
+                  {/* EDITORIAL RATIONALE (Left hairline accent, transparent background, no yellow box, no dots) */}
+                  <div className="border-l-2 border-amber-500 pl-4 py-1 space-y-1">
+                    <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
+                      Why is multi-booking restricted?
+                    </h3>
+                    <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed max-w-2xl">
+                      Each architectural project is assigned a dedicated resident civil engineer and licensed PRC architect. We commit full engineering time, soil-bearing evaluations, and bespoke 3D blueprints to one project at a time to ensure our 15-year structural warranty is never compromised.
+                    </p>
+                  </div>
+
+                  {/* OFFICIAL CONTACT CHANNELS (Official Viber/mobile & social media) */}
+                  <div className="space-y-4 pt-1">
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Official Consultation &amp; Support Channels
+                      </h4>
+                      <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-1">
+                        Need to update plans, add titled lots, or request multi-project clearance? Reach our official channels:
                       </p>
                     </div>
-                  </div>
 
-                  {/* DIRECT CONTACT DESK */}
-                  <div className="p-4 sm:p-5 rounded-[14px] bg-neutral-100 dark:bg-[#151922] border border-neutral-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 font-bold">
-                        Need to update plans or request clearance for multiple titled lots?
+                    {/* Direct Viber & Phone Row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-3.5 border-y border-neutral-200 dark:border-neutral-800">
+                      <div>
+                        <span className="text-[11px] font-medium uppercase tracking-wider text-neutral-400 block">
+                          Direct Mobile &amp; Viber
+                        </span>
+                        <a
+                          href="tel:+639497758239"
+                          className="text-base font-semibold text-neutral-900 dark:text-white font-mono hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+                        >
+                          +63 949 775 8239
+                        </a>
                       </div>
-                      <div className="font-bold text-sm text-neutral-900 dark:text-white">
-                        Engr. Aris Reyes <span className="font-normal text-xs text-neutral-500">· Senior Project Management</span>
-                      </div>
-                      <div className="font-mono text-xs text-amber-600 dark:text-amber-400">
-                        +63 949 775 8239 (Calls &amp; Viber)
+
+                      <div className="flex items-center gap-2">
+                        <a
+                          href="tel:+639497758239"
+                          className="px-4 py-2 rounded-md bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-950 text-xs font-medium transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Direct Call</span>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPhone("+63 949 775 8239")}
+                          className="px-3.5 py-2 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 text-xs font-medium transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          {copiedPhone ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedPhone ? "Copied" : "Copy"}</span>
+                        </button>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5 shrink-0">
-                      <a
-                        href="tel:+639497758239"
-                        className="px-4 py-2 rounded-[8px] bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 font-mono text-xs font-bold uppercase hover:opacity-90 transition-opacity inline-flex items-center gap-2 cursor-pointer shadow-sm"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>Direct Call</span>
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyPhone("+63 949 775 8239")}
-                        className="px-3.5 py-2 rounded-[8px] border border-neutral-300 dark:border-white/15 hover:bg-neutral-200/60 dark:hover:bg-white/5 text-neutral-700 dark:text-neutral-200 transition-colors cursor-pointer text-xs font-mono flex items-center gap-1.5"
-                      >
-                        {copiedPhone ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedPhone ? "Copied" : "Copy"}</span>
-                      </button>
+                    {/* Official Social Media Links (Pure icons without background boxes) */}
+                    <div>
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-neutral-400 block mb-2.5">
+                        Official Social Media
+                      </span>
+                      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
+                        <a
+                          href="https://www.facebook.com/MCPA.ConstructionandSupply/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        >
+                          <FacebookIcon className="w-4 h-4" />
+                          <span>Facebook</span>
+                        </a>
+                        <a
+                          href="https://www.instagram.com/mcpa.constructionandsupply/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-pink-600 dark:hover:text-pink-400 transition-colors"
+                        >
+                          <InstagramIcon className="w-4 h-4" />
+                          <span>Instagram</span>
+                        </a>
+                        <a
+                          href="https://www.tiktok.com/@mcpa.construction"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                        >
+                          <TikTokIcon className="w-4 h-4" />
+                          <span>TikTok</span>
+                        </a>
+                      </div>
                     </div>
                   </div>
 
                   {/* PRIMARY ACTION BUTTONS */}
-                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-neutral-200 dark:border-white/10">
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-neutral-200 dark:border-neutral-800">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                       <Link
                         href="/"
-                        className="w-full sm:w-auto px-5 py-3 rounded-[8px] border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-transparent hover:bg-neutral-100 dark:hover:bg-white/5 text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300 transition-colors text-center cursor-pointer"
+                        className="w-full sm:w-auto px-4 py-2.5 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-medium text-neutral-700 dark:text-neutral-300 transition-colors text-center cursor-pointer"
                       >
                         Back to Website
                       </Link>
                       <button
                         type="button"
                         onClick={() => setIsPolicyModalOpen(true)}
-                        className="w-full sm:w-auto px-4 py-3 rounded-[8px] border border-amber-500/30 hover:border-amber-500/60 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 text-xs font-mono font-bold uppercase transition-colors text-center cursor-pointer"
+                        className="w-full sm:w-auto px-4 py-2.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline transition-colors text-center cursor-pointer"
                       >
                         View Full Policy
                       </button>
@@ -278,11 +337,11 @@ function BookingPageContent() {
                     <button
                       type="button"
                       onClick={() => router.push("/portal?tab=inquiries")}
-                      className="w-full sm:w-auto px-6 py-3 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-lg shadow-amber-500/25 hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-md bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-semibold tracking-wide transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                     >
                       <Compass className="w-4 h-4" />
                       <span>Open Dossier in Client Portal</span>
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
