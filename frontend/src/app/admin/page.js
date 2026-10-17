@@ -1364,6 +1364,12 @@ export default function AdminPage() {
       stageBadge: null,
       items: [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
+        {
+          id: "meetings",
+          label: "Meetings",
+          icon: CalendarIcon,
+          badge: meetingsCount > 0 ? meetingsCount : undefined,
+        },
         { id: "projects", label: "Projects Showcase", icon: FolderKanbanIcon },
         { id: "accounts", label: "Accounts & Roles", icon: UserIcon },
       ],
@@ -1384,12 +1390,6 @@ export default function AdminPage() {
       title: "Phase 2: Consultation & Planning",
       stageBadge: "Phase 2",
       items: [
-        {
-          id: "meetings",
-          label: "Consultation Meetings",
-          icon: CalendarIcon,
-          badge: meetingsCount > 0 ? meetingsCount : undefined,
-        },
         { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
         {
           id: "documents",
