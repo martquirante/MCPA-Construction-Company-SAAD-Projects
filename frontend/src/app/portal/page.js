@@ -603,7 +603,7 @@ function ClientPortalContent() {
             { id: "meeting", label: "Meeting", icon: CalendarCheck },
             { id: "blueprints", label: "Blueprints & Plans", icon: Layers },
             { id: "boq", label: "BOQ & Budget", icon: CreditCard },
-            { id: "permits", label: "Permits & Transmittals", icon: ShieldCheck, badge: pendingDocumentRequestsCount > 0 ? pendingDocumentRequestsCount : undefined },
+            { id: "documents", label: "Documents & Permits", icon: FileText, badge: pendingDocumentRequestsCount > 0 ? pendingDocumentRequestsCount : undefined },
             { id: "contract", label: "E-Contract & Shovel", icon: FileCheck },
             { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],

@@ -1298,11 +1298,12 @@ export default function PortalStage2PlanningAndConsultation({
       {activeSubTab === "permits" && (
         <div className="space-y-6">
           <div className="p-5 rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5">
-            <h2 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white">
-              Municipal Building Permits &amp; Legal Transmittals
+            <h2 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+              <FileText className="w-5 h-5 text-amber-500" />
+              <span>Project Documents &amp; Municipal Permits</span>
             </h2>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
-              MCPA Engineering processes all LGU clearances on your behalf. Track real-time approvals below.
+              Upload required ownership &amp; legal documents, and track real-time municipal permit approvals processed by MCPA Engineering.
             </p>
           </div>
 

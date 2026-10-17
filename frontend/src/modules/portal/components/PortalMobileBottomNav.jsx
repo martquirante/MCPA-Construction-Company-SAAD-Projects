@@ -347,9 +347,9 @@ export default function PortalMobileBottomNav({
     inquiries: { label: "Inquiries", id: "inquiries" },
     profile: { label: "Profile", id: "profile" },
     meeting: { label: "Meeting", id: "meeting" },
-    documents: { label: "Request Docs", id: "documents" },
+    documents: { label: "Documents & Permits", id: "documents" },
     blueprints: { label: "Blueprints", id: "blueprints" },
-    permits: { label: "Permits", id: "permits" },
+    permits: { label: "Documents & Permits", id: "documents" },
     construction: { label: "Projects", id: "construction" },
     billing: { label: "Billing", id: "billing" },
   };
