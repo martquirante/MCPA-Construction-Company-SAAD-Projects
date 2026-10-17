@@ -202,6 +202,28 @@ class WebRTCSignalingService {
       // 6. Audio/Video/Screen State Sync (Microphone mute, Camera off, Screen sharing)
       socket.on("peer-state-change", ({ roomCode, isMicOn, isVideoOn, isScreenSharing }) => {
         if (!roomCode) return;
+
+        // Strictly enforce Single Presenter Rule: Only 1 participant can share screen at a time in the room
+        if (isScreenSharing === true) {
+          const roomParticipants = this.rooms.get(roomCode);
+          if (roomParticipants) {
+            for (const [peerSocketId, peerData] of roomParticipants.entries()) {
+              if (peerSocketId !== socket.id && peerData.mediaState?.isScreenSharing) {
+                const currentPresenter = peerData.name || peerData.user?.name || "Another participant";
+                console.warn(
+                  `[WEBRTC] Rejected simultaneous screen share in room "${roomCode}": socket ${socket.id} attempted while "${currentPresenter}" (${peerSocketId}) is already presenting.`
+                );
+                socket.emit("screen-share-rejected", {
+                  reason: "ANOTHER_PRESENTER_ACTIVE",
+                  presenterName: currentPresenter,
+                  message: `Hindi pwedeng sabay-sabay mag-share screen. Kasalukuyang nagpe-present si ${currentPresenter}. Isa lang ang pwedeng mag-share screen sa room.`,
+                });
+                return;
+              }
+            }
+          }
+        }
+
         if (socket.userData) {
           socket.userData.mediaState = {
             ...(socket.userData.mediaState || {}),

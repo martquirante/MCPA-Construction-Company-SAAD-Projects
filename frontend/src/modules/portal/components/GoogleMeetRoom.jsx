@@ -893,11 +893,35 @@ export default function GoogleMeetRoom({
 
     socket.on("peer-left", ({ socketId, user }) => {
       peerManager.removePeer(socketId);
+      setPeerMediaStates((prev) => {
+        const next = { ...prev };
+        delete next[socketId];
+        return next;
+      });
       const name = user?.name || "A participant";
       showToastRef.current?.(`${name} left the room.`);
       if (playLeaveChimeRef.current) {
         playLeaveChimeRef.current();
       }
+    });
+
+    // Server-enforced Single Presenter Rule: screen share rejected if another presenter is already active
+    socket.on("screen-share-rejected", ({ presenterName, message }) => {
+      console.warn("[WEBRTC] Screen share conflict rejected by server:", message);
+      if (screenAudioMixerRef.current) {
+        screenAudioMixerRef.current.stop();
+        screenAudioMixerRef.current = null;
+      }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((t) => t.stop());
+        screenStreamRef.current = null;
+      }
+      setScreenStream(null);
+      setIsScreenSharing(false);
+      showToastRef.current?.(
+        message ||
+          `⚠️ Hindi pwedeng sabay-sabay mag-share screen. Kasalukuyang nagpe-present si ${presenterName || "isa sa mga kalahok"}.`
+      );
     });
 
     return () => {
@@ -1079,8 +1103,8 @@ export default function GoogleMeetRoom({
       // Rule 1: Single Presenter Rule (Only ONE participant can share screen at a time in the room)
       const remotePresenter = peers.find((p) => peerMediaStates[p.socketId]?.isScreenSharing);
       if (remotePresenter) {
-        const presenterName = remotePresenter.user?.name || "Another participant";
-        showToast(`⚠️ ${presenterName} is currently presenting. Only 1 person can share screen at a time.`);
+        const presenterName = remotePresenter.user?.name || "Isa sa mga kalahok";
+        showToast(`⚠️ Hindi pwedeng sabay-sabay mag-share screen. Kasalukuyang nagpe-present si ${presenterName}. Isa lang ang pwedeng mag-share screen sa room.`);
         return;
       }
 
@@ -1911,13 +1935,19 @@ export default function GoogleMeetRoom({
 
             <button
               type="button"
-              onClick={handleToggleScreenShare}
-              disabled={isAnotherPresenterActive}
-              className={`p-3 rounded-full transition-all ${
+              onClick={() => {
+                if (isAnotherPresenterActive) {
+                  const presenterName = activeScreenShare?.presenterName || "Isa sa mga kalahok";
+                  showToast(`⚠️ Hindi pwedeng sabay-sabay mag-share screen. Kasalukuyang nagpe-present si ${presenterName}. Isa lang ang pwedeng mag-share screen sa room.`);
+                  return;
+                }
+                handleToggleScreenShare();
+              }}
+              className={`p-3 rounded-full transition-all relative ${
                 isScreenSharing
-                  ? "bg-amber-500 text-neutral-950 font-bold cursor-pointer hover:bg-amber-400"
+                  ? "bg-amber-500 text-neutral-950 font-bold cursor-pointer hover:bg-amber-400 ring-2 ring-amber-400/50"
                   : isAnotherPresenterActive
-                  ? "bg-white/5 text-neutral-500 cursor-not-allowed opacity-50"
+                  ? "bg-white/5 text-amber-500/70 hover:bg-white/10 cursor-not-allowed border border-amber-500/30"
                   : "bg-white/10 hover:bg-white/15 text-white cursor-pointer active:scale-90"
               }`}
               title={
@@ -1929,6 +1959,12 @@ export default function GoogleMeetRoom({
               }
             >
               <Monitor className="w-5 h-5" />
+              {isAnotherPresenterActive && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                </span>
+              )}
             </button>
 
             <div className="relative">
