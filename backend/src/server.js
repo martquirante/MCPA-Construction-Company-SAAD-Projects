@@ -256,7 +256,14 @@ app.patch("/api/admin/users/:userId/multi-project-approval", requireAuth, requir
 app.post("/api/users/me/request-multi-project", requireAuth, (req, res) => subStageController.requestMultiProject(req, res));
 app.post("/api/projects/:id/reset-rejected", requireAuth, (req, res) => subStageController.resetRejected(req, res));
 
-// Document Vault
+// Document Vault & Transmittals
+app.get("/api/admin/documents/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminDocumentsOverview(req, res));
+app.post("/api/admin/documents/requests", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.createDocumentRequest(req, res));
+app.delete("/api/admin/documents/requests/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.deleteDocumentRequest(req, res));
+app.post("/api/admin/documents/transmittals", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.createTransmittal(req, res));
+app.delete("/api/admin/documents/transmittals/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.deleteTransmittal(req, res));
+app.get("/api/projects/:id/document-requests", requireAuth, (req, res) => subStageController.getProjectDocumentRequests(req, res));
+app.get("/api/projects/:id/transmittals", requireAuth, (req, res) => subStageController.getProjectTransmittals(req, res));
 app.get("/api/projects/:id/documents", requireAuth, (req, res) => subStageController.getDocuments(req, res));
 app.post("/api/projects/:id/documents", requireAuth, (req, res) => subStageController.uploadDocument(req, res));
 app.patch("/api/admin/documents/:docId/verify", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.verifyDocument(req, res));

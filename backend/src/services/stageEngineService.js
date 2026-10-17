@@ -578,8 +578,178 @@ class StageEngineService {
        RETURNING *;`,
       [status, adminUserId, notes, docId]
     );
+    const verifiedDoc = res.rows[0];
+    if (verifiedDoc && verifiedDoc.file_url) {
+      await db.query(
+        `UPDATE public.project_document_requests 
+         SET status = $1, updated_at = NOW()
+         WHERE file_url = $2;`,
+        [status === 'Verified' ? 'verified' : status === 'Rejected' ? 'rejected' : 'uploaded', verifiedDoc.file_url]
+      ).catch(() => {});
+    }
+    return verifiedDoc;
+  }
+
+  /**
+   * DOCUMENT VAULT: Admin Documents Overview
+   */
+  async getAdminDocumentsOverview() {
+    const clientsRes = await db.query(`
+      SELECT 
+        cp.client_project_id,
+        cp.project_code,
+        cp.project_title,
+        cp.project_type,
+        cp.target_location as location,
+        cp.stage_id,
+        u.user_id,
+        u.full_name as client_name,
+        u.email as client_email,
+        u.avatar_url,
+        (SELECT COUNT(*) FROM public.project_document_requests WHERE client_project_id = cp.client_project_id) as total_requests,
+        (SELECT COUNT(*) FROM public.project_transmittals WHERE client_project_id = cp.client_project_id) as total_transmittals,
+        (SELECT COUNT(*) FROM public.project_documents WHERE client_project_id = cp.client_project_id) as total_uploaded_docs
+      FROM public.client_projects cp
+      JOIN public.users u ON cp.user_id = u.user_id
+      ORDER BY cp.created_at DESC;
+    `);
+
+    const reqsRes = await db.query(`
+      SELECT 
+        pdr.*,
+        cp.project_code,
+        cp.project_title,
+        cp.project_type,
+        u.full_name as client_name,
+        u.email as client_email,
+        u.avatar_url as client_avatar,
+        req_u.full_name as requester_name
+      FROM public.project_document_requests pdr
+      JOIN public.client_projects cp ON pdr.client_project_id = cp.client_project_id
+      JOIN public.users u ON cp.user_id = u.user_id
+      LEFT JOIN public.users req_u ON pdr.requested_by = req_u.user_id
+      ORDER BY pdr.created_at DESC;
+    `);
+
+    const txsRes = await db.query(`
+      SELECT 
+        pt.*,
+        cp.project_code,
+        cp.project_title,
+        cp.project_type,
+        u.full_name as client_name,
+        u.email as client_email,
+        u.avatar_url as client_avatar,
+        tx_u.full_name as transmitter_name
+      FROM public.project_transmittals pt
+      JOIN public.client_projects cp ON pt.client_project_id = cp.client_project_id
+      JOIN public.users u ON cp.user_id = u.user_id
+      LEFT JOIN public.users tx_u ON pt.transmitted_by = tx_u.user_id
+      ORDER BY pt.created_at DESC;
+    `);
+
+    const docsRes = await db.query(`
+      SELECT 
+        pd.*,
+        cp.project_code,
+        cp.project_title,
+        cp.project_type,
+        u.full_name as client_name,
+        u.email as client_email,
+        u.avatar_url as client_avatar,
+        up_u.full_name as uploader_name,
+        vf_u.full_name as verifier_name
+      FROM public.project_documents pd
+      JOIN public.client_projects cp ON pd.client_project_id = cp.client_project_id
+      JOIN public.users u ON cp.user_id = u.user_id
+      LEFT JOIN public.users up_u ON pd.uploaded_by = up_u.user_id
+      LEFT JOIN public.users vf_u ON pd.verified_by = vf_u.user_id
+      ORDER BY pd.created_at DESC;
+    `);
+
+    return {
+      clients: clientsRes.rows || [],
+      requests: reqsRes.rows || [],
+      transmittals: txsRes.rows || [],
+      documents: docsRes.rows || [],
+    };
+  }
+
+  async createDocumentRequest({ projectId, title, category, urgency = 'Urgent', instructions = null, requestedBy = null }) {
+    const res = await db.query(`
+      INSERT INTO public.project_document_requests (
+        client_project_id, title, category, urgency, instructions, status, requested_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, 'pending', $6, NOW(), NOW())
+      RETURNING *;
+    `, [projectId, title, category, urgency, instructions, requestedBy]);
     return res.rows[0];
   }
+
+  async deleteDocumentRequest(requestId) {
+    await db.query(`DELETE FROM public.project_document_requests WHERE request_id = $1;`, [requestId]);
+    return { success: true };
+  }
+
+  async createProjectTransmittal({ projectId, title, category, fileUrl, fileName, fileSizeBytes = 0, mimeType = null, remarks = null, transmittedBy = null }) {
+    const res = await db.query(`
+      INSERT INTO public.project_transmittals (
+        client_project_id, title, category, file_url, file_name, file_size_bytes, mime_type, remarks, transmitted_by, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      RETURNING *;
+    `, [projectId, title, category, fileUrl, fileName, fileSizeBytes, mimeType, remarks, transmittedBy]);
+    return res.rows[0];
+  }
+
+  async deleteProjectTransmittal(transmittalId) {
+    await db.query(`DELETE FROM public.project_transmittals WHERE transmittal_id = $1;`, [transmittalId]);
+    return { success: true };
+  }
+
+  async getProjectDocumentRequests(projectId) {
+    const res = await db.query(`
+      SELECT * FROM public.project_document_requests
+      WHERE client_project_id = $1
+      ORDER BY created_at DESC;
+    `, [projectId]);
+    return res.rows || [];
+  }
+
+  async getProjectTransmittals(projectId) {
+    const res = await db.query(`
+      SELECT * FROM public.project_transmittals
+      WHERE client_project_id = $1
+      ORDER BY created_at DESC;
+    `, [projectId]);
+    return res.rows || [];
+  }
+
+  async fulfillDocumentRequest({ requestId = null, projectId, fileName, fileUrl, fileSizeBytes = 0, mimeType = null, uploadedBy = null, notes = null, docType = 'REQUIRED_DOCUMENT' }) {
+    const docRes = await db.query(`
+      INSERT INTO public.project_documents (
+        client_project_id, stage_id, doc_type, file_name, file_url, file_size_bytes, mime_type, uploaded_by, verification_status, notes, created_at
+      ) VALUES ($1, 'CONSULTATION', $2, $3, $4, $5, $6, $7, 'Pending Review', $8, NOW())
+      RETURNING *;
+    `, [projectId, docType, fileName, fileUrl, fileSizeBytes, mimeType, uploadedBy, notes]);
+    const doc = docRes.rows[0];
+
+    if (requestId) {
+      await db.query(`
+        UPDATE public.project_document_requests
+        SET status = 'uploaded', file_url = $1, file_name = $2, file_size_bytes = $3, uploaded_at = NOW(), updated_at = NOW()
+        WHERE request_id = $4;
+      `, [fileUrl, fileName, fileSizeBytes, requestId]);
+    } else {
+      // Auto-match any pending request with the same title or category
+      await db.query(`
+        UPDATE public.project_document_requests
+        SET status = 'uploaded', file_url = $1, file_name = $2, file_size_bytes = $3, uploaded_at = NOW(), updated_at = NOW()
+        WHERE client_project_id = $4 AND status = 'pending' AND (title ILIKE $5 OR category ILIKE $5)
+        LIMIT 1;
+      `, [fileUrl, fileName, fileSizeBytes, projectId, `%${docType}%`]).catch(() => {});
+    }
+    return doc;
+  }
+
 
   /**
    * CONSULTATION: Get or Create WebRTC Meeting Room

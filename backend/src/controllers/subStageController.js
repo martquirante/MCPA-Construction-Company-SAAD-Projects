@@ -75,15 +75,15 @@ class SubStageController {
     try {
       const userId = req.user?.userId || req.user?.user_id;
       const projectId = parseInt(req.params.id, 10);
-      const { stageId = "CONSULTATION", docType, fileName, fileUrl, fileSizeBytes, mimeType, notes } = req.body || {};
+      const { stageId = "CONSULTATION", docType, fileName, fileUrl, fileSizeBytes, mimeType, notes, requestId } = req.body || {};
 
       if (!fileUrl || !fileName || !docType) {
         return res.status(400).json({ success: false, message: "fileUrl, fileName, and docType are required." });
       }
 
-      const doc = await stageEngineService.uploadProjectDocument({
+      const doc = await stageEngineService.fulfillDocumentRequest({
+        requestId: requestId ? parseInt(requestId, 10) : null,
         projectId,
-        stageId,
         docType,
         fileName,
         fileUrl,
@@ -123,6 +123,130 @@ class SubStageController {
       return res.status(200).json({ success: true, document: verifiedDoc });
     } catch (err) {
       console.error("[SubStageController.verifyDocument] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * GET /api/admin/documents/overview
+   */
+  async getAdminDocumentsOverview(req, res) {
+    try {
+      const overview = await stageEngineService.getAdminDocumentsOverview();
+      return res.status(200).json({ success: true, ...overview });
+    } catch (err) {
+      console.error("[SubStageController.getAdminDocumentsOverview] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * POST /api/admin/documents/requests
+   */
+  async createDocumentRequest(req, res) {
+    try {
+      const adminUserId = req.user?.userId || req.user?.user_id;
+      const { projectId, title, category, urgency, instructions } = req.body || {};
+      if (!projectId || !title || !category) {
+        return res.status(400).json({ success: false, message: "projectId, title, and category are required." });
+      }
+
+      const request = await stageEngineService.createDocumentRequest({
+        projectId: parseInt(projectId, 10),
+        title,
+        category,
+        urgency: urgency || "Urgent",
+        instructions,
+        requestedBy: adminUserId,
+      });
+      return res.status(201).json({ success: true, request });
+    } catch (err) {
+      console.error("[SubStageController.createDocumentRequest] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * DELETE /api/admin/documents/requests/:id
+   */
+  async deleteDocumentRequest(req, res) {
+    try {
+      const requestId = parseInt(req.params.id, 10);
+      await stageEngineService.deleteDocumentRequest(requestId);
+      return res.status(200).json({ success: true, message: "Request deleted." });
+    } catch (err) {
+      console.error("[SubStageController.deleteDocumentRequest] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * POST /api/admin/documents/transmittals
+   */
+  async createTransmittal(req, res) {
+    try {
+      const adminUserId = req.user?.userId || req.user?.user_id;
+      const { projectId, title, category, fileUrl, fileName, fileSizeBytes, mimeType, remarks } = req.body || {};
+      if (!projectId || !title || !fileUrl || !fileName) {
+        return res.status(400).json({ success: false, message: "projectId, title, fileUrl, and fileName are required." });
+      }
+
+      const transmittal = await stageEngineService.createProjectTransmittal({
+        projectId: parseInt(projectId, 10),
+        title,
+        category: category || "MCPA Transmittal",
+        fileUrl,
+        fileName,
+        fileSizeBytes: fileSizeBytes || 0,
+        mimeType: mimeType || "application/pdf",
+        remarks,
+        transmittedBy: adminUserId,
+      });
+      return res.status(201).json({ success: true, transmittal });
+    } catch (err) {
+      console.error("[SubStageController.createTransmittal] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * DELETE /api/admin/documents/transmittals/:id
+   */
+  async deleteTransmittal(req, res) {
+    try {
+      const transmittalId = parseInt(req.params.id, 10);
+      await stageEngineService.deleteProjectTransmittal(transmittalId);
+      return res.status(200).json({ success: true, message: "Transmittal deleted." });
+    } catch (err) {
+      console.error("[SubStageController.deleteTransmittal] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * GET /api/projects/:id/document-requests (Client Portal)
+   */
+  async getProjectDocumentRequests(req, res) {
+    try {
+      const projectId = parseInt(req.params.id, 10);
+      const requests = await stageEngineService.getProjectDocumentRequests(projectId);
+      return res.status(200).json({ success: true, requests });
+    } catch (err) {
+      console.error("[SubStageController.getProjectDocumentRequests] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * GET /api/projects/:id/transmittals (Client Portal)
+   */
+  async getProjectTransmittals(req, res) {
+    try {
+      const projectId = parseInt(req.params.id, 10);
+      const transmittals = await stageEngineService.getProjectTransmittals(projectId);
+      return res.status(200).json({ success: true, transmittals });
+    } catch (err) {
+      console.error("[SubStageController.getProjectTransmittals] Error:", err);
       return res.status(500).json({ success: false, message: err.message });
     }
   }

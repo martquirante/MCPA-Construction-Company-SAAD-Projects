@@ -42,11 +42,18 @@ import {
 import DocumentUploadModal from "@/modules/shared/DocumentUploadModal";
 import { resolveClientAvatar } from "@/modules/admin/components/InquiryPipelineTab";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
+import { authFetch } from "@/modules/shared/authFetch";
 
 function ClientAvatarBadge({ client, sizeClasses = "w-7 h-7", textClasses = "text-[10px]" }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const avatarSrc = client?.avatar || client?.avatar_url || client?.clientAvatar;
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [avatarSrc]);
+
   const initials = useMemo(() => {
-    const rawName = client?.name || "Client";
+    const rawName = client?.name || client?.clientName || "Client";
     return (
       rawName
         .replace(/^(Engr\.|Arch\.|Dr\.|Atty\.|Mr\.|Ms\.|Mrs\.)\s+/i, "")
@@ -57,17 +64,17 @@ function ClientAvatarBadge({ client, sizeClasses = "w-7 h-7", textClasses = "tex
         .slice(0, 2)
         .toUpperCase() || "CL"
     );
-  }, [client?.name]);
+  }, [client?.name, client?.clientName]);
 
   return (
     <div
       className={`${sizeClasses} rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold ${textClasses} flex items-center justify-center shrink-0 font-mono overflow-hidden shadow-xs`}
     >
-      {client?.avatar && !imgFailed ? (
+      {avatarSrc && !imgFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={client.avatar}
-          alt={client.name || "Client"}
+          src={avatarSrc}
+          alt={client?.name || client?.clientName || "Client"}
           className="w-full h-full object-cover"
           referrerPolicy="no-referrer"
           crossOrigin="anonymous"
@@ -88,13 +95,16 @@ export default function AdminDocumentRequestsTab({
   // State for Document Requests & MCPA Transmittals
   const [requests, setRequests] = useState([]);
   const [transmittals, setTransmittals] = useState([]);
+  const [dbClients, setDbClients] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all"); // "all" | "pending" | "uploaded" | "verified" | "transmittals"
   const [viewMode, setViewMode] = useState("table"); // "table" | "grid"
 
   // Modal 1: Request Document from Client
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const [targetClientBriefId, setTargetClientBriefId] = useState("");
+  const [targetClientBriefId, setTargetClientBriefId] = useState(""); // Blank initially, no auto-select
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [selectedDocTemplate, setSelectedDocTemplate] = useState("tct");
   const [customDocTitle, setCustomDocTitle] = useState("");
   const [customDocCategory, setCustomDocCategory] = useState("Lot & Ownership");
@@ -107,7 +117,8 @@ export default function AdminDocumentRequestsTab({
 
   // Modal 2: Direct Upload from MCPA
   const [isDirectUploadFormOpen, setIsDirectUploadFormOpen] = useState(false);
-  const [directUploadClientBriefId, setDirectUploadClientBriefId] = useState("");
+  const [directUploadClientBriefId, setDirectUploadClientBriefId] = useState(""); // Blank initially, no auto-select
+  const [directClientSearchQuery, setDirectClientSearchQuery] = useState("");
   const [selectedTransmittalTemplate, setSelectedTransmittalTemplate] = useState("quotation_index");
   const [customTransmittalTitle, setCustomTransmittalTitle] = useState("");
   const [customTransmittalCategory, setCustomTransmittalCategory] = useState("Financial & Estimation");
@@ -141,24 +152,90 @@ export default function AdminDocumentRequestsTab({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Fetch full overview from backend
+  const fetchOverview = async () => {
+    setIsLoading(true);
+    try {
+      const res = await authFetch("/api/admin/documents/overview");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.clients)) {
+          setDbClients(data.clients);
+        }
+        if (Array.isArray(data?.requests)) {
+          const formatted = data.requests.map((r) => ({
+            id: r.request_id || r.id,
+            requestId: r.request_id,
+            projectId: r.client_project_id,
+            title: r.title,
+            category: r.category,
+            urgency: r.urgency,
+            note: r.instructions || r.note,
+            status: r.status,
+            clientName: r.client_name,
+            clientEmail: r.client_email,
+            clientAvatar: r.client_avatar,
+            projectCode: r.project_code,
+            projectType: r.project_type,
+            requestedBy: r.requester_name || "Admin",
+            requestedAt: r.created_at,
+            file: r.file_url ? {
+              fileName: r.file_name,
+              fileSize: r.file_size_bytes,
+              fileUrl: r.file_url,
+              uploadedAt: r.uploaded_at,
+            } : null,
+          }));
+          setRequests(formatted);
+          saveDocumentRequests(formatted);
+        }
+        if (Array.isArray(data?.transmittals)) {
+          const formattedTxs = data.transmittals.map((t) => ({
+            id: t.transmittal_id || t.id,
+            transmittalId: t.transmittal_id,
+            projectId: t.client_project_id,
+            title: t.title,
+            category: t.category,
+            fileName: t.file_name,
+            fileSize: t.file_size_bytes,
+            fileUrl: t.file_url,
+            mimeType: t.mime_type,
+            note: t.remarks,
+            issuedBy: t.transmitter_name || "MCPA Engineering",
+            issuedAt: t.created_at,
+            clientName: t.client_name,
+            clientEmail: t.client_email,
+            clientAvatar: t.client_avatar,
+            projectCode: t.project_code,
+            projectType: t.project_type,
+          }));
+          setTransmittals(formattedTxs);
+          saveAdminTransmittals(formattedTxs);
+        }
+      }
+    } catch (err) {
+      console.warn("fetchOverview fallback to local storage:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Load data on mount & listen to cross-tab updates
   useEffect(() => {
     const initialReqs = loadDocumentRequests();
     const initialTxs = loadAdminTransmittals();
-    setRequests(initialReqs);
-    setTransmittals(initialTxs);
+    if (initialReqs?.length > 0) setRequests(initialReqs);
+    if (initialTxs?.length > 0) setTransmittals(initialTxs);
 
-    const handleRequestsUpdate = (e) => {
-      if (e.detail?.requests) setRequests(e.detail.requests);
-      if (e.detail?.transmittals) setTransmittals(e.detail.transmittals);
+    fetchOverview();
+
+    const handleRequestsUpdate = () => {
+      fetchOverview();
     };
 
     const handleStorageChange = (e) => {
-      if (e.key === "mcpa_document_requests") {
-        setRequests(loadDocumentRequests());
-      }
-      if (e.key === "mcpa_admin_transmittals") {
-        setTransmittals(loadAdminTransmittals());
+      if (e.key === "mcpa_document_requests" || e.key === "mcpa_admin_transmittals") {
+        fetchOverview();
       }
     };
 
@@ -197,53 +274,72 @@ export default function AdminDocumentRequestsTab({
     }
   }, [selectedTransmittalTemplate]);
 
-  // Clients list from briefs with fallback
+  // Unified client options prioritized by real database projects
   const clientOptions = useMemo(() => {
-    if (Array.isArray(clientBriefs) && clientBriefs.length > 0) {
-      return clientBriefs.map((b) => ({
-        id: b.id || b.submissionId || b.trackingId,
-        name: b.clientName || b.fullName || "Valued Client",
-        email: b.clientEmail || b.email || "",
-        code: b.trackingId || b.projectCode || "MCPA-CPB-748294",
-        projectType: b.projectType || "Residential Design & Build",
-        avatar: resolveClientAvatar(b),
+    if (Array.isArray(dbClients) && dbClients.length > 0) {
+      return dbClients.map((c) => ({
+        id: String(c.client_project_id || c.project_id || c.id),
+        projectId: c.client_project_id || c.project_id,
+        userId: c.user_id,
+        name: c.client_name || c.full_name || "Valued Client",
+        email: c.client_email || c.email || "",
+        code: c.project_code || "MCPA-PRJ-2026",
+        projectType: c.project_type || "Residential Design & Build",
+        avatar: c.avatar_url || resolveClientAvatar(c),
+        location: c.location || "",
       }));
     }
-    return [
-      {
-        id: "raymart-01",
-        name: "Raymart Quirante",
-        email: "rayquirante@gmail.com",
-        code: "MCPA-CPB-748294",
-        projectType: "Residential Design & Build",
-        avatar: "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c",
-      },
-    ];
-  }, [clientBriefs]);
-
-  // Default target client
-  useEffect(() => {
-    if (clientOptions.length > 0 && !targetClientBriefId) {
-      setTargetClientBriefId(clientOptions[0].id);
-      setDirectUploadClientBriefId(clientOptions[0].id);
+    if (Array.isArray(clientBriefs) && clientBriefs.length > 0) {
+      return clientBriefs.map((b) => ({
+        id: String(b.client_project_id || b.id || b.submissionId || b.trackingId),
+        projectId: b.client_project_id || b.id,
+        userId: b.user_id,
+        name: b.clientName || b.fullName || "Valued Client",
+        email: b.clientEmail || b.email || "",
+        code: b.project_code || b.projectCode || b.submissionId || b.trackingId || "MCPA-PRJ-2026",
+        projectType: b.projectType || "Residential Design & Build",
+        avatar: resolveClientAvatar(b),
+        location: b.targetLocation || b.location || "",
+      }));
     }
-  }, [clientOptions, targetClientBriefId]);
+    return [];
+  }, [dbClients, clientBriefs]);
 
+  // Selected clients (defaults to null if not yet picked by user)
   const selectedTargetClient = useMemo(() => {
-    return (
-      clientOptions.find((c) => String(c.id) === String(targetClientBriefId)) ||
-      clientOptions[0] ||
-      null
-    );
+    if (!targetClientBriefId) return null;
+    return clientOptions.find((c) => String(c.id) === String(targetClientBriefId)) || null;
   }, [clientOptions, targetClientBriefId]);
 
   const selectedDirectTargetClient = useMemo(() => {
-    return (
-      clientOptions.find((c) => String(c.id) === String(directUploadClientBriefId)) ||
-      clientOptions[0] ||
-      null
-    );
+    if (!directUploadClientBriefId) return null;
+    return clientOptions.find((c) => String(c.id) === String(directUploadClientBriefId)) || null;
   }, [clientOptions, directUploadClientBriefId]);
+
+  // Filtered client options for combobox searches
+  const filteredClientOptions = useMemo(() => {
+    if (!clientSearchQuery.trim()) return clientOptions;
+    const q = clientSearchQuery.toLowerCase().trim();
+    return clientOptions.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.code.toLowerCase().includes(q) ||
+        c.projectType.toLowerCase().includes(q) ||
+        (c.location && c.location.toLowerCase().includes(q))
+    );
+  }, [clientOptions, clientSearchQuery]);
+
+  const filteredDirectClientOptions = useMemo(() => {
+    if (!directClientSearchQuery.trim()) return clientOptions;
+    const q = directClientSearchQuery.toLowerCase().trim();
+    return clientOptions.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.code.toLowerCase().includes(q) ||
+        c.projectType.toLowerCase().includes(q) ||
+        (c.location && c.location.toLowerCase().includes(q))
+    );
+  }, [clientOptions, directClientSearchQuery]);
 
   // Filtered requests
   const filteredRequests = useMemo(() => {
@@ -293,9 +389,12 @@ export default function AdminDocumentRequestsTab({
   const verifiedCount = useMemo(() => requests.filter((r) => r.status === "verified").length, [requests]);
 
   // Handle Create Request
-  const handleCreateRequest = (e) => {
+  const handleCreateRequest = async (e) => {
     e.preventDefault();
-    const targetClient = clientOptions.find((c) => c.id === targetClientBriefId) || clientOptions[0];
+    if (!selectedTargetClient) {
+      showToast?.("Please select a target client portal first.", "error");
+      return;
+    }
 
     const selectedTemplate = STANDARD_REQUEST_DOCUMENTS.find((d) => d.id === selectedDocTemplate);
     const finalTitle =
@@ -303,33 +402,70 @@ export default function AdminDocumentRequestsTab({
         ? customDocTitle.trim() || "Custom Required Document"
         : selectedTemplate?.title || "Required Document";
 
-    const newRequest = {
-      id: `req-${Date.now()}`,
-      title: finalTitle,
-      category: customDocCategory || selectedTemplate?.category || "General",
-      clientName: targetClient?.name || "Client",
-      clientEmail: targetClient?.email || "",
-      projectCode: targetClient?.code || "MCPA-CPB-748294",
-      urgency: requestUrgency,
-      note: requestNote.trim() || selectedTemplate?.defaultNote || "Required by MCPA administration.",
-      requestedBy: currentUser?.fullName || currentUser?.name || "Engr. Raymart Quirante (Admin)",
-      requestedAt: new Date().toISOString(),
-      status: "pending",
-      file: null,
-    };
+    const projectId = selectedTargetClient.projectId || selectedTargetClient.id;
 
-    const updated = [newRequest, ...requests];
-    setRequests(updated);
-    saveDocumentRequests(updated);
+    try {
+      const res = await authFetch("/api/admin/documents/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          title: finalTitle,
+          category: customDocCategory || selectedTemplate?.category || "General",
+          urgency: requestUrgency,
+          instructions: requestNote.trim() || selectedTemplate?.defaultNote || "Required by MCPA administration.",
+        }),
+      });
 
-    setIsRequestModalOpen(false);
-    showToast(`Document requested from ${targetClient.name}: "${finalTitle}"`);
+      const data = await res.json().catch(() => ({}));
+      const serverReq = data?.request;
+
+      const newRequest = {
+        id: serverReq?.request_id || `req-${Date.now()}`,
+        requestId: serverReq?.request_id,
+        projectId,
+        title: finalTitle,
+        category: customDocCategory || selectedTemplate?.category || "General",
+        clientName: selectedTargetClient.name,
+        clientEmail: selectedTargetClient.email,
+        clientAvatar: selectedTargetClient.avatar,
+        projectCode: selectedTargetClient.code,
+        projectType: selectedTargetClient.projectType,
+        urgency: requestUrgency,
+        note: requestNote.trim() || selectedTemplate?.defaultNote || "Required by MCPA administration.",
+        requestedBy: currentUser?.fullName || currentUser?.name || "Engr. Raymart Quirante (Admin)",
+        requestedAt: new Date().toISOString(),
+        status: "pending",
+        file: null,
+      };
+
+      const updated = [newRequest, ...requests];
+      setRequests(updated);
+      saveDocumentRequests(updated);
+
+      // Trigger cross-tab sync
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("mcpa-document-requests-updated", { detail: { requests: updated } }));
+      }
+
+      setIsRequestModalOpen(false);
+      setTargetClientBriefId("");
+      showToast?.(`Document requested from ${selectedTargetClient.name}: "${finalTitle}"`);
+      fetchOverview();
+    } catch (err) {
+      console.error("Create request error:", err);
+      showToast?.(err.message || "Failed to create document request", "error");
+    }
   };
 
   // Open Direct Upload Form (Step 1 -> leads to Step 2 Upload Animation Modal)
   const handleProceedToDirectUpload = (e) => {
     e.preventDefault();
-    const targetClient = clientOptions.find((c) => c.id === directUploadClientBriefId) || clientOptions[0];
+    if (!selectedDirectTargetClient) {
+      showToast?.("Please select a target client portal first.", "error");
+      return;
+    }
+
     const selectedTemplate = STANDARD_MCPA_TRANSMITTALS.find((d) => d.id === selectedTransmittalTemplate);
     const finalTitle =
       selectedTransmittalTemplate === "others_mcpa"
@@ -339,7 +475,7 @@ export default function AdminDocumentRequestsTab({
     setPendingUploadPayload({
       title: finalTitle,
       category: customTransmittalCategory || selectedTemplate?.category || "MCPA Transmittal",
-      client: targetClient,
+      client: selectedDirectTargetClient,
       note: transmittalNote.trim() || selectedTemplate?.defaultNote || "Official document from MCPA.",
     });
 
@@ -348,34 +484,73 @@ export default function AdminDocumentRequestsTab({
   };
 
   // Complete Direct Upload after 0-100% progress animation
-  const handleDirectUploadSuccess = (uploadedFile) => {
+  const handleDirectUploadSuccess = async (uploadedFile) => {
     if (!pendingUploadPayload) return;
 
-    const newTransmittal = {
-      id: `tx-${Date.now()}`,
-      title: pendingUploadPayload.title,
-      category: pendingUploadPayload.category,
-      clientName: pendingUploadPayload.client?.name || "Client",
-      clientEmail: pendingUploadPayload.client?.email || "",
-      projectCode: pendingUploadPayload.client?.code || "MCPA-CPB-748294",
-      note: pendingUploadPayload.note,
-      issuedBy: currentUser?.fullName || currentUser?.name || "MCPA Central Engineering Desk",
-      issuedAt: new Date().toISOString(),
-      fileName: uploadedFile.fileName,
-      fileSize: uploadedFile.fileSize,
-      fileUrl: uploadedFile.fileUrl,
-      mimeType: uploadedFile.mimeType,
-    };
+    const targetClient = pendingUploadPayload.client;
+    const projectId = targetClient.projectId || targetClient.id;
 
-    const updated = [newTransmittal, ...transmittals];
-    setTransmittals(updated);
-    saveAdminTransmittals(updated);
+    try {
+      const res = await authFetch("/api/admin/documents/transmittals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          title: pendingUploadPayload.title,
+          category: pendingUploadPayload.category,
+          fileUrl: uploadedFile.fileUrl,
+          fileName: uploadedFile.fileName,
+          fileSizeBytes: uploadedFile.fileSize,
+          mimeType: uploadedFile.mimeType,
+          remarks: pendingUploadPayload.note,
+        }),
+      });
 
-    showToast(`Document successfully transmitted to ${newTransmittal.clientName}!`);
+      const data = await res.json().catch(() => ({}));
+      const serverTx = data?.transmittal;
+
+      const newTransmittal = {
+        id: serverTx?.transmittal_id || `tx-${Date.now()}`,
+        transmittalId: serverTx?.transmittal_id,
+        projectId,
+        title: pendingUploadPayload.title,
+        category: pendingUploadPayload.category,
+        clientName: targetClient.name,
+        clientEmail: targetClient.email,
+        clientAvatar: targetClient.avatar,
+        projectCode: targetClient.code,
+        projectType: targetClient.projectType,
+        note: pendingUploadPayload.note,
+        issuedBy: currentUser?.fullName || currentUser?.name || "MCPA Central Engineering Desk",
+        issuedAt: new Date().toISOString(),
+        fileName: uploadedFile.fileName,
+        fileSize: uploadedFile.fileSize,
+        fileUrl: uploadedFile.fileUrl,
+        mimeType: uploadedFile.mimeType,
+      };
+
+      const updated = [newTransmittal, ...transmittals];
+      setTransmittals(updated);
+      saveAdminTransmittals(updated);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("mcpa-admin-transmittals-updated", { detail: { transmittals: updated } }));
+      }
+
+      setIsUploadAnimationModalOpen(false);
+      setPendingUploadPayload(null);
+      setDirectUploadClientBriefId("");
+      showToast?.(`Document successfully transmitted to ${targetClient.name}!`);
+      fetchOverview();
+    } catch (err) {
+      console.error("Direct upload error:", err);
+      showToast?.(err.message || "Failed to save transmittal", "error");
+    }
   };
 
   // Mark Request as Verified / Approved
-  const handleVerifyRequest = (requestId) => {
+  const handleVerifyRequest = async (requestId) => {
+    const req = requests.find((r) => r.id === requestId);
     const updated = requests.map((r) => {
       if (r.id === requestId) {
         return {
@@ -390,25 +565,75 @@ export default function AdminDocumentRequestsTab({
     });
     setRequests(updated);
     saveDocumentRequests(updated);
-    showToast("Document verified and approved by MCPA!");
+
+    if (req?.file?.fileUrl || req?.requestId) {
+      try {
+        await authFetch(`/api/admin/documents/${req?.requestId || requestId}/verify`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "Verified" }),
+        });
+      } catch (err) {
+        console.warn("Backend verify sync:", err);
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("mcpa-document-requests-updated", { detail: { requests: updated } }));
+    }
+
+    showToast?.("Document verified and approved by MCPA!");
+    fetchOverview();
   };
 
   // Delete Request
-  const handleDeleteRequest = (requestId) => {
+  const handleDeleteRequest = async (requestId) => {
     if (!confirm("Are you sure you want to delete this document request?")) return;
+    const req = requests.find((r) => r.id === requestId);
     const updated = requests.filter((r) => r.id !== requestId);
     setRequests(updated);
     saveDocumentRequests(updated);
-    showToast("Document request has been removed.");
+
+    const backendId = req?.requestId || (typeof requestId === "number" ? requestId : null);
+    if (backendId) {
+      try {
+        await authFetch(`/api/admin/documents/requests/${backendId}`, {
+          method: "DELETE",
+        });
+      } catch (err) {
+        console.warn("Backend delete request:", err);
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("mcpa-document-requests-updated", { detail: { requests: updated } }));
+    }
+    showToast?.("Document request has been removed.");
   };
 
   // Delete Transmittal
-  const handleDeleteTransmittal = (txId) => {
+  const handleDeleteTransmittal = async (txId) => {
     if (!confirm("Are you sure you want to remove this official MCPA transmittal record?")) return;
+    const tx = transmittals.find((t) => t.id === txId);
     const updated = transmittals.filter((t) => t.id !== txId);
     setTransmittals(updated);
     saveAdminTransmittals(updated);
-    showToast("MCPA transmittal record has been removed.");
+
+    const backendId = tx?.transmittalId || (typeof txId === "number" ? txId : null);
+    if (backendId) {
+      try {
+        await authFetch(`/api/admin/documents/transmittals/${backendId}`, {
+          method: "DELETE",
+        });
+      } catch (err) {
+        console.warn("Backend delete transmittal:", err);
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("mcpa-admin-transmittals-updated", { detail: { transmittals: updated } }));
+    }
+    showToast?.("MCPA transmittal record has been removed.");
   };
 
   const selectedTemplateObj = STANDARD_REQUEST_DOCUMENTS.find((d) => d.id === selectedDocTemplate);
@@ -679,14 +904,16 @@ export default function AdminDocumentRequestsTab({
                         </div>
                       </td>
                       <td className="py-3.5 px-4 min-w-[180px]">
-                        <div className="space-y-0.5">
-                          <p className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
-                            <User className="w-3.5 h-3.5 text-neutral-400" />
-                            <span>{tx.clientName}</span>
-                          </p>
-                          <p className="text-[11px] font-mono text-neutral-400">
-                            {tx.projectCode}
-                          </p>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <ClientAvatarBadge client={{ name: tx.clientName, avatar: tx.clientAvatar }} sizeClasses="w-7 h-7" />
+                          <div className="space-y-0.5 min-w-0">
+                            <p className="font-bold text-neutral-900 dark:text-white truncate">
+                              {tx.clientName}
+                            </p>
+                            <p className="text-[11px] font-mono text-neutral-400 truncate">
+                              {tx.projectCode}
+                            </p>
+                          </div>
                         </div>
                       </td>
                       <td className="py-3.5 px-4 min-w-[200px]">
@@ -772,9 +999,9 @@ export default function AdminDocumentRequestsTab({
                   {/* Target Client & File Details */}
                   <div className="pt-3 border-t border-neutral-100 dark:border-white/5 space-y-2.5">
                     <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <User className="w-3.5 h-3.5 text-neutral-400" />
-                        <span className="font-bold text-neutral-900 dark:text-white">{tx.clientName}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ClientAvatarBadge client={{ name: tx.clientName, avatar: tx.clientAvatar }} sizeClasses="w-6 h-6" />
+                        <span className="font-bold text-neutral-900 dark:text-white truncate">{tx.clientName}</span>
                       </div>
                       <span className="text-[10px] font-mono text-neutral-400">
                         {formatDocDate(tx.issuedAt)}
@@ -905,16 +1132,16 @@ export default function AdminDocumentRequestsTab({
                         </td>
 
                         <td className="py-3.5 px-4 min-w-[180px]">
-                          <div className="space-y-0.5">
-                            <p className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
-                              <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold text-[9px] font-mono">
-                                {req.clientName?.charAt(0) || "C"}
-                              </span>
-                              <span>{req.clientName}</span>
-                            </p>
-                            <p className="text-[11px] font-mono text-neutral-400">
-                              {req.projectCode}
-                            </p>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <ClientAvatarBadge client={{ name: req.clientName, avatar: req.clientAvatar }} sizeClasses="w-7 h-7" />
+                            <div className="space-y-0.5 min-w-0">
+                              <p className="font-bold text-neutral-900 dark:text-white truncate">
+                                {req.clientName}
+                              </p>
+                              <p className="text-[11px] font-mono text-neutral-400 truncate">
+                                {req.projectCode}
+                              </p>
+                            </div>
                           </div>
                         </td>
 
@@ -1103,9 +1330,7 @@ export default function AdminDocumentRequestsTab({
                     {/* Middle: Target Client Profile */}
                     <div className="pt-3 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold text-[10px] font-mono shrink-0">
-                          {req.clientName?.charAt(0) || "C"}
-                        </div>
+                        <ClientAvatarBadge client={{ name: req.clientName, avatar: req.clientAvatar }} sizeClasses="w-7 h-7" />
                         <div className="min-w-0">
                           <p className="font-bold text-neutral-900 dark:text-white truncate">
                             {req.clientName}
@@ -1216,9 +1441,9 @@ export default function AdminDocumentRequestsTab({
               {/* TARGET CLIENT COMBOBOX (Custom UI with Client Avatar & Project Code) */}
               <div className="space-y-1.5 relative" ref={clientComboboxRef}>
                 <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300 flex items-center justify-between">
-                  <span>Target Client / Project Inquiry</span>
+                  <span>Target Client Portal</span>
                   <span className="text-[10px] text-amber-500 lowercase font-normal">
-                    select recipient
+                    recipient
                   </span>
                 </label>
 
@@ -1226,12 +1451,18 @@ export default function AdminDocumentRequestsTab({
                 <button
                   type="button"
                   onClick={() => setIsClientComboboxOpen(!isClientComboboxOpen)}
-                  className="w-full px-3 py-2 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white flex items-center justify-between text-left cursor-pointer hover:border-amber-500 transition-colors shadow-xs"
+                  className={`w-full px-3 py-2.5 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border text-xs font-mono text-neutral-900 dark:text-white flex items-center justify-between text-left cursor-pointer transition-all shadow-xs ${
+                    isClientComboboxOpen
+                      ? "border-amber-500 ring-2 ring-amber-500/20"
+                      : selectedTargetClient
+                      ? "border-neutral-300 dark:border-white/10 hover:border-amber-500"
+                      : "border-dashed border-neutral-300 dark:border-white/20 hover:border-amber-500"
+                  }`}
                 >
                   {selectedTargetClient ? (
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                      <ClientAvatarBadge client={selectedTargetClient} sizeClasses="w-7 h-7" />
-                      <div className="min-w-0">
+                      <ClientAvatarBadge client={selectedTargetClient} sizeClasses="w-8 h-8" />
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-bold font-sans text-xs text-neutral-900 dark:text-white truncate">
                             {selectedTargetClient.name}
@@ -1242,64 +1473,102 @@ export default function AdminDocumentRequestsTab({
                         </div>
                         <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans truncate">
                           {selectedTargetClient.projectType}
+                          {selectedTargetClient.location ? ` · ${selectedTargetClient.location}` : ""}
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <span className="text-neutral-400">Choose a client...</span>
+                    <div className="flex items-center gap-2.5 text-neutral-400 dark:text-neutral-500 py-0.5">
+                      <div className="w-7 h-7 rounded-full border border-dashed border-neutral-300 dark:border-white/20 flex items-center justify-center bg-neutral-200/40 dark:bg-white/[0.03]">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-mono text-xs font-medium">Select target client portal...</span>
+                    </div>
                   )}
                   <ChevronDown
                     className={`w-4 h-4 text-neutral-400 transition-transform shrink-0 ${
-                      isClientComboboxOpen ? "rotate-180" : ""
+                      isClientComboboxOpen ? "rotate-180 text-amber-500" : ""
                     }`}
                   />
                 </button>
 
                 {/* Dropdown Options */}
                 {isClientComboboxOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 z-40 rounded-[10px] bg-white dark:bg-[#151722] border border-neutral-200 dark:border-white/15 shadow-2xl overflow-hidden max-h-64 overflow-y-auto divide-y divide-neutral-100 dark:divide-white/5 animate-in fade-in duration-150">
-                    <div className="p-2.5 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-100 dark:border-white/5 text-[10px] font-mono uppercase text-neutral-400 font-bold flex items-center justify-between">
-                      <span>Select Target Client</span>
-                      <span className="text-amber-500 font-semibold">{clientOptions.length} Clients Available</span>
+                  <div className="absolute top-full left-0 right-0 mt-1 z-40 rounded-[10px] bg-white dark:bg-[#151722] border border-neutral-200 dark:border-white/15 shadow-2xl overflow-hidden max-h-72 flex flex-col divide-y divide-neutral-100 dark:divide-white/5 animate-in fade-in duration-150">
+                    <div className="p-2.5 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-100 dark:border-white/5 space-y-2 shrink-0">
+                      <div className="flex items-center justify-between text-[10px] font-mono uppercase text-neutral-400 font-bold px-0.5">
+                        <span>Select Target Client</span>
+                        <span className="text-amber-500 font-semibold">{filteredClientOptions.length} Available</span>
+                      </div>
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Search by client name, code, or type..."
+                          value={clientSearchQuery}
+                          onChange={(e) => setClientSearchQuery(e.target.value)}
+                          className="w-full pl-8 pr-7 py-1.5 rounded-[6px] bg-white dark:bg-[#181a24] border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        {clientSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setClientSearchQuery("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-white"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {clientOptions.map((c) => {
-                      const isSelected = String(c.id) === String(targetClientBriefId);
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => {
-                            setTargetClientBriefId(c.id);
-                            setIsClientComboboxOpen(false);
-                          }}
-                          className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-3 hover:bg-amber-500/10 transition-colors cursor-pointer ${
-                            isSelected
-                              ? "bg-amber-500/15 text-neutral-900 dark:text-white"
-                              : "text-neutral-800 dark:text-neutral-200"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <ClientAvatarBadge client={c} sizeClasses="w-8 h-8" />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-neutral-900 dark:text-white truncate font-sans">
-                                  {c.name}
-                                </span>
-                                <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400">
-                                  {c.code}
-                                </span>
+                    <div className="overflow-y-auto divide-y divide-neutral-100 dark:divide-white/5">
+                      {filteredClientOptions.length === 0 ? (
+                        <div className="p-6 text-center text-xs font-mono text-neutral-400">
+                          No clients match &quot;{clientSearchQuery}&quot;
+                        </div>
+                      ) : (
+                        filteredClientOptions.map((c) => {
+                          const isSelected = String(c.id) === String(targetClientBriefId);
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setTargetClientBriefId(c.id);
+                                setIsClientComboboxOpen(false);
+                              }}
+                              className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-3 hover:bg-amber-500/10 transition-colors cursor-pointer ${
+                                isSelected
+                                  ? "bg-amber-500/15 text-neutral-900 dark:text-white"
+                                  : "text-neutral-800 dark:text-neutral-200"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <ClientAvatarBadge client={c} sizeClasses="w-8 h-8" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-neutral-900 dark:text-white truncate font-sans">
+                                      {c.name}
+                                    </span>
+                                    <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                                      {c.code}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-neutral-400 dark:text-neutral-500 font-sans truncate">
+                                    {c.projectType}
+                                    {c.location ? ` · ${c.location}` : ""}
+                                  </p>
+                                </div>
                               </div>
-                              <p className="text-[11px] text-neutral-400 dark:text-neutral-500 font-sans truncate">
-                                {c.projectType}
-                              </p>
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <Check className="w-4 h-4 text-amber-500 shrink-0" />
-                          )}
-                        </button>
-                      );
-                    })}
+                              {isSelected && (
+                                <Check className="w-4 h-4 text-amber-500 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1487,12 +1756,18 @@ export default function AdminDocumentRequestsTab({
                 <button
                   type="button"
                   onClick={() => setIsDirectClientComboboxOpen(!isDirectClientComboboxOpen)}
-                  className="w-full px-3 py-2 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white flex items-center justify-between text-left cursor-pointer hover:border-amber-500 transition-colors shadow-xs"
+                  className={`w-full px-3 py-2.5 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border text-xs font-mono text-neutral-900 dark:text-white flex items-center justify-between text-left cursor-pointer transition-all shadow-xs ${
+                    isDirectClientComboboxOpen
+                      ? "border-amber-500 ring-2 ring-amber-500/20"
+                      : selectedDirectTargetClient
+                      ? "border-neutral-300 dark:border-white/10 hover:border-amber-500"
+                      : "border-dashed border-neutral-300 dark:border-white/20 hover:border-amber-500"
+                  }`}
                 >
                   {selectedDirectTargetClient ? (
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                      <ClientAvatarBadge client={selectedDirectTargetClient} sizeClasses="w-7 h-7" />
-                      <div className="min-w-0">
+                      <ClientAvatarBadge client={selectedDirectTargetClient} sizeClasses="w-8 h-8" />
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-bold font-sans text-xs text-neutral-900 dark:text-white truncate">
                             {selectedDirectTargetClient.name}
@@ -1503,64 +1778,102 @@ export default function AdminDocumentRequestsTab({
                         </div>
                         <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans truncate">
                           {selectedDirectTargetClient.projectType}
+                          {selectedDirectTargetClient.location ? ` · ${selectedDirectTargetClient.location}` : ""}
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <span className="text-neutral-400">Choose a client...</span>
+                    <div className="flex items-center gap-2.5 text-neutral-400 dark:text-neutral-500 py-0.5">
+                      <div className="w-7 h-7 rounded-full border border-dashed border-neutral-300 dark:border-white/20 flex items-center justify-center bg-neutral-200/40 dark:bg-white/[0.03]">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-mono text-xs font-medium">Select target client portal...</span>
+                    </div>
                   )}
                   <ChevronDown
                     className={`w-4 h-4 text-neutral-400 transition-transform shrink-0 ${
-                      isDirectClientComboboxOpen ? "rotate-180" : ""
+                      isDirectClientComboboxOpen ? "rotate-180 text-amber-500" : ""
                     }`}
                   />
                 </button>
 
                 {/* Dropdown Options */}
                 {isDirectClientComboboxOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 z-40 rounded-[10px] bg-white dark:bg-[#151722] border border-neutral-200 dark:border-white/15 shadow-2xl overflow-hidden max-h-64 overflow-y-auto divide-y divide-neutral-100 dark:divide-white/5 animate-in fade-in duration-150">
-                    <div className="p-2.5 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-100 dark:border-white/5 text-[10px] font-mono uppercase text-neutral-400 font-bold flex items-center justify-between">
-                      <span>Select Target Client</span>
-                      <span className="text-amber-500 font-semibold">{clientOptions.length} Clients Available</span>
+                  <div className="absolute top-full left-0 right-0 mt-1 z-40 rounded-[10px] bg-white dark:bg-[#151722] border border-neutral-200 dark:border-white/15 shadow-2xl overflow-hidden max-h-72 flex flex-col divide-y divide-neutral-100 dark:divide-white/5 animate-in fade-in duration-150">
+                    <div className="p-2.5 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-100 dark:border-white/5 space-y-2 shrink-0">
+                      <div className="flex items-center justify-between text-[10px] font-mono uppercase text-neutral-400 font-bold px-0.5">
+                        <span>Select Target Client</span>
+                        <span className="text-amber-500 font-semibold">{filteredDirectClientOptions.length} Available</span>
+                      </div>
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Search by client name, code, or type..."
+                          value={directClientSearchQuery}
+                          onChange={(e) => setDirectClientSearchQuery(e.target.value)}
+                          className="w-full pl-8 pr-7 py-1.5 rounded-[6px] bg-white dark:bg-[#181a24] border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        {directClientSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setDirectClientSearchQuery("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-white"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {clientOptions.map((c) => {
-                      const isSelected = String(c.id) === String(directUploadClientBriefId);
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => {
-                            setDirectUploadClientBriefId(c.id);
-                            setIsDirectClientComboboxOpen(false);
-                          }}
-                          className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-3 hover:bg-amber-500/10 transition-colors cursor-pointer ${
-                            isSelected
-                              ? "bg-amber-500/15 text-neutral-900 dark:text-white"
-                              : "text-neutral-800 dark:text-neutral-200"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <ClientAvatarBadge client={c} sizeClasses="w-8 h-8" />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-neutral-900 dark:text-white truncate font-sans">
-                                  {c.name}
-                                </span>
-                                <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400">
-                                  {c.code}
-                                </span>
+                    <div className="overflow-y-auto divide-y divide-neutral-100 dark:divide-white/5">
+                      {filteredDirectClientOptions.length === 0 ? (
+                        <div className="p-6 text-center text-xs font-mono text-neutral-400">
+                          No clients match &quot;{directClientSearchQuery}&quot;
+                        </div>
+                      ) : (
+                        filteredDirectClientOptions.map((c) => {
+                          const isSelected = String(c.id) === String(directUploadClientBriefId);
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setDirectUploadClientBriefId(c.id);
+                                setIsDirectClientComboboxOpen(false);
+                              }}
+                              className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-3 hover:bg-amber-500/10 transition-colors cursor-pointer ${
+                                isSelected
+                                  ? "bg-amber-500/15 text-neutral-900 dark:text-white"
+                                  : "text-neutral-800 dark:text-neutral-200"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <ClientAvatarBadge client={c} sizeClasses="w-8 h-8" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-neutral-900 dark:text-white truncate font-sans">
+                                      {c.name}
+                                    </span>
+                                    <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                                      {c.code}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-neutral-400 dark:text-neutral-500 font-sans truncate">
+                                    {c.projectType}
+                                    {c.location ? ` · ${c.location}` : ""}
+                                  </p>
+                                </div>
                               </div>
-                              <p className="text-[11px] text-neutral-400 dark:text-neutral-500 font-sans truncate">
-                                {c.projectType}
-                              </p>
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <Check className="w-4 h-4 text-amber-500 shrink-0" />
-                          )}
-                        </button>
-                      );
-                    })}
+                              {isSelected && (
+                                <Check className="w-4 h-4 text-amber-500 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
