@@ -143,6 +143,24 @@ export function optimizeOpusSdp(sdp) {
   }
 }
 
+/**
+ * Finds the transceiver that actually carries media for a given kind.
+ * Prefers transceivers already bound to an m-line (mid !== null) so tracks are never
+ * attached to an un-negotiated transceiver (which would silently send nothing).
+ * @param {RTCPeerConnection} pc
+ * @param {"audio"|"video"} kind
+ */
+function findTransceiverForKind(pc, kind) {
+  const transceivers = typeof pc.getTransceivers === "function" ? pc.getTransceivers() : [];
+  const candidates = transceivers.filter(
+    (tr) =>
+      !tr.stopped &&
+      tr.direction !== "stopped" &&
+      (tr.receiver?.track?.kind === kind || tr.sender?.track?.kind === kind)
+  );
+  return candidates.find((tr) => tr.mid !== null) || candidates[0] || null;
+}
+
 export class WebRTCPeerManager {
   constructor({
     socket,
@@ -232,15 +250,18 @@ export class WebRTCPeerManager {
         .catch(() => {});
     }
 
-    // 1. Add sendrecv transceivers for audio and video
-    try {
-      pc.addTransceiver("audio", { direction: "sendrecv" });
-      pc.addTransceiver("video", { direction: "sendrecv" });
-    } catch (e) {}
+    // 1. Only the OFFERER pre-creates sendrecv transceivers and attaches tracks up-front.
+    // Transceivers created before setRemoteDescription on the answerer can cause duplicate m-lines,
+    // so the answerer attaches tracks in handleOfferAndSendAnswer after setRemoteDescription.
+    if (isInitiator) {
+      try {
+        pc.addTransceiver("audio", { direction: "sendrecv" });
+        pc.addTransceiver("video", { direction: "sendrecv" });
+      } catch (e) {}
 
-    // 2. Attach local tracks if already available
-    if (this.localStream) {
-      this.attachLocalTracksToPeer(pc, this.localStream);
+      if (this.localStream) {
+        this.attachLocalTracksToPeer(pc, this.localStream);
+      }
     }
 
     // 3. Handle incoming remote audio and video tracks
@@ -294,17 +315,14 @@ export class WebRTCPeerManager {
   /**
    * Attaches local audio and video tracks to a specific RTCPeerConnection
    */
-  attachLocalTracksToPeer(pc, stream) {
+  async attachLocalTracksToPeer(pc, stream) {
     if (!pc || !stream) return;
 
-    const transceivers = typeof pc.getTransceivers === "function" ? pc.getTransceivers() : [];
     const senders = typeof pc.getSenders === "function" ? pc.getSenders() : [];
 
-    stream.getTracks().forEach(async (track) => {
-      track.enabled = true;
-      const t = transceivers.find(
-        (tr) => (tr.receiver?.track?.kind === track.kind) || (tr.sender?.track?.kind === track.kind)
-      );
+    for (const track of stream.getTracks()) {
+      // NOTE: never force track.enabled here — mute / camera-off state is owned by the UI.
+      const t = findTransceiverForKind(pc, track.kind);
 
       if (t && t.sender) {
         t.direction = "sendrecv";
@@ -323,7 +341,7 @@ export class WebRTCPeerManager {
           } catch (e) {}
         }
       }
-    });
+    }
   }
 
   /**
@@ -334,7 +352,7 @@ export class WebRTCPeerManager {
     this.localStream = stream;
 
     for (const peer of this.peers.values()) {
-      this.attachLocalTracksToPeer(peer.pc, stream);
+      await this.attachLocalTracksToPeer(peer.pc, stream);
     }
   }
 
@@ -361,7 +379,7 @@ export class WebRTCPeerManager {
 
     try {
       if (this.localStream) {
-        this.attachLocalTracksToPeer(peer.pc, this.localStream);
+        await this.attachLocalTracksToPeer(peer.pc, this.localStream);
       }
 
       const offer = await peer.pc.createOffer({
@@ -408,7 +426,7 @@ export class WebRTCPeerManager {
       await peer.pc.setRemoteDescription(new RTCSessionDescription(sdpOffer));
 
       if (this.localStream) {
-        this.attachLocalTracksToPeer(peer.pc, this.localStream);
+        await this.attachLocalTracksToPeer(peer.pc, this.localStream);
       }
 
       // Flush buffered ICE candidates
@@ -459,6 +477,10 @@ export class WebRTCPeerManager {
     }
 
     try {
+      if (peer.pc.signalingState !== "have-local-offer") {
+        console.warn(`[WEBRTC MESH] Ignoring answer from ${fromSocketId}: signalingState=${peer.pc.signalingState}`);
+        return;
+      }
       await peer.pc.setRemoteDescription(new RTCSessionDescription(sdpAnswer));
 
       while (peer.pendingCandidates.length > 0) {
@@ -505,10 +527,7 @@ export class WebRTCPeerManager {
   async replaceVideoTrack(newVideoTrack) {
     for (const peer of this.peers.values()) {
       try {
-        const transceivers = typeof peer.pc.getTransceivers === "function" ? peer.pc.getTransceivers() : [];
-        const videoTransceiver = transceivers.find(
-          (t) => (t.receiver?.track?.kind === "video") || (t.sender?.track?.kind === "video")
-        );
+        const videoTransceiver = findTransceiverForKind(peer.pc, "video");
 
         if (videoTransceiver && videoTransceiver.sender) {
           videoTransceiver.direction = "sendrecv";
@@ -535,10 +554,7 @@ export class WebRTCPeerManager {
     if (!newAudioTrack) return;
     for (const peer of this.peers.values()) {
       try {
-        const transceivers = typeof peer.pc.getTransceivers === "function" ? peer.pc.getTransceivers() : [];
-        const audioTransceiver = transceivers.find(
-          (t) => (t.receiver?.track?.kind === "audio") || (t.sender?.track?.kind === "audio")
-        );
+        const audioTransceiver = findTransceiverForKind(peer.pc, "audio");
 
         if (audioTransceiver && audioTransceiver.sender) {
           audioTransceiver.direction = "sendrecv";
@@ -579,7 +595,7 @@ export class WebRTCPeerManager {
     console.log(`[WEBRTC MESH] Removed peer ${socketId}. Active peers remaining: ${this.peers.size}`);
     this.notifyPeersChange();
     if (typeof this.onPeerLeft === "function") {
-      this.onPeerLeft(peer.user || { socketId });
+      this.onPeerLeft(socketId, peer.user || { socketId });
     }
   }
 

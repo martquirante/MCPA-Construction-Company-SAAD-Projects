@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import {
   Calendar,
@@ -229,7 +229,17 @@ export default function AdminMeetingsTab({
     };
 
     const handleInstantEnd = (e) => {
-      setActiveCallRoom(null);
+      const endedRoom = e?.detail?.roomCode;
+      setActiveCallRoom((prev) => {
+        if (!prev) return null;
+        if (endedRoom && prev.roomCode && prev.roomCode !== endedRoom) {
+          return prev;
+        }
+        if (!prev.isInstant && !(prev.roomCode || "").includes("instant")) {
+          return prev;
+        }
+        return null;
+      });
       setIncomingInstantCall(null);
       try {
         localStorage.removeItem("mcpa_instant_call_active");
@@ -931,6 +941,11 @@ export default function AdminMeetingsTab({
     try {
       localStorage.setItem("mcpa_instant_call_active", JSON.stringify(updated));
       window.dispatchEvent(new CustomEvent("mcpa-instant-call-answered", { detail: updated }));
+      const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"], reconnectionAttempts: 3 });
+      socket.on("connect", () => {
+        socket.emit("instant-call-answered", updated);
+        setTimeout(() => socket.disconnect(), 1000);
+      });
     } catch (e) {}
 
     setActiveCallRoom({
@@ -938,21 +953,46 @@ export default function AdminMeetingsTab({
       clientName: call.clientName,
       projectTitle: call.projectTitle || "Instant Video Consultation",
       projectCode: call.projectCode || "MCPA-INSTANT",
+      isInstant: true,
     });
     setIncomingInstantCall(null);
     showToast(`Joining Instant Consultation with ${call.clientName || "Client"}...`);
   };
 
   const handleDismissInstantCall = () => {
-    if (incomingInstantCall?.roomCode) {
+    const dismissedRoom = incomingInstantCall?.roomCode;
+    if (dismissedRoom) {
       try {
-        sessionStorage.setItem("mcpa_dismissed_instant_call", incomingInstantCall.roomCode);
+        sessionStorage.setItem("mcpa_dismissed_instant_call", dismissedRoom);
         sessionStorage.setItem("mcpa_dismissed_instant_call_at", String(Date.now()));
+        localStorage.removeItem("mcpa_instant_call_active");
+        window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: dismissedRoom } }));
+        const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"], reconnectionAttempts: 3 });
+        socket.on("connect", () => {
+          socket.emit("instant-call-ended", { roomCode: dismissedRoom });
+          setTimeout(() => socket.disconnect(), 1000);
+        });
       } catch (e) {}
     }
     setIncomingInstantCall(null);
     showToast("Instant call alert dismissed.");
   };
+
+  const handleLeaveActiveCall = useCallback(() => {
+    const currentRoom = activeCallRoom?.roomCode;
+    const wasInstant = Boolean(activeCallRoom?.isInstant || (currentRoom || "").includes("instant"));
+    setActiveCallRoom(null);
+    setIncomingInstantCall(null);
+    if (wasInstant) {
+      try {
+        localStorage.removeItem("mcpa_instant_call_active");
+        sessionStorage.removeItem("mcpa_dismissed_instant_call");
+        sessionStorage.removeItem("mcpa_dismissed_instant_call_at");
+        window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoom } }));
+      } catch (e) {}
+    }
+    showToast("Left video consultation room.");
+  }, [activeCallRoom?.roomCode, activeCallRoom?.isInstant, showToast]);
 
   // ADMIN INITIATES INSTANT CONSULTATION WITH A CLIENT (VICE VERSA)
   const handleStartAdminInstantCall = (target) => {
@@ -1439,7 +1479,7 @@ export default function AdminMeetingsTab({
                       <button
                         type="button"
                         onClick={() => handleStartAdminInstantCall(item)}
-                        className="h-10 sm:h-9 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono text-xs font-bold uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="h-10 sm:h-9 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono text-xs font-bold uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                         title="Ring client's portal for instant video consultation"
                       >
                         <PhoneCall className="w-3.5 h-3.5" />
@@ -1451,7 +1491,7 @@ export default function AdminMeetingsTab({
                       <button
                         type="button"
                         onClick={() => handleStartAdminInstantCall(item)}
-                        className="flex-1 h-10 sm:h-9 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.99] text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                        className="flex-1 h-10 sm:h-9 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm shadow-amber-500/20"
                         title="Ring client directly on their portal"
                       >
                         <PhoneCall className="w-4 h-4" />
@@ -1553,228 +1593,230 @@ export default function AdminMeetingsTab({
         </div>
       ) : (
         /* TABLE LIST VIEW: Precision Master Rows with 100% Deterministic Grid Tracks */
-        <div className="space-y-2.5">
-          {/* Desktop Table Column Alignment Header */}
-          <div className="hidden xl:grid grid-cols-[minmax(240px,1.2fr)_180px_180px_430px] gap-4 px-4 sm:px-4.5 py-2.5 text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold border-b border-neutral-200/70 dark:border-white/[0.06] mb-1">
-            <div>Client &amp; Project</div>
-            <div>Consultation Schedule</div>
-            <div>Status &amp; Channel</div>
-            <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider pr-1">
-              <span>Outcome &amp; Deliberation</span>
-              <span className="text-right">Actions</span>
+        <div className="w-full overflow-x-auto pb-3 scrollbar-thin">
+          <div className="min-w-[1040px] space-y-2.5">
+            {/* Desktop Table Column Alignment Header */}
+            <div className="grid grid-cols-[minmax(230px,1.2fr)_170px_minmax(190px,1fr)_440px] gap-4 px-4 sm:px-4.5 py-2.5 text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold border-b border-neutral-200/70 dark:border-white/[0.06] mb-1">
+              <div>Client &amp; Project</div>
+              <div>Consultation Schedule</div>
+              <div>Status &amp; Channel</div>
+              <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider pr-1">
+                <span>Outcome &amp; Deliberation</span>
+                <span className="text-right">Actions</span>
+              </div>
             </div>
-          </div>
 
-          {filteredMeetings.map((item) => {
-            const isOnline = item.mode.toLowerCase().includes("online");
-            const lifecycle = getMeetingLifecycleState(item, currentTime);
-            const isArchived = isMeetingArchived(item);
+            {filteredMeetings.map((item) => {
+              const isOnline = item.mode.toLowerCase().includes("online");
+              const lifecycle = getMeetingLifecycleState(item, currentTime);
+              const isArchived = isMeetingArchived(item);
 
-            return (
-              <div
-                key={item.id}
-                className="group relative rounded-2xl xl:rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.08] hover:border-amber-500/30 hover:shadow-md transition-all duration-200 p-4 sm:p-4.5 overflow-hidden"
-              >
-                {/* Live Top Accent Line */}
-                {lifecycle.isOngoing && (
-                  <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 animate-pulse" />
-                )}
+              return (
+                <div
+                  key={item.id}
+                  className="group relative rounded-2xl xl:rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.08] hover:border-amber-500/30 hover:shadow-md transition-all duration-200 p-4 sm:p-4.5 overflow-hidden"
+                >
+                  {/* Live Top Accent Line */}
+                  {lifecycle.isOngoing && (
+                    <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 animate-pulse" />
+                  )}
 
-                <div className="grid grid-cols-1 xl:grid-cols-[minmax(240px,1.2fr)_180px_180px_430px] gap-4 items-center">
-                  {/* Col 1: Client & Project Brief */}
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <ClientAvatarWithFallback item={item} clientBriefs={clientBriefs} />
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate tracking-tight">
-                          {item.clientName}
-                        </h4>
-                        <span className="text-[11px] font-mono font-medium text-neutral-500 dark:text-neutral-400 shrink-0">
-                          {item.projectCode}
-                        </span>
-                      </div>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                        {item.projectTitle || "Architecture & Construction Brief"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Col 2: Schedule & Time */}
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                      <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      <span className="truncate">{item.displayDate}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
-                      <Clock className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                      <span className="truncate">{item.time}</span>
-                    </div>
-                    {item.duration && (
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
-                        <span>Duration: {item.duration}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Col 3: Format & Status */}
-                  <div className="space-y-1.5 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* Authoritative Single Status */}
-                      {lifecycle.isOngoing ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  <div className="grid grid-cols-1 xl:grid-cols-[minmax(230px,1.2fr)_170px_minmax(190px,1fr)_440px] gap-4 items-center">
+                    {/* Col 1: Client & Project Brief */}
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <ClientAvatarWithFallback item={item} clientBriefs={clientBriefs} />
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate tracking-tight">
+                            {item.clientName}
+                          </h4>
+                          <span className="text-[11px] font-mono font-medium text-neutral-500 dark:text-neutral-400 shrink-0">
+                            {item.projectCode}
                           </span>
-                          Live Now
-                        </span>
-                      ) : isArchived ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-neutral-400 border border-neutral-200/80 dark:border-white/10">
-                          Concluded
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                          Scheduled
-                        </span>
-                      )}
+                        </div>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                          {item.projectTitle || "Architecture & Construction Brief"}
+                        </p>
+                      </div>
+                    </div>
 
-                      {item.rating && (
-                        <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                          <span>{Number(item.rating).toFixed(1)}</span>
-                        </span>
+                    {/* Col 2: Schedule & Time */}
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                        <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span className="truncate">{item.displayDate}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
+                        <Clock className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <span className="truncate">{item.time}</span>
+                      </div>
+                      {item.duration && (
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
+                          <span>Duration: {item.duration}</span>
+                        </div>
                       )}
                     </div>
 
-                    {item.clientNote ? (
-                      <p className="text-[11px] text-neutral-600 dark:text-neutral-300 italic line-clamp-1 truncate max-w-full" title={item.clientNote}>
-                        &ldquo;{item.clientNote}&rdquo;
-                      </p>
-                    ) : (
-                      <div className="flex items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-                        {isOnline ? (
-                          <Video className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                    {/* Col 3: Format & Status */}
+                    <div className="space-y-1.5 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Authoritative Single Status */}
+                        {lifecycle.isOngoing ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                            </span>
+                            Live Now
+                          </span>
+                        ) : isArchived ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-neutral-400 border border-neutral-200/80 dark:border-white/10">
+                            Concluded
+                          </span>
                         ) : (
-                          <Building className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                            Scheduled
+                          </span>
                         )}
-                        <span className="truncate" title={item.venue}>
-                          {item.venue || (isOnline ? "MCPA Video Room" : "Office Consultation")}
-                        </span>
+
+                        {item.rating && (
+                          <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                            <span>{Number(item.rating).toFixed(1)}</span>
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Col 4: Unified Precision Action Toolbar (Exactly 430px) */}
-                  <div className="w-full xl:w-[430px] border-t xl:border-t-0 pt-3 xl:pt-0 border-neutral-100 dark:border-white/[0.06] flex flex-col xl:flex-row xl:items-center xl:justify-end gap-2 xl:gap-1.5 shrink-0">
-                    {/* Primary Action Button & Instant Call */}
-                    <div className="flex items-center gap-1.5 w-full xl:w-auto">
-                      {isOnline && (lifecycle.isRoomUnlocked || lifecycle.isOngoing) ? (
-                        <button
-                          type="button"
-                          onClick={() => handleJoinCallAsHost(item)}
-                          className="flex-1 xl:w-[125px] h-10 xl:h-8 px-2.5 rounded-xl xl:rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs xl:text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
-                          title="Join video consultation as Lead Architect"
-                        >
-                          <Video className="w-4 h-4 xl:w-3.5 xl:h-3.5 shrink-0" />
-                          <span className="truncate">Join Live</span>
-                        </button>
+                      {item.clientNote ? (
+                        <p className="text-[11px] text-neutral-600 dark:text-neutral-300 italic truncate min-w-0 w-full block" title={item.clientNote}>
+                          &ldquo;{item.clientNote}&rdquo;
+                        </p>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenOutcome(item)}
-                          className="flex-1 xl:w-[125px] h-10 xl:h-8 px-2.5 rounded-xl xl:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-white/10 dark:hover:bg-white/15 active:scale-[0.99] text-white text-xs xl:text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
-                          title="Record meeting outcome or follow-up milestones"
-                        >
-                          <Award className="w-4 h-4 xl:w-3.5 xl:h-3.5 text-amber-400 shrink-0" />
-                          <span className="truncate">Outcome</span>
-                        </button>
-                      )}
-
-                      {isOnline && (
-                        <button
-                          type="button"
-                          onClick={() => handleStartAdminInstantCall(item)}
-                          className="h-10 xl:h-8 px-2.5 rounded-xl xl:rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono text-xs xl:text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
-                          title={`Directly call ${item.clientName} on their portal`}
-                        >
-                          <PhoneCall className="w-3.5 h-3.5" />
-                          <span>Call</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 min-w-0 w-full overflow-hidden">
+                          {isOnline ? (
+                            <Video className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                          ) : (
+                            <Building className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          )}
+                          <span className="truncate min-w-0 flex-1 block" title={item.venue}>
+                            {item.venue || (isOnline ? "MCPA Video Room" : "Office Consultation")}
+                          </span>
+                        </div>
                       )}
                     </div>
 
-                    {/* Secondary Quick Action Tools (Deterministic Fixed Slots) */}
-                    <div className="flex items-center justify-between xl:justify-end gap-1.5 flex-1 xl:flex-initial">
-                      <div className="flex items-center gap-1.5 flex-1 xl:flex-initial">
-                        <button
-                          type="button"
-                          onClick={() => setViewMinutesSession(item)}
-                          className="h-8 w-full xl:w-[60px] px-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer shrink-0"
-                          title="View Call Rating & Deliberation Notes"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span className="text-[11px]">Notes</span>
-                        </button>
+                    {/* Col 4: Unified Precision Action Toolbar (440px) */}
+                    <div className="w-full xl:w-[440px] border-t xl:border-t-0 pt-3 xl:pt-0 border-neutral-100 dark:border-white/[0.06] flex flex-col xl:flex-row xl:items-center xl:justify-end gap-2 xl:gap-1.5 shrink-0">
+                      {/* Primary Action Button & Instant Call */}
+                      <div className="flex items-center gap-1.5 w-full xl:w-auto">
+                        {isOnline && (lifecycle.isRoomUnlocked || lifecycle.isOngoing) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleJoinCallAsHost(item)}
+                            className="flex-1 xl:w-[125px] h-10 xl:h-8 px-2.5 rounded-xl xl:rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-neutral-950 font-mono text-xs xl:text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                            title="Join video consultation as Lead Architect"
+                          >
+                            <Video className="w-4 h-4 xl:w-3.5 xl:h-3.5 shrink-0" />
+                            <span className="truncate">Join Live</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenOutcome(item)}
+                            className="flex-1 xl:w-[125px] h-10 xl:h-8 px-2.5 rounded-xl xl:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-white/10 dark:hover:bg-white/15 active:scale-[0.99] text-white text-xs xl:text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                            title="Record meeting outcome or follow-up milestones"
+                          >
+                            <Award className="w-4 h-4 xl:w-3.5 xl:h-3.5 text-amber-400 shrink-0" />
+                            <span className="truncate">Outcome</span>
+                          </button>
+                        )}
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenReschedule(item)}
-                          className="h-8 w-full xl:w-[58px] px-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer shrink-0"
-                          title="Reschedule / Change Setup"
-                        >
-                          <RefreshCw className="w-3 h-3 text-neutral-400 shrink-0" />
-                          <span className="text-[11px]">Setup</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleToggleArchive(item)}
-                          className="h-8 w-full xl:w-[70px] px-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer shrink-0"
-                          title={isArchived ? "Restore meeting to active" : "Move to Archive / Concluded"}
-                        >
-                          {isArchived ? (
-                            <>
-                              <RotateCcw className="w-3 h-3 text-amber-500 shrink-0" />
-                              <span className="text-[11px]">Restore</span>
-                            </>
-                          ) : (
-                            <>
-                              <Archive className="w-3 h-3 text-neutral-400 shrink-0" />
-                              <span className="text-[11px]">Archive</span>
-                            </>
-                          )}
-                        </button>
+                        {isOnline && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartAdminInstantCall(item)}
+                            className="h-10 xl:h-8 px-2.5 rounded-xl xl:rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono text-xs xl:text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                            title={`Directly call ${item.clientName} on their portal`}
+                          >
+                            <PhoneCall className="w-3.5 h-3.5" />
+                            <span>Call</span>
+                          </button>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleSendReminder(item)}
-                          disabled={isSendingReminderId === item.id}
-                          className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-600 dark:hover:text-sky-400 border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0"
-                          title="Send pre-meeting reminder email"
-                        >
-                          {isSendingReminderId === item.id ? (
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Mail className="w-3.5 h-3.5" />
-                          )}
-                        </button>
+                      {/* Secondary Quick Action Tools (Deterministic Fixed Slots) */}
+                      <div className="flex items-center justify-between xl:justify-end gap-1.5 flex-1 xl:flex-initial">
+                        <div className="flex items-center gap-1.5 flex-1 xl:flex-initial">
+                          <button
+                            type="button"
+                            onClick={() => setViewMinutesSession(item)}
+                            className="h-8 w-full xl:w-[60px] px-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer shrink-0"
+                            title="View Call Rating & Deliberation Notes"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="text-[11px]">Notes</span>
+                          </button>
 
-                        <a
-                          href={`mailto:${item.clientEmail}`}
-                          className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                          title={`Send direct email to ${item.clientEmail}`}
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReschedule(item)}
+                            className="h-8 w-full xl:w-[58px] px-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer shrink-0"
+                            title="Reschedule / Change Setup"
+                          >
+                            <RefreshCw className="w-3 h-3 text-neutral-400 shrink-0" />
+                            <span className="text-[11px]">Setup</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleArchive(item)}
+                            className="h-8 w-full xl:w-[70px] px-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors flex items-center justify-center gap-1 border border-neutral-200/80 dark:border-white/10 cursor-pointer shrink-0"
+                            title={isArchived ? "Restore meeting to active" : "Move to Archive / Concluded"}
+                          >
+                            {isArchived ? (
+                              <>
+                                <RotateCcw className="w-3 h-3 text-amber-500 shrink-0" />
+                                <span className="text-[11px]">Restore</span>
+                              </>
+                            ) : (
+                              <>
+                                <Archive className="w-3 h-3 text-neutral-400 shrink-0" />
+                                <span className="text-[11px]">Archive</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleSendReminder(item)}
+                            disabled={isSendingReminderId === item.id}
+                            className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-600 dark:hover:text-sky-400 border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+                            title="Send pre-meeting reminder email"
+                          >
+                            {isSendingReminderId === item.id ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Mail className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+
+                          <a
+                            href={`mailto:${item.clientEmail}`}
+                            className="h-8 w-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                            title={`Send direct email to ${item.clientEmail}`}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -2694,18 +2736,7 @@ export default function AdminMeetingsTab({
           }}
           isInstantMeeting={Boolean(activeCallRoom?.isInstant || activeCallRoom?.roomCode?.includes("instant"))}
           isAdmin={true}
-          onLeave={() => {
-            const currentRoom = activeCallRoom?.roomCode;
-            setActiveCallRoom(null);
-            setIncomingInstantCall(null);
-            try {
-              localStorage.removeItem("mcpa_instant_call_active");
-              sessionStorage.removeItem("mcpa_dismissed_instant_call");
-              sessionStorage.removeItem("mcpa_dismissed_instant_call_at");
-              window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoom } }));
-            } catch (e) {}
-            showToast("Left video consultation room.");
-          }}
+          onLeave={handleLeaveActiveCall}
           showToast={showToast}
         />
       )}
@@ -2945,7 +2976,7 @@ export default function AdminMeetingsTab({
                       <button
                         type="button"
                         onClick={() => handleStartAdminInstantCall(c)}
-                        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-95 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm shadow-emerald-500/20 shrink-0 cursor-pointer"
+                        className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm shadow-amber-500/20 shrink-0 cursor-pointer"
                       >
                         <PhoneCall className="w-3.5 h-3.5" />
                         <span>Call Now</span>

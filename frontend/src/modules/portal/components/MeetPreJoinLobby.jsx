@@ -249,6 +249,10 @@ export default function MeetPreJoinLobby({
 
   const handleJoinSubmit = (e) => {
     e.preventDefault();
+    if (isRoomFull) {
+      setFormError("This consultation room is currently at maximum capacity (8/8 participants).");
+      return;
+    }
     const trimmedName = displayName.trim();
     if (!trimmedName) {
       setFormError("Please enter your name before joining.");
@@ -515,12 +519,21 @@ export default function MeetPreJoinLobby({
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={!displayName.trim()}
-                  className="w-full py-3 px-4 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:hover:bg-amber-500 text-black font-bold text-sm tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={!displayName.trim() || isRoomFull}
+                  className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 ${
+                    displayName.trim() && !isRoomFull
+                      ? "bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-lg shadow-amber-500/25 cursor-pointer active:scale-[0.98]"
+                      : "bg-neutral-800/80 text-neutral-400 border border-neutral-700/60 cursor-not-allowed opacity-80"
+                  }`}
                 >
-                  <span>Join Consultation</span>
+                  <span>{isRoomFull ? "Room Full (8/8)" : "Join Consultation"}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
+                {!displayName.trim() && !isRoomFull && (
+                  <p className="mt-2 text-[11px] text-amber-400/90 font-mono text-center flex items-center justify-center gap-1.5 animate-pulse">
+                    <span>✍️</span> Enter your full name above to enable Join
+                  </p>
+                )}
               </div>
 
               <div className="text-center pt-1">

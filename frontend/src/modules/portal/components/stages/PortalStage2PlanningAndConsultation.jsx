@@ -39,6 +39,7 @@ import {
   Download,
   User,
   Shield,
+  ShieldCheck,
   HelpCircle,
   ChevronDown,
 } from "lucide-react";
@@ -797,6 +798,8 @@ export default function PortalStage2PlanningAndConsultation({
             currentUser={currentUser}
             meetingRoom={meetingRoom}
             inquiries={inquiries}
+            showToast={showToast}
+            onRefreshState={onRefreshState}
           />
         </div>
       )}

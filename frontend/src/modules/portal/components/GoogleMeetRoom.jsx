@@ -93,12 +93,29 @@ function ParticipantVideoCard({
   const videoRef = useRef(null);
 
   useEffect(() => {
-    if (videoRef.current && participant.stream) {
-      if (videoRef.current.srcObject !== participant.stream) {
-        videoRef.current.srcObject = participant.stream;
-      }
-      videoRef.current.play().catch(() => {});
+    const videoEl = videoRef.current;
+    const stream = participant.stream;
+    if (!videoEl || !stream) return;
+
+    if (videoEl.srcObject !== stream) {
+      videoEl.srcObject = stream;
     }
+    videoEl.play().catch(() => {});
+
+    const handleTrackEvent = () => {
+      if (videoEl.srcObject !== stream) {
+        videoEl.srcObject = stream;
+      }
+      videoEl.play().catch(() => {});
+    };
+
+    stream.addEventListener("addtrack", handleTrackEvent);
+    stream.addEventListener("removetrack", handleTrackEvent);
+
+    return () => {
+      stream.removeEventListener("addtrack", handleTrackEvent);
+      stream.removeEventListener("removetrack", handleTrackEvent);
+    };
   }, [participant.stream, participant.isVideoOn]);
 
   const hasVideo =
@@ -223,13 +240,17 @@ export default function GoogleMeetRoom({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [facingMode, setFacingMode] = useState("user");
+  const [localStream, setLocalStream] = useState(preloadedMediaStream || null);
+  const [screenStream, setScreenStream] = useState(null);
+  const [localSocketId, setLocalSocketId] = useState("local");
 
   // Multi-Peer Mesh State
   const socketRef = useRef(null);
   const peerManagerRef = useRef(null);
-  const localStreamRef = useRef(null);
+  const localStreamRef = useRef(preloadedMediaStream || null);
   const screenStreamRef = useRef(null);
   const screenVideoRef = useRef(null);
+  const hasRemoteEverJoinedRef = useRef(false);
 
   const [peers, setPeers] = useState([]); // [{ socketId, stream, user, connectionState }]
   const [peerMediaStates, setPeerMediaStates] = useState({}); // socketId -> { isMicOn, isVideoOn, isScreenSharing, isHandRaised }
@@ -247,6 +268,26 @@ export default function GoogleMeetRoom({
   // Layout & Drawers
   const [isFloatingPiP, setIsFloatingPiP] = useState(false);
   const [activeSidePanel, setActiveSidePanel] = useState(null); // 'chat' | 'people' | 'info' | null
+  const activeSidePanelRef = useRef(null);
+  useEffect(() => {
+    activeSidePanelRef.current = activeSidePanel;
+  }, [activeSidePanel]);
+
+  const localMediaStateRef = useRef({
+    isMicOn: initialMicOn,
+    isVideoOn: initialVideoOn,
+    isScreenSharing: false,
+    isHandRaised: false,
+  });
+  useEffect(() => {
+    localMediaStateRef.current = {
+      isMicOn,
+      isVideoOn,
+      isScreenSharing,
+      isHandRaised,
+    };
+  }, [isMicOn, isVideoOn, isScreenSharing, isHandRaised]);
+
   const [unreadCount, setUnreadCount] = useState(0);
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
@@ -264,6 +305,38 @@ export default function GoogleMeetRoom({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Stable references for callbacks to prevent signaling socket teardown loops
+  const showToastRef = useRef(showToast);
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
+
+  const onLeaveRef = useRef(onLeave);
+  useEffect(() => {
+    onLeaveRef.current = onLeave;
+  }, [onLeave]);
+
+  const onAutoEndTimeoutRef = useRef(onAutoEndTimeout);
+  useEffect(() => {
+    onAutoEndTimeoutRef.current = onAutoEndTimeout;
+  }, [onAutoEndTimeout]);
+
+  const playLeaveChimeRef = useRef(null);
+
+  const currentUserPayloadRef = useRef(null);
+  useEffect(() => {
+    currentUserPayloadRef.current = {
+      id: effectiveUser?.id || currentUserPayloadRef.current?.id || `user-${Date.now()}`,
+      name: displayName,
+      role: userRole,
+      affiliation,
+      avatarUrl: userAvatar,
+    };
+    if (peerManagerRef.current) {
+      peerManagerRef.current.currentUser = currentUserPayloadRef.current;
+    }
+  }, [displayName, userRole, affiliation, userAvatar, effectiveUser?.id]);
 
   // Duration Timer
   useEffect(() => {
@@ -339,26 +412,37 @@ export default function GoogleMeetRoom({
   };
 
   // Safe Exit Call Procedure
-  const performActualLeave = (rating = null, note = "") => {
+  const performActualLeave = (rating = null, note = "", options = {}) => {
+    const shouldSkipRecord =
+      Boolean(options?.skipRecord) ||
+      (isInstantMeeting && !hasRemoteEverJoinedRef.current);
+
     if (!hasRecordedSessionRef.current) {
       hasRecordedSessionRef.current = true;
-      try {
-        const finalDurationSec = Math.max(callDurationSeconds, 1);
-        recordConcludedMeeting({
-          roundTitle: isInstantMeeting ? "Instant Online Consultation" : "Online Video Engineering Review",
-          mode: isInstantMeeting ? "Instant Online Meeting" : "Scheduled Online Video",
-          durationSeconds: finalDurationSec,
-          rating: typeof rating === "number" ? Math.max(1, Math.min(5, rating)) : 5,
-          clientNote: note || "Consultation session concluded.",
-          minutes: `Live deliberation held via MCPA WebRTC Room: ${canonicalRoomCode}. Duration: ${formatMeetingDuration(finalDurationSec)}.`,
-          venue: `MCPA Meeting Room · ${canonicalRoomCode}`,
-          leadConsultant: "Engr. Raymart Quirante",
-          leadRole: "Lead Project Engineer & Consultant",
-          clientName: displayName,
-          projectCode: activeProject?.project_code || "MCPA-CONSULTATION",
-          projectTitle: activeProject?.project_title || "Residential Consultation",
-        });
-      } catch (e) {}
+      if (!shouldSkipRecord) {
+        try {
+          const finalDurationSec = Math.max(callDurationSeconds, 1);
+          const resolvedClientName =
+            activeProject?.client_name ||
+            activeProject?.clientName ||
+            (!isAdmin ? displayName : "Valued Client");
+
+          recordConcludedMeeting({
+            roundTitle: isInstantMeeting ? "Instant Online Consultation" : "Online Video Engineering Review",
+            mode: isInstantMeeting ? "Instant Online Meeting" : "Scheduled Online Video",
+            durationSeconds: finalDurationSec,
+            rating: typeof rating === "number" ? Math.max(1, Math.min(5, rating)) : 5,
+            clientNote: note || "Consultation session concluded.",
+            minutes: `Live deliberation held via MCPA WebRTC Room: ${canonicalRoomCode}. Duration: ${formatMeetingDuration(finalDurationSec)}.`,
+            venue: `MCPA Meeting Room · ${canonicalRoomCode}`,
+            leadConsultant: "Engr. Raymart Quirante",
+            leadRole: "Lead Project Engineer & Consultant",
+            clientName: resolvedClientName,
+            projectCode: activeProject?.project_code || "MCPA-CONSULTATION",
+            projectTitle: activeProject?.project_title || "Residential Consultation",
+          });
+        } catch (e) {}
+      }
     }
 
     if (ringbackToneRef.current) {
@@ -368,7 +452,9 @@ export default function GoogleMeetRoom({
 
     if (socketRef.current) {
       try {
-        socketRef.current.emit("instant-call-ended", { roomCode: canonicalRoomCode });
+        if (isInstantMeeting) {
+          socketRef.current.emit("instant-call-ended", { roomCode: canonicalRoomCode });
+        }
         socketRef.current.emit("leave-room", { roomCode: canonicalRoomCode });
         setTimeout(() => socketRef.current?.disconnect(), 400);
       } catch (e) {}
@@ -385,15 +471,24 @@ export default function GoogleMeetRoom({
       screenStreamRef.current.getTracks().forEach((t) => t.stop());
     }
 
-    onLeave && onLeave();
+    if (onLeaveRef.current) {
+      onLeaveRef.current();
+    }
   };
 
   const handleLeaveCall = () => {
-    if (!hasRecordedSessionRef.current) {
+    // Only show the client 5-star rating modal for non-admin clients when a session actually took place
+    if (
+      !hasRecordedSessionRef.current &&
+      !isAdmin &&
+      (!isInstantMeeting || hasRemoteEverJoinedRef.current)
+    ) {
       setIsLeaveRatingModalOpen(true);
       return;
     }
-    performActualLeave(null, "");
+    performActualLeave(null, "", {
+      skipRecord: isInstantMeeting && !hasRemoteEverJoinedRef.current,
+    });
   };
 
   // INITIALIZE MEDIA: Use preloaded stream if passed from lobby, or acquire new
@@ -411,6 +506,7 @@ export default function GoogleMeetRoom({
         preloadedMediaStream.getVideoTracks().forEach((t) => {
           t.enabled = initialVideoOn;
         });
+        setLocalStream(preloadedMediaStream);
         if (peerManagerRef.current) {
           peerManagerRef.current.attachLocalTracks(preloadedMediaStream);
         }
@@ -442,11 +538,12 @@ export default function GoogleMeetRoom({
 
         localStreamRef.current = stream;
         stream.getAudioTracks().forEach((t) => {
-          t.enabled = initialMicOn;
+          t.enabled = localMediaStateRef.current.isMicOn;
         });
         stream.getVideoTracks().forEach((t) => {
-          t.enabled = initialVideoOn;
+          t.enabled = localMediaStateRef.current.isVideoOn;
         });
+        setLocalStream(stream);
 
         if (peerManagerRef.current) {
           peerManagerRef.current.attachLocalTracks(stream);
@@ -481,7 +578,7 @@ export default function GoogleMeetRoom({
     });
     socketRef.current = socket;
 
-    const currentUserPayload = {
+    const currentUserPayload = currentUserPayloadRef.current || {
       id: effectiveUser?.id || `user-${Date.now()}`,
       name: displayName,
       role: userRole,
@@ -497,6 +594,7 @@ export default function GoogleMeetRoom({
         console.log("[WEBRTC MESH] Active peers changed. Count:", updatedPeers.length);
         setPeers(updatedPeers);
         if (updatedPeers.length > 0) {
+          hasRemoteEverJoinedRef.current = true;
           setIsCallAnswered(true);
           if (ringbackToneRef.current) {
             ringbackToneRef.current.stop();
@@ -507,13 +605,16 @@ export default function GoogleMeetRoom({
       onConnectionStateChange: (state) => {
         setP2pConnectionState(state);
         if (state === "connected") {
+          hasRemoteEverJoinedRef.current = true;
           setIsCallAnswered(true);
         }
       },
       onPeerLeft: (socketId, user) => {
         const name = user?.name || "A participant";
-        showToast(`${name} left the meeting.`);
-        playLeaveChime();
+        showToastRef.current?.(`${name} left the meeting.`);
+        if (playLeaveChimeRef.current) {
+          playLeaveChimeRef.current();
+        }
       },
     });
     peerManagerRef.current = peerManager;
@@ -523,33 +624,71 @@ export default function GoogleMeetRoom({
     }
 
     const joinRoom = () => {
+      const baseUser = currentUserPayloadRef.current || currentUserPayload;
       socket.emit("join-room", {
         roomCode: canonicalRoomCode,
-        user: currentUserPayload,
+        user: {
+          ...baseUser,
+          mediaState: localMediaStateRef.current,
+        },
         role: affiliation === "mcpa" ? "admin" : "client",
       });
     };
 
     socket.on("connect", () => {
       console.log(`[WEBRTC MESH] Connected with socket ID: ${socket.id}`);
+      setLocalSocketId(socket.id || "local");
       joinRoom();
     });
 
     if (socket.connected) {
+      setLocalSocketId(socket.id || "local");
       joinRoom();
     }
+
+    // Room capacity full handler (Max 8 participants)
+    socket.on("room-full", ({ message }) => {
+      showToastRef.current?.(
+        message || "This consultation room has reached its maximum capacity (8/8 participants)."
+      );
+      performActualLeave(null, "", { skipRecord: true });
+    });
 
     // Existing participants in room
     socket.on("room-joined", ({ participants }) => {
       if (participants && participants.length > 0) {
         console.log("[WEBRTC MESH] Existing peers in room:", participants);
+        hasRemoteEverJoinedRef.current = true;
         setIsCallAnswered(true);
         if (ringbackToneRef.current) {
           ringbackToneRef.current.stop();
           ringbackToneRef.current = null;
         }
+        setPeerMediaStates((prev) => {
+          const next = { ...prev };
+          participants.forEach((p) => {
+            const pState = p.mediaState || p.user?.mediaState;
+            if (p.socketId && pState) {
+              next[p.socketId] = {
+                ...next[p.socketId],
+                isMicOn: pState.isMicOn !== false,
+                isVideoOn: pState.isVideoOn !== false,
+                isScreenSharing: Boolean(pState.isScreenSharing),
+                isHandRaised: Boolean(pState.isHandRaised),
+              };
+            }
+          });
+          return next;
+        });
         participants.forEach((p) => {
           peerManager.createAndSendOffer(p.socketId, p.user || p);
+        });
+        // Broadcast our initial media state to existing participants
+        socket.emit("peer-state-change", {
+          roomCode: canonicalRoomCode,
+          isMicOn: localMediaStateRef.current.isMicOn,
+          isVideoOn: localMediaStateRef.current.isVideoOn,
+          isScreenSharing: localMediaStateRef.current.isScreenSharing,
         });
       }
     });
@@ -557,14 +696,40 @@ export default function GoogleMeetRoom({
     // New participant joins
     socket.on("user-joined", ({ socketId, user }) => {
       console.log("[WEBRTC MESH] User joined:", user?.name, socketId);
+      hasRemoteEverJoinedRef.current = true;
       setIsCallAnswered(true);
       if (ringbackToneRef.current) {
         ringbackToneRef.current.stop();
         ringbackToneRef.current = null;
       }
-      showToast(`${user?.name || "Participant"} joined the call.`);
+      showToastRef.current?.(`${user?.name || "Participant"} joined the call.`);
       if (socketId) {
+        if (user?.mediaState) {
+          setPeerMediaStates((prev) => ({
+            ...prev,
+            [socketId]: {
+              ...prev[socketId],
+              isMicOn: user.mediaState.isMicOn !== false,
+              isVideoOn: user.mediaState.isVideoOn !== false,
+              isScreenSharing: Boolean(user.mediaState.isScreenSharing),
+              isHandRaised: Boolean(user.mediaState.isHandRaised),
+            },
+          }));
+        }
         peerManager.getOrCreatePeer(socketId, user);
+        // Broadcast our current media state so the new participant sees our exact mic/camera/screen/hand status
+        socket.emit("peer-state-change", {
+          roomCode: canonicalRoomCode,
+          isMicOn: localMediaStateRef.current.isMicOn,
+          isVideoOn: localMediaStateRef.current.isVideoOn,
+          isScreenSharing: localMediaStateRef.current.isScreenSharing,
+        });
+        if (localMediaStateRef.current.isHandRaised) {
+          socket.emit("toggle-hand-raise", {
+            roomCode: canonicalRoomCode,
+            isHandRaised: true,
+          });
+        }
       }
     });
 
@@ -603,14 +768,14 @@ export default function GoogleMeetRoom({
         },
       }));
       if (raised) {
-        showToast(`✋ ${from || "Participant"} raised hand`);
+        showToastRef.current?.(`✋ ${from || "Participant"} raised hand`);
       }
     });
 
     // Chat messages
     socket.on("chat-message-received", (msg) => {
       setMessages((prev) => [...prev, msg]);
-      if (msg.senderSocketId !== socket.id) {
+      if (msg.senderSocketId !== socket.id && activeSidePanelRef.current !== "chat") {
         setUnreadCount((c) => c + 1);
       }
       setTimeout(() => {
@@ -631,8 +796,10 @@ export default function GoogleMeetRoom({
     socket.on("peer-left", ({ socketId, user }) => {
       peerManager.removePeer(socketId);
       const name = user?.name || "A participant";
-      showToast(`${name} left the room.`);
-      playLeaveChime();
+      showToastRef.current?.(`${name} left the room.`);
+      if (playLeaveChimeRef.current) {
+        playLeaveChimeRef.current();
+      }
     });
 
     return () => {
@@ -642,7 +809,12 @@ export default function GoogleMeetRoom({
       peerManager.close();
       socket.disconnect();
     };
-  }, [mounted, canonicalRoomCode, displayName, userRole, affiliation, userAvatar, showToast, playLeaveChime]);
+  }, [mounted, canonicalRoomCode]);
+
+  // Connect playLeaveChimeRef
+  useEffect(() => {
+    playLeaveChimeRef.current = playLeaveChime;
+  }, [playLeaveChime]);
 
   // Instant meeting 3-minute timeout & ringback tone
   useEffect(() => {
@@ -672,8 +844,8 @@ export default function GoogleMeetRoom({
             ringbackToneRef.current.stop();
             ringbackToneRef.current = null;
           }
-          handleLeaveCall();
-          if (onAutoEndTimeout) onAutoEndTimeout();
+          performActualLeave(null, "", { skipRecord: true });
+          if (onAutoEndTimeoutRef.current) onAutoEndTimeoutRef.current();
           return 0;
         }
         return prev - 1;
@@ -687,7 +859,7 @@ export default function GoogleMeetRoom({
         ringbackToneRef.current = null;
       }
     };
-  }, [isInstantMeeting, isAdmin, isCallAnswered, onAutoEndTimeout]);
+  }, [isInstantMeeting, isAdmin, isCallAnswered]);
 
   // Toggle Microphone
   const toggleAudio = () => {
@@ -747,13 +919,17 @@ export default function GoogleMeetRoom({
 
       const newVideoTrack = newStream.getVideoTracks()[0];
       if (localStreamRef.current && newVideoTrack) {
+        newVideoTrack.enabled = isVideoOn;
         const oldVideoTrack = localStreamRef.current.getVideoTracks()[0];
         if (oldVideoTrack) {
           oldVideoTrack.stop();
           localStreamRef.current.removeTrack(oldVideoTrack);
         }
         localStreamRef.current.addTrack(newVideoTrack);
-        if (peerManagerRef.current) {
+        const updatedLocalStream = new MediaStream(localStreamRef.current.getTracks());
+        localStreamRef.current = updatedLocalStream;
+        setLocalStream(updatedLocalStream);
+        if (peerManagerRef.current && !isScreenSharing) {
           await peerManagerRef.current.replaceVideoTrack(newVideoTrack);
         }
       }
@@ -771,11 +947,13 @@ export default function GoogleMeetRoom({
         screenStreamRef.current.getTracks().forEach((t) => t.stop());
         screenStreamRef.current = null;
       }
-      if (peerManagerRef.current && localStreamRef.current) {
-        const camTrack = localStreamRef.current.getVideoTracks()[0];
-        if (camTrack && isVideoOn) {
-          await peerManagerRef.current.replaceVideoTrack(camTrack);
+      setScreenStream(null);
+      if (peerManagerRef.current) {
+        const camTrack = localStreamRef.current?.getVideoTracks()?.[0] || null;
+        if (camTrack) {
+          camTrack.enabled = isVideoOn;
         }
+        await peerManagerRef.current.replaceVideoTrack(camTrack);
       }
       setIsScreenSharing(false);
       showToast("Screen presentation ended.");
@@ -788,52 +966,56 @@ export default function GoogleMeetRoom({
         });
       }
     } else {
-      const isIOS =
-        typeof navigator !== "undefined" &&
-        (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
-          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+      // Rule 1: Single Presenter Rule (Only ONE participant can share screen at a time in the room)
+      const remotePresenter = peers.find((p) => peerMediaStates[p.socketId]?.isScreenSharing);
+      if (remotePresenter) {
+        const presenterName = remotePresenter.user?.name || "Another participant";
+        showToast(`⚠️ ${presenterName} is currently presenting. Only 1 person can share screen at a time.`);
+        return;
+      }
 
-      const isInAppBrowser =
+      // Rule 2: Mobile Devices (Screen sharing is disabled on mobile devices to prevent OS restrictions and notification leaks)
+      const isMobile =
         typeof navigator !== "undefined" &&
-        /FBAN|FBAV|Instagram|Viber|Line/i.test(navigator.userAgent);
+        (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ||
+          (typeof window !== "undefined" && window.innerWidth < 640));
 
-      // 1. Check if getDisplayMedia API is missing (e.g., iOS Safari or In-App WebViews)
+      if (isMobile) {
+        showToast("Screen sharing is available on Desktop/Laptop computers only. On mobile, please use Flip Camera 🔄 to present drawings or documents.");
+        return;
+      }
+
+      // Rule 3: Browser getDisplayMedia API check
       if (!navigator?.mediaDevices?.getDisplayMedia) {
-        if (isIOS) {
-          showToast("Apple iOS restricts browser screen sharing. Use Flip Camera 🔄 to present blueprints or documents!");
-        } else if (isInAppBrowser) {
-          showToast("In-app browser blocks screen share. Tap ••• and select 'Open in Chrome/Safari'.");
-        } else {
-          showToast("Screen sharing is not supported by this mobile browser. Try Chrome on Android or Desktop.");
-        }
+        showToast("Screen sharing is not supported by this browser. Please use Chrome, Edge, or Firefox on a Laptop/Desktop.");
         return;
       }
 
       try {
-        let screenStream = null;
+        let nextScreenStream = null;
         try {
-          // Mobile Android Chrome requires clean boolean constraint (cursor: always causes OverconstrainedError on touch devices)
-          screenStream = await navigator.mediaDevices.getDisplayMedia({
+          nextScreenStream = await navigator.mediaDevices.getDisplayMedia({
             video: true,
             audio: false,
           });
         } catch (stdErr) {
-          // Fallback with desktop cursor constraint
-          screenStream = await navigator.mediaDevices.getDisplayMedia({
+          nextScreenStream = await navigator.mediaDevices.getDisplayMedia({
             video: { cursor: "always" },
             audio: false,
           });
         }
 
-        if (!screenStream) {
+        if (!nextScreenStream) {
           showToast("Could not start screen sharing.");
           return;
         }
 
-        screenStreamRef.current = screenStream;
+        screenStreamRef.current = nextScreenStream;
+        setScreenStream(nextScreenStream);
         setIsScreenSharing(true);
 
-        const screenTrack = screenStream.getVideoTracks()[0];
+        const screenTrack = nextScreenStream.getVideoTracks()[0];
         if (peerManagerRef.current && screenTrack) {
           await peerManagerRef.current.replaceVideoTrack(screenTrack);
         }
@@ -855,12 +1037,8 @@ export default function GoogleMeetRoom({
         console.warn("[WEBRTC] Screen share error on mobile/desktop:", err);
         if (err.name === "NotAllowedError") {
           showToast("Screen share cancelled or permission not granted.");
-        } else if (isIOS) {
-          showToast("iOS restricts browser screen share. Use Flip Camera 🔄 to film plans or documents directly!");
-        } else if (isInAppBrowser) {
-          showToast("In-app browser blocked screen capture. Open this link in Google Chrome app.");
         } else {
-          showToast("Screen sharing failed on this device. Please use a laptop/PC or Chrome on Android.");
+          showToast("Screen sharing failed on this device. Please use a laptop or desktop computer.");
         }
       }
     }
@@ -920,11 +1098,11 @@ export default function GoogleMeetRoom({
     const list = [
       {
         id: "local",
-        socketId: socketRef.current?.id || "local",
+        socketId: localSocketId,
         name: displayName,
         role: userRole,
         affiliation,
-        stream: localStreamRef.current,
+        stream: localStream,
         isLocal: true,
         isVideoOn,
         isMicOn,
@@ -951,19 +1129,19 @@ export default function GoogleMeetRoom({
     });
 
     return list;
-  }, [displayName, userRole, affiliation, isVideoOn, isMicOn, isHandRaised, userAvatar, peers, peerMediaStates]);
+  }, [localSocketId, displayName, userRole, affiliation, localStream, isVideoOn, isMicOn, isHandRaised, userAvatar, peers, peerMediaStates]);
 
   // Check if someone is actively sharing their screen
   const activeScreenShare = useMemo(() => {
-    if (isScreenSharing && screenStreamRef.current) {
+    if (isScreenSharing && screenStream) {
       return {
         isLocal: true,
         presenterName: displayName,
-        stream: screenStreamRef.current,
+        stream: screenStream,
       };
     }
     const remotePresenter = peers.find((p) => peerMediaStates[p.socketId]?.isScreenSharing);
-    if (remotePresenter && remotePresenter.stream) {
+    if (remotePresenter) {
       return {
         isLocal: false,
         presenterName: remotePresenter.user?.name || "Participant",
@@ -971,7 +1149,9 @@ export default function GoogleMeetRoom({
       };
     }
     return null;
-  }, [isScreenSharing, displayName, peers, peerMediaStates]);
+  }, [isScreenSharing, screenStream, displayName, peers, peerMediaStates]);
+
+  const isAnotherPresenterActive = Boolean(activeScreenShare && !activeScreenShare.isLocal);
 
   // Connect screen share video element
   useEffect(() => {
@@ -995,6 +1175,18 @@ export default function GoogleMeetRoom({
       {peers.map((peer) => (
         <RemotePeerAudio key={peer.socketId} stream={peer.stream} />
       ))}
+
+      {/* Floating PiP Restore Button */}
+      {isFloatingPiP && (
+        <button
+          type="button"
+          onClick={() => setIsFloatingPiP(false)}
+          className="absolute top-2.5 right-2.5 z-50 p-1.5 rounded-lg bg-black/70 hover:bg-black/90 text-white border border-white/15 transition-colors cursor-pointer"
+          title="Expand to full screen"
+        >
+          <Maximize2 className="w-4 h-4 text-amber-400" />
+        </button>
+      )}
 
       {/* 1. TOP HEADER (CLEAN, ZERO ARBITRARY DOTS, MOBILE-FIRST) */}
       {!isFloatingPiP && (
@@ -1025,7 +1217,7 @@ export default function GoogleMeetRoom({
             )}
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             {/* Flip camera on mobile */}
             {isVideoOn && (
               <button
@@ -1056,6 +1248,16 @@ export default function GoogleMeetRoom({
               <span>{hasCopiedLink ? "Copied" : "Share"}</span>
             </button>
 
+            {/* Mobile Info drawer button */}
+            <button
+              type="button"
+              onClick={() => setActiveSidePanel(activeSidePanel === "info" ? null : "info")}
+              className="flex sm:hidden items-center justify-center p-2 rounded-xl hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
+              title="Meeting info"
+            >
+              <Info className="w-4 h-4 text-amber-400" />
+            </button>
+
             {/* Participants counter button */}
             <button
               type="button"
@@ -1065,6 +1267,19 @@ export default function GoogleMeetRoom({
             >
               <Users className="w-4 h-4 text-amber-400" />
               <span>{participantCount}</span>
+            </button>
+
+            {/* Minimize to Picture-in-Picture (PiP) */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSidePanel(null);
+                setIsFloatingPiP(true);
+              }}
+              className="hidden sm:flex items-center justify-center p-2 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+              title="Minimize to floating corner window"
+            >
+              <Minimize2 className="w-4 h-4" />
             </button>
           </div>
         </header>
@@ -1397,16 +1612,24 @@ export default function GoogleMeetRoom({
             {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
           </button>
 
-          {/* Screen Share */}
+          {/* Flip Camera (Dedicated mobile control for blueprints & rear camera view) */}
           <button
             type="button"
-            onClick={handleToggleScreenShare}
+            onClick={() => {
+              if (!isVideoOn) {
+                showToast("Turn on your camera first to switch between front and rear cameras.");
+                return;
+              }
+              flipCamera();
+            }}
             className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-              isScreenSharing ? "bg-amber-500 text-neutral-950 font-bold" : "bg-white/10 text-white active:scale-90"
+              isVideoOn
+                ? "bg-white/10 hover:bg-white/20 text-white active:scale-90"
+                : "bg-white/5 text-white/30 cursor-not-allowed"
             }`}
-            title={isScreenSharing ? "Stop presentation" : "Share screen"}
+            title={isVideoOn ? "Flip camera (front / rear)" : "Turn on camera to flip"}
           >
-            <Monitor className="w-5 h-5" />
+            <SwitchCamera className="w-5 h-5" />
           </button>
 
           {/* Reactions */}
@@ -1518,10 +1741,21 @@ export default function GoogleMeetRoom({
             <button
               type="button"
               onClick={handleToggleScreenShare}
-              className={`p-3 rounded-full transition-all cursor-pointer ${
-                isScreenSharing ? "bg-amber-500 text-neutral-950 font-bold" : "bg-white/10 hover:bg-white/15 text-white"
+              disabled={isAnotherPresenterActive}
+              className={`p-3 rounded-full transition-all ${
+                isScreenSharing
+                  ? "bg-amber-500 text-neutral-950 font-bold cursor-pointer hover:bg-amber-400"
+                  : isAnotherPresenterActive
+                  ? "bg-white/5 text-neutral-500 cursor-not-allowed opacity-50"
+                  : "bg-white/10 hover:bg-white/15 text-white cursor-pointer active:scale-90"
               }`}
-              title={isScreenSharing ? "Stop presenting" : "Present screen"}
+              title={
+                isScreenSharing
+                  ? "Stop presenting"
+                  : isAnotherPresenterActive
+                  ? `${activeScreenShare?.presenterName || "Another participant"} is presenting (Only 1 presenter allowed)`
+                  : "Present screen"
+              }
             >
               <Monitor className="w-5 h-5" />
             </button>

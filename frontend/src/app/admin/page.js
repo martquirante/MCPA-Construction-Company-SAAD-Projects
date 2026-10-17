@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { setReturnToCompletedHome } from "@/modules/home/homeState";
@@ -710,10 +710,10 @@ export default function AdminPage() {
     setIsMobileSidebarOpen(false);
   };
 
-  const showToast = (msg) => {
+  const showToast = useCallback((msg) => {
     setSuccessToast(msg);
     setTimeout(() => setSuccessToast(""), 3500);
-  };
+  }, []);
 
   const handleAddProject = async (newProject) => {
     let finalProj = newProject;

@@ -84,7 +84,19 @@ class WebRTCSignalingService {
 
         socket.join(roomCode);
         socket.currentRoom = roomCode;
-        socket.userData = { ...user, role, socketId: socket.id, joinedAt: Date.now() };
+        const initialMediaState = {
+          isMicOn: user?.mediaState?.isMicOn !== false,
+          isVideoOn: user?.mediaState?.isVideoOn !== false,
+          isScreenSharing: Boolean(user?.mediaState?.isScreenSharing),
+          isHandRaised: Boolean(user?.mediaState?.isHandRaised),
+        };
+        socket.userData = {
+          ...user,
+          role,
+          socketId: socket.id,
+          joinedAt: Date.now(),
+          mediaState: initialMediaState,
+        };
 
         const existingParticipants = Array.from(roomParticipants.values());
 
@@ -190,6 +202,14 @@ class WebRTCSignalingService {
       // 6. Audio/Video/Screen State Sync (Microphone mute, Camera off, Screen sharing)
       socket.on("peer-state-change", ({ roomCode, isMicOn, isVideoOn, isScreenSharing }) => {
         if (!roomCode) return;
+        if (socket.userData) {
+          socket.userData.mediaState = {
+            ...(socket.userData.mediaState || {}),
+            ...(isMicOn !== undefined ? { isMicOn } : {}),
+            ...(isVideoOn !== undefined ? { isVideoOn } : {}),
+            ...(isScreenSharing !== undefined ? { isScreenSharing } : {}),
+          };
+        }
         socket.to(roomCode).emit("peer-state-updated", {
           socketId: socket.id,
           isMicOn,
@@ -210,6 +230,12 @@ class WebRTCSignalingService {
 
       socket.on("toggle-hand-raise", ({ roomCode, isHandRaised }) => {
         if (!roomCode) return;
+        if (socket.userData) {
+          socket.userData.mediaState = {
+            ...(socket.userData.mediaState || {}),
+            isHandRaised: Boolean(isHandRaised),
+          };
+        }
         socket.to(roomCode).emit("peer-hand-raised", {
           socketId: socket.id,
           isHandRaised,

@@ -1538,12 +1538,19 @@ function ClientPortalContent() {
                       : (brief.meeting_mode || brief.meetingMode || "Online Video Call");
                     const isOnline = briefMode.toLowerCase().includes("online") || briefMode.toLowerCase().includes("video");
 
+                    const isAttendanceConfirmed = Boolean(
+                      brief.attendanceConfirmed ||
+                      (brief.availability_status || brief.availabilityStatus || "")
+                        .toLowerCase()
+                        .includes("confirmed")
+                    );
+
                     const briefLifecycle = getMeetingLifecycleState(
                       {
                         mode: briefMode,
                         date: brief.meeting_date || brief.meetingDate,
                         time: brief.meeting_time || brief.meetingTime || "02:00 PM - 03:30 PM PHT",
-                        attendanceConfirmed: brief.attendanceConfirmed,
+                        attendanceConfirmed: isAttendanceConfirmed,
                         outcome: brief.outcome,
                       },
                       currentTime
@@ -1641,6 +1648,7 @@ function ClientPortalContent() {
                         {/* Attendance Confirmation Action (F2F within 12h, Online within 6h) */}
                         {Boolean(
                           briefLifecycle.needsConfirmation &&
+                          !isAttendanceConfirmed &&
                           !status.toLowerCase().includes("reject") &&
                           !status.toLowerCase().includes("decline")
                         ) && (
@@ -1662,13 +1670,24 @@ function ClientPortalContent() {
                             </div>
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={async () => {
+                                const targetBriefKey = brief.brief_id || brief.submission_id || id;
                                 setInquiries((prev) =>
-                                  prev.map((item) =>
-                                    item.id === brief.id ? { ...item, attendanceConfirmed: true } : item
-                                  )
+                                  prev.map((item) => {
+                                    const itemKey = item.brief_id || item.submission_id || item.submissionId || item.id;
+                                    return itemKey === targetBriefKey
+                                      ? { ...item, attendanceConfirmed: true, availability_status: "Attendance Confirmed" }
+                                      : item;
+                                  })
                                 );
-                                setToastMessage("Attendance confirmed! Lead Engineer notified.");
+                                try {
+                                  await fetch(`/api/meetings/${encodeURIComponent(targetBriefKey)}/confirm-attendance`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ attendanceConfirmed: true, confirmedBy: "client" }),
+                                  });
+                                } catch (e) {}
+                                showToast("Attendance confirmed! Lead Engineer notified.");
                               }}
                               className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-colors shadow-xs cursor-pointer shrink-0"
                             >

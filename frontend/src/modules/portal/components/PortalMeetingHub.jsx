@@ -526,7 +526,7 @@ export default function PortalMeetingHub({
       sessionStorage.removeItem("mcpa_call_recently_left");
     } catch (e) {}
 
-    const cleanBaseCode = (roomCode || "meet").replace(/^mcpa-/, "");
+    const cleanBaseCode = (roomCode || "meet").replace(/^(mcpa-)?(instant-)?/, "");
     const instantRoomCode = `mcpa-instant-${cleanBaseCode}`;
     const clientAvatar =
       currentUser?.avatar_url ||
@@ -573,6 +573,47 @@ export default function PortalMeetingHub({
     setViewState("in_call");
     showToast("Connecting to Instant Consultation Room...");
   };
+
+  const handleMeetingLeave = useCallback(() => {
+    const wasInstant = isInstantMode;
+    const cleanBase = (roomCode || "meet").replace(/^(mcpa-)?(instant-)?/, "");
+    const currentRoomCode = wasInstant ? `mcpa-instant-${cleanBase}` : roomCode;
+    setViewState("schedule");
+    setIsInstantMode(false);
+    if (wasInstant) {
+      try {
+        localStorage.removeItem("mcpa_instant_call_active");
+        sessionStorage.removeItem("mcpa_dismissed_instant_call");
+        sessionStorage.removeItem("mcpa_dismissed_instant_call_at");
+        sessionStorage.removeItem("mcpa_call_recently_left");
+        window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoomCode } }));
+        const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"] });
+        socket.on("connect", () => {
+          socket.emit("instant-call-ended", { roomCode: currentRoomCode });
+          setTimeout(() => socket.disconnect(), 1000);
+        });
+      } catch (e) {}
+    }
+    showToast("You left the consultation meeting.");
+  }, [roomCode, isInstantMode, showToast]);
+
+  const handleMeetingAutoEndTimeout = useCallback(() => {
+    const cleanBase = (roomCode || "meet").replace(/^(mcpa-)?(instant-)?/, "");
+    const currentRoomCode = isInstantMode ? `mcpa-instant-${cleanBase}` : roomCode;
+    setViewState("schedule");
+    setIsInstantMode(false);
+    try {
+      localStorage.removeItem("mcpa_instant_call_active");
+      sessionStorage.removeItem("mcpa_dismissed_instant_call");
+      sessionStorage.removeItem("mcpa_dismissed_instant_call_at");
+      sessionStorage.removeItem("mcpa_call_recently_left");
+      window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoomCode } }));
+      const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"] });
+      socket.emit("instant-call-ended", { roomCode: currentRoomCode });
+      setTimeout(() => socket.disconnect(), 2000);
+    } catch (e) {}
+    setIsTimeoutModalOpen(true);
+  }, [roomCode, isInstantMode]);
 
   const isOnlineMode = activeMeetingInfo.mode.toLowerCase().includes("online");
 
@@ -1861,46 +1902,12 @@ export default function PortalMeetingHub({
       {/* 5. ACTIVE GOOGLE MEET CALL (FULLSCREEN PORTAL OR FLOATING MINI-WINDOW) */}
       {viewState === "in_call" && (
         <GoogleMeetRoom
-          roomCode={isInstantMode ? `mcpa-instant-${(roomCode || "meet").replace(/^mcpa-/, "")}` : roomCode}
+          roomCode={isInstantMode ? `mcpa-instant-${(roomCode || "meet").replace(/^(mcpa-)?(instant-)?/, "")}` : roomCode}
           currentUser={currentUser}
           activeProject={activeProject}
           isInstantMeeting={isInstantMode}
-          onLeave={() => {
-            const cleanBase = (roomCode || "meet").replace(/^mcpa-/, "");
-            const currentRoomCode = isInstantMode ? `mcpa-instant-${cleanBase}` : roomCode;
-            setViewState("schedule");
-            setIsInstantMode(false);
-            try {
-              localStorage.removeItem("mcpa_instant_call_active");
-              sessionStorage.removeItem("mcpa_dismissed_instant_call");
-              sessionStorage.removeItem("mcpa_dismissed_instant_call_at");
-              sessionStorage.removeItem("mcpa_call_recently_left");
-              window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoomCode } }));
-              const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"] });
-              socket.on("connect", () => {
-                socket.emit("instant-call-ended", { roomCode: currentRoomCode });
-                setTimeout(() => socket.disconnect(), 1000);
-              });
-            } catch (e) {}
-            showToast("You left the consultation meeting.");
-          }}
-          onAutoEndTimeout={() => {
-            const cleanBase = (roomCode || "meet").replace(/^mcpa-/, "");
-            const currentRoomCode = isInstantMode ? `mcpa-instant-${cleanBase}` : roomCode;
-            setViewState("schedule");
-            setIsInstantMode(false);
-            try {
-              localStorage.removeItem("mcpa_instant_call_active");
-              sessionStorage.removeItem("mcpa_dismissed_instant_call");
-              sessionStorage.removeItem("mcpa_dismissed_instant_call_at");
-              sessionStorage.removeItem("mcpa_call_recently_left");
-              window.dispatchEvent(new CustomEvent("mcpa-instant-call-ended", { detail: { roomCode: currentRoomCode } }));
-              const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"] });
-              socket.emit("instant-call-ended", { roomCode: currentRoomCode });
-              setTimeout(() => socket.disconnect(), 2000);
-            } catch (e) {}
-            setIsTimeoutModalOpen(true);
-          }}
+          onLeave={handleMeetingLeave}
+          onAutoEndTimeout={handleMeetingAutoEndTimeout}
           showToast={showToast}
         />
       )}
