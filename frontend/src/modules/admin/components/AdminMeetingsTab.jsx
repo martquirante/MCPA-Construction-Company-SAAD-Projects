@@ -62,27 +62,39 @@ import {
 function ClientAvatarWithFallback({ item, clientBriefs }) {
   const matchingBrief = useMemo(() => {
     if (!Array.isArray(clientBriefs)) return null;
-    return clientBriefs.find((b) =>
-      (b.clientEmail && item.clientEmail && b.clientEmail.toLowerCase() === item.clientEmail.toLowerCase()) ||
-      (b.id && (b.id === item.id || b.id === item.briefId)) ||
-      (b.trackingId && (b.trackingId === item.projectCode || b.trackingId === item.id))
-    );
+    const itemEmail = (item?.clientEmail || item?.client_email || item?.email || "").toLowerCase().trim();
+    const itemId = item?.id || item?.briefId || item?.submissionId;
+    const itemCode = item?.projectCode || item?.trackingId;
+    return clientBriefs.find((b) => {
+      const bEmail = (b?.clientEmail || b?.client_email || b?.email || "").toLowerCase().trim();
+      const bId = b?.id || b?.submissionId;
+      const bCode = b?.trackingId || b?.projectCode;
+      return (
+        (bEmail && itemEmail && bEmail === itemEmail) ||
+        (bId && itemId && (bId === itemId || bId === item?.briefId)) ||
+        (bCode && itemCode && bCode === itemCode)
+      );
+    });
   }, [clientBriefs, item]);
 
   const clientAvatar = resolveClientAvatar(matchingBrief || item);
+  const clientName = item?.clientName || item?.client_name || item?.name || "Client";
+  const itemEmail = (item?.clientEmail || item?.client_email || item?.email || "").toLowerCase().trim();
   const isGoogle =
-    item.authProvider === "google" ||
+    item?.authProvider === "google" ||
+    item?.auth_provider === "google" ||
     matchingBrief?.authProvider === "google" ||
     matchingBrief?.auth_provider === "google" ||
-    item.clientEmail?.toLowerCase().endsWith("@gmail.com") ||
+    itemEmail.endsWith("@gmail.com") ||
     (clientAvatar && clientAvatar.includes("googleusercontent"));
 
   return (
     <div className="relative shrink-0">
       {clientAvatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={clientAvatar}
-          alt={item.clientName || "Client"}
+          alt={clientName}
           referrerPolicy="no-referrer"
           crossOrigin="anonymous"
           className="w-10 h-10 rounded-xl object-cover border border-amber-500/40 shadow-xs"
@@ -95,9 +107,9 @@ function ClientAvatarWithFallback({ item, clientBriefs }) {
       ) : null}
       <div
         style={{ display: clientAvatar ? "none" : "flex" }}
-        className="meeting-avatar-fallback w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-white/[0.08] dark:to-white/[0.02] border border-neutral-200/80 dark:border-white/10 text-neutral-800 dark:text-neutral-200 font-bold items-center justify-center font-mono text-sm shrink-0 shadow-xs uppercase"
+        className="meeting-avatar-fallback w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold items-center justify-center font-mono text-sm shrink-0 shadow-xs uppercase"
       >
-        {item.clientName?.charAt(0) || "?"}
+        {clientName.charAt(0) || "?"}
       </div>
 
       {isGoogle && (
@@ -2970,9 +2982,7 @@ export default function AdminMeetingsTab({
                       className="p-3.5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/70 dark:border-white/5 hover:border-amber-500/30 transition-all flex items-center justify-between gap-3 group"
                     >
                       <div className="min-w-0 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 font-bold font-mono text-sm flex items-center justify-center shrink-0">
-                          {name.charAt(0).toUpperCase()}
-                        </div>
+                        <ClientAvatarWithFallback item={c} clientBriefs={clientBriefs} />
                         <div className="min-w-0">
                           <h4 className="text-xs font-bold text-neutral-900 dark:text-white truncate">
                             {name}
