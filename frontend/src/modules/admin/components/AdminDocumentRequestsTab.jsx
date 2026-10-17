@@ -43,6 +43,43 @@ import DocumentUploadModal from "@/modules/shared/DocumentUploadModal";
 import { resolveClientAvatar } from "@/modules/admin/components/InquiryPipelineTab";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
 
+function ClientAvatarBadge({ client, sizeClasses = "w-7 h-7", textClasses = "text-[10px]" }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const initials = useMemo(() => {
+    const rawName = client?.name || "Client";
+    return (
+      rawName
+        .replace(/^(Engr\.|Arch\.|Dr\.|Atty\.|Mr\.|Ms\.|Mrs\.)\s+/i, "")
+        .trim()
+        .split(/\s+/)
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "CL"
+    );
+  }, [client?.name]);
+
+  return (
+    <div
+      className={`${sizeClasses} rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold ${textClasses} flex items-center justify-center shrink-0 font-mono overflow-hidden shadow-xs`}
+    >
+      {client?.avatar && !imgFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={client.avatar}
+          alt={client.name || "Client"}
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <span>{initials}</span>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDocumentRequestsTab({
   clientBriefs = [],
   currentUser = null,
@@ -65,6 +102,8 @@ export default function AdminDocumentRequestsTab({
   const [requestUrgency, setRequestUrgency] = useState("Urgent");
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
   const comboboxRef = useRef(null);
+  const [isClientComboboxOpen, setIsClientComboboxOpen] = useState(false);
+  const clientComboboxRef = useRef(null);
 
   // Modal 2: Direct Upload from MCPA
   const [isDirectUploadFormOpen, setIsDirectUploadFormOpen] = useState(false);
@@ -75,6 +114,8 @@ export default function AdminDocumentRequestsTab({
   const [transmittalNote, setTransmittalNote] = useState("");
   const [isTransmittalComboboxOpen, setIsTransmittalComboboxOpen] = useState(false);
   const transmittalComboboxRef = useRef(null);
+  const [isDirectClientComboboxOpen, setIsDirectClientComboboxOpen] = useState(false);
+  const directClientComboboxRef = useRef(null);
 
   // Active Upload Animation Modal (for Admin direct upload)
   const [isUploadAnimationModalOpen, setIsUploadAnimationModalOpen] = useState(false);
@@ -88,6 +129,12 @@ export default function AdminDocumentRequestsTab({
       }
       if (transmittalComboboxRef.current && !transmittalComboboxRef.current.contains(e.target)) {
         setIsTransmittalComboboxOpen(false);
+      }
+      if (clientComboboxRef.current && !clientComboboxRef.current.contains(e.target)) {
+        setIsClientComboboxOpen(false);
+      }
+      if (directClientComboboxRef.current && !directClientComboboxRef.current.contains(e.target)) {
+        setIsDirectClientComboboxOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -181,6 +228,22 @@ export default function AdminDocumentRequestsTab({
       setDirectUploadClientBriefId(clientOptions[0].id);
     }
   }, [clientOptions, targetClientBriefId]);
+
+  const selectedTargetClient = useMemo(() => {
+    return (
+      clientOptions.find((c) => String(c.id) === String(targetClientBriefId)) ||
+      clientOptions[0] ||
+      null
+    );
+  }, [clientOptions, targetClientBriefId]);
+
+  const selectedDirectTargetClient = useMemo(() => {
+    return (
+      clientOptions.find((c) => String(c.id) === String(directUploadClientBriefId)) ||
+      clientOptions[0] ||
+      null
+    );
+  }, [clientOptions, directUploadClientBriefId]);
 
   // Filtered requests
   const filteredRequests = useMemo(() => {
@@ -1150,22 +1213,95 @@ export default function AdminDocumentRequestsTab({
 
             {/* Modal Body / Form */}
             <form onSubmit={handleCreateRequest} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
-              {/* Select Target Client */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
-                  Target Client / Project Inquiry
+              {/* TARGET CLIENT COMBOBOX (Custom UI with Client Avatar & Project Code) */}
+              <div className="space-y-1.5 relative" ref={clientComboboxRef}>
+                <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300 flex items-center justify-between">
+                  <span>Target Client / Project Inquiry</span>
+                  <span className="text-[10px] text-amber-500 lowercase font-normal">
+                    select recipient
+                  </span>
                 </label>
-                <select
-                  value={targetClientBriefId}
-                  onChange={(e) => setTargetClientBriefId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+
+                {/* Combobox Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setIsClientComboboxOpen(!isClientComboboxOpen)}
+                  className="w-full px-3 py-2 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white flex items-center justify-between text-left cursor-pointer hover:border-amber-500 transition-colors shadow-xs"
                 >
-                  {clientOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} — {c.code} ({c.projectType})
-                    </option>
-                  ))}
-                </select>
+                  {selectedTargetClient ? (
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <ClientAvatarBadge client={selectedTargetClient} sizeClasses="w-7 h-7" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold font-sans text-xs text-neutral-900 dark:text-white truncate">
+                            {selectedTargetClient.name}
+                          </span>
+                          <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 truncate">
+                            {selectedTargetClient.code}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans truncate">
+                          {selectedTargetClient.projectType}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-neutral-400">Choose a client...</span>
+                  )}
+                  <ChevronDown
+                    className={`w-4 h-4 text-neutral-400 transition-transform shrink-0 ${
+                      isClientComboboxOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {/* Dropdown Options */}
+                {isClientComboboxOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-40 rounded-[10px] bg-white dark:bg-[#151722] border border-neutral-200 dark:border-white/15 shadow-2xl overflow-hidden max-h-64 overflow-y-auto divide-y divide-neutral-100 dark:divide-white/5 animate-in fade-in duration-150">
+                    <div className="p-2.5 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-100 dark:border-white/5 text-[10px] font-mono uppercase text-neutral-400 font-bold flex items-center justify-between">
+                      <span>Select Target Client</span>
+                      <span className="text-amber-500 font-semibold">{clientOptions.length} Clients Available</span>
+                    </div>
+                    {clientOptions.map((c) => {
+                      const isSelected = String(c.id) === String(targetClientBriefId);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setTargetClientBriefId(c.id);
+                            setIsClientComboboxOpen(false);
+                          }}
+                          className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-3 hover:bg-amber-500/10 transition-colors cursor-pointer ${
+                            isSelected
+                              ? "bg-amber-500/15 text-neutral-900 dark:text-white"
+                              : "text-neutral-800 dark:text-neutral-200"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <ClientAvatarBadge client={c} sizeClasses="w-8 h-8" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-neutral-900 dark:text-white truncate font-sans">
+                                  {c.name}
+                                </span>
+                                <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400">
+                                  {c.code}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-neutral-400 dark:text-neutral-500 font-sans truncate">
+                                {c.projectType}
+                              </p>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-amber-500 shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* DOCUMENT SUGGESTION COMBOBOX */}
@@ -1338,22 +1474,95 @@ export default function AdminDocumentRequestsTab({
             </div>
 
             <form onSubmit={handleProceedToDirectUpload} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
-              {/* Select Target Client */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
-                  Target Client Portal
+              {/* TARGET CLIENT COMBOBOX (Custom UI with Client Avatar & Project Code) */}
+              <div className="space-y-1.5 relative" ref={directClientComboboxRef}>
+                <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300 flex items-center justify-between">
+                  <span>Target Client Portal</span>
+                  <span className="text-[10px] text-amber-500 lowercase font-normal">
+                    recipient
+                  </span>
                 </label>
-                <select
-                  value={directUploadClientBriefId}
-                  onChange={(e) => setDirectUploadClientBriefId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+
+                {/* Combobox Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setIsDirectClientComboboxOpen(!isDirectClientComboboxOpen)}
+                  className="w-full px-3 py-2 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white flex items-center justify-between text-left cursor-pointer hover:border-amber-500 transition-colors shadow-xs"
                 >
-                  {clientOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} — {c.code} ({c.projectType})
-                    </option>
-                  ))}
-                </select>
+                  {selectedDirectTargetClient ? (
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <ClientAvatarBadge client={selectedDirectTargetClient} sizeClasses="w-7 h-7" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold font-sans text-xs text-neutral-900 dark:text-white truncate">
+                            {selectedDirectTargetClient.name}
+                          </span>
+                          <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 truncate">
+                            {selectedDirectTargetClient.code}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans truncate">
+                          {selectedDirectTargetClient.projectType}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-neutral-400">Choose a client...</span>
+                  )}
+                  <ChevronDown
+                    className={`w-4 h-4 text-neutral-400 transition-transform shrink-0 ${
+                      isDirectClientComboboxOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {/* Dropdown Options */}
+                {isDirectClientComboboxOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-40 rounded-[10px] bg-white dark:bg-[#151722] border border-neutral-200 dark:border-white/15 shadow-2xl overflow-hidden max-h-64 overflow-y-auto divide-y divide-neutral-100 dark:divide-white/5 animate-in fade-in duration-150">
+                    <div className="p-2.5 bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-100 dark:border-white/5 text-[10px] font-mono uppercase text-neutral-400 font-bold flex items-center justify-between">
+                      <span>Select Target Client</span>
+                      <span className="text-amber-500 font-semibold">{clientOptions.length} Clients Available</span>
+                    </div>
+                    {clientOptions.map((c) => {
+                      const isSelected = String(c.id) === String(directUploadClientBriefId);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setDirectUploadClientBriefId(c.id);
+                            setIsDirectClientComboboxOpen(false);
+                          }}
+                          className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-3 hover:bg-amber-500/10 transition-colors cursor-pointer ${
+                            isSelected
+                              ? "bg-amber-500/15 text-neutral-900 dark:text-white"
+                              : "text-neutral-800 dark:text-neutral-200"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <ClientAvatarBadge client={c} sizeClasses="w-8 h-8" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-neutral-900 dark:text-white truncate font-sans">
+                                  {c.name}
+                                </span>
+                                <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400">
+                                  {c.code}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-neutral-400 dark:text-neutral-500 font-sans truncate">
+                                {c.projectType}
+                              </p>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-amber-500 shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* MCPA TRANSMITTAL SUGGESTION COMBOBOX */}
