@@ -1369,8 +1369,8 @@ export default function AdminPage() {
       ],
     },
     {
-      title: "Stage 1: Pre-Inquiry",
-      stageBadge: "Stage 1",
+      title: "Phase 1: Pre-Inquiry",
+      stageBadge: "Phase 1",
       items: [
         {
           id: "briefs",
@@ -1381,8 +1381,8 @@ export default function AdminPage() {
       ],
     },
     {
-      title: "Stage 2: Consultation",
-      stageBadge: "Stage 2",
+      title: "Phase 2: Consultation & Planning",
+      stageBadge: "Phase 2",
       items: [
         {
           id: "meetings",
@@ -1390,12 +1390,6 @@ export default function AdminPage() {
           icon: CalendarIcon,
           badge: meetingsCount > 0 ? meetingsCount : undefined,
         },
-      ],
-    },
-    {
-      title: "Stage 3: Pre-Construction",
-      stageBadge: "Stage 3",
-      items: [
         { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
         {
           id: "documents",
@@ -1406,8 +1400,8 @@ export default function AdminPage() {
       ],
     },
     {
-      title: "Stage 4: Active Build",
-      stageBadge: "Stage 4",
+      title: "Phase 3: Active Build",
+      stageBadge: "Phase 3",
       items: [
         {
           id: "site-progress",
@@ -1424,8 +1418,8 @@ export default function AdminPage() {
       ],
     },
     {
-      title: "Stage 5: Turnover & Warranty",
-      stageBadge: "Stage 5",
+      title: "Phase 4: Turnover & Warranty",
+      stageBadge: "Phase 4",
       items: [
         {
           id: "billing",
@@ -1602,15 +1596,14 @@ export default function AdminPage() {
         >
           {navSections.map((section, sIdx) => (
             <div key={section.title || sIdx} className="space-y-1">
-              {/* Section Header with Stage Badge */}
+              {/* Section Header with Centered Straight-Line Divider */}
               {!isSidebarCollapsed ? (
-                <div className="px-2.5 pt-2 pb-1 flex items-center justify-between text-[9.5px] font-mono font-bold tracking-[0.12em] uppercase text-neutral-400 dark:text-neutral-500 select-none">
-                  <span className="truncate">{section.title}</span>
-                  {section.stageBadge && (
-                    <span className="ml-1 text-[8.5px] px-1.5 py-0.2 rounded-[3px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 font-bold shrink-0">
-                      {section.stageBadge}
-                    </span>
-                  )}
+                <div className="relative flex items-center pt-3 pb-1.5 px-2 select-none">
+                  <div className="flex-grow border-t border-neutral-200 dark:border-white/10" />
+                  <span className="flex-shrink mx-2 text-[8px] sm:text-[8.5px] font-mono font-bold tracking-[0.14em] uppercase text-neutral-400 dark:text-neutral-500 whitespace-nowrap">
+                    {section.title}
+                  </span>
+                  <div className="flex-grow border-t border-neutral-200 dark:border-white/10" />
                 </div>
               ) : (
                 sIdx > 0 && <div className="my-2 border-t border-neutral-200 dark:border-white/5 w-6 mx-auto" />
