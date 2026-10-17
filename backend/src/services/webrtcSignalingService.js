@@ -245,13 +245,16 @@ class WebRTCSignalingService {
 
       // 8. Instant Consultation Dispatching & Broadcasting
       socket.on("instant-call-start", (payload) => {
-        console.log(`[WEBRTC] Instant call started by: ${payload?.clientName || "Client"} (Room: ${payload?.roomCode})`);
+        const callerDesc = payload?.initiatedBy === "admin"
+          ? `Admin (${payload?.adminName || payload?.callerName || "Admin"}) targeting [${payload?.targetClientEmail || payload?.clientName || "Client"}]`
+          : `Client (${payload?.clientName || "Client"})`;
+        console.log(`[WEBRTC] Instant call started by ${callerDesc} in room: ${payload?.roomCode}`);
         this.activeInstantCall = {
           ...payload,
           startedAt: payload?.startedAt || Date.now(),
           answered: false,
         };
-        // Broadcast to all connected sockets (all Admins on any page or device)
+        // Broadcast to all connected sockets (Client portal and Admin portals on any page or device)
         this.io.emit("instant-call-incoming", this.activeInstantCall);
       });
 

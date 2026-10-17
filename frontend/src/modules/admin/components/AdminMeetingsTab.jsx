@@ -1023,15 +1023,20 @@ export default function AdminMeetingsTab({
       startedAt: Date.now(),
     };
 
-    // Emit through socket signaling server to ring client's portal
+    // Emit through socket signaling server and cross-tab storage to ring client's portal
     try {
+      localStorage.setItem("mcpa_instant_call_active", JSON.stringify(callPayload));
+      sessionStorage.removeItem("mcpa_client_dismissed_call");
+      sessionStorage.removeItem("mcpa_client_dismissed_call_at");
+      window.dispatchEvent(new CustomEvent("mcpa-instant-call-alert", { detail: callPayload }));
+
       const socket = io(getSignalingServerUrl(), {
         transports: ["polling", "websocket"],
-        timeout: 6000,
+        timeout: 8000,
       });
       socket.on("connect", () => {
         socket.emit("instant-call-start", callPayload);
-        setTimeout(() => socket.disconnect(), 1500);
+        setTimeout(() => socket.disconnect(), 2500);
       });
     } catch (e) {
       console.warn("[ADMIN CALL] Socket dispatch failed:", e);

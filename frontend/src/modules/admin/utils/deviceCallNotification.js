@@ -10,6 +10,108 @@
 
 let ringtoneAudio = null;
 let vibrationInterval = null;
+let webAudioRingerStop = null;
+let isCallRingingActive = false;
+
+// Global audio unlocker on user gesture
+if (typeof window !== "undefined") {
+  const handleUserGesture = () => {
+    if (ringtoneAudio && isCallRingingActive && ringtoneAudio.paused) {
+      ringtoneAudio.play().catch(() => {});
+    }
+  };
+  window.addEventListener("pointerdown", handleUserGesture, { passive: true });
+  window.addEventListener("keydown", handleUserGesture, { passive: true });
+  window.addEventListener("click", handleUserGesture, { passive: true });
+}
+
+/**
+ * Synthesize standard telephone ringer (440Hz + 480Hz dual-frequency chime)
+ * as an instant audible fallback if the browser blocks MP3 autoplay.
+ */
+function playSynthesizedTelephoneRinger() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    const ctx = new AudioCtx();
+    let isActive = true;
+    let loopTimer = null;
+
+    const cadenceRing = () => {
+      if (!isActive || ctx.state === "closed") return;
+
+      const now = ctx.currentTime;
+      // Burst 1 (800ms)
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc1.type = "sine";
+      osc2.type = "sine";
+      osc1.frequency.setValueAtTime(440, now);
+      osc2.frequency.setValueAtTime(480, now);
+
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
+      gain.gain.setValueAtTime(0.15, now + 0.75);
+      gain.gain.linearRampToValueAtTime(0, now + 0.80);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.85);
+      osc2.stop(now + 0.85);
+
+      // Burst 2 (800ms, starts at now + 1.2s)
+      const osc1b = ctx.createOscillator();
+      const osc2b = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+
+      osc1b.type = "sine";
+      osc2b.type = "sine";
+      osc1b.frequency.setValueAtTime(440, now + 1.2);
+      osc2b.frequency.setValueAtTime(480, now + 1.2);
+
+      gain2.gain.setValueAtTime(0, now + 1.2);
+      gain2.gain.linearRampToValueAtTime(0.15, now + 1.25);
+      gain2.gain.setValueAtTime(0.15, now + 1.95);
+      gain2.gain.linearRampToValueAtTime(0, now + 2.0);
+
+      osc1b.connect(gain2);
+      osc2b.connect(gain2);
+      gain2.connect(ctx.destination);
+
+      osc1b.start(now + 1.2);
+      osc2b.start(now + 1.2);
+      osc1b.stop(now + 2.05);
+      osc2b.stop(now + 2.05);
+
+      // Repeat every 4 seconds
+      loopTimer = setTimeout(cadenceRing, 4000);
+    };
+
+    if (ctx.state === "suspended") {
+      ctx.resume().then(() => cadenceRing()).catch(() => {});
+    } else {
+      cadenceRing();
+    }
+
+    return () => {
+      isActive = false;
+      if (loopTimer) clearTimeout(loopTimer);
+      try {
+        ctx.close();
+      } catch (e) {}
+    };
+  } catch (err) {
+    return null;
+  }
+}
 
 /**
  * Register Service Worker for background push and notification click handling
@@ -61,10 +163,12 @@ export function hasCallNotificationPermission() {
 
 /**
  * Plays the universfield-ringtone-030-437513.mp3 ringtone in a continuous loop
- * and initiates device vibration patterns on mobile phones.
+ * with Web Audio synthesizer fallback and mobile vibration pattern.
  */
 export function playIncomingCallRingtone() {
   if (typeof window === "undefined") return;
+
+  isCallRingingActive = true;
 
   try {
     if (!ringtoneAudio) {
@@ -78,11 +182,18 @@ export function playIncomingCallRingtone() {
     const playPromise = ringtoneAudio.play();
     if (playPromise !== undefined) {
       playPromise.catch((err) => {
-        console.warn("[DEVICE NOTIFICATION] Audio autoplay policy required user gesture:", err);
+        console.warn("[DEVICE NOTIFICATION] Audio autoplay policy prevented MP3 playback, starting Web Audio fallback:", err);
+        // Browser autoplay blocked MP3: Start synthesized dual-frequency ringer as backup
+        if (!webAudioRingerStop) {
+          webAudioRingerStop = playSynthesizedTelephoneRinger();
+        }
       });
     }
   } catch (e) {
     console.warn("[DEVICE NOTIFICATION] Error playing ringtone audio:", e);
+    if (!webAudioRingerStop) {
+      webAudioRingerStop = playSynthesizedTelephoneRinger();
+    }
   }
 
   // Device Vibration Pattern for mobile phones (500ms vibrate, 250ms pause, loop)
@@ -101,11 +212,20 @@ export function playIncomingCallRingtone() {
  * Stops ringtone audio and cancels device vibration immediately
  */
 export function stopIncomingCallRingtone() {
+  isCallRingingActive = false;
+
   if (ringtoneAudio) {
     try {
       ringtoneAudio.pause();
       ringtoneAudio.currentTime = 0;
     } catch (e) {}
+  }
+
+  if (webAudioRingerStop) {
+    try {
+      webAudioRingerStop();
+    } catch (e) {}
+    webAudioRingerStop = null;
   }
 
   if (vibrationInterval) {

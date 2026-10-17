@@ -129,12 +129,16 @@ export function optimizeOpusSdp(sdp) {
           updated = updated.replace(/;?usedtx=1/g, "");
         }
         if (!updated.includes("useinbandfec=")) updated += ";useinbandfec=1";
+        if (!updated.includes("stereo=")) updated += ";stereo=1;sprop-stereo=1";
+        if (!updated.includes("maxaveragebitrate=")) updated += ";maxaveragebitrate=128000";
+        if (!updated.includes("cbr=")) updated += ";cbr=1";
+        if (!updated.includes("maxplaybackrate=")) updated += ";maxplaybackrate=48000";
         return `${prefix}${updated}`;
       });
     } else {
       return sdp.replace(
         new RegExp(`(a=rtpmap:${pt}\\s+opus\\/48000[^\\r\\n]*[\\r\\n]+)`, "i"),
-        `$1a=fmtp:${pt} useinbandfec=1\r\n`
+        `$1a=fmtp:${pt} useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=128000;cbr=1;maxplaybackrate=48000\r\n`
       );
     }
   } catch (err) {
@@ -166,6 +170,7 @@ export class WebRTCPeerManager {
     socket,
     roomCode,
     currentUser,
+    localStream = null,
     onRemoteStream = () => {},
     onPeersChange = () => {},
     onConnectionStateChange = () => {},
@@ -179,7 +184,7 @@ export class WebRTCPeerManager {
     this.onConnectionStateChange = onConnectionStateChange;
     this.onPeerLeft = onPeerLeft;
 
-    this.localStream = null;
+    this.localStream = localStream || null;
     this.peers = new Map(); // socketId -> { socketId, pc, remoteStream, user, isInitiator, pendingCandidates }
   }
 
@@ -424,6 +429,14 @@ export class WebRTCPeerManager {
 
     try {
       await peer.pc.setRemoteDescription(new RTCSessionDescription(sdpOffer));
+
+      // Explicitly set non-stopped transceivers to sendrecv so the answerer transmits video & audio
+      const transceivers = typeof peer.pc.getTransceivers === "function" ? peer.pc.getTransceivers() : [];
+      transceivers.forEach((t) => {
+        if (!t.stopped && t.direction !== "stopped") {
+          t.direction = "sendrecv";
+        }
+      });
 
       if (this.localStream) {
         await this.attachLocalTracksToPeer(peer.pc, this.localStream);

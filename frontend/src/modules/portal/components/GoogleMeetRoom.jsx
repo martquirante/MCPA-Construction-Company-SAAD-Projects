@@ -32,6 +32,7 @@ import { io } from "socket.io-client";
 import { WebRTCPeerManager } from "@/modules/portal/utils/webrtcPeerManager";
 import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
 import { playOutgoingRingbackTone } from "@/modules/portal/utils/outgoingRingbackTone";
+import { ScreenAudioMixer } from "@/modules/portal/utils/screenAudioMixer";
 import {
   formatMeetingDuration,
   recordConcludedMeeting,
@@ -91,37 +92,114 @@ function ParticipantVideoCard({
   isMiniStrip = false,
 }) {
   const videoRef = useRef(null);
+  const [isStreamPlaying, setIsStreamPlaying] = useState(false);
 
   useEffect(() => {
     const videoEl = videoRef.current;
     const stream = participant.stream;
-    if (!videoEl || !stream) return;
+    if (!videoEl) return;
 
-    if (videoEl.srcObject !== stream) {
-      videoEl.srcObject = stream;
-    }
-    videoEl.play().catch(() => {});
-
-    const handleTrackEvent = () => {
+    if (stream) {
       if (videoEl.srcObject !== stream) {
         videoEl.srcObject = stream;
       }
       videoEl.play().catch(() => {});
+    } else {
+      videoEl.srcObject = null;
+      setIsStreamPlaying(false);
+    }
+
+    const checkTrackState = () => {
+      const vTracks = stream ? stream.getVideoTracks() : [];
+      const hasLiveTrack = vTracks.some((t) => t.enabled && t.readyState === "live");
+      if (!hasLiveTrack) {
+        setIsStreamPlaying(false);
+      } else if (videoEl.readyState >= 2 || videoEl.videoWidth > 0) {
+        setIsStreamPlaying(true);
+      }
     };
 
-    stream.addEventListener("addtrack", handleTrackEvent);
-    stream.addEventListener("removetrack", handleTrackEvent);
+    const handleLoadedMetadata = () => {
+      videoEl.play().catch(() => {});
+      checkTrackState();
+    };
+
+    const handlePlaying = () => {
+      setIsStreamPlaying(true);
+    };
+
+    const handleWaitingOrPause = () => {
+      checkTrackState();
+    };
+
+    videoEl.addEventListener("loadedmetadata", handleLoadedMetadata);
+    videoEl.addEventListener("playing", handlePlaying);
+    videoEl.addEventListener("pause", handleWaitingOrPause);
+    videoEl.addEventListener("waiting", handleWaitingOrPause);
+
+    const trackListeners = [];
+    if (stream) {
+      const handleStreamTrackEvent = () => {
+        if (videoEl.srcObject !== stream) {
+          videoEl.srcObject = stream;
+        }
+        videoEl.play().catch(() => {});
+        checkTrackState();
+      };
+
+      stream.addEventListener("addtrack", handleStreamTrackEvent);
+      stream.addEventListener("removetrack", handleStreamTrackEvent);
+
+      stream.getVideoTracks().forEach((track) => {
+        const onUnmute = () => {
+          videoEl.play().catch(() => {});
+          checkTrackState();
+        };
+        const onMute = () => {
+          checkTrackState();
+        };
+        const onEnded = () => {
+          checkTrackState();
+        };
+        track.addEventListener("unmute", onUnmute);
+        track.addEventListener("mute", onMute);
+        track.addEventListener("ended", onEnded);
+        trackListeners.push({ track, onUnmute, onMute, onEnded });
+      });
+
+      checkTrackState();
+
+      return () => {
+        videoEl.removeEventListener("loadedmetadata", handleLoadedMetadata);
+        videoEl.removeEventListener("playing", handlePlaying);
+        videoEl.removeEventListener("pause", handleWaitingOrPause);
+        videoEl.removeEventListener("waiting", handleWaitingOrPause);
+        stream.removeEventListener("addtrack", handleStreamTrackEvent);
+        stream.removeEventListener("removetrack", handleStreamTrackEvent);
+        trackListeners.forEach(({ track, onUnmute, onMute, onEnded }) => {
+          track.removeEventListener("unmute", onUnmute);
+          track.removeEventListener("mute", onMute);
+          track.removeEventListener("ended", onEnded);
+        });
+      };
+    }
 
     return () => {
-      stream.removeEventListener("addtrack", handleTrackEvent);
-      stream.removeEventListener("removetrack", handleTrackEvent);
+      videoEl.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      videoEl.removeEventListener("playing", handlePlaying);
+      videoEl.removeEventListener("pause", handleWaitingOrPause);
+      videoEl.removeEventListener("waiting", handleWaitingOrPause);
     };
   }, [participant.stream, participant.isVideoOn]);
 
-  const hasVideo =
-    participant.isVideoOn &&
-    participant.stream &&
-    participant.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live");
+  const hasLiveVideoTrack =
+    participant.isVideoOn !== false &&
+    Boolean(
+      participant.stream &&
+      participant.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live")
+    );
+
+  const showVideo = hasLiveVideoTrack && (isLocal || isStreamPlaying);
 
   const initial = (participant.name || "P").charAt(0).toUpperCase();
 
@@ -131,19 +209,19 @@ function ParticipantVideoCard({
 
   return (
     <div className="relative w-full h-full bg-[#111217] rounded-2xl overflow-hidden border border-white/5 flex items-center justify-center select-none shadow-md group">
-      {/* Video Stream Element */}
-      {hasVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className={`w-full h-full object-cover ${
-            isLocal && facingMode === "user" ? "-scale-x-100" : ""
-          }`}
-        />
-      ) : (
-        /* Sleek Avatar Fallback when camera is disabled */
+      {/* Video Stream Element (ALWAYS MOUNTED IN DOM to prevent WebRTC unmount/race condition) */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isLocal}
+        className={`w-full h-full object-cover transition-opacity duration-200 ${
+          showVideo ? "opacity-100" : "opacity-0 pointer-events-none absolute inset-0"
+        } ${isLocal && facingMode === "user" ? "-scale-x-100" : ""}`}
+      />
+
+      {/* Sleek Avatar Fallback when camera is disabled or waiting for initial frames */}
+      {!showVideo && (
         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#181920] to-[#0f1015]">
           <div
             className={`rounded-full flex items-center justify-center font-bold font-mono text-amber-300 border border-amber-500/30 bg-amber-500/10 ${
@@ -251,11 +329,12 @@ export default function GoogleMeetRoom({
   const screenStreamRef = useRef(null);
   const screenVideoRef = useRef(null);
   const hasRemoteEverJoinedRef = useRef(false);
+  const screenAudioMixerRef = useRef(null);
 
   const [peers, setPeers] = useState([]); // [{ socketId, stream, user, connectionState }]
   const [peerMediaStates, setPeerMediaStates] = useState({}); // socketId -> { isMicOn, isVideoOn, isScreenSharing, isHandRaised }
   const [p2pConnectionState, setP2pConnectionState] = useState("idle");
-  const [isCallAnswered, setIsCallAnswered] = useState(isAdmin);
+  const [isCallAnswered, setIsCallAnswered] = useState(isAdmin && !isInstantMeeting);
   const [hasCopiedLink, setHasCopiedLink] = useState(false);
 
   // Time & Meeting Duration
@@ -470,6 +549,10 @@ export default function GoogleMeetRoom({
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach((t) => t.stop());
     }
+    if (screenAudioMixerRef.current) {
+      screenAudioMixerRef.current.stop();
+      screenAudioMixerRef.current = null;
+    }
 
     if (onLeaveRef.current) {
       onLeaveRef.current();
@@ -509,6 +592,10 @@ export default function GoogleMeetRoom({
         setLocalStream(preloadedMediaStream);
         if (peerManagerRef.current) {
           peerManagerRef.current.attachLocalTracks(preloadedMediaStream);
+          const cam = preloadedMediaStream.getVideoTracks()[0];
+          const mic = preloadedMediaStream.getAudioTracks()[0];
+          if (cam) peerManagerRef.current.replaceVideoTrack(cam).catch(() => {});
+          if (mic) peerManagerRef.current.replaceAudioTrack(mic).catch(() => {});
         }
         return;
       }
@@ -547,6 +634,10 @@ export default function GoogleMeetRoom({
 
         if (peerManagerRef.current) {
           peerManagerRef.current.attachLocalTracks(stream);
+          const cam = stream.getVideoTracks()[0];
+          const mic = stream.getAudioTracks()[0];
+          if (cam) peerManagerRef.current.replaceVideoTrack(cam).catch(() => {});
+          if (mic) peerManagerRef.current.replaceAudioTrack(mic).catch(() => {});
         }
       } catch (err) {
         console.warn("[WEBRTC] Could not access camera/mic, falling back to audio-only or avatar:", err);
@@ -590,6 +681,7 @@ export default function GoogleMeetRoom({
       socket,
       roomCode: canonicalRoomCode,
       currentUser: currentUserPayload,
+      localStream: localStreamRef.current,
       onPeersChange: (updatedPeers) => {
         console.log("[WEBRTC MESH] Active peers changed. Count:", updatedPeers.length);
         setPeers(updatedPeers);
@@ -819,10 +911,6 @@ export default function GoogleMeetRoom({
   // Instant meeting 3-minute timeout & ringback tone
   useEffect(() => {
     if (!isInstantMeeting) return;
-    if (isAdmin) {
-      setIsCallAnswered(true);
-      return;
-    }
 
     if (!isCallAnswered) {
       if (!ringbackToneRef.current) {
@@ -868,6 +956,12 @@ export default function GoogleMeetRoom({
       localStreamRef.current.getAudioTracks().forEach((t) => {
         t.enabled = nextState;
       });
+    }
+    if (screenAudioMixerRef.current?.micGain) {
+      screenAudioMixerRef.current.micGain.gain.setValueAtTime(
+        nextState ? 1.0 : 0.0,
+        screenAudioMixerRef.current.audioCtx?.currentTime || 0
+      );
     }
     setIsMicOn(nextState);
     if (socketRef.current?.connected) {
@@ -943,6 +1037,10 @@ export default function GoogleMeetRoom({
   // Toggle Screen Sharing with Mobile Support & Informative Device Guidance
   const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
+      if (screenAudioMixerRef.current) {
+        screenAudioMixerRef.current.stop();
+        screenAudioMixerRef.current = null;
+      }
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((t) => t.stop());
         screenStreamRef.current = null;
@@ -954,6 +1052,12 @@ export default function GoogleMeetRoom({
           camTrack.enabled = isVideoOn;
         }
         await peerManagerRef.current.replaceVideoTrack(camTrack);
+
+        const micTrack = localStreamRef.current?.getAudioTracks()?.[0] || null;
+        if (micTrack) {
+          micTrack.enabled = isMicOn;
+          await peerManagerRef.current.replaceAudioTrack(micTrack);
+        }
       }
       setIsScreenSharing(false);
       showToast("Screen presentation ended.");
@@ -994,16 +1098,38 @@ export default function GoogleMeetRoom({
 
       try {
         let nextScreenStream = null;
+        // Studio-grade display media audio configuration for high clarity
+        const displayMediaOptions = {
+          video: {
+            cursor: "always",
+            displaySurface: "browser",
+          },
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            channelCount: 2,
+            sampleRate: 48000,
+          },
+          systemAudio: "include",
+          selfBrowserSurface: "exclude",
+          surfaceSwitching: "include",
+        };
+
         try {
-          nextScreenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
-            audio: false,
-          });
+          nextScreenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
         } catch (stdErr) {
-          nextScreenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: "always" },
-            audio: false,
-          });
+          try {
+            nextScreenStream = await navigator.mediaDevices.getDisplayMedia({
+              video: { cursor: "always" },
+              audio: true,
+            });
+          } catch (audioErr) {
+            nextScreenStream = await navigator.mediaDevices.getDisplayMedia({
+              video: { cursor: "always" },
+              audio: false,
+            });
+          }
         }
 
         if (!nextScreenStream) {
@@ -1020,6 +1146,41 @@ export default function GoogleMeetRoom({
           await peerManagerRef.current.replaceVideoTrack(screenTrack);
         }
 
+        // Mix captured tab/system audio with user microphone
+        const screenAudioTracks = nextScreenStream.getAudioTracks();
+        if (screenAudioTracks.length > 0) {
+          console.log("[WEBRTC] Screen audio detected, mixing with microphone...");
+          const screenAudioTrack = screenAudioTracks[0];
+          const micTrack = localStreamRef.current?.getAudioTracks()?.[0] || null;
+
+          const mixer = new ScreenAudioMixer(micTrack, screenAudioTrack);
+          const mixedTrack = mixer.start();
+          screenAudioMixerRef.current = mixer;
+
+          // If local mic is currently muted, mute micGain in mixer
+          if (!isMicOn && mixer.micGain && mixer.audioCtx) {
+            mixer.micGain.gain.setValueAtTime(0.0, mixer.audioCtx.currentTime);
+          }
+
+          if (peerManagerRef.current && mixedTrack) {
+            await peerManagerRef.current.replaceAudioTrack(mixedTrack);
+          }
+
+          screenAudioTrack.onended = async () => {
+            console.log("[WEBRTC] Screen audio track ended.");
+            if (screenAudioMixerRef.current) {
+              screenAudioMixerRef.current.stop();
+              screenAudioMixerRef.current = null;
+            }
+            if (peerManagerRef.current && localStreamRef.current) {
+              const originalMicTrack = localStreamRef.current.getAudioTracks()[0];
+              if (originalMicTrack) {
+                await peerManagerRef.current.replaceAudioTrack(originalMicTrack);
+              }
+            }
+          };
+        }
+
         screenTrack.onended = () => {
           handleToggleScreenShare();
         };
@@ -1032,7 +1193,11 @@ export default function GoogleMeetRoom({
             isScreenSharing: true,
           });
         }
-        showToast("You are now presenting your screen.");
+        showToast(
+          screenAudioTracks.length > 0
+            ? "Presenting screen with audio enabled 🔊"
+            : "You are now presenting your screen."
+        );
       } catch (err) {
         console.warn("[WEBRTC] Screen share error on mobile/desktop:", err);
         if (err.name === "NotAllowedError") {

@@ -208,10 +208,10 @@ function ClientPortalContent() {
     }
   }, [portalTab]);
 
-  const showToast = (msg) => {
+  const showToast = useCallback((msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 4000);
-  };
+  }, []);
 
   // Sync theme on mount and listen to changes
   useEffect(() => {
@@ -2235,6 +2235,7 @@ function ClientPortalContent() {
       {/* GLOBAL CLIENT INCOMING CONSULTATION DISPATCH WITH AUDIO RINGTONE */}
       <ClientIncomingCallManager
         currentUser={currentUser}
+        inquiries={inquiries}
         primaryInquiry={inquiries?.[0]}
         activeProject={dashboardState?.activeProject}
         onAnswerCall={(call) => {
