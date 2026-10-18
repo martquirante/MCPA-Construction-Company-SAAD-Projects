@@ -12,6 +12,7 @@ import {
   Play,
   ShieldCheck,
   CheckCheck,
+  HardHat,
 } from "lucide-react";
 
 export default function PortalSiteSupervisorCard({
@@ -19,6 +20,13 @@ export default function PortalSiteSupervisorCard({
   phoneNumber = "+63 949 775 8239",
   email = "mcpa.construction@gmail.com",
 }) {
+  const isAssigned = Boolean(
+    leadEngineer &&
+    leadEngineer !== "MCPA Project Engineer" &&
+    leadEngineer !== "Unassigned" &&
+    leadEngineer !== "Pending Assignment" &&
+    leadEngineer !== "null"
+  );
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [inputMsg, setInputMsg] = useState("");
   const [chatMessages, setChatMessages] = useState([]);
@@ -58,30 +66,45 @@ export default function PortalSiteSupervisorCard({
           <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 font-bold">
             Site Supervisor
           </span>
-          <div className="flex items-center gap-1.5 text-[10px] font-mono font-semibold text-amber-600 dark:text-amber-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            <span>Active on Site</span>
-          </div>
+          {isAssigned ? (
+            <div className="flex items-center gap-1.5 text-[10px] font-mono font-semibold text-amber-600 dark:text-amber-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span>Active on Site</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-[10px] font-mono font-semibold text-neutral-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+              <span>Assignment Pending</span>
+            </div>
+          )}
         </div>
 
         {/* Profile Card */}
         <div className="flex items-center gap-3.5">
-          <div className="relative w-14 h-14 rounded-full overflow-hidden border-2 border-amber-500/40 bg-neutral-900 shrink-0 shadow-sm">
-            <Image
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400"
-              alt={leadEngineer}
-              fill
-              sizes="56px"
-              className="object-cover"
-            />
-          </div>
+          {isAssigned ? (
+            <div className="relative w-14 h-14 rounded-full overflow-hidden border-2 border-amber-500/40 bg-neutral-900 shrink-0 shadow-sm">
+              <Image
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400"
+                alt={leadEngineer}
+                fill
+                sizes="56px"
+                className="object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-14 h-14 rounded-full border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-white/5 flex items-center justify-center shrink-0 shadow-sm">
+              <HardHat className="w-6 h-6 text-amber-500" />
+            </div>
+          )}
 
           <div className="min-w-0 flex-1">
             <h4 className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white truncate">
-              {leadEngineer}
+              {isAssigned ? leadEngineer : "Pending Engineer Assignment"}
             </h4>
             <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
-              Lead Project Engineer • PRC Licensed
+              {isAssigned
+                ? "Lead Project Engineer • PRC Licensed"
+                : "Supervising engineer will be assigned upon site mobilization"}
             </p>
           </div>
         </div>
@@ -91,10 +114,10 @@ export default function PortalSiteSupervisorCard({
           <a
             href={`tel:${phoneNumber}`}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-[12px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs transition-colors shadow-xs"
-            title="Direct Voice Call"
+            title={isAssigned ? "Direct Voice Call" : "Call MCPA Operations"}
           >
             <Phone className="w-3.5 h-3.5" />
-            <span>Voice Call</span>
+            <span>{isAssigned ? "Voice Call" : "Operations"}</span>
           </a>
 
           <button
@@ -104,14 +127,20 @@ export default function PortalSiteSupervisorCard({
             title="Open Interactive Chat"
           >
             <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
-            <span>Message</span>
+            <span>{isAssigned ? "Message" : "Helpdesk"}</span>
           </button>
 
           <button
             type="button"
-            onClick={() => alert(`Starting video consultation with ${leadEngineer}...`)}
+            onClick={() => {
+              if (isAssigned) {
+                alert(`Starting video consultation with ${leadEngineer}...`);
+              } else {
+                alert("Site video inspection stream will activate once your supervising engineer is assigned on site.");
+              }
+            }}
             className="col-span-2 sm:col-span-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-[12px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold text-xs transition-colors shadow-xs cursor-pointer"
-            title="Launch Video Inspection Stream"
+            title={isAssigned ? "Launch Video Inspection Stream" : "Video Stream Pending"}
           >
             <Video className="w-3.5 h-3.5 text-amber-500" />
             <span>Video Call</span>

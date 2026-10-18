@@ -33,6 +33,11 @@ async function cleanStage3And4DummyData() {
       const delProj = await pool.query("DELETE FROM site_projects WHERE project_code = 'PRJ-2026-04' RETURNING project_code;");
       console.log(`- Deleted ${delProj.rowCount || 0} dummy site_projects rows for PRJ-2026-04`);
 
+      // 1.1 Remove rogue site_projects that are not yet in ACTIVE_BUILD stage
+      await pool.query("DELETE FROM site_milestones WHERE project_code = 'MCPA-2026-MQ04B';");
+      await pool.query("DELETE FROM site_projects WHERE project_code = 'MCPA-2026-MQ04B';");
+      await pool.query("UPDATE client_projects SET site_project_code = NULL WHERE project_code = 'MCPA-2026-MQ04B';");
+
       // 2. Reset any seeded progress, fake lead engineer, and fake turnovers on active site projects
       const updateProj = await pool.query(`
         UPDATE site_projects
@@ -48,15 +53,16 @@ async function cleanStage3And4DummyData() {
       console.log(`- Reset ${updateProj.rowCount || 0} site_projects to 0% progress and unassigned lead engineer:`);
       updateProj.rows.forEach(r => console.log(`   * ${r.project_code}: ${r.name} -> ${r.progress_pct}% (${r.current_phase})`));
 
-      // 3. Reset all milestones for active projects to 0% and Upcoming
+      // 3. Reset all milestones for active projects to 0% and Upcoming, and nullify dummy target dates
       const updateMs = await pool.query(`
         UPDATE site_milestones
         SET completion_pct = 0,
-            status = 'Upcoming'
-        WHERE completion_pct > 0 OR status != 'Upcoming'
+            status = 'Upcoming',
+            target_date = CASE WHEN target_date ILIKE 'Month%' THEN NULL ELSE target_date END
+        WHERE completion_pct > 0 OR status != 'Upcoming' OR target_date ILIKE 'Month%'
         RETURNING milestone_id, project_code, phase_code, phase_name, completion_pct, status;
       `);
-      console.log(`- Reset ${updateMs.rowCount || 0} site_milestones to 0% and 'Upcoming' status.`);
+      console.log(`- Reset ${updateMs.rowCount || 0} site_milestones to 0% and 'Upcoming' status with clean target dates.`);
 
       // 4. Clean any seeded dummy project_wrapped records with hardcoded stats
       try {

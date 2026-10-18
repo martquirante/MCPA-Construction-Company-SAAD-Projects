@@ -1759,12 +1759,12 @@ class StageEngineService {
           );
 
           const defaultMilestones = [
-            { code: 'M1', name: 'Mobilization & Earthworks', pct: 0, status: 'Upcoming', date: 'Month 1', weight: 15, notes: 'Site layout, temporary facilities, and initial earthworks.' },
-            { code: 'M2', name: 'Foundation & Substructure', pct: 0, status: 'Upcoming', date: 'Month 2', weight: 25, notes: 'Footing tie beams and rebar installation.' },
-            { code: 'M3', name: 'Structural Framing', pct: 0, status: 'Upcoming', date: 'Month 4', weight: 25, notes: 'Columns, 2nd floor beams, slab pouring.' },
-            { code: 'M4', name: 'Enclosure & Masonry', pct: 0, status: 'Upcoming', date: 'Month 6', weight: 15, notes: 'CHB wall laying, plastering, door frames.' },
-            { code: 'M5', name: 'MEPF Rough-ins', pct: 0, status: 'Upcoming', date: 'Month 8', weight: 10, notes: 'Plumbing conduits, electrical rough-in.' },
-            { code: 'M6', name: 'Architectural Finishes & Turnover', pct: 0, status: 'Upcoming', date: 'Month 10', weight: 10, notes: 'Tiles, paint, fixtures, final inspection.' },
+            { code: 'M1', name: 'Mobilization & Earthworks', pct: 0, status: 'Upcoming', date: null, weight: 15, notes: 'Site layout, temporary facilities, and initial earthworks.' },
+            { code: 'M2', name: 'Foundation & Substructure', pct: 0, status: 'Upcoming', date: null, weight: 25, notes: 'Footing tie beams and rebar installation.' },
+            { code: 'M3', name: 'Structural Framing', pct: 0, status: 'Upcoming', date: null, weight: 25, notes: 'Columns, 2nd floor beams, slab pouring.' },
+            { code: 'M4', name: 'Enclosure & Masonry', pct: 0, status: 'Upcoming', date: null, weight: 15, notes: 'CHB wall laying, plastering, door frames.' },
+            { code: 'M5', name: 'MEPF Rough-ins', pct: 0, status: 'Upcoming', date: null, weight: 10, notes: 'Plumbing conduits, electrical rough-in.' },
+            { code: 'M6', name: 'Architectural Finishes & Turnover', pct: 0, status: 'Upcoming', date: null, weight: 10, notes: 'Tiles, paint, fixtures, final inspection.' },
           ];
 
           for (const m of defaultMilestones) {

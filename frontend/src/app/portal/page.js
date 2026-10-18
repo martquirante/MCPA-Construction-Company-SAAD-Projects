@@ -432,9 +432,15 @@ function ClientPortalContent() {
 
     // Fetch construction site execution status strictly for this client email
     try {
-      const siteRes = await fetch(`/api/construction/project?email=${encodeURIComponent(userEmail)}`).then((r) => r.json());
+      const activeProjCode = dashData?.activeProject?.site_project_code || dashData?.activeProject?.project_code;
+      const siteUrl = `/api/construction/project?email=${encodeURIComponent(userEmail)}${activeProjCode ? `&code=${encodeURIComponent(activeProjCode)}` : ""}`;
+      const siteRes = await fetch(siteUrl).then((r) => r.json());
       if (siteRes.success && siteRes.project) {
-        setSiteProject((prev) => ({ ...siteRes.project, ...(prev || {}) }));
+        setSiteProject((prev) => ({
+          ...(prev || {}),
+          ...siteRes.project,
+          progress_pct: siteRes.project.progress_pct ?? prev?.progress_pct ?? 0,
+        }));
         setSiteMilestones(siteRes.milestones || []);
         setSitePhotos(siteRes.photos || []);
         setBillingLedger(siteRes.billing || []);
@@ -1445,6 +1451,7 @@ function ClientPortalContent() {
                     <div className="lg:col-span-7">
                       <PortalProjectSpecsCard
                         project={siteProject}
+                        milestones={siteMilestones}
                         overallPct={siteProject.progress_pct || 0}
                         onOpenVirtualTour={() => {
                           if (siteProject.virtual_tour_url) {
@@ -1455,7 +1462,7 @@ function ClientPortalContent() {
                     </div>
                     <div className="lg:col-span-5">
                       <PortalSiteSupervisorCard
-                        leadEngineer={siteProject.lead_engineer || "MCPA Project Engineer"}
+                        leadEngineer={siteProject.lead_engineer || "Unassigned"}
                         phoneNumber="+63 949 775 8239"
                       />
                     </div>

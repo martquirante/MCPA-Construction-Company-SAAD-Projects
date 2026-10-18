@@ -5,7 +5,7 @@ class ConstructionController {
   // 1. SITE PROJECTS
   async getProject(req, res) {
     try {
-      const requestedCode = req.params.code;
+      const requestedCode = req.params.code || req.query.code;
       const clientEmail = req.query.email;
       let projRes;
 
@@ -13,7 +13,11 @@ class ConstructionController {
         projRes = await db.query("SELECT * FROM site_projects WHERE project_code = $1", [requestedCode]);
       } else if (clientEmail) {
         projRes = await db.query(
-          "SELECT * FROM site_projects WHERE LOWER(client_email) = LOWER($1) ORDER BY project_id DESC LIMIT 1",
+          `SELECT sp.* FROM site_projects sp
+           LEFT JOIN client_projects cp ON sp.client_project_id = cp.client_project_id OR sp.project_code = cp.site_project_code
+           WHERE LOWER(sp.client_email) = LOWER($1)
+           ORDER BY CASE WHEN cp.stage_id = 'ACTIVE_BUILD' THEN 1 WHEN cp.stage_id = 'COMPLETED' THEN 2 ELSE 3 END, sp.project_id DESC
+           LIMIT 1`,
           [clientEmail]
         );
       } else {

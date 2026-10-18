@@ -116,7 +116,9 @@ export default function PortalMilestoneStepper({
                         ? "Completed"
                         : isInProgress
                         ? `${ms.completion_pct}% Active`
-                        : ms.target_date || "Upcoming"}
+                        : (ms.target_date && !String(ms.target_date).toLowerCase().startsWith("month"))
+                        ? ms.target_date
+                        : "Upcoming"}
                     </span>
                   </div>
                 </div>

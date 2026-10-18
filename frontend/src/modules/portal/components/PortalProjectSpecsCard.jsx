@@ -13,6 +13,7 @@ import PortalEmptyState from "./PortalEmptyState";
 
 export default function PortalProjectSpecsCard({
   project = null,
+  milestones = [],
   overallPct = 0,
   onOpenVirtualTour,
 }) {
@@ -27,25 +28,26 @@ export default function PortalProjectSpecsCard({
     );
   }
 
-  const projectName = project.name || "Assigned Site Project";
-  const projectCode = project.project_code || "PRJ-ACTIVE";
+  const projectName = project.name || project.project_title || "Assigned Site Project";
+  const projectCode = project.project_code || project.site_project_code || "PRJ-ACTIVE";
   const location = project.location || project.target_location || "Site Location";
   const virtualTourUrl = project.virtual_tour_url || "";
-  const previewImg = project.cover_image || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1200";
+  const previewImg = project.cover_image || project.architectural_render || "";
 
-  const checklistItems = (project.milestones && project.milestones.length > 0)
-    ? project.milestones.slice(0, 4).map((m) => ({
+  const resolvedMilestones = (milestones && milestones.length > 0)
+    ? milestones
+    : (project.milestones && project.milestones.length > 0)
+    ? project.milestones
+    : [];
+
+  const checklistItems = resolvedMilestones.length > 0
+    ? resolvedMilestones.slice(0, 4).map((m) => ({
         title: m.phase_name,
         status: m.status,
         isDone: m.completion_pct === 100 || m.status === "Completed",
         isInProgress: m.completion_pct > 0 && m.completion_pct < 100,
       }))
-    : [
-        { title: "Mobilization & Site Layout", status: "Upcoming", isDone: false },
-        { title: "Excavation & Footing Pouring", status: "Upcoming", isDone: false },
-        { title: "Rebar & Column Framing", status: "Upcoming", isDone: false },
-        { title: "Slab Curing & MEP Rough-in", status: "Upcoming", isDone: false },
-      ];
+    : [];
 
   return (
     <div className="rounded-[20px] sm:rounded-[24px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-5 sm:p-7 shadow-xs space-y-5 transition-colors">
@@ -75,115 +77,134 @@ export default function PortalProjectSpecsCard({
 
       {/* Hero Render Preview & Specs Split */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-        {/* Architectural Villa Photo Card */}
-        <div className="relative aspect-video rounded-[16px] overflow-hidden bg-neutral-900 border border-neutral-200 dark:border-white/10 group shadow-md">
-          <Image
-            src={previewImg}
-            alt={projectName}
-            fill
-            sizes="(max-width: 768px) 100vw, 50vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+        {/* Architectural 3D Card */}
+        {previewImg ? (
+          <div className="relative aspect-video rounded-[16px] overflow-hidden bg-neutral-900 border border-neutral-200 dark:border-white/10 group shadow-md">
+            <Image
+              src={previewImg}
+              alt={projectName}
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
 
-          {/* Interactive 360 Tour Tag */}
-          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-            <span className="text-white text-xs font-mono font-bold drop-shadow-sm truncate">
-              {projectName}
-            </span>
+            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+              <span className="text-white text-xs font-mono font-bold drop-shadow-sm truncate">
+                {projectName}
+              </span>
 
-            {virtualTourUrl && (
-              <a
-                href={virtualTourUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-white/20 hover:bg-white/30 backdrop-blur-md text-white text-[10px] font-mono font-bold transition-colors cursor-pointer"
-                title="Launch 360 Virtual Tour"
-              >
-                <Compass className="w-3.5 h-3.5 text-amber-400" />
-                <span>360° View</span>
-              </a>
-            )}
+              {virtualTourUrl && (
+                <a
+                  href={virtualTourUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-white/20 hover:bg-white/30 backdrop-blur-md text-white text-[10px] font-mono font-bold transition-colors cursor-pointer"
+                  title="Launch 360 Virtual Tour"
+                >
+                  <Compass className="w-3.5 h-3.5 text-amber-400" />
+                  <span>360° View</span>
+                </a>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="relative aspect-video rounded-[16px] overflow-hidden bg-neutral-900/90 dark:bg-black border border-neutral-200 dark:border-white/10 flex flex-col items-center justify-center p-6 text-center shadow-md">
+            <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 mb-2">
+              <Compass className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-mono font-bold text-white tracking-wide">
+              Architectural BIM &amp; 3D Render
+            </span>
+            <span className="text-[10.5px] font-mono text-neutral-400 max-w-[220px] mt-1 leading-relaxed">
+              CAD blueprints &amp; 3D walkthrough will stream here once released by engineering
+            </span>
+          </div>
+        )}
 
-        {/* Quick Specs Grid (Strict rule: No background boxes on non-buttons, clean icon + text!) */}
-        <div className="space-y-4">
+        {/* Quick Specs Grid */}
+        <div className="space-y-4 min-w-0">
           <div className="grid grid-cols-2 gap-4">
             {/* Lot Area */}
-            <div className="flex items-start gap-2.5">
+            <div className="flex items-start gap-2.5 min-w-0">
               <Maximize2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-              <div>
+              <div className="min-w-0 flex-1">
                 <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider block">
                   Lot Area
                 </span>
-                <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white">
+                <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white truncate block">
                   {project.lot_area ? `${project.lot_area} sqm` : "N/A"}
                 </span>
               </div>
             </div>
 
             {/* Floor Area */}
-            <div className="flex items-start gap-2.5">
+            <div className="flex items-start gap-2.5 min-w-0">
               <Layers className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-              <div>
+              <div className="min-w-0 flex-1">
                 <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider block">
                   Floor Area
                 </span>
-                <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white">
+                <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white truncate block">
                   {project.floor_area ? `${project.floor_area} sqm` : "N/A"}
                 </span>
               </div>
             </div>
 
             {/* Structure Type */}
-            <div className="flex items-start gap-2.5">
+            <div className="flex items-start gap-2.5 min-w-0">
               <Building className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-              <div>
+              <div className="min-w-0 flex-1">
                 <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider block">
                   Building Type
                 </span>
-                <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white truncate block">
+                <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white truncate block" title={project.building_type || project.project_type || "Custom Build"}>
                   {project.building_type || project.project_type || "Custom Build"}
                 </span>
               </div>
             </div>
 
             {/* Location */}
-            <div className="flex items-start gap-2.5">
+            <div className="flex items-start gap-2.5 min-w-0">
               <MapPin className="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" />
-              <div>
+              <div className="min-w-0 flex-1">
                 <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider block">
                   Location
                 </span>
-                <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white truncate block">
+                <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white truncate block" title={location}>
                   {location}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Phase Checklist Sub-list (Clean text, no bulky background) */}
+          {/* Phase Checklist Sub-list */}
           <div className="pt-3 border-t border-neutral-100 dark:border-white/5 space-y-2">
             <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider block font-semibold">
               Current Phase Checklist
             </span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {checklistItems.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-1.5">
-                  {item.isDone ? (
-                    <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  ) : item.isInProgress ? (
-                    <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  ) : (
-                    <span className="w-3.5 h-3.5 rounded-full border border-neutral-300 dark:border-neutral-600 shrink-0" />
-                  )}
-                  <span className={`text-[11px] font-mono ${item.isDone ? "text-neutral-800 dark:text-neutral-200" : "text-neutral-400"}`}>
-                    {item.title}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {checklistItems.length === 0 ? (
+              <p className="text-[11px] font-mono text-neutral-400 italic">
+                Checklist tasks will be scheduled upon site mobilization.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {checklistItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5 min-w-0">
+                    {item.isDone ? (
+                      <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    ) : item.isInProgress ? (
+                      <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    ) : (
+                      <span className="w-3.5 h-3.5 rounded-full border border-neutral-300 dark:border-neutral-600 shrink-0" />
+                    )}
+                    <span className={`text-[11px] font-mono truncate ${item.isDone ? "text-neutral-800 dark:text-neutral-200" : "text-neutral-400"}`}>
+                      {item.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
