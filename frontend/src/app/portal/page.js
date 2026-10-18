@@ -644,8 +644,12 @@ function ClientPortalContent() {
           active: [
             { id: "overview", label: "Dashboard", icon: LayoutDashboard },
             { id: "construction", label: "Site Execution Specs", icon: Building, badge: siteProject ? `${siteProject.progress_pct}%` : undefined },
-            { id: "gallery", label: "Site Gallery & Drone", icon: Camera, badge: sitePhotos.length > 0 ? sitePhotos.length : undefined },
+            { id: "gallery", label: "Site Progress & Gallery", icon: Camera, badge: sitePhotos.length > 0 ? sitePhotos.length : undefined },
             { id: "billing", label: "Milestone Billing", icon: CreditCard, badge: billingLedger.length > 0 ? billingLedger.length : undefined },
+            { id: "meeting", label: "Meeting", icon: CalendarCheck },
+            { id: "blueprints", label: "Blueprints & Plans", icon: Layers },
+            { id: "boq", label: "Budget & Quotation", icon: CreditCard },
+            { id: "documents", label: "Documents & Permits", icon: FileText, badge: pendingDocumentRequestsCount > 0 ? pendingDocumentRequestsCount : undefined },
             { id: "inquiries", label: "Inquiries Record", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [

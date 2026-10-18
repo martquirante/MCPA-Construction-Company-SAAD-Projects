@@ -12,12 +12,34 @@ import PortalEmptyState from "./PortalEmptyState";
 export default function PortalBillingLedgerSection({
   billing = [],
   projectCode = "PRJ-ACTIVE",
+  expenses: initialExpenses = [],
   onProofUploaded,
 }) {
   const [selectedBillForProof, setSelectedBillForProof] = useState(null);
   const [uploadFile, setUploadFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadToast, setUploadToast] = useState("");
+  const [expenses, setExpenses] = useState(initialExpenses);
+
+  useEffect(() => {
+    if (initialExpenses && initialExpenses.length > 0) {
+      setExpenses(initialExpenses);
+      return;
+    }
+    if (!projectCode || projectCode === "PRJ-ACTIVE") return;
+    let isMounted = true;
+    fetch(`/api/construction/expenses/${encodeURIComponent(projectCode)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success && data.expenses) {
+          setExpenses(data.expenses);
+        }
+      })
+      .catch((err) => console.warn("[PortalBillingLedgerSection] Failed to load expenses:", err));
+    return () => {
+      isMounted = false;
+    };
+  }, [projectCode, initialExpenses]);
 
   if (!billing || billing.length === 0) {
     return (
@@ -276,6 +298,70 @@ export default function PortalBillingLedgerSection({
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Verified Supply Receipts & Material Transparency (OCR Invoices) */}
+      <div className="pt-4 border-t border-neutral-100 dark:border-white/5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-amber-500" />
+              <h4 className="text-sm font-bold text-neutral-900 dark:text-white uppercase font-mono tracking-wider">
+                Verified Material &amp; Supply Invoices
+              </h4>
+            </div>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-light">
+              Official store receipts (Wilcon, CitiHardware, supply depots) scanned and verified with OCR for 100% cost transparency.
+            </p>
+          </div>
+          <span className="text-[11px] font-mono text-neutral-400">
+            {expenses.length} Verified {expenses.length === 1 ? "Receipt" : "Receipts"}
+          </span>
+        </div>
+
+        {expenses.length === 0 ? (
+          <div className="p-6 rounded-[12px] bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-white/5 text-center font-mono text-xs text-neutral-400">
+            Zero material expense slips recorded yet. Verified supplier invoices will appear here as procurement proceeds.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {expenses.map((exp, idx) => (
+              <div
+                key={exp.expense_id || idx}
+                className="p-3.5 rounded-[12px] bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-white/5 flex flex-col justify-between space-y-2 text-xs font-mono"
+              >
+                <div>
+                  <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1">
+                    <span className="uppercase">{exp.created_at ? new Date(exp.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Recent"}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">OCR Verified</span>
+                  </div>
+                  <h5 className="font-bold text-neutral-900 dark:text-white truncate">
+                    {exp.vendor_name || "Hardware Supply Depot"}
+                  </h5>
+                  <p className="text-[11px] text-neutral-500 line-clamp-1 mt-0.5">
+                    {exp.raw_ocr_text || "Official Store Invoice"}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-neutral-200 dark:border-white/5 flex items-center justify-between">
+                  <span className="font-bold text-amber-600 dark:text-amber-400 text-sm">
+                    ₱{Number(exp.extracted_total || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                  </span>
+                  {exp.receipt_image_url && (
+                    <a
+                      href={exp.receipt_image_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-neutral-600 dark:text-neutral-300 hover:text-amber-500 underline inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>View Receipt</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Proof of Payment Upload Modal */}

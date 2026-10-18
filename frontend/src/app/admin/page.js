@@ -441,13 +441,17 @@ export default function AdminPage() {
       }
 
       if (siteRes.status === "fulfilled" && siteRes.value?.success) {
-        setSiteProject(siteRes.value.project);
-        setSiteMilestones(siteRes.value.milestones || []);
-        setSitePhotos(siteRes.value.photos || []);
-        setBillingLedger(siteRes.value.billing || []);
-        setDelayEvents(siteRes.value.delays || []);
-        setWarrantyTickets(siteRes.value.warranty || []);
-        setSiteExpenses(siteRes.value.expenses || []);
+        // Keep siteProject null by default so admin can select client via combobox
+        setSiteProject((prev) => {
+          if (!prev?.project_code) return null;
+          return siteRes.value.project || prev;
+        });
+        setSiteMilestones((prev) => (prev.length > 0 ? (siteRes.value.milestones || []) : []));
+        setSitePhotos((prev) => (prev.length > 0 ? (siteRes.value.photos || []) : []));
+        setBillingLedger((prev) => (prev.length > 0 ? (siteRes.value.billing || []) : []));
+        setDelayEvents((prev) => (prev.length > 0 ? (siteRes.value.delays || []) : []));
+        setWarrantyTickets((prev) => (prev.length > 0 ? (siteRes.value.warranty || []) : []));
+        setSiteExpenses((prev) => (prev.length > 0 ? (siteRes.value.expenses || []) : []));
       }
     } catch (e) {
       fallbackLoadStoredProjects();
@@ -1038,6 +1042,130 @@ export default function AdminPage() {
   };
 
   // Construction Handlers
+  const handleSelectSiteProject = async (selectedProj) => {
+    if (!selectedProj) {
+      setSiteProject(null);
+      setSiteMilestones([]);
+      setSitePhotos([]);
+      setBillingLedger([]);
+      setDelayEvents([]);
+      setWarrantyTickets([]);
+      setSiteExpenses([]);
+      return;
+    }
+
+    setSiteProject(selectedProj);
+    const code = selectedProj.project_code || selectedProj.projectCode || selectedProj.clientPortalCode;
+    if (code) {
+      try {
+        const res = await fetch(`/api/construction/projects/${encodeURIComponent(code)}`);
+        const data = await res.json();
+        if (data.success && data.project) {
+          setSiteProject(data.project);
+          setSiteMilestones(data.milestones || []);
+          setSitePhotos(data.photos || []);
+          setBillingLedger(data.billing || []);
+          setDelayEvents(data.delays || []);
+          setWarrantyTickets(data.warranty || []);
+          setSiteExpenses(data.expenses || []);
+        }
+      } catch (err) {
+        console.warn("Could not fetch full site project details:", err);
+      }
+    }
+  };
+
+  const handleAddMilestone = async (milestoneData) => {
+    try {
+      const res = await fetch("/api/construction/milestones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(milestoneData),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const code = milestoneData.projectCode || siteProject?.project_code;
+        if (code) {
+          const siteRes = await fetch(`/api/construction/projects/${encodeURIComponent(code)}`).then((r) => r.json());
+          if (siteRes.success && siteRes.project) {
+            setSiteProject(siteRes.project);
+            setSiteMilestones(siteRes.milestones || []);
+          }
+        }
+        return { success: true };
+      }
+      return { success: false, message: data.message };
+    } catch (e) {
+      console.warn("Could not add milestone:", e);
+      return { success: false, message: e.message };
+    }
+  };
+
+  const handleDeleteMilestone = async (milestoneId) => {
+    try {
+      const res = await fetch(`/api/construction/milestones/${encodeURIComponent(milestoneId)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (siteProject?.project_code) {
+          const siteRes = await fetch(`/api/construction/projects/${encodeURIComponent(siteProject.project_code)}`).then((r) => r.json());
+          if (siteRes.success && siteRes.project) {
+            setSiteProject(siteRes.project);
+            setSiteMilestones(siteRes.milestones || []);
+          }
+        }
+        return { success: true };
+      }
+      return { success: false, message: data.message };
+    } catch (e) {
+      console.warn("Could not delete milestone:", e);
+      return { success: false, message: e.message };
+    }
+  };
+
+  const handleUpdateVirtualTour = async (tourUrl) => {
+    try {
+      if (!siteProject?.project_code) return { success: false, message: "No project selected." };
+      const res = await fetch("/api/construction/virtual-tour", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectCode: siteProject.project_code,
+          virtualTourUrl: tourUrl,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSiteProject((prev) => (prev ? { ...prev, virtual_tour_url: tourUrl } : prev));
+        return { success: true };
+      }
+      return { success: false, message: data.message };
+    } catch (e) {
+      console.warn("Could not update virtual tour:", e);
+      return { success: false, message: e.message };
+    }
+  };
+
+  const handleCreateBillingTranche = async (trancheData) => {
+    try {
+      const res = await fetch("/api/construction/billing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(trancheData),
+      });
+      const data = await res.json();
+      if (data.success && data.billing) {
+        setBillingLedger((prev) => [...prev, data.billing]);
+        return { success: true, billing: data.billing };
+      }
+      return { success: false, message: data.message };
+    } catch (e) {
+      console.warn("Could not create billing tranche:", e);
+      return { success: false, message: e.message };
+    }
+  };
+
   const handleUpdateMilestone = async (milestoneId, data) => {
     try {
       const res = await fetch(`/api/construction/milestones/${milestoneId}`, {
@@ -1405,8 +1533,8 @@ export default function AdminPage() {
       ],
     },
     {
-      title: "Phase 1: Pre-Inquiry",
-      stageBadge: "Phase 1",
+      title: "Stage 1: Pre-Inquiry",
+      stageBadge: "Stage 1",
       items: [
         {
           id: "briefs",
@@ -1417,8 +1545,8 @@ export default function AdminPage() {
       ],
     },
     {
-      title: "Phase 2: Consultation & Planning",
-      stageBadge: "Phase 2",
+      title: "Stage 2: Consultation & Planning",
+      stageBadge: "Stage 2",
       items: [
         { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
         {
@@ -1441,8 +1569,8 @@ export default function AdminPage() {
       ],
     },
     {
-      title: "Phase 3: Active Build",
-      stageBadge: "Phase 3",
+      title: "Stage 3: Active Site Execution",
+      stageBadge: "Stage 3",
       items: [
         {
           id: "site-progress",
@@ -1459,8 +1587,8 @@ export default function AdminPage() {
       ],
     },
     {
-      title: "Phase 4: Turnover & Warranty",
-      stageBadge: "Phase 4",
+      title: "Stage 4: Milestone Billing & Handover",
+      stageBadge: "Stage 4",
       items: [
         {
           id: "billing",
@@ -2112,39 +2240,47 @@ export default function AdminPage() {
         )}
 
         {/* ================================================================= */}
-        {/* TAB: SITE PROGRESS & INSPECTION LOGS (STAGE 4: ACTIVE BUILD)     */}
+        {/* TAB: SITE PROGRESS & INSPECTION LOGS (STAGE 3: ACTIVE BUILD)      */}
         {/* ================================================================= */}
         {activeTab === "site-progress" && (
           <SiteProgressTab
             project={siteProject}
             milestones={siteMilestones}
             photos={sitePhotos}
+            onSelectProject={handleSelectSiteProject}
             onUpdateMilestone={handleUpdateMilestone}
+            onAddMilestone={handleAddMilestone}
+            onDeleteMilestone={handleDeleteMilestone}
+            onUpdateVirtualTour={handleUpdateVirtualTour}
             onAddPhoto={handleAddPhoto}
             showToast={showToast}
           />
         )}
 
         {/* ================================================================= */}
-        {/* TAB: DELAY MANAGEMENT & CRITICAL PATH (STAGE 4: ACTIVE BUILD)     */}
+        {/* TAB: DELAY MANAGEMENT & CRITICAL PATH (STAGE 3 & 4)               */}
         {/* ================================================================= */}
         {activeTab === "delays" && (
           <DelayManagementTab
             project={siteProject}
             delays={delayEvents}
+            onSelectProject={handleSelectSiteProject}
             onLogDelay={handleLogDelay}
             showToast={showToast}
           />
         )}
 
         {/* ================================================================= */}
-        {/* TAB: BILLING & FINANCIAL LEDGER (STAGE 5: TURNOVER & WARRANTY)   */}
+        {/* TAB: BILLING & FINANCIAL LEDGER (STAGE 4: TRANCHES & OCR)         */}
         {/* ================================================================= */}
         {activeTab === "billing" && (
           <BillingLedgerTab
             project={siteProject}
             billing={billingLedger}
+            expenses={siteExpenses}
+            onSelectProject={handleSelectSiteProject}
             onVerifyPayment={handleVerifyPayment}
+            onCreateBillingTranche={handleCreateBillingTranche}
             showToast={showToast}
           />
         )}

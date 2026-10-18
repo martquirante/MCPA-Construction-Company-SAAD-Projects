@@ -316,6 +316,153 @@ class ConstructionController {
       return res.status(500).json({ message: "Failed to log OCR expense: " + err.message });
     }
   }
+
+  // 9. GET ALL STAGE 3 CLIENT PROJECTS FOR ADMIN COMBOBOX
+  async getStage3Projects(req, res) {
+    try {
+      const result = await db.query(
+        `SELECT 
+          cp.client_project_id,
+          cp.project_code,
+          cp.project_title,
+          cp.project_type,
+          cp.target_location,
+          cp.stage_id,
+          cp.created_at,
+          u.user_id,
+          u.full_name AS client_name,
+          u.email AS client_email,
+          u.avatar_url,
+          sp.project_id AS site_project_id,
+          COALESCE(sp.progress_pct, 0) AS progress_pct,
+          COALESCE(sp.current_phase, 'Mobilization & Earthworks') AS current_phase,
+          sp.lead_engineer,
+          sp.virtual_tour_url,
+          sp.contract_date,
+          sp.original_turnover,
+          sp.revised_turnover
+        FROM public.client_projects cp
+        JOIN public.users u ON cp.user_id = u.user_id
+        LEFT JOIN public.site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
+        WHERE cp.stage_id = 'ACTIVE_BUILD' AND cp.is_archived = FALSE
+        ORDER BY cp.client_project_id DESC`
+      );
+
+      return res.json({
+        success: true,
+        projects: result.rows || [],
+      });
+    } catch (err) {
+      console.error("[ConstructionController.getStage3Projects] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to fetch Stage 3 projects: " + err.message });
+    }
+  }
+
+  // 10. CREATE NEW MILESTONE (M1, M2, M3...)
+  async createMilestone(req, res) {
+    try {
+      const { projectCode, phaseCode, phaseName, notes, targetDate, weight } = req.body;
+      if (!projectCode || !phaseCode || !phaseName) {
+        return res.status(400).json({ success: false, message: "projectCode, phaseCode, and phaseName are required." });
+      }
+
+      const result = await db.query(
+        `INSERT INTO site_milestones (project_code, phase_code, phase_name, notes, target_date, weight, completion_pct, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 0, 'Upcoming')
+         RETURNING *`,
+        [projectCode, phaseCode, phaseName, notes || "", targetDate || null, parseInt(weight || 20, 10)]
+      );
+
+      return res.status(201).json({ success: true, milestone: result.rows[0], message: "Milestone created successfully." });
+    } catch (err) {
+      console.error("[ConstructionController.createMilestone] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to create milestone: " + err.message });
+    }
+  }
+
+  // 11. DELETE MILESTONE
+  async deleteMilestone(req, res) {
+    try {
+      const { milestoneId } = req.params;
+      const getMs = await db.query("SELECT project_code FROM site_milestones WHERE milestone_id = $1", [parseInt(milestoneId, 10)]);
+      if (!getMs.rows || getMs.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "Milestone not found." });
+      }
+      const projectCode = getMs.rows[0].project_code;
+
+      await db.query("DELETE FROM site_milestones WHERE milestone_id = $1", [parseInt(milestoneId, 10)]);
+
+      // Recalculate overall progress
+      const allMs = await db.query("SELECT completion_pct, weight FROM site_milestones WHERE project_code = $1", [projectCode]);
+      let totalWeight = 0;
+      let weightedSum = 0;
+      for (const m of (allMs.rows || [])) {
+        const w = m.weight || 20;
+        totalWeight += w;
+        weightedSum += (m.completion_pct || 0) * (w / 100);
+      }
+      const overall = totalWeight > 0 ? Math.round((weightedSum / totalWeight) * 100) : 0;
+      await db.query("UPDATE site_projects SET progress_pct = $1 WHERE project_code = $2", [overall, projectCode]);
+
+      return res.json({ success: true, message: "Milestone deleted." });
+    } catch (err) {
+      console.error("[ConstructionController.deleteMilestone] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to delete milestone: " + err.message });
+    }
+  }
+
+  // 12. UPDATE 3D VIRTUAL TOUR / WALKTHROUGH VIDEO
+  async updateVirtualTour(req, res) {
+    try {
+      const { projectCode, virtualTourUrl } = req.body;
+      if (!projectCode) {
+        return res.status(400).json({ success: false, message: "projectCode is required." });
+      }
+      const result = await db.query(
+        "UPDATE site_projects SET virtual_tour_url = $1 WHERE project_code = $2 RETURNING *",
+        [virtualTourUrl || null, projectCode]
+      );
+      return res.json({ success: true, project: result.rows ? result.rows[0] : null, message: "3D virtual walkthrough tour updated." });
+    } catch (err) {
+      console.error("[ConstructionController.updateVirtualTour] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to update virtual tour: " + err.message });
+    }
+  }
+
+  // 13. CREATE BILLING TRANCHE
+  async createBillingTranche(req, res) {
+    try {
+      const { projectCode, milestoneTitle, amountDue, dueDate } = req.body;
+      if (!projectCode || !milestoneTitle || !amountDue) {
+        return res.status(400).json({ success: false, message: "projectCode, milestoneTitle, and amountDue are required." });
+      }
+      const result = await db.query(
+        `INSERT INTO billing_ledger (project_code, milestone_title, amount_due, due_date, status)
+         VALUES ($1, $2, $3, $4, 'Pending')
+         RETURNING *`,
+        [projectCode, milestoneTitle, parseFloat(amountDue), dueDate || null]
+      );
+      return res.status(201).json({ success: true, billing: result.rows[0], message: "Billing tranche created." });
+    } catch (err) {
+      console.error("[ConstructionController.createBillingTranche] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to create billing tranche: " + err.message });
+    }
+  }
+
+  // 14. GET EXPENSES FOR PROJECT
+  async getProjectExpenses(req, res) {
+    try {
+      const { code } = req.params;
+      const result = await db.query(
+        "SELECT * FROM expenses_ocr WHERE project_code = $1 ORDER BY expense_id DESC",
+        [code]
+      );
+      return res.json({ success: true, expenses: result.rows || [] });
+    } catch (err) {
+      console.error("[ConstructionController.getProjectExpenses] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to fetch expenses: " + err.message });
+    }
+  }
 }
 
 module.exports = new ConstructionController();

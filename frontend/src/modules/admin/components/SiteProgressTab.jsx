@@ -1,391 +1,837 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
-  CheckIcon,
-  HardHatIcon,
-  BuildingIcon,
-  UploadCloudIcon,
-  SparkleBadgeIcon,
-  MapPinIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  CameraIcon,
-  CloseIcon,
-} from "@/modules/shared/Icons";
+  MapPin,
+  Plus,
+  Edit3,
+  Trash2,
+  CheckCircle2,
+  Clock,
+  Film,
+  Camera,
+  Maximize2,
+  X,
+  UploadCloud,
+  ChevronRight,
+  HardHat,
+  Sparkles,
+} from "lucide-react";
+import Stage3CustomerSelector from "./Stage3CustomerSelector";
 
 export default function SiteProgressTab({
-  project,
+  project = null,
+  projects = [],
   milestones = [],
   photos = [],
+  onSelectProject,
   onUpdateMilestone,
+  onAddMilestone,
+  onDeleteMilestone,
+  onUpdateVirtualTour,
   onAddPhoto,
   showToast,
 }) {
-  const [activePhotoModal, setActivePhotoModal] = useState(false);
+  // Modal states
+  const [isAddMilestoneOpen, setIsAddMilestoneOpen] = useState(false);
+  const [activeUpdateMilestone, setActiveUpdateMilestone] = useState(null);
+  const [is3DVideoModalOpen, setIs3DVideoModalOpen] = useState(false);
+  const [isAddPhotoOpen, setIsAddPhotoOpen] = useState(false);
+
+  // Add Milestone Form state
+  const [newPhaseCode, setNewPhaseCode] = useState("");
+  const [newPhaseName, setNewPhaseName] = useState("");
+  const [newWeight, setNewWeight] = useState("20");
+  const [newTargetDate, setNewTargetDate] = useState("");
+  const [newNotes, setNewNotes] = useState("");
+  const [isSavingMilestone, setIsSavingMilestone] = useState(false);
+
+  // Update Milestone Form state
+  const [updatePct, setUpdatePct] = useState(0);
+  const [updateStatus, setUpdateStatus] = useState("In Progress");
+  const [updateNotes, setUpdateNotes] = useState("");
+  const [isSubmittingUpdate, setIsSubmittingUpdate] = useState(false);
+
+  // 3D Video Walkthrough Form state
+  const [videoUrl, setVideoUrl] = useState(project?.virtual_tour_url || "");
+  const [isSavingVideo, setIsSavingVideo] = useState(false);
+
+  useEffect(() => {
+    setVideoUrl(project?.virtual_tour_url || "");
+  }, [project?.virtual_tour_url]);
+
+  // Post Photo/Video Log Form state
+  const [logType, setLogType] = useState("Daily Log");
   const [photoTitle, setPhotoTitle] = useState("");
   const [photoCaption, setPhotoCaption] = useState("");
-  const [photoInspector, setPhotoInspector] = useState(project?.lead_engineer || "");
+  const [photoInspector, setPhotoInspector] = useState(project?.lead_engineer || "Engr. Reyes");
   const [photoUrl, setPhotoUrl] = useState("");
   const [is360, setIs360] = useState(false);
-  const [active360Viewer, setActive360Viewer] = useState(false);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
 
-  const handleSliderChange = async (milestoneId, newPct) => {
-    const status = newPct === 100 ? "Completed" : newPct > 0 ? "In Progress" : "Upcoming";
-    await onUpdateMilestone(milestoneId, { completionPct: newPct, status });
-    showToast(`Updated milestone to ${newPct}% (${status})`);
+  // Handlers
+  const handleOpenUpdateModal = (ms) => {
+    setActiveUpdateMilestone(ms);
+    setUpdatePct(ms.completion_pct || 0);
+    setUpdateStatus(ms.status || "In Progress");
+    setUpdateNotes(ms.notes || "");
   };
 
-  const handleSavePhoto = async (e) => {
+  const handleSaveUpdate = async (e) => {
     e.preventDefault();
-    if (!photoTitle || !photoUrl) return;
+    if (!activeUpdateMilestone) return;
 
-    await onAddPhoto({
-      projectCode: project?.project_code || "",
-      title: photoTitle,
-      caption: photoCaption,
-      inspector: photoInspector,
-      imageUrl: photoUrl,
-      is360,
-    });
+    setIsSubmittingUpdate(true);
+    try {
+      const pctNum = Math.min(100, Math.max(0, parseInt(updatePct, 10) || 0));
+      const resolvedStatus = pctNum === 100 ? "Completed" : pctNum > 0 ? "In Progress" : "Upcoming";
 
-    setActivePhotoModal(false);
-    setPhotoTitle("");
-    setPhotoCaption("");
-    showToast(is360 ? "360° Virtual Site Tour sweep registered!" : "Inspection photo log uploaded!");
+      await onUpdateMilestone(activeUpdateMilestone.milestone_id, {
+        completionPct: pctNum,
+        status: resolvedStatus,
+        notes: updateNotes,
+      });
+
+      if (showToast) showToast(`Milestone updated to ${pctNum}% (${resolvedStatus})`);
+      setActiveUpdateMilestone(null);
+    } catch (err) {
+      if (showToast) showToast("Error updating milestone: " + err.message);
+    } finally {
+      setIsSubmittingUpdate(false);
+    }
   };
 
-  if (!project) {
-    return (
-      <div className="p-12 text-center rounded-[6px] bg-neutral-100 dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] font-mono text-xs">
-        Loading live construction site data...
-      </div>
-    );
-  }
+  const handleCreateMilestone = async (e) => {
+    e.preventDefault();
+    if (!newPhaseCode || !newPhaseName || !project) return;
+
+    setIsSavingMilestone(true);
+    try {
+      if (onAddMilestone) {
+        await onAddMilestone({
+          projectCode: project.project_code,
+          phaseCode: newPhaseCode,
+          phaseName: newPhaseName,
+          weight: parseInt(newWeight, 10) || 20,
+          targetDate: newTargetDate,
+          notes: newNotes,
+        });
+      } else {
+        // Direct API call
+        const res = await fetch("/api/construction/milestones", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectCode: project.project_code,
+            phaseCode: newPhaseCode,
+            phaseName: newPhaseName,
+            weight: parseInt(newWeight, 10) || 20,
+            targetDate: newTargetDate,
+            notes: newNotes,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to create milestone");
+      }
+
+      if (showToast) showToast(`Milestone ${newPhaseCode} added successfully!`);
+      setIsAddMilestoneOpen(false);
+      setNewPhaseCode("");
+      setNewPhaseName("");
+      setNewNotes("");
+    } catch (err) {
+      if (showToast) showToast("Error: " + err.message);
+    } finally {
+      setIsSavingMilestone(false);
+    }
+  };
+
+  const handleDeleteMilestoneClick = async (milestoneId, phaseCode) => {
+    if (!confirm(`Are you sure you want to delete milestone ${phaseCode}?`)) return;
+    try {
+      if (onDeleteMilestone) {
+        await onDeleteMilestone(milestoneId);
+      } else {
+        const res = await fetch(`/api/construction/milestones/${milestoneId}`, { method: "DELETE" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to delete");
+      }
+      if (showToast) showToast(`Milestone ${phaseCode} deleted.`);
+    } catch (err) {
+      if (showToast) showToast("Error: " + err.message);
+    }
+  };
+
+  const handleSaveVideo = async (e) => {
+    e.preventDefault();
+    if (!project) return;
+
+    setIsSavingVideo(true);
+    try {
+      if (onUpdateVirtualTour) {
+        await onUpdateVirtualTour(videoUrl);
+      } else {
+        const res = await fetch("/api/construction/virtual-tour", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectCode: project.project_code,
+            virtualTourUrl: videoUrl,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to update tour");
+      }
+      if (showToast) showToast("3D Architectural walk-around video updated!");
+      setIs3DVideoModalOpen(false);
+    } catch (err) {
+      if (showToast) showToast("Error: " + err.message);
+    } finally {
+      setIsSavingVideo(false);
+    }
+  };
+
+  const handleSavePhotoLog = async (e) => {
+    e.preventDefault();
+    if (!photoTitle || !photoUrl || !project) return;
+
+    setIsSavingPhoto(true);
+    try {
+      const fullTitle = `[${logType}] ${photoTitle}`;
+      if (onAddPhoto) {
+        await onAddPhoto({
+          projectCode: project.project_code,
+          title: fullTitle,
+          caption: photoCaption,
+          inspector: photoInspector,
+          imageUrl: photoUrl,
+          is360,
+        });
+      } else {
+        const res = await fetch("/api/construction/photos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectCode: project.project_code,
+            title: fullTitle,
+            caption: photoCaption,
+            inspector: photoInspector,
+            imageUrl: photoUrl,
+            is360,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to add photo");
+      }
+      if (showToast) showToast(`${logType} update published to client portal!`);
+      setIsAddPhotoOpen(false);
+      setPhotoTitle("");
+      setPhotoCaption("");
+      setPhotoUrl("");
+    } catch (err) {
+      if (showToast) showToast("Error: " + err.message);
+    } finally {
+      setIsSavingPhoto(false);
+    }
+  };
 
   return (
-    <div className="space-y-8">
-      {/* Overview Card */}
-      <div className="p-6 sm:p-8 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-neutral-100 dark:border-white/5">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="px-2.5 py-1 rounded-[4px] bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-400 text-[11px] font-mono font-bold">
-                {project.project_code}
-              </span>
-              <span className="px-2.5 py-1 rounded-[4px] bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-[11px] font-mono font-semibold">
-                <span>{project.status || "Active Site Execution"}</span>
-              </span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white">
-              {project.name}
-            </h2>
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1 flex items-center gap-2">
-              <MapPinIcon className="w-4 h-4 text-amber-500 shrink-0" />
-              <span>{project.location}</span>
-              <span>•</span>
-              <span>Owner: {project.client_name}</span>
-            </p>
-          </div>
+    <div className="space-y-6">
+      {/* 1. STAGE 3 CUSTOMER COMBOBOX */}
+      <div className="p-5 rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <Stage3CustomerSelector
+          selectedProject={project}
+          projects={projects}
+          onSelectProject={onSelectProject}
+        />
 
-          {/* Dynamic Overall Progress Bar */}
-          <div className="lg:text-right min-w-[260px]">
-            <div className="flex items-baseline justify-between lg:justify-end gap-2 mb-2">
-              <span className="text-xs uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
-                Dynamic Overall % Accomplishment
-              </span>
-              <span className="text-3xl font-extrabold text-amber-500 font-mono">
-                {project.progress_pct}%
-              </span>
-            </div>
-            <div className="w-full h-3 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden shadow-inner">
-              <div
-                className="h-full bg-gradient-to-r from-amber-500 to-amber-600 rounded-full transition-all duration-700 shadow-[0_0_12px_rgba(245,158,11,0.5)]"
-                style={{ width: `${project.progress_pct}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-2 font-mono">
-              Supervising: {project.lead_engineer || "Unassigned"}
-            </p>
-          </div>
-        </div>
-
-        {/* Construction Dates Ribbon */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
-          <div className="p-3.5 rounded-[6px] bg-neutral-50 dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08]">
-            <span className="text-[10px] text-neutral-500 uppercase block">Mobilization Date</span>
-            <span className="font-bold text-neutral-900 dark:text-white mt-0.5 block">{project.contract_date}</span>
-          </div>
-          <div className="p-3.5 rounded-[6px] bg-neutral-50 dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08]">
-            <span className="text-[10px] text-neutral-500 uppercase block">Original Turnover</span>
-            <span className="font-bold text-neutral-900 dark:text-white mt-0.5 block">{project.original_turnover}</span>
-          </div>
-          <div className="p-3.5 rounded-[6px] bg-neutral-50 dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08]">
-            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase block">Revised Turnover (Critical Path)</span>
-            <span className="font-bold text-neutral-900 dark:text-white mt-0.5 block">{project.revised_turnover}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Milestones Phase-by-Phase Adjuster */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-white uppercase tracking-tight">
-              Milestone Phases &amp; Progress Controls
-            </h3>
-            <p className="text-xs text-neutral-500 font-light">
-              Adjust phase accomplishment percentages below. The total progress bar updates automatically for the client.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {milestones.map((ms, idx) => (
-            <div
-              key={ms?.milestone_id ? `ms-${ms.milestone_id}-${idx}` : `ms-idx-${idx}`}
-              className="p-5 rounded-[6px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
-            >
-              <div className="space-y-1 max-w-lg">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[10px] font-mono font-bold uppercase">
-                    {ms.phase_code}
-                  </span>
-                  <span
-                    className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-[4px] border ${
-                      ms.status === "Completed"
-                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                        : ms.status === "In Progress"
-                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 font-bold"
-                        : "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border-neutral-200 dark:border-neutral-700"
-                    }`}
-                  >
-                    {ms.status}
-                  </span>
-                  <span className="text-[11px] font-mono text-neutral-400">{ms.target_date}</span>
-                </div>
-                <h4 className="text-sm font-bold text-neutral-900 dark:text-white">{ms.phase_name}</h4>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed font-light">{ms.notes}</p>
-              </div>
-
-              {/* Slider & Progress Input */}
-              <div className="flex items-center gap-4 shrink-0">
-                <div className="w-36 sm:w-44">
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={ms.completion_pct || 0}
-                    onChange={(e) => handleSliderChange(ms.milestone_id, parseInt(e.target.value, 10))}
-                    className="w-full accent-amber-500 cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[10px] font-mono text-neutral-400 mt-1">
-                    <span>0%</span>
-                    <span>50%</span>
-                    <span>100%</span>
-                  </div>
-                </div>
-
-                <div className="w-14 text-right">
-                  <span className="text-base font-bold font-mono text-amber-500">
-                    {ms.completion_pct}%
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Visual Proof of Life Photo Logs & 360 Tour */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-white uppercase tracking-tight">
-              Visual Proof of Life &amp; 360° Virtual Site Tour
-            </h3>
-            <p className="text-xs text-neutral-500 font-light">
-              Timestamped site inspection photos with engineer sign-offs to eliminate bogus claims.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
+        {project && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 shrink-0">
             <button
-              onClick={() => setActive360Viewer(!active360Viewer)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[4px] bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-xs font-mono font-bold uppercase transition-colors cursor-pointer"
+              type="button"
+              onClick={() => {
+                setVideoUrl(project.virtual_tour_url || "");
+                setIs3DVideoModalOpen(true);
+              }}
+              className="px-3 py-2 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/15 text-neutral-800 dark:text-white font-mono text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <RefreshCwIcon className="w-3.5 h-3.5" />
-              <span>{active360Viewer ? "Hide 360° Viewer" : "360° Tour Preview"}</span>
+              <Film className="w-3.5 h-3.5 text-amber-500" />
+              <span>3D Walkthrough Video</span>
             </button>
-            <button
-              onClick={() => setActivePhotoModal(true)}
-              className="px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
-            >
-              <PlusIcon className="w-4 h-4" />
-              <span>Upload Inspection Photo</span>
-            </button>
-          </div>
-        </div>
 
-        {/* 360 Panorama Interactive Viewer Container */}
-        {active360Viewer && (
-          <div className="p-5 rounded-[6px] bg-neutral-950 border border-purple-500/30 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono uppercase text-white font-bold">
-                360° Virtual Site Tour (Draggable Panoramic Sweep)
-              </span>
-              <span className="text-[11px] font-mono text-purple-300">Click &amp; drag to explore site</span>
-            </div>
-            <div className="relative aspect-video w-full rounded-[4px] overflow-hidden border border-white/10 group">
-              {(photos.find((p) => p.is_360)?.image_url || project?.panorama_url || photos[0]?.image_url) ? (
-                <Image
-                  src={photos.find((p) => p.is_360)?.image_url || project?.panorama_url || photos[0]?.image_url}
-                  alt="360 Panorama"
-                  fill
-                  className="object-cover cursor-grab active:cursor-grabbing hover:scale-105 transition-transform duration-500"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-500 text-xs font-mono">
-                  No 360° Panorama uploaded for this project yet.
-                </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-              <div className="absolute bottom-4 left-4 text-xs font-mono text-white flex items-center gap-1">
-                <MapPinIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>Foundation &amp; Structural Grid 14.8871° N, 120.8572° E</span>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsAddPhotoOpen(true)}
+              className="px-3 py-2 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/15 text-neutral-800 dark:text-white font-mono text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Camera className="w-3.5 h-3.5 text-amber-500" />
+              <span>Post Progress Update</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const nextNum = milestones.length + 1;
+                setNewPhaseCode(`M${nextNum}`);
+                setIsAddMilestoneOpen(true);
+              }}
+              className="px-3.5 py-2 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>Add Milestone</span>
+            </button>
           </div>
         )}
-
-        {/* Photo Logs Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {photos.map((p, idx) => (
-            <div
-              key={p?.log_id ? `photo-${p.log_id}-${idx}` : `photo-idx-${idx}`}
-              className="rounded-[6px] overflow-hidden bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs flex flex-col justify-between"
-            >
-              <div className="relative aspect-video w-full bg-neutral-800">
-                <Image
-                  src={p.image_url}
-                  alt={p.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 25vw"
-                />
-                <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-[3px] bg-black/70 backdrop-blur-md text-white text-[10px] font-mono">
-                  {p.log_date}
-                </span>
-                {p.is_360 && (
-                  <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-[3px] bg-purple-600/90 backdrop-blur-md text-white border border-purple-400/40 text-[9px] font-mono font-bold">
-                    360° TOUR
-                  </span>
-                )}
-              </div>
-              <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-neutral-900 dark:text-white line-clamp-1">{p.title}</h4>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-2 leading-relaxed">
-                    {p.caption}
-                  </p>
-                </div>
-                <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-[10px] font-mono text-neutral-400">
-                  <span>{p.inspector}</span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                    <CheckIcon className="w-3 h-3" /> Signed
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
-      {/* MODAL: ADD INSPECTION PHOTO */}
-      {activePhotoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-lg p-6 sm:p-8 rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
+      {/* 2. CONDITIONAL VIEW: EMPTY STATE VS ACTIVE PROJECT MANAGEMENT */}
+      {!project ? (
+        <div className="p-12 text-center rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-3">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto">
+            <HardHat className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-neutral-900 dark:text-white">
+            No Stage 3 Client Project Selected
+          </h3>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto leading-relaxed">
+            Please use the customer selector above to choose an active construction client. You can configure milestone phases (M1-Mn), update progress %, and upload 3D walkthrough videos.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Project Details Banner */}
+          <div className="p-6 rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-5 border-b border-neutral-100 dark:border-white/5">
               <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">
-                  Phase 5: Field Logging
-                </span>
-                <h3 className="text-xl font-bold text-neutral-900 dark:text-white mt-0.5">
-                  Upload Site Inspection Photo
-                </h3>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-xs font-bold border border-amber-500/20">
+                    {project.project_code}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-mono text-xs font-semibold">
+                    Stage 3 • Active Build
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white">
+                  {project.name || project.project_title}
+                </h2>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 flex items-center gap-1.5 font-mono">
+                  <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{project.location || project.target_location}</span>
+                  <span>•</span>
+                  <span>Owner: {project.client_name}</span>
+                </p>
               </div>
+
+              {/* Overall Accomplishment Gauge */}
+              <div className="lg:text-right min-w-[260px] space-y-1.5">
+                <div className="flex items-baseline justify-between lg:justify-end gap-2">
+                  <span className="text-[11px] uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400 font-mono">
+                    Overall % Accomplishment
+                  </span>
+                  <span className="text-3xl font-extrabold text-amber-500 font-mono">
+                    {project.progress_pct || 0}%
+                  </span>
+                </div>
+                <div className="w-full h-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                    style={{ width: `${project.progress_pct || 0}%` }}
+                  />
+                </div>
+                <p className="text-[10.5px] text-neutral-400 font-mono">
+                  Supervising Engineer: {project.lead_engineer || "Unassigned"}
+                </p>
+              </div>
+            </div>
+
+            {/* Timetable Ribbon */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+              <div className="p-3 rounded-[6px] bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-white/5">
+                <span className="text-[10px] text-neutral-400 uppercase block">Mobilization Date</span>
+                <span className="font-bold text-neutral-900 dark:text-white mt-0.5 block">
+                  {project.contract_date || "Pending Mobilization"}
+                </span>
+              </div>
+              <div className="p-3 rounded-[6px] bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-white/5">
+                <span className="text-[10px] text-neutral-400 uppercase block">Original Turnover</span>
+                <span className="font-bold text-neutral-900 dark:text-white mt-0.5 block">
+                  {project.original_turnover || "Pending Schedule"}
+                </span>
+              </div>
+              <div className="p-3 rounded-[6px] bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-white/5">
+                <span className="text-[10px] text-neutral-400 uppercase block">Revised Turnover (Critical Path)</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400 mt-0.5 block">
+                  {project.revised_turnover || project.original_turnover || "Pending Schedule"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. MILESTONE PHASES LIST */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white uppercase tracking-tight font-mono">
+                  Milestone Phases (M1–Mn) &amp; Accomplishment Controls
+                </h3>
+                <p className="text-xs text-neutral-500 font-light">
+                  Click &quot;Update Progress&quot; on any milestone to record verified accomplishments with notes. The overall project percentage updates automatically.
+                </p>
+              </div>
+
+              <span className="text-xs font-mono text-neutral-400">
+                {milestones.length} {milestones.length === 1 ? "Milestone" : "Milestones"}
+              </span>
+            </div>
+
+            {milestones.length === 0 ? (
+              <div className="p-8 text-center rounded-[8px] bg-neutral-50 dark:bg-neutral-900/30 border border-dashed border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-400 space-y-2">
+                <p>No milestone phases created for {project.project_code} yet.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewPhaseCode("M1");
+                    setIsAddMilestoneOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-[6px] bg-amber-500 text-neutral-950 font-bold text-xs cursor-pointer inline-flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Milestone 1</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {milestones.map((ms, idx) => {
+                  const isDone = ms.completion_pct === 100 || ms.status === "Completed";
+                  const isInProgress = ms.completion_pct > 0 && ms.completion_pct < 100;
+                  return (
+                    <div
+                      key={ms.milestone_id || idx}
+                      className="p-4 sm:p-5 rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors"
+                    >
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-[11px] font-bold uppercase border border-amber-500/20">
+                            {ms.phase_code}
+                          </span>
+                          <span
+                            className={`text-[10.5px] uppercase font-mono font-bold px-2 py-0.5 rounded border ${
+                              isDone
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                : isInProgress
+                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                                : "bg-neutral-100 dark:bg-white/5 text-neutral-500 border-neutral-200 dark:border-white/10"
+                            }`}
+                          >
+                            {ms.status || "Upcoming"}
+                          </span>
+                          <span className="text-[11px] font-mono text-neutral-400">
+                            Weight: {ms.weight || 20}%
+                          </span>
+                          {ms.target_date && (
+                            <span className="text-[11px] font-mono text-neutral-400">
+                              • Target: {ms.target_date}
+                            </span>
+                          )}
+                        </div>
+
+                        <h4 className="text-sm font-bold text-neutral-900 dark:text-white truncate">
+                          {ms.phase_name}
+                        </h4>
+                        {ms.notes && (
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-1 font-light">
+                            {ms.notes}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Percentage & Actions */}
+                      <div className="flex items-center gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-neutral-100 dark:border-white/5">
+                        <div className="text-right min-w-[70px]">
+                          <span className="text-xl font-bold font-mono text-amber-500">
+                            {ms.completion_pct || 0}%
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenUpdateModal(ms)}
+                          className="px-3 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Update Progress</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMilestoneClick(ms.milestone_id, ms.phase_code)}
+                          className="p-1.5 rounded text-neutral-400 hover:text-rose-500 hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                          title="Delete Milestone"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: ADD MILESTONE (M1, M2, M3...) */}
+      {isAddMilestoneOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
+              <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+                <Plus className="w-4 h-4 text-amber-500" />
+                <span>Add Milestone Phase ({newPhaseCode || "Mn"})</span>
+              </h4>
               <button
-                onClick={() => setActivePhotoModal(false)}
-                className="p-1.5 rounded-[4px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
-                aria-label="Close"
+                type="button"
+                onClick={() => setIsAddMilestoneOpen(false)}
+                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
               >
-                <CloseIcon className="w-4 h-4" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSavePhoto} className="space-y-3 text-xs font-mono">
+            <form onSubmit={handleCreateMilestone} className="space-y-3.5 text-xs font-mono">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-500 mb-1">Phase Code *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newPhaseCode}
+                    onChange={(e) => setNewPhaseCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. M1, M2"
+                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-bold focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-neutral-500 mb-1">Weight (%) *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    required
+                    value={newWeight}
+                    onChange={(e) => setNewWeight(e.target.value)}
+                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-bold focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-neutral-600 dark:text-neutral-300 mb-1">Photo Title / Inspection Area *</label>
+                <label className="block text-neutral-500 mb-1">Milestone Name *</label>
                 <input
                   type="text"
                   required
-                  value={photoTitle}
-                  onChange={(e) => setPhotoTitle(e.target.value)}
-                  placeholder="e.g. Ground Floor Column Pouring & Curing Inspection"
-                  className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                  value={newPhaseName}
+                  onChange={(e) => setNewPhaseName(e.target.value)}
+                  placeholder="e.g. Foundation & Substructure"
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-sans"
                 />
               </div>
 
               <div>
-                <label className="block text-neutral-600 dark:text-neutral-300 mb-1">Field Caption &amp; Notes</label>
+                <label className="block text-neutral-500 mb-1">Target Date</label>
+                <input
+                  type="date"
+                  value={newTargetDate}
+                  onChange={(e) => setNewTargetDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-neutral-500 mb-1">Scope / Notes</label>
                 <textarea
-                  rows={3}
-                  value={photoCaption}
-                  onChange={(e) => setPhotoCaption(e.target.value)}
-                  placeholder="e.g. Verified rebar spacing and slump test pass of 3000 PSI ready-mix..."
-                  className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                  rows={2}
+                  value={newNotes}
+                  onChange={(e) => setNewNotes(e.target.value)}
+                  placeholder="e.g. Footing tie beams, rebar layout, column starter bars"
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-sans text-xs"
                 />
               </div>
 
-              <div>
-                <label className="block text-neutral-600 dark:text-neutral-300 mb-1">Image URL / Cloud Storage Link *</label>
-                <input
-                  type="url"
-                  required
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="is360Check"
-                  checked={is360}
-                  onChange={(e) => setIs360(e.target.checked)}
-                  className="accent-amber-500 rounded"
-                />
-                <label htmlFor="is360Check" className="text-neutral-700 dark:text-neutral-300 cursor-pointer">
-                  This photo is a 360° Panoramic Video Sweep for Virtual Site Tour
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-white/5">
                 <button
                   type="button"
-                  onClick={() => setActivePhotoModal(false)}
-                  className="px-4 py-2 rounded-[4px] border border-neutral-300 dark:border-neutral-700 text-xs font-mono uppercase cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  onClick={() => setIsAddMilestoneOpen(false)}
+                  className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs font-mono uppercase cursor-pointer shadow-sm transition-colors"
+                  disabled={isSavingMilestone}
+                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer"
                 >
-                  Publish to Client Portal
+                  {isSavingMilestone ? "Saving..." : "Save Milestone"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: UPDATE MILESTONE PROGRESS (%) */}
+      {activeUpdateMilestone && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
+              <div>
+                <span className="text-[10px] font-mono uppercase text-amber-500 font-bold">
+                  {activeUpdateMilestone.phase_code}
+                </span>
+                <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
+                  Update Progress: {activeUpdateMilestone.phase_name}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveUpdateMilestone(null)}
+                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUpdate} className="space-y-4 text-xs font-mono">
+              <div>
+                <label className="block text-neutral-500 mb-1">
+                  Completion Percentage (0–100%) *
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    required
+                    value={updatePct}
+                    onChange={(e) => setUpdatePct(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-bold text-base focus:outline-none focus:border-amber-500"
+                  />
+                  <span className="text-lg font-bold text-amber-500">%</span>
+                </div>
+
+                {/* Quick Increment Buttons */}
+                <div className="flex items-center gap-1.5 mt-2">
+                  {[25, 50, 75, 100].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setUpdatePct(val)}
+                      className="px-2 py-1 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-[10px] font-mono text-neutral-700 dark:text-neutral-300 transition-colors"
+                    >
+                      {val}%
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setUpdatePct((prev) => Math.min(100, Number(prev || 0) + 10))}
+                    className="px-2 py-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-[10px]"
+                  >
+                    +10%
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-neutral-500 mb-1">Work Log &amp; Inspection Notes</label>
+                <textarea
+                  rows={3}
+                  value={updateNotes}
+                  onChange={(e) => setUpdateNotes(e.target.value)}
+                  placeholder="Enter concrete pouring records, rebar tie inspection details..."
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-sans text-xs"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setActiveUpdateMilestone(null)}
+                  className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingUpdate}
+                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs"
+                >
+                  {isSubmittingUpdate ? "Calculating..." : "Apply & Recalculate Overall %"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: 3D WALKTHROUGH VIDEO UPLOAD / URL */}
+      {is3DVideoModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
+              <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+                <Film className="w-4 h-4 text-amber-500" />
+                <span>3D Architectural Walk-Around Video</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => setIs3DVideoModalOpen(false)}
+                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveVideo} className="space-y-4 text-xs font-mono">
+              <div>
+                <label className="block text-neutral-500 mb-1">
+                  Walkthrough Video URL (MP4, Cloud Storage, or Embed URL) *
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="https://.../house-3d-walkaround.mp4"
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                />
+                <p className="text-[10px] text-neutral-400 mt-1">
+                  Video will stream in high definition on the client portal with full-screen capability.
+                </p>
+              </div>
+
+              {videoUrl && (
+                <div className="space-y-1">
+                  <span className="text-[10px] text-neutral-400 uppercase">Live Preview:</span>
+                  <div className="aspect-video rounded-[8px] overflow-hidden bg-black border border-neutral-200 dark:border-white/10">
+                    <video src={videoUrl} controls className="w-full h-full object-cover" />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIs3DVideoModalOpen(false)}
+                  className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingVideo}
+                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs"
+                >
+                  {isSavingVideo ? "Publishing..." : "Publish Walkthrough"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: POST DAILY / WEEKLY PROGRESS UPDATE */}
+      {isAddPhotoOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
+              <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+                <Camera className="w-4 h-4 text-amber-500" />
+                <span>Post Site Progress &amp; Gallery Update</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => setIsAddPhotoOpen(false)}
+                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePhotoLog} className="space-y-3.5 text-xs font-mono">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-500 mb-1">Update Frequency *</label>
+                  <select
+                    value={logType}
+                    onChange={(e) => setLogType(e.target.value)}
+                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                  >
+                    <option value="Daily Log">Daily Progress Log</option>
+                    <option value="Weekly Recap">Weekly Milestone Recap</option>
+                    <option value="Inspection Proof">QC Inspection Proof</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-neutral-500 mb-1">Inspector Sign-off</label>
+                  <input
+                    type="text"
+                    value={photoInspector}
+                    onChange={(e) => setPhotoInspector(e.target.value)}
+                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-neutral-500 mb-1">Log Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={photoTitle}
+                  onChange={(e) => setPhotoTitle(e.target.value)}
+                  placeholder="e.g. Ground Floor Slab Concreting Complete"
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block text-neutral-500 mb-1">Image / Media URL *</label>
+                <input
+                  type="url"
+                  required
+                  value={photoUrl}
+                  onChange={(e) => setPhotoUrl(e.target.value)}
+                  placeholder="https://.../site-inspection.jpg"
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-neutral-500 mb-1">Engineer Notes / Field Summary</label>
+                <textarea
+                  rows={2}
+                  value={photoCaption}
+                  onChange={(e) => setPhotoCaption(e.target.value)}
+                  placeholder="Describe on-site accomplishments, cement curing status, or rebar count..."
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-sans text-xs"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPhotoOpen(false)}
+                  className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPhoto}
+                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs"
+                >
+                  {isSavingPhoto ? "Posting..." : "Publish to Client"}
                 </button>
               </div>
             </form>

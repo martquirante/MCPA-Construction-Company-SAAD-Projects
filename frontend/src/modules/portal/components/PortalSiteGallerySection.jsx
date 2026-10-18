@@ -18,10 +18,11 @@ export default function PortalSiteGallerySection({
   const [lightboxPhoto, setLightboxPhoto] = useState(null);
 
   const filterTabs = [
-    { id: "all", label: "All Photos" },
-    { id: "inspections", label: "Inspections" },
-    { id: "drone", label: "Drone Views" },
-    { id: "blueprints", label: "Architectural Blueprints" },
+    { id: "all", label: "All Updates" },
+    { id: "weekly", label: "Weekly Recaps" },
+    { id: "daily", label: "Daily Logs" },
+    { id: "inspections", label: "Inspection Proof" },
+    { id: "360", label: "360° Views" },
   ];
 
   if (!photos || photos.length === 0) {
@@ -30,20 +31,28 @@ export default function PortalSiteGallerySection({
         <div className="flex items-center gap-2 border-b border-neutral-100 dark:border-white/5 pb-4">
           <Camera className="w-4 h-4 text-amber-500" />
           <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white">
-            Site Photo Gallery &amp; Daily Logs
+            Site Progress &amp; Gallery
           </h3>
         </div>
 
         <PortalEmptyState
           type="gallery"
-          title="No Inspection Photos Yet"
-          description="Field photos and drone logs will stream directly from the site."
+          title="No Progress Logs Posted Yet"
+          description="Daily site logs, drone updates, and weekly recaps posted by the site engineer will stream here."
         />
       </div>
     );
   }
 
-  const displayedPhotos = photos;
+  const displayedPhotos = activeFilter === "all"
+    ? photos
+    : activeFilter === "360"
+    ? photos.filter((p) => p.is_360)
+    : activeFilter === "weekly"
+    ? photos.filter((p) => (p.title || "").toLowerCase().includes("week") || (p.caption || "").toLowerCase().includes("week"))
+    : activeFilter === "daily"
+    ? photos.filter((p) => (p.title || "").toLowerCase().includes("day") || (p.title || "").toLowerCase().includes("daily"))
+    : photos;
 
   return (
     <div className="rounded-[20px] sm:rounded-[24px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-5 sm:p-7 shadow-xs space-y-6 transition-colors">
@@ -53,11 +62,11 @@ export default function PortalSiteGallerySection({
           <div className="flex items-center gap-2 mb-1">
             <Camera className="w-4 h-4 text-amber-500" />
             <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">
-              Site Photo Gallery &amp; Daily Logs
+              Site Progress &amp; Gallery
             </span>
           </div>
           <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white">
-            Visual Proof of Execution ({photos.length} Captured)
+            Live Construction Progress Logs ({photos.length} Recorded)
           </h3>
         </div>
 

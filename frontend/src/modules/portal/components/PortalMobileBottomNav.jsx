@@ -343,7 +343,7 @@ export default function PortalMobileBottomNav({
     portfolio: { label: "Projects", id: "portfolio" },
     services: { label: "Services", id: "services" },
     process: { label: "Process", id: "process" },
-    gallery: { label: "Gallery", id: "gallery" },
+    gallery: { label: "Site Progress & Gallery", id: "gallery" },
     inquiries: { label: "Inquiries", id: "inquiries" },
     profile: { label: "Profile", id: "profile" },
     meeting: { label: "Meeting", id: "meeting" },

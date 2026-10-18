@@ -16,6 +16,7 @@ const stageController = require("./controllers/stageController");
 const subStageController = require("./controllers/subStageController");
 const meetingHistoryController = require("./controllers/meetingHistoryController");
 const quotationController = require("./controllers/quotationController");
+const weatherController = require("./controllers/weatherController");
 const { requireStage, STAGE_ORDER } = require("./middleware/stageGate");
 const initializeDatabase = require("./scripts/initDb");
 const { translateDictionary } = require("./services/translationService");
@@ -337,17 +338,24 @@ app.delete("/api/meetings/history/:sessionId", requireAuth, requireRole("admin",
 // -----------------------------------------------------------------------------
 // CONSTRUCTION SITE EXECUTION ROUTES (SAAD FLOWCHART PHASE 5)
 // -----------------------------------------------------------------------------
+app.get("/api/construction/stage3-projects", (req, res) => constructionController.getStage3Projects(req, res));
 app.get("/api/construction/project", (req, res) => constructionController.getProject(req, res));
 app.get("/api/construction/projects/:code", (req, res) => constructionController.getProject(req, res));
+app.post("/api/construction/milestones", (req, res) => constructionController.createMilestone(req, res));
 app.patch("/api/construction/milestones/:milestoneId", (req, res) => constructionController.updateMilestone(req, res));
+app.delete("/api/construction/milestones/:milestoneId", (req, res) => constructionController.deleteMilestone(req, res));
+app.post("/api/construction/virtual-tour", (req, res) => constructionController.updateVirtualTour(req, res));
 app.post("/api/construction/photos", (req, res) => constructionController.addPhotoLog(req, res));
+app.post("/api/construction/billing", (req, res) => constructionController.createBillingTranche(req, res));
 app.patch("/api/construction/billing/:billId/verify", (req, res) => constructionController.verifyPayment(req, res));
 app.patch("/api/construction/billing/:billId/proof", (req, res) => constructionController.uploadPaymentProof(req, res));
 app.post("/api/construction/billing/:billId/proof", (req, res) => constructionController.uploadPaymentProof(req, res));
+app.get("/api/construction/expenses/:code", (req, res) => constructionController.getProjectExpenses(req, res));
 app.post("/api/construction/delays", (req, res) => constructionController.logDelay(req, res));
 app.post("/api/construction/warranty", (req, res) => constructionController.submitWarrantyTicket(req, res));
 app.patch("/api/construction/warranty/:ticketId", (req, res) => constructionController.updateWarrantyStatus(req, res));
 app.post("/api/construction/expenses/ocr", (req, res) => constructionController.logOcrExpense(req, res));
+app.get("/api/weather/forecast", (req, res) => weatherController.getForecast(req, res));
 
 // -----------------------------------------------------------------------------
 // CORPORATE LEGAL PDF GENERATION & DIRECT DOWNLOAD ROUTE
