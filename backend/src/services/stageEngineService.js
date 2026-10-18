@@ -1514,6 +1514,7 @@ class StageEngineService {
     const totalPhotos = parseInt(photosCountRes.rows[0]?.count || 0, 10);
     const completedMilestones = parseInt(milestonesCountRes.rows[0]?.count || 0, 10);
     const shareToken = `mcpa-wrapped-${crypto.randomBytes(6).toString("hex")}`;
+    const buildDays = Math.max(1, Math.round((Date.now() - new Date(project.created_at || Date.now()).getTime()) / (1000 * 60 * 60 * 24)));
 
     const defaultStoryCards = [
       {
@@ -1527,7 +1528,7 @@ class StageEngineService {
         id: "duration",
         headline: "Dedication on the Ground",
         subtext: "Every foundation, beam, and finish was meticulously built and inspected.",
-        metric: "185 Days",
+        metric: `${buildDays} Days`,
         metricLabel: "Total Build Journey",
       },
       {
@@ -1542,9 +1543,9 @@ class StageEngineService {
     const insertRes = await db.query(
       `INSERT INTO public.project_wrapped (
         client_project_id, total_days_duration, total_workers_employed, total_concrete_bags, total_steel_kg, total_photos_logged, story_cards, share_token, is_public_shared, created_at
-      ) VALUES ($1, 185, 24, 850, 4200, $2, $3, $4, TRUE, NOW())
+      ) VALUES ($1, $2, 0, 0, 0, $3, $4, $5, TRUE, NOW())
       RETURNING *;`,
-      [projectId, totalPhotos, JSON.stringify(defaultStoryCards), shareToken]
+      [projectId, buildDays, totalPhotos, JSON.stringify(defaultStoryCards), shareToken]
     );
 
     return insertRes.rows[0];
@@ -1747,7 +1748,7 @@ class StageEngineService {
               project_code, name, client_name, client_email, location,
               contract_date, original_turnover, revised_turnover,
               progress_pct, current_phase, lead_engineer, status, client_project_id
-            ) VALUES ($1, $2, $3, $4, $5, NOW(), 'Q4 2026', 'Q4 2026', 15, 'Mobilization & Foundation', 'Engr. Raymart Quirante, CE', 'Active Site Execution', $6)
+            ) VALUES ($1, $2, $3, $4, $5, NOW(), NULL, NULL, 0, 'Site Mobilization & Preparation', NULL, 'Active Site Execution', $6)
             ON CONFLICT (project_code) DO NOTHING;`,
             [pCode, updatedProject.project_title || "Residential Construction", clientName, clientEmail, updatedProject.target_location || "Bulacan", resolvedProjectId]
           );
@@ -1758,12 +1759,12 @@ class StageEngineService {
           );
 
           const defaultMilestones = [
-            { code: 'M1', name: 'Mobilization & Earthworks', pct: 80, status: 'In Progress', date: 'Month 1', weight: 15, notes: 'Excavation & temporary facility setup' },
-            { code: 'M2', name: 'Foundation & Substructure', pct: 25, status: 'In Progress', date: 'Month 2', weight: 25, notes: 'Footing tie beams and rebar installation' },
-            { code: 'M3', name: 'Structural Framing', pct: 0, status: 'Upcoming', date: 'Month 4', weight: 25, notes: 'Columns, 2nd floor beams, slab pouring' },
-            { code: 'M4', name: 'Enclosure & Masonry', pct: 0, status: 'Upcoming', date: 'Month 6', weight: 15, notes: 'CHB wall laying, plastering, door frames' },
-            { code: 'M5', name: 'MEPF Rough-ins', pct: 0, status: 'Upcoming', date: 'Month 8', weight: 10, notes: 'Plumbing conduits, electrical rough-in' },
-            { code: 'M6', name: 'Architectural Finishes & Turnover', pct: 0, status: 'Upcoming', date: 'Month 10', weight: 10, notes: 'Tiles, paint, fixtures, final inspection' },
+            { code: 'M1', name: 'Mobilization & Earthworks', pct: 0, status: 'Upcoming', date: 'Month 1', weight: 15, notes: 'Site layout, temporary facilities, and initial earthworks.' },
+            { code: 'M2', name: 'Foundation & Substructure', pct: 0, status: 'Upcoming', date: 'Month 2', weight: 25, notes: 'Footing tie beams and rebar installation.' },
+            { code: 'M3', name: 'Structural Framing', pct: 0, status: 'Upcoming', date: 'Month 4', weight: 25, notes: 'Columns, 2nd floor beams, slab pouring.' },
+            { code: 'M4', name: 'Enclosure & Masonry', pct: 0, status: 'Upcoming', date: 'Month 6', weight: 15, notes: 'CHB wall laying, plastering, door frames.' },
+            { code: 'M5', name: 'MEPF Rough-ins', pct: 0, status: 'Upcoming', date: 'Month 8', weight: 10, notes: 'Plumbing conduits, electrical rough-in.' },
+            { code: 'M6', name: 'Architectural Finishes & Turnover', pct: 0, status: 'Upcoming', date: 'Month 10', weight: 10, notes: 'Tiles, paint, fixtures, final inspection.' },
           ];
 
           for (const m of defaultMilestones) {

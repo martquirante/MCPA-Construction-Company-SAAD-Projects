@@ -539,47 +539,54 @@ export default function PortalPhase3Planning({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(permits.length > 0 ? permits : [
-            { permit_id: 1, permit_type: "Barangay Construction Clearance", lgu_agency: "Local Barangay Hall", status: "APPROVED", remarks: "Issued without encumbrances." },
-            { permit_id: 2, permit_type: "Fire Safety Evaluation Clearance (FSEC)", lgu_agency: "Bureau of Fire Protection", status: "APPROVED", remarks: "Sprinkler & egress compliant." },
-            { permit_id: 3, permit_type: "City Building Permit", lgu_agency: "Department of Building Official", status: "UNDER_EVALUATION", remarks: "Structural engineering endorsement in progress." },
-            { permit_id: 4, permit_type: "Sanitary & Plumbing Permit", lgu_agency: "City Health / Engineering", status: "IN_PREPARATION", remarks: "Septic tank specification filed." },
-          ]).map((p) => {
-            const isDone = p.status === "APPROVED" || p.status === "RELEASED";
-            return (
-              <div
-                key={p.permit_id}
-                className="p-4 rounded-[6px] border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 flex flex-col justify-between space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 className="text-xs font-mono font-bold text-neutral-900 dark:text-white">
-                      {p.permit_type}
-                    </h4>
-                    <span className="text-[10px] font-mono text-neutral-500">
-                      {p.lgu_agency}
+        {permits && permits.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {permits.map((p) => {
+              const isDone = p.status === "APPROVED" || p.status === "RELEASED";
+              return (
+                <div
+                  key={p.permit_id || p.id}
+                  className="p-4 rounded-[6px] border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 flex flex-col justify-between space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-mono font-bold text-neutral-900 dark:text-white">
+                        {p.permit_type}
+                      </h4>
+                      <span className="text-[10px] font-mono text-neutral-500">
+                        {p.lgu_agency}
+                      </span>
+                    </div>
+
+                    <span
+                      className={`px-2 py-0.5 rounded-[3px] text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 ${
+                        isDone
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                      }`}
+                    >
+                      {p.status}
                     </span>
                   </div>
 
-                  <span
-                    className={`px-2 py-0.5 rounded-[3px] text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 ${
-                      isDone
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                    }`}
-                  >
-                    {p.status}
-                  </span>
+                  <p className="text-[11px] font-sans text-neutral-600 dark:text-neutral-400 italic">
+                    {p.remarks || "Processing standard regulatory timelines."}
+                  </p>
                 </div>
-
-                <p className="text-[11px] font-sans text-neutral-600 dark:text-neutral-400 italic">
-                  {p.remarks || "Processing standard regulatory timelines."}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-8 text-center border border-dashed border-neutral-300 dark:border-neutral-800 rounded-[8px] bg-neutral-50/50 dark:bg-neutral-950/50 space-y-2">
+            <FileCheck2 className="w-8 h-8 text-neutral-400 mx-auto" />
+            <p className="text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300">
+              No LGU Regulatory Permits Logged
+            </p>
+            <p className="text-[11px] text-neutral-500 max-w-sm mx-auto">
+              Statutory clearances, building permits, and barangay endorsements will appear here as they are processed by the liaison team.
+            </p>
+          </div>
+        )}
       </div>
       )}
 

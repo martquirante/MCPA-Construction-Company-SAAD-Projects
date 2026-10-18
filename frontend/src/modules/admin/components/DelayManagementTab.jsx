@@ -106,7 +106,7 @@ export default function DelayManagementTab({
               <input
                 type="text"
                 disabled
-                value={project?.lead_engineer || "Engr. Raymart Quirante, CE"}
+                value={project?.lead_engineer || "Unassigned"}
                 className="w-full px-3 py-2 rounded-[4px] bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border border-neutral-200 dark:border-neutral-700"
               />
             </div>

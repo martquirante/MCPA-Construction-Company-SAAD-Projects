@@ -26,7 +26,7 @@ export default function SiteProgressTab({
   const [activePhotoModal, setActivePhotoModal] = useState(false);
   const [photoTitle, setPhotoTitle] = useState("");
   const [photoCaption, setPhotoCaption] = useState("");
-  const [photoInspector, setPhotoInspector] = useState("Engr. Raymart Quirante, CE");
+  const [photoInspector, setPhotoInspector] = useState(project?.lead_engineer || "");
   const [photoUrl, setPhotoUrl] = useState("");
   const [is360, setIs360] = useState(false);
   const [active360Viewer, setActive360Viewer] = useState(false);
@@ -106,7 +106,7 @@ export default function SiteProgressTab({
               />
             </div>
             <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-2 font-mono">
-              Supervising: {project.lead_engineer}
+              Supervising: {project.lead_engineer || "Unassigned"}
             </p>
           </div>
         </div>

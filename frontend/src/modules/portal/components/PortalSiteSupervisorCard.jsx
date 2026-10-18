@@ -21,35 +21,7 @@ export default function PortalSiteSupervisorCard({
 }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [inputMsg, setInputMsg] = useState("");
-  const [chatMessages, setChatMessages] = useState([
-    {
-      id: 1,
-      sender: "client",
-      text: "Good morning Engr. Reyes, any update po sa progress today?",
-      time: "10:12 AM",
-    },
-    {
-      id: 2,
-      sender: "engineer",
-      text: "Good morning! Concrete pouring for 2nd floor slab is completed. Passed QA test. Here is the slump test result.",
-      time: "10:20 AM",
-      image: "https://images.unsplash.com/photo-1541888946425-d0fbb186156f?q=80&w=800",
-      imageCaption: "Slump Test: 8.5 cm (Passed Structural QC)",
-    },
-    {
-      id: 3,
-      sender: "engineer",
-      isAudio: true,
-      audioDuration: "0:12",
-      time: "10:30 AM",
-    },
-    {
-      id: 4,
-      sender: "client",
-      text: "Noted po! Thank you Engr.",
-      time: "10:32 AM",
-    },
-  ]);
+  const [chatMessages, setChatMessages] = useState([]);
 
   const handleSendMessage = (e) => {
     e?.preventDefault();
@@ -176,7 +148,7 @@ export default function PortalSiteSupervisorCard({
                   </h4>
                   <div className="flex items-center gap-1 text-[10px] font-mono text-amber-600 dark:text-amber-400">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    <span>Active on Site 2</span>
+                    <span>Active on Site</span>
                   </div>
                 </div>
               </div>
@@ -192,7 +164,20 @@ export default function PortalSiteSupervisorCard({
 
             {/* Chat Message Stream */}
             <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#f8f7f5] dark:bg-[#0a0c10]">
-              {chatMessages.map((msg) => {
+              {chatMessages.length === 0 ? (
+                <div className="h-full min-h-[220px] flex flex-col items-center justify-center text-center p-6 text-neutral-400 space-y-2">
+                  <div className="w-10 h-10 rounded-full bg-neutral-200/50 dark:bg-white/5 flex items-center justify-center">
+                    <MessageSquare className="w-5 h-5 text-neutral-400 dark:text-neutral-500" />
+                  </div>
+                  <p className="text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300">
+                    Direct Site Communications Channel
+                  </p>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 max-w-xs leading-relaxed">
+                    Send a direct message or request an inspection update from your assigned project engineer.
+                  </p>
+                </div>
+              ) : (
+                chatMessages.map((msg) => {
                 const isMe = msg.sender === "client";
                 return (
                   <div
@@ -261,7 +246,7 @@ export default function PortalSiteSupervisorCard({
                     </div>
                   </div>
                 );
-              })}
+              }))}
             </div>
 
             {/* Chat Input Bar */}
@@ -290,7 +275,7 @@ export default function PortalSiteSupervisorCard({
                 type="text"
                 value={inputMsg}
                 onChange={(e) => setInputMsg(e.target.value)}
-                placeholder="Type your message to Engr. Reyes..."
+                placeholder={`Type your message to ${leadEngineer}...`}
                 className="flex-1 px-3.5 py-2 rounded-full bg-neutral-100 dark:bg-white/5 border border-transparent focus:border-amber-500 focus:outline-none text-xs text-neutral-900 dark:text-white"
               />
 

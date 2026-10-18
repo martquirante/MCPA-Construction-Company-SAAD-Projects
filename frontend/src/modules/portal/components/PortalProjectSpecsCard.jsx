@@ -29,16 +29,23 @@ export default function PortalProjectSpecsCard({
 
   const projectName = project.name || "Assigned Site Project";
   const projectCode = project.project_code || "PRJ-ACTIVE";
-  const location = project.location || "Taguig City, Metro Manila";
+  const location = project.location || project.target_location || "Site Location";
   const virtualTourUrl = project.virtual_tour_url || "";
   const previewImg = project.cover_image || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1200";
 
-  const checklistItems = [
-    { title: "Roof Installation", status: "Completed", isDone: true },
-    { title: "Electrical Rough-in", status: "Completed", isDone: true },
-    { title: "Plumbing Rough-in", status: "In Progress", isInProgress: true },
-    { title: "HVAC Installation", status: "Upcoming", isDone: false },
-  ];
+  const checklistItems = (project.milestones && project.milestones.length > 0)
+    ? project.milestones.slice(0, 4).map((m) => ({
+        title: m.phase_name,
+        status: m.status,
+        isDone: m.completion_pct === 100 || m.status === "Completed",
+        isInProgress: m.completion_pct > 0 && m.completion_pct < 100,
+      }))
+    : [
+        { title: "Mobilization & Site Layout", status: "Upcoming", isDone: false },
+        { title: "Excavation & Footing Pouring", status: "Upcoming", isDone: false },
+        { title: "Rebar & Column Framing", status: "Upcoming", isDone: false },
+        { title: "Slab Curing & MEP Rough-in", status: "Upcoming", isDone: false },
+      ];
 
   return (
     <div className="rounded-[20px] sm:rounded-[24px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-5 sm:p-7 shadow-xs space-y-5 transition-colors">
@@ -111,7 +118,7 @@ export default function PortalProjectSpecsCard({
                   Lot Area
                 </span>
                 <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white">
-                  {project.lot_area ? `${project.lot_area} sqm` : "450 sqm"}
+                  {project.lot_area ? `${project.lot_area} sqm` : "N/A"}
                 </span>
               </div>
             </div>
@@ -124,7 +131,7 @@ export default function PortalProjectSpecsCard({
                   Floor Area
                 </span>
                 <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white">
-                  {project.floor_area ? `${project.floor_area} sqm` : "320 sqm"}
+                  {project.floor_area ? `${project.floor_area} sqm` : "N/A"}
                 </span>
               </div>
             </div>
@@ -137,7 +144,7 @@ export default function PortalProjectSpecsCard({
                   Building Type
                 </span>
                 <span className="text-xs sm:text-sm font-bold font-mono text-neutral-900 dark:text-white truncate block">
-                  {project.building_type || "2-Storey Single"}
+                  {project.building_type || project.project_type || "Custom Build"}
                 </span>
               </div>
             </div>

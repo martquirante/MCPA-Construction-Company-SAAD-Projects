@@ -34,7 +34,7 @@ export default function PortalMilestoneStepper({
             </span>
           </h3>
           <p className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 mt-0.5">
-            Active Phase: {currentPhase || "Roofing & MEP rough-in"}
+            Active Phase: {currentPhase || "Site Mobilization & Preparation"}
           </p>
         </div>
 

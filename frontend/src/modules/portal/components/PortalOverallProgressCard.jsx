@@ -2,8 +2,8 @@
 
 export default function PortalOverallProgressCard({
   progressPct = 0,
-  nextMilestone = "Roofing & MEP Handover",
-  targetDate = "Dec 2026",
+  nextMilestone = "Site Mobilization & Preparation",
+  targetDate = "Pending Schedule",
 }) {
   const radius = 38;
   const circumference = 2 * Math.PI * radius;

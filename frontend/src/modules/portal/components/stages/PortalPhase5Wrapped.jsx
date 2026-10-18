@@ -60,6 +60,14 @@ export default function PortalPhase5Wrapped({
     fetchWrapped();
   }, [projectId]);
 
+  const projectDurationDays = wrapped?.total_days_duration || Math.max(
+    1,
+    Math.round(
+      (Date.now() - new Date(activeProject?.created_at || Date.now()).getTime()) /
+        (1000 * 60 * 60 * 24)
+    )
+  );
+
   const storyCards = wrapped?.story_cards || [
     {
       headline: "From Raw Earth to Turnkey Masterpiece",
@@ -68,16 +76,16 @@ export default function PortalPhase5Wrapped({
       metricLabel: "Turnkey Completed",
     },
     {
-      headline: "185 Days of Meticulous Engineering",
-      subtext: "Through all weather and site inspections, our master craftsmen delivered on schedule.",
-      metric: `${wrapped?.total_days_duration || 185} Days`,
-      metricLabel: "Total Build Duration",
+      headline: "Meticulous Engineering & Execution",
+      subtext: "Through all site stages and inspections, our master craftsmen delivered on schedule.",
+      metric: `${projectDurationDays} Days`,
+      metricLabel: "Total Build Journey",
     },
     {
-      headline: "Built with Precision & Strength",
-      subtext: `Consuming over ${wrapped?.total_concrete_bags || 850} bags of high-strength cement and ${wrapped?.total_steel_kg || 4200} kg of reinforced steel bars.`,
-      metric: `${wrapped?.total_workers_employed || 24} Workers`,
-      metricLabel: "Skilled Craftsmen Deployed",
+      headline: "Quality Inspections & Compliance",
+      subtext: `${sitePhotos.length > 0 ? `${sitePhotos.length} verified site photo inspections logged.` : "All structural checkpoints verified and signed off by project engineers."}`,
+      metric: `${sitePhotos.length} Photos`,
+      metricLabel: "Verified Site Inspections",
     },
   ];
 

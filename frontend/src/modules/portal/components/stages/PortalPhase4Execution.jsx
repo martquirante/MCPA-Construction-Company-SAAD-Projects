@@ -108,7 +108,7 @@ export default function PortalPhase4Execution({
               {activeProject?.project_title || "Residential Site Build"}
             </h1>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-1">
-              Lead Project Engineer: <span className="font-bold text-neutral-900 dark:text-white">{siteDetails?.lead_engineer || "Engr. MCPA Lead"}</span> · Current Phase: <span className="text-amber-600 dark:text-amber-400 font-bold">{siteDetails?.current_phase || "Structural Erection"}</span>
+              Lead Project Engineer: <span className="font-bold text-neutral-900 dark:text-white">{siteDetails?.lead_engineer || "Unassigned"}</span> · Current Phase: <span className="text-amber-600 dark:text-amber-400 font-bold">{siteDetails?.current_phase || "Site Mobilization & Preparation"}</span>
             </p>
           </div>
 
@@ -140,20 +140,21 @@ export default function PortalPhase4Execution({
             <div>
               <div className="text-xs font-mono font-bold text-neutral-900 dark:text-white uppercase">Overall Build Progress</div>
               <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
-                {siteDetails?.revised_turnover ? `Turnover: ${siteDetails.revised_turnover}` : "On Target"}
+                {siteDetails?.revised_turnover ? `Turnover: ${siteDetails.revised_turnover}` : "Target Schedule Pending"}
               </span>
             </div>
           </div>
         </div>
 
         {/* Milestone Stepper */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-4 text-xs font-mono">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 pt-4 text-xs font-mono">
           {(milestones.length > 0 ? milestones : [
-            { milestone_id: 1, phase_name: "Substructure & Foundation", completion_pct: 100, status: "Completed" },
-            { milestone_id: 2, phase_name: "Superstructure Framing", completion_pct: 75, status: "In Progress" },
-            { milestone_id: 3, phase_name: "Masonry & Walling", completion_pct: 0, status: "Upcoming" },
-            { milestone_id: 4, phase_name: "MEP Rough-Ins", completion_pct: 0, status: "Upcoming" },
-            { milestone_id: 5, phase_name: "Finishes & Turnover", completion_pct: 0, status: "Upcoming" },
+            { milestone_id: 1, phase_name: "Mobilization & Earthworks", completion_pct: 0, status: "Upcoming" },
+            { milestone_id: 2, phase_name: "Foundation & Substructure", completion_pct: 0, status: "Upcoming" },
+            { milestone_id: 3, phase_name: "Structural Framing", completion_pct: 0, status: "Upcoming" },
+            { milestone_id: 4, phase_name: "Enclosure & Masonry", completion_pct: 0, status: "Upcoming" },
+            { milestone_id: 5, phase_name: "MEPF Rough-ins", completion_pct: 0, status: "Upcoming" },
+            { milestone_id: 6, phase_name: "Architectural Finishes & Turnover", completion_pct: 0, status: "Upcoming" },
           ]).map((m, i) => (
             <div
               key={m.milestone_id || i}
@@ -210,10 +211,10 @@ export default function PortalPhase4Execution({
             <div className="space-y-1">
               <div className="text-xs font-mono font-bold uppercase text-neutral-500">Site Specs</div>
               <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
-                {siteDetails?.current_phase || "Structural Erection"}
+                {siteDetails?.current_phase || "Site Mobilization & Preparation"}
               </h3>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                Lead: {siteDetails?.lead_engineer || "Engr. MCPA Lead"} · Target: {siteDetails?.revised_turnover || "On Schedule"}
+                Lead: {siteDetails?.lead_engineer || "Unassigned"} · Target: {siteDetails?.revised_turnover || "Pending Schedule"}
               </p>
             </div>
 
@@ -343,21 +344,21 @@ export default function PortalPhase4Execution({
             <div className="p-3.5 rounded-[6px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
               <span className="text-[10px] text-neutral-500 uppercase block">Total Contract Billed</span>
               <span className="text-base font-bold text-neutral-900 dark:text-white">
-                {totalBilled > 0 ? formatPHP(totalBilled) : "₱4,850,000"}
+                {formatPHP(totalBilled)}
               </span>
             </div>
 
             <div className="p-3.5 rounded-[6px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
               <span className="text-[10px] text-emerald-500 uppercase block font-bold">Total Disbursed / Paid</span>
               <span className="text-base font-bold text-emerald-500">
-                {totalPaid > 0 ? formatPHP(totalPaid) : "₱2,425,000"}
+                {formatPHP(totalPaid)}
               </span>
             </div>
 
             <div className="p-3.5 rounded-[6px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
               <span className="text-[10px] text-amber-500 uppercase block font-bold">Remaining Milestone Balance</span>
               <span className="text-base font-bold text-amber-500">
-                {remainingBalance > 0 ? formatPHP(remainingBalance) : "₱2,425,000"}
+                {formatPHP(remainingBalance)}
               </span>
             </div>
           </div>
@@ -374,31 +375,34 @@ export default function PortalPhase4Execution({
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {(billing.length > 0 ? billing : [
-                  { bill_id: 1, milestone_title: "15% Downpayment & Mobilization", amount_due: 727500, status: "Paid", or_number: "OR-2026-001" },
-                  { bill_id: 2, milestone_title: "Foundation & Substructure Release", amount_due: 970000, status: "Paid", or_number: "OR-2026-042" },
-                  { bill_id: 3, milestone_title: "Superstructure Framing Complete", amount_due: 727500, status: "Pending", or_number: null },
-                  { bill_id: 4, milestone_title: "Turnover Retention (10%)", amount_due: 485000, status: "Upcoming", or_number: null },
-                ]).map((b) => (
-                  <tr key={b.bill_id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
-                    <td className="p-2.5 font-bold text-neutral-900 dark:text-white truncate max-w-xs">
-                      {b.milestone_title}
-                    </td>
-                    <td className="p-2.5">{formatPHP(b.amount_due)}</td>
-                    <td className="p-2.5">
-                      <span className={`px-2 py-0.5 rounded-[3px] text-[9px] font-bold uppercase ${
-                        b.status === "Paid" || b.status === "Verified"
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                      }`}>
-                        {b.status}
-                      </span>
-                    </td>
-                    <td className="p-2.5 text-neutral-400 text-[10px]">
-                      {b.or_number ? <span className="text-amber-500 font-bold">{b.or_number}</span> : "Pending"}
+                {billing.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="p-6 text-center text-neutral-400 font-mono text-xs">
+                      No progress billing invoices issued yet.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  billing.map((b) => (
+                    <tr key={b.bill_id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
+                      <td className="p-2.5 font-bold text-neutral-900 dark:text-white truncate max-w-xs">
+                        {b.milestone_title}
+                      </td>
+                      <td className="p-2.5">{formatPHP(b.amount_due)}</td>
+                      <td className="p-2.5">
+                        <span className={`px-2 py-0.5 rounded-[3px] text-[9px] font-bold uppercase ${
+                          b.status === "Paid" || b.status === "Verified"
+                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                        }`}>
+                          {b.status}
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-neutral-400 text-[10px]">
+                        {b.or_number ? <span className="text-amber-500 font-bold">{b.or_number}</span> : "Pending"}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -418,30 +422,46 @@ export default function PortalPhase4Execution({
             </span>
           </div>
 
-          <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-xs font-mono space-y-3">
-            <div className="flex justify-between">
-              <span className="text-neutral-500">Financing Partner:</span>
-              <span className="font-bold text-neutral-900 dark:text-white">
-                {loans[0]?.financing_institution || "BDO Unibank / Pag-IBIG Construction"}
-              </span>
+          {loans.length === 0 ? (
+            <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-xs font-mono space-y-2">
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Financing Mode:</span>
+                <span className="font-bold text-neutral-900 dark:text-white">Direct Progress Billing</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Bank Financing / BNPL:</span>
+                <span className="text-neutral-400">None Active</span>
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans pt-1">
+                Progress tranches are settled directly via milestone disbursements. To link a bank loan facility, coordinate with MCPA administration.
+              </p>
             </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-500">Approved Loan Cap:</span>
-              <span className="font-bold text-emerald-500">
-                {loans[0]?.approved_loan_amount ? formatPHP(loans[0].approved_loan_amount) : "₱4,000,000"}
-              </span>
+          ) : (
+            <div className="p-4 rounded-[6px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-xs font-mono space-y-3">
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Financing Partner:</span>
+                <span className="font-bold text-neutral-900 dark:text-white">
+                  {loans[0]?.financing_institution || "Commercial Bank"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Approved Loan Cap:</span>
+                <span className="font-bold text-emerald-500">
+                  {loans[0]?.approved_loan_amount ? formatPHP(loans[0].approved_loan_amount) : "₱0"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Amortization Term:</span>
+                <span className="text-neutral-900 dark:text-white">
+                  {loans[0]?.term_years ? `${loans[0].term_years} Years` : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Disbursement Mode:</span>
+                <span className="text-amber-500 font-bold">Progress-Billing Tranches</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-500">Amortization Term:</span>
-              <span className="text-neutral-900 dark:text-white">
-                {loans[0]?.term_years || 20} Years @ 6.75% Fixed
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-500">Disbursement Mode:</span>
-              <span className="text-amber-500 font-bold">Progress-Billing Tranches</span>
-            </div>
-          </div>
+          )}
 
           {/* Weather / Delay Logs section */}
           <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800 space-y-2">
