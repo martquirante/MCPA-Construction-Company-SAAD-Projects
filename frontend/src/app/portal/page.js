@@ -61,7 +61,6 @@ import PortalSiteGallerySection from "@/modules/portal/components/PortalSiteGall
 import PortalBillingLedgerSection from "@/modules/portal/components/PortalBillingLedgerSection";
 import PortalMobileBottomNav from "@/modules/portal/components/PortalMobileBottomNav";
 import PortalEmptyState from "@/modules/portal/components/PortalEmptyState";
-import PortalSiteSupervisorCard from "@/modules/portal/components/PortalSiteSupervisorCard";
 import PortalPhase1PreInquiry from "@/modules/portal/components/stages/PortalPhase1PreInquiry";
 import PortalStage2PlanningAndConsultation from "@/modules/portal/components/stages/PortalStage2PlanningAndConsultation";
 import PortalPhase2Consultation from "@/modules/portal/components/stages/PortalPhase2Consultation";
@@ -1447,26 +1446,16 @@ function ClientPortalContent() {
                     currentPhase={siteProject.current_phase}
                   />
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
-                    <div className="lg:col-span-7">
-                      <PortalProjectSpecsCard
-                        project={siteProject}
-                        milestones={siteMilestones}
-                        overallPct={siteProject.progress_pct || 0}
-                        onOpenVirtualTour={() => {
-                          if (siteProject.virtual_tour_url) {
-                            window.open(siteProject.virtual_tour_url, "_blank");
-                          }
-                        }}
-                      />
-                    </div>
-                    <div className="lg:col-span-5">
-                      <PortalSiteSupervisorCard
-                        leadEngineer={siteProject.lead_engineer || "Unassigned"}
-                        phoneNumber="+63 949 775 8239"
-                      />
-                    </div>
-                  </div>
+                  <PortalProjectSpecsCard
+                    project={siteProject}
+                    milestones={siteMilestones}
+                    overallPct={siteProject.progress_pct || 0}
+                    onOpenVirtualTour={() => {
+                      if (siteProject.virtual_tour_url) {
+                        window.open(siteProject.virtual_tour_url, "_blank");
+                      }
+                    }}
+                  />
                 </>
               ) : (
                 <PortalEmptyState
