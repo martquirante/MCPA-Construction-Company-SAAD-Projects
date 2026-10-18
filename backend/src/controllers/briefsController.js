@@ -489,24 +489,8 @@ class BriefsController {
           const clientEmail = updatedBrief.client_email;
 
           if (Boolean(req.body.updatedByClient)) {
-            // Notify Admin team of client schedule adjustment
-            const adminEmail = process.env.ADMIN_ALERT_EMAIL || "mcpa.construction@gmail.com";
-            await emailService.sendEmailWithFallback(
-              adminEmail,
-              `[Client Update] Consultation Setup Adjusted by ${updatedBrief.client_name || "Client"} (${updatedBrief.submission_id || "CPB"})`,
-              `<div style="font-family: sans-serif; line-height: 1.6; color: #1e293b;">
-                <h3 style="color: #d97706;">Consultation Schedule Adjusted by Client</h3>
-                <p>Client <strong>${updatedBrief.client_name || "Client"}</strong> (${updatedBrief.client_email}) has updated their consultation preferences:</p>
-                <ul>
-                  <li><strong>Meeting Mode / Format:</strong> ${req.body.meetingMode || updatedBrief.meeting_mode}</li>
-                  <li><strong>Preferred Date:</strong> ${req.body.meetingDate || updatedBrief.meeting_date}</li>
-                  <li><strong>Preferred Time:</strong> ${req.body.meetingTime || updatedBrief.meeting_time}</li>
-                  <li><strong>Agenda / Notes:</strong> ${req.body.meetingNotes || "Standard Consultation Alignment"}</li>
-                </ul>
-                <p>Please review and confirm this adjustment in the Admin Consultation Pipeline.</p>
-              </div>`,
-              { replyTo: updatedBrief.client_email }
-            );
+            // Notify Admin team of client schedule adjustment safely via emailService (guarantees isolation from official company email)
+            await emailService.sendInquiryClientScheduleAdjustmentAlert(updatedBrief, req.body);
           } else if (isRejectAction) {
             await emailService.sendInquiryRejected(clientEmail, updatedBrief, {
               rejectionReason: req.body.rejectionReason,

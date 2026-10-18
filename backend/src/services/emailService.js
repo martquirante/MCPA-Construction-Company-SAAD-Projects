@@ -16,6 +16,12 @@ const {
   getMeetingAttendanceReminderTemplate,
 } = require("../templates/emails");
 
+// Official business emails that must NOT receive automated system notifications in dev/staging.
+const PROTECTED_OFFICIAL_EMAILS = [
+  "mcpa.construction@gmail.com",
+  "mcpa.constructionandsupply@gmail.com",
+];
+
 class EmailService {
   constructor() {
     this.smtpEmail = process.env.SMTP_EMAIL || "";
@@ -63,6 +69,75 @@ class EmailService {
   }
 
   /**
+   * Identifies if an email address belongs to the official company mailboxes
+   * that should be isolated from test/dev automated notifications.
+   * @param {string} email
+   * @returns {boolean}
+   */
+  isProtectedOfficialEmail(email) {
+    if (!email) return false;
+    const clean = String(email).trim().toLowerCase();
+    return PROTECTED_OFFICIAL_EMAILS.some((protectedEmail) => clean === protectedEmail || clean.includes(protectedEmail));
+  }
+
+  /**
+   * Resolves a safe recipient address.
+   * If an automated notification targets the official company email and ALLOW_OFFICIAL_EMAIL_DISPATCH
+   * is not explicitly enabled, reroutes to ADMIN_ALERT_EMAIL or dev SMTP_EMAIL, or returns null.
+   * @param {string} toEmail
+   * @param {string} context
+   * @returns {string|null}
+   */
+  resolveSafeRecipient(toEmail, context = "Email") {
+    if (!toEmail) return null;
+    const clean = String(toEmail).trim().toLowerCase();
+
+    // Allow dispatch only if explicitly enabled (e.g. in real production deployment with client consent)
+    if (process.env.ALLOW_OFFICIAL_EMAIL_DISPATCH === "true") {
+      return toEmail;
+    }
+
+    if (this.isProtectedOfficialEmail(clean)) {
+      const devAlertEmail = (process.env.ADMIN_ALERT_EMAIL || this.smtpEmail || "").trim();
+      const safeDevTarget = devAlertEmail && !this.isProtectedOfficialEmail(devAlertEmail) ? devAlertEmail : null;
+
+      if (safeDevTarget) {
+        console.warn(
+          `\x1b[33m[EmailService] 🛑 SAFEGUARD: Intercepted automated email intended for official company address (${toEmail}). Rerouted to developer test mailbox: ${safeDevTarget} (Context: ${context})\x1b[0m`
+        );
+        return safeDevTarget;
+      }
+
+      console.warn(
+        `\x1b[33m[EmailService] 🛑 SAFEGUARD: Suppressed automated email to official company address (${toEmail}). No safe dev alert mailbox configured. (Context: ${context})\x1b[0m`
+      );
+      return null;
+    }
+
+    return toEmail;
+  }
+
+  /**
+   * Resolves a safe replyTo address so test emails don't cause client inboxes to receive replies.
+   * @param {string} [customReplyTo]
+   * @returns {string}
+   */
+  resolveSafeReplyTo(customReplyTo) {
+    if (process.env.ALLOW_OFFICIAL_EMAIL_DISPATCH === "true") {
+      return customReplyTo || "mcpa.construction@gmail.com";
+    }
+    const clean = customReplyTo ? String(customReplyTo).trim().toLowerCase() : "";
+    if (!clean || this.isProtectedOfficialEmail(clean)) {
+      const devEmail = (process.env.ADMIN_ALERT_EMAIL || this.smtpEmail || "").trim();
+      if (devEmail && !this.isProtectedOfficialEmail(devEmail)) {
+        return devEmail;
+      }
+      return "noreply@mcpa.com";
+    }
+    return customReplyTo;
+  }
+
+  /**
    * Converts HTML email content into clean, readable plain-text alternative.
    * Guarantees RFC 2046 MIME multipart/alternative compliance and drastically
    * lowers SpamAssassin / Gmail machine learning spam scores.
@@ -106,16 +181,21 @@ class EmailService {
    * @param {object} [options] Optional parameters: { plainText?: string, replyTo?: string, headers?: object }
    */
   async sendViaResend(toEmail, subject, htmlContent, options = {}) {
+    const safeRecipient = this.resolveSafeRecipient(toEmail, subject);
+    if (!safeRecipient) {
+      console.log(`[EmailService] Resend dispatch safely bypassed for protected company address: ${toEmail}`);
+      return true;
+    }
     if (!this.resendApiKey || this.resendApiKey.includes("YOUR_")) {
       return false;
     }
     const plainText = options.text || options.plainText || this.htmlToPlainText(htmlContent);
-    const replyTo = options.replyTo || "mcpa.construction@gmail.com";
+    const replyTo = this.resolveSafeReplyTo(options.replyTo);
 
     try {
       const payload = {
         from: this.resendFromEmail,
-        to: [toEmail],
+        to: [safeRecipient],
         reply_to: replyTo,
         subject,
         text: plainText,
@@ -198,12 +278,20 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
       "X-Auto-Response-Suppress": "OOF, AutoReply",
     };
 
+    const safeRecipient = this.resolveSafeRecipient(toEmail, `OTP Verification (${purpose})`);
+    if (!safeRecipient) {
+      console.log(`[EmailService] OTP delivery bypassed for protected official email: ${toEmail}`);
+      return true;
+    }
+    toEmail = safeRecipient;
+    const safeReplyTo = this.resolveSafeReplyTo(options.replyTo);
+
     // 1. Try Primary Provider (Gmail SMTP default)
     if (this.transporter && this.primaryProvider === "gmail") {
       try {
         await this.transporter.sendMail({
           from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
-          replyTo: "mcpa.construction@gmail.com",
+          replyTo: safeReplyTo,
           to: toEmail,
           subject,
           text: plainText,
@@ -221,7 +309,7 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
     if (this.resendApiKey) {
       const resendDelivered = await this.sendViaResend(toEmail, subject, htmlContent, {
         plainText,
-        replyTo: "mcpa.construction@gmail.com",
+        replyTo: safeReplyTo,
         headers: mailHeaders,
       });
       if (resendDelivered) {
@@ -234,7 +322,7 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
       try {
         await this.transporter.sendMail({
           from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
-          replyTo: "mcpa.construction@gmail.com",
+          replyTo: safeReplyTo,
           to: toEmail,
           subject,
           text: plainText,
@@ -271,9 +359,16 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
    * @param {object} [options] Optional parameters: { plainText?: string, replyTo?: string, headers?: object }
    */
   async sendEmailWithFallback(toEmail, subject, htmlContent, options = {}) {
+    const safeRecipient = this.resolveSafeRecipient(toEmail, subject);
+    if (!safeRecipient) {
+      console.log(`\x1b[36m[EmailService] Email dispatch safely bypassed for protected company address [Subject: "${subject}"]\x1b[0m`);
+      return true;
+    }
+    toEmail = safeRecipient;
+
     let delivered = false;
     const plainText = options.text || options.plainText || this.htmlToPlainText(htmlContent);
-    const replyTo = options.replyTo || "mcpa.construction@gmail.com";
+    const replyTo = this.resolveSafeReplyTo(options.replyTo);
     const headers = {
       "X-Mailer": "MCPA Dispatch Engine",
       "X-Entity-Ref-ID": `mcpa-${Date.now()}`,
@@ -390,7 +485,10 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
    * Sends real-time alert to MCPA Admin team
    */
   async sendInquiryAdminAlert(brief) {
-    const adminEmail = process.env.ADMIN_ALERT_EMAIL || this.smtpEmail || "admin@mcpa.com";
+    let adminEmail = (process.env.ADMIN_ALERT_EMAIL || this.smtpEmail || "admin@mcpa.com").trim();
+    if (this.isProtectedOfficialEmail(adminEmail)) {
+      adminEmail = (this.smtpEmail && !this.isProtectedOfficialEmail(this.smtpEmail)) ? this.smtpEmail : "admin@mcpa.com";
+    }
     const subId = brief.submission_id || brief.submissionId || "MCPA-CPB";
     const clientName = brief.client_name || brief.clientName || "Client";
     const projectType = brief.project_type || brief.projectType || "Design & Build";
@@ -408,7 +506,56 @@ Target Start: ${brief.target_date || "Flexible"}`;
 
     return await this.sendEmailWithFallback(adminEmail, subject, htmlContent, {
       plainText,
-      replyTo: brief.client_email || "mcpa.construction@gmail.com",
+      replyTo: brief.client_email || this.resolveSafeReplyTo(),
+    });
+  }
+
+  /**
+   * Sends real-time notification to MCPA Admin team when a client updates their consultation schedule preferences.
+   * Centralized here to guarantee safety and prevent accidental dispatches to the official company email.
+   */
+  async sendInquiryClientScheduleAdjustmentAlert(brief, adjustmentData = {}) {
+    let adminEmail = (process.env.ADMIN_ALERT_EMAIL || this.smtpEmail || "admin@mcpa.com").trim();
+    if (this.isProtectedOfficialEmail(adminEmail)) {
+      adminEmail = (this.smtpEmail && !this.isProtectedOfficialEmail(this.smtpEmail)) ? this.smtpEmail : "admin@mcpa.com";
+    }
+
+    const subId = brief.submission_id || brief.submissionId || "CPB";
+    const clientName = brief.client_name || brief.clientName || "Client";
+    const subject = `[Client Update] Consultation Setup Adjusted by ${clientName} (${subId})`;
+
+    const meetingMode = adjustmentData.meetingMode || brief.meeting_mode || "Online Video Call";
+    const meetingDate = adjustmentData.meetingDate || brief.meeting_date || "Pending";
+    const meetingTime = adjustmentData.meetingTime || brief.meeting_time || "Pending Slot";
+    const meetingNotes = adjustmentData.meetingNotes || "Standard Consultation Alignment";
+
+    const htmlContent = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h3 style="color: #d97706; margin-top: 0; font-size: 18px;">Consultation Schedule Adjusted by Client</h3>
+        <p>Client <strong>${clientName}</strong> (${brief.client_email || "N/A"}) has updated their consultation preferences:</p>
+        <ul style="padding-left: 20px; line-height: 1.8;">
+          <li><strong>Meeting Mode / Format:</strong> ${meetingMode}</li>
+          <li><strong>Preferred Date:</strong> ${meetingDate}</li>
+          <li><strong>Preferred Time:</strong> ${meetingTime}</li>
+          <li><strong>Agenda / Notes:</strong> ${meetingNotes}</li>
+        </ul>
+        <p style="margin-bottom: 0; color: #64748b; font-size: 13px;">Please review and confirm this adjustment in the Admin Consultation Pipeline.</p>
+      </div>
+    `;
+
+    const plainText = `CONSULTATION SCHEDULE ADJUSTED BY CLIENT
+Reference: ${subId}
+Client: ${clientName} (${brief.client_email || "N/A"})
+Meeting Mode: ${meetingMode}
+Preferred Date: ${meetingDate}
+Preferred Time: ${meetingTime}
+Notes: ${meetingNotes}
+
+Please review and confirm this adjustment in the Admin Consultation Pipeline.`;
+
+    return await this.sendEmailWithFallback(adminEmail, subject, htmlContent, {
+      plainText,
+      replyTo: brief.client_email || this.resolveSafeReplyTo(),
     });
   }
 
@@ -824,6 +971,14 @@ Official Email: mcpa.construction@gmail.com
 
 Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
 
+    const safeRecipient = this.resolveSafeRecipient(toEmail, "Email Verification Link");
+    if (!safeRecipient) {
+      console.log(`[EmailService] Verification email delivery bypassed for protected email ${toEmail}`);
+      return { delivered: false, verificationUrl };
+    }
+    toEmail = safeRecipient;
+    const safeReplyTo = this.resolveSafeReplyTo(options.replyTo);
+
     let delivered = false;
 
     // 1. Try Primary Gmail / SMTP
@@ -831,7 +986,7 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
       try {
         await this.transporter.sendMail({
           from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
-          replyTo: "mcpa.construction@gmail.com",
+          replyTo: safeReplyTo,
           to: toEmail,
           subject,
           text: plainText,
@@ -851,7 +1006,7 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
 
     // 2. Try Resend API (Failover)
     if (!delivered && this.resendApiKey) {
-      delivered = await this.sendViaResend(toEmail, subject, htmlContent);
+      delivered = await this.sendViaResend(toEmail, subject, htmlContent, { replyTo: safeReplyTo });
     }
 
     // 3. Fallback to Transporter if primary was not gmail
@@ -859,7 +1014,7 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
       try {
         await this.transporter.sendMail({
           from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
-          replyTo: "mcpa.construction@gmail.com",
+          replyTo: safeReplyTo,
           to: toEmail,
           subject,
           text: plainText,
