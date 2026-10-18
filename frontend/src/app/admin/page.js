@@ -618,6 +618,8 @@ export default function AdminPage() {
         loadProjectsAndBriefs(false);
       };
       window.addEventListener("mcpa-project-stage-updated", handleStageSync);
+      window.addEventListener("mcpa-briefs-updated", handleStageSync);
+      window.addEventListener("mcpa-meeting-updated", handleStageSync);
 
       // Background silent auto-sync every 15 seconds (never shows skeleton)
       const syncInterval = setInterval(() => {
@@ -627,6 +629,8 @@ export default function AdminPage() {
         clearInterval(syncInterval);
         window.removeEventListener("mcpa-theme-change", handleThemeChange);
         window.removeEventListener("mcpa-project-stage-updated", handleStageSync);
+        window.removeEventListener("mcpa-briefs-updated", handleStageSync);
+        window.removeEventListener("mcpa-meeting-updated", handleStageSync);
         if (cleanupPromise && typeof cleanupPromise.then === "function") {
           cleanupPromise.then((clean) => typeof clean === "function" && clean());
         }
@@ -1559,12 +1563,6 @@ export default function AdminPage() {
       stageBadge: null,
       items: [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
-        {
-          id: "meetings",
-          label: "Meetings",
-          icon: CalendarIcon,
-          badge: meetingsCount > 0 ? meetingsCount : undefined,
-        },
         { id: "projects", label: "Projects Showcase", icon: FolderKanbanIcon },
         { id: "accounts", label: "Accounts & Roles", icon: UserIcon },
       ],
@@ -1585,18 +1583,24 @@ export default function AdminPage() {
       title: "Stage 2: Consultation & Planning",
       stageBadge: "Stage 2",
       items: [
-        { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
         {
-          id: "documents",
-          label: "Documents & Permits",
-          icon: FileTextIcon,
-          badge: pendingDocsCount > 0 ? pendingDocsCount : undefined,
+          id: "meetings",
+          label: "Meetings & Video Hub",
+          icon: CalendarIcon,
+          badge: meetingsCount > 0 ? meetingsCount : undefined,
         },
+        { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
         {
           id: "quotations",
           label: "Budget & Quotation",
           icon: CreditCardIcon,
           badge: pendingQuotationsCount > 0 ? pendingQuotationsCount : undefined,
+        },
+        {
+          id: "documents",
+          label: "Documents & Permits",
+          icon: FileTextIcon,
+          badge: pendingDocsCount > 0 ? pendingDocsCount : undefined,
         },
         {
           id: "groundbreaking",
@@ -1626,25 +1630,6 @@ export default function AdminPage() {
           label: "Delay Management",
           icon: ClockIcon,
           badge: delayEvents.length > 0 ? delayEvents.length : undefined,
-        },
-        {
-          id: "meetings",
-          label: "Meeting",
-          icon: CalendarIcon,
-          badge: meetingsCount > 0 ? meetingsCount : undefined,
-        },
-        { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
-        {
-          id: "quotations",
-          label: "Budget & Quotation",
-          icon: CreditCardIcon,
-          badge: pendingQuotationsCount > 0 ? pendingQuotationsCount : undefined,
-        },
-        {
-          id: "documents",
-          label: "Documents & Permits",
-          icon: FileTextIcon,
-          badge: pendingDocsCount > 0 ? pendingDocsCount : undefined,
         },
       ],
     },
@@ -2251,6 +2236,7 @@ export default function AdminPage() {
             clientBriefs={clientBriefs}
             currentUser={currentUser}
             showToast={showToast}
+            onRefresh={() => loadProjectsAndBriefs(false)}
           />
         )}
 

@@ -375,6 +375,292 @@ export default function PortalPhase1PreInquiry({
   })();
 
   // ---------------------------------------------------------------------------
+  // VIEW A: DEDICATED PORTFOLIO SHOWCASE TAB (When mode === "portfolio")
+  // ---------------------------------------------------------------------------
+  if (mode === "portfolio") {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+        <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              <Building className="w-4 h-4" />
+              <span>Stage 1 Showcase · Master Portfolio</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold font-mono uppercase text-neutral-900 dark:text-white">
+              Completed MCPA Architectural Works
+            </h1>
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 max-w-2xl">
+              Explore our verified residential, commercial, and custom villa builds across Bulacan and Central Luzon. Click any project to inspect specifications or use it as a baseline for your inquiry.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onStartInquiry}
+            className="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer shadow-md flex items-center gap-2"
+          >
+            <Compass className="w-4 h-4" />
+            <span>Start Project Inquiry</span>
+          </button>
+        </div>
+
+        {/* Category Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setActiveCategory(cat)}
+              className={`px-3.5 py-1.5 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                activeCategory === cat
+                  ? "bg-amber-500 text-neutral-950 border-amber-400 shadow-sm"
+                  : "bg-white dark:bg-[#101218] text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-white/10 hover:border-amber-500/40"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {isLoadingPortfolio ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="min-h-[460px] rounded-xl bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
+            ))}
+          </div>
+        ) : displayProjects.length === 0 ? (
+          <div className="p-12 text-center rounded-xl border border-dashed border-neutral-300 dark:border-neutral-800 text-xs font-mono text-neutral-400">
+            No portfolio projects found under category &ldquo;{activeCategory}&rdquo;.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            {displayProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onOpenDetails={(p) => setSelectedProjectForModal(p)}
+                onInquire={(p) => onStartInquiry && onStartInquiry(p)}
+              />
+            ))}
+          </div>
+        )}
+
+        {selectedProjectForModal && (
+          <ProjectDetailsModal
+            project={selectedProjectForModal}
+            isOpen={Boolean(selectedProjectForModal)}
+            onClose={() => setSelectedProjectForModal(null)}
+            onInquire={(proj) => {
+              setSelectedProjectForModal(null);
+              if (onStartInquiry) onStartInquiry(proj);
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // VIEW B: DEDICATED SERVICES CAPABILITIES TAB (When mode === "services")
+  // ---------------------------------------------------------------------------
+  if (mode === "services") {
+    const servicesList = [
+      {
+        icon: Compass,
+        title: "Architectural Design & 3D Visualization",
+        badge: "Stage 1–2",
+        desc: "Complete signed and sealed architectural, structural, electrical, and sanitary engineering blueprints tailored to your lot orientation and lifestyle.",
+      },
+      {
+        icon: FileSignature,
+        title: "LGU Building Permit & OBO Processing",
+        badge: "Stage 2",
+        desc: "End-to-end handling of Barangay Clearance, Locational Clearance, Fire Safety Evaluation (FSEC), and Municipal Building Permits.",
+      },
+      {
+        icon: BadgePercent,
+        title: "Pag-IBIG HDMF & Bank Construction Financing",
+        badge: "Flexible Terms",
+        desc: "Accredited financing assistance and Buy-Now-Pay-Later (BNPL) milestone tranche billing for titled lot owners and OFW families.",
+      },
+      {
+        icon: Warehouse,
+        title: "In-House Hardware & Direct Fleet Supply",
+        badge: "Zero Markup Delay",
+        desc: "Direct materials dispatch from MCPA Construction & Supply depots using our own heavy trucks, mixers, and steel fabrication yard.",
+      },
+      {
+        icon: HardHat,
+        title: "Turnkey Residential & Commercial Build",
+        badge: "Stage 3 Execution",
+        desc: "Full civil and structural execution with real-time photo logs, milestone inspections, weather-adjusted schedules, and transparent ledger billing.",
+      },
+      {
+        icon: ShieldCheck,
+        title: "15-Year Structural Warranty & Handover",
+        badge: "Stage 4 Protection",
+        desc: "Certified turnkey turnover backed by a 15-Year Structural Integrity Warranty and dedicated post-construction maintenance support.",
+      },
+    ];
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+        <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              <Hammer className="w-4 h-4" />
+              <span>Stage 1 Discovery · Engineering Capabilities</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold font-mono uppercase text-neutral-900 dark:text-white">
+              Turnkey Design-Build &amp; Supply Services
+            </h1>
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 max-w-2xl">
+              Everything required to transform your titled lot into a finished residence—engineered, supplied, and built under one accountable roof.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onStartInquiry}
+            className="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer shadow-md flex items-center gap-2"
+          >
+            <Compass className="w-4 h-4" />
+            <span>Book Consultation</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {servicesList.map((srv, idx) => {
+            const IconComp = srv.icon;
+            return (
+              <div
+                key={idx}
+                className="p-6 rounded-2xl bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-3 flex flex-col justify-between shadow-xs hover:border-amber-500/40 transition-all"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                      <IconComp className="w-5 h-5" />
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/10">
+                      {srv.badge}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold font-mono text-neutral-900 dark:text-white">
+                    {srv.title}
+                  </h3>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                    {srv.desc}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // VIEW C: DEDICATED 4-STAGE CONSTRUCTION PROCESS TAB (When mode === "process")
+  // ---------------------------------------------------------------------------
+  if (mode === "process") {
+    const fourStages = [
+      {
+        stage: "Stage 1",
+        code: "PRE_INQUIRY",
+        title: "Discovery & Pre-Inquiry",
+        desc: "Explore completed works, compute your preliminary budget via the Feasibility Calculator, and submit your Architectural Brief for initial engineering evaluation.",
+        deliverables: ["Feasibility & Budget Estimate", "Site & Lot Verification", "Initial Consultation Booking"],
+      },
+      {
+        stage: "Stage 2",
+        code: "CONSULTATION",
+        title: "Consultation & Pre-Construction Planning",
+        desc: "Meet with Lead Engineer Raymart Quirante via WebRTC video or in-person, review interactive 2D/3D blueprints with coordinate pin feedback, approve itemized BOQ quotations, process LGU permits, and sign your digital construction contract.",
+        deliverables: ["Interactive Blueprints & Pin Revisions", "Approved Itemized BOQ Quotation", "Municipal Permits & E-Contract Signing", "Groundbreaking Ceremony Kickoff"],
+      },
+      {
+        stage: "Stage 3",
+        code: "ACTIVE_BUILD",
+        title: "Active Site Execution",
+        desc: "Track physical construction from Mobilization & Foundation (M1–M2) through Structural Framing, Masonry, MEPF, and Finishes (M3–M6) with real-time photo inspections, weather-synced delay logs, and verified milestone billing.",
+        deliverables: ["M1–M6 Weighted Milestone Stepper", "Timestamped Site Inspection Gallery", "Transparent Milestone Billing Ledger"],
+      },
+      {
+        stage: "Stage 4",
+        code: "COMPLETED",
+        title: "Handover, Wrapped & 15-Year Warranty",
+        desc: "Celebrate 100% turnkey completion with your interactive MCPA Project Wrapped recap, Before/After transformation slider, Certificate of Completion, and activated 15-Year Structural Warranty vault.",
+        deliverables: ["Interactive Project Wrapped Recap", "Before & After Site Transformation", "15-Year Structural Warranty Certificate"],
+      },
+    ];
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+        <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              <ListChecks className="w-4 h-4" />
+              <span>4-Stage Progressive Disclosure Lifecycle</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold font-mono uppercase text-neutral-900 dark:text-white">
+              How Your MCPA Build Journey Works
+            </h1>
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 max-w-2xl">
+              Our Client Portal follows a strict 4-Stage progressive disclosure roadmap—unlocking specialized engineering tools at every milestone of your project.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onStartInquiry}
+            className="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer shadow-md flex items-center gap-2"
+          >
+            <Compass className="w-4 h-4" />
+            <span>Begin Stage 1 Inquiry</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {fourStages.map((st, idx) => (
+            <div
+              key={st.code}
+              className="p-6 rounded-2xl bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-4 shadow-xs"
+            >
+              <div className="flex items-center justify-between">
+                <span className="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-xs font-bold uppercase">
+                  {st.stage}
+                </span>
+                <span className="text-[11px] font-mono text-neutral-400">0{idx + 1} / 04</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold font-mono text-neutral-900 dark:text-white uppercase">
+                  {st.title}
+                </h3>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1.5 leading-relaxed">
+                  {st.desc}
+                </p>
+              </div>
+              <div className="pt-3 border-t border-neutral-100 dark:border-white/5 space-y-1.5">
+                <div className="text-[10px] font-mono uppercase font-bold text-neutral-400">
+                  Unlocked Portal Modules:
+                </div>
+                {st.deliverables.map((del, dIdx) => (
+                  <div key={dIdx} className="flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>{del}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // VIEW: STAGE 1 EXECUTIVE DASHBOARD (When portalTab === "overview")
   // ---------------------------------------------------------------------------
   return (
@@ -391,7 +677,7 @@ export default function PortalPhase1PreInquiry({
                 <div className="text-xs font-mono font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-2">
                   <span>Previous Consultation Concluded</span>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-700 dark:text-rose-300 font-mono">
-                    Phase 1 (Pre-Inquiry) Active
+                    Stage 1 (Pre-Inquiry) Active
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 font-sans leading-relaxed">
@@ -423,7 +709,7 @@ export default function PortalPhase1PreInquiry({
 
       {/* =========================================================================
           STATE 1B: CLIENT HAS AN ACTIVE INQUIRY PENDING INITIAL CONSULTATION
-          (Client stays in Phase 1 until elevated to Phase 2 by Admin)
+          (Client stays in Stage 1 until elevated to Stage 2 by Admin)
           ========================================================================= */}
       {activeInquiry ? (
         <div className="rounded-2xl bg-white dark:bg-[#11131a] border border-amber-500/30 overflow-hidden shadow-lg space-y-6 p-6 sm:p-8">
@@ -432,7 +718,7 @@ export default function PortalPhase1PreInquiry({
             <div>
               <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
                 <FolderKanban className="w-4 h-4" />
-                <span>Phase 1 Active · Inquiry Under Initial Review</span>
+                <span>Stage 1 Active · Inquiry Under Initial Review</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold uppercase text-neutral-900 dark:text-white">
                 {activeInquiry.project_type || activeInquiry.projectType || "Custom Residential Build"}
@@ -473,7 +759,7 @@ export default function PortalPhase1PreInquiry({
             </div>
             <div className="p-3.5 rounded-xl bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-neutral-500">
               <div className="text-[10px] uppercase font-bold">Step 4</div>
-              <div className="font-bold mt-0.5">Phase 2 Architectural Unlock</div>
+              <div className="font-bold mt-0.5">Stage 2 Architectural Unlock</div>
             </div>
           </div>
 
@@ -582,7 +868,7 @@ export default function PortalPhase1PreInquiry({
             <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 font-sans">
               <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0" />
               <span>
-                <strong>1-Active-Inquiry Policy:</strong> You have an active inquiry. Once initial consultation is concluded and preliminary scope is mutually agreed, our engineering team will advance your project to <strong>Phase 2: Architectural Blueprints &amp; Accurate BOQ</strong>.
+                <strong>1-Active-Inquiry Policy:</strong> You have an active inquiry. Once initial consultation is concluded and preliminary scope is mutually agreed, our engineering team will advance your project to <strong>Stage 2: Consultation &amp; Planning (Blueprints &amp; BOQ)</strong>.
               </span>
             </div>
           </div>

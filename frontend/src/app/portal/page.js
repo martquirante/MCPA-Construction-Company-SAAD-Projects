@@ -488,8 +488,16 @@ function ClientPortalContent() {
       }
     };
 
+    const handleRemoteStageSync = () => {
+      fetchClientData(email);
+    };
+
     window.addEventListener("focus", handleSyncOnFocus);
     document.addEventListener("visibilitychange", handleSyncOnFocus);
+    window.addEventListener("mcpa-project-stage-updated", handleRemoteStageSync);
+    window.addEventListener("mcpa-briefs-updated", handleRemoteStageSync);
+    window.addEventListener("mcpa-meeting-updated", handleRemoteStageSync);
+    window.addEventListener("storage", handleRemoteStageSync);
 
     // Heartbeat auto-poll every 15 seconds to stream live stage promotions
     const heartbeatTimer = setInterval(() => {
@@ -499,6 +507,10 @@ function ClientPortalContent() {
     return () => {
       window.removeEventListener("focus", handleSyncOnFocus);
       document.removeEventListener("visibilitychange", handleSyncOnFocus);
+      window.removeEventListener("mcpa-project-stage-updated", handleRemoteStageSync);
+      window.removeEventListener("mcpa-briefs-updated", handleRemoteStageSync);
+      window.removeEventListener("mcpa-meeting-updated", handleRemoteStageSync);
+      window.removeEventListener("storage", handleRemoteStageSync);
       clearInterval(heartbeatTimer);
     };
   }, [currentUser?.email]);
@@ -546,22 +558,9 @@ function ClientPortalContent() {
 
   const handleNewInquirySuccess = async (newBrief) => {
     setInquiries((prev) => [newBrief, ...prev]);
-    showToast(`Inquiry ${newBrief.submission_id} submitted! Advancing to Consultation Phase.`);
-
-    try {
-      await authFetch("/api/projects/inquire", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectTitle: `${newBrief.project_type || "Residential"} Residence (${newBrief.client_name || currentUser?.fullName || "Client"})`,
-          projectType: newBrief.project_type || "Residential",
-          targetLocation: newBrief.location || newBrief.city_province || "Philippines",
-          briefId: newBrief.brief_id,
-        }),
-      });
-    } catch (err) {
-      console.warn("Failed to bridge inquiry to client_projects:", err);
-    }
+    showToast(
+      `Inquiry ${newBrief.submission_id || newBrief.submissionId || ""} submitted! Now in Stage 1 (Under Initial Review).`
+    );
 
     if (currentUser?.email) fetchClientData(currentUser.email);
   };

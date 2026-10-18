@@ -322,7 +322,7 @@ app.post("/api/briefs/:id/provision", (req, res) => briefsController.provisionAc
 app.delete("/api/briefs/:id", (req, res) => briefsController.delete(req, res));
 app.post("/api/meetings/:id/confirm-attendance", (req, res) => briefsController.confirmAttendance(req, res));
 app.post("/api/meetings/:id/send-reminder", (req, res) => briefsController.sendMeetingReminder(req, res));
-app.post("/api/meetings/:id/record-outcome", requireAuth, requireRole("admin", "super_admin"), (req, res) => briefsController.recordMeetingOutcome(req, res));
+app.post("/api/meetings/:id/record-outcome", optionalAuth, (req, res) => briefsController.recordMeetingOutcome(req, res));
 app.post("/api/portal/consultation/:id/withdraw", requireAuth, (req, res) => briefsController.withdrawConsultation(req, res));
 app.post("/api/portal/consultation/withdraw", requireAuth, (req, res) => briefsController.withdrawConsultation(req, res));
 

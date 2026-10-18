@@ -74,6 +74,12 @@ export default function PortalStage2PlanningAndConsultation({
   billingLedger = [],
   mode = "overview",
 }) {
+  // Primary active inquiry for this project (declared first to avoid TDZ ReferenceError)
+  const activeInquiry = useMemo(() => {
+    if (inquiries.length > 0) return inquiries[0];
+    return null;
+  }, [inquiries]);
+
   const projectId = activeProject?.client_project_id || activeProject?.id || activeInquiry?.client_project_id || activeInquiry?.id;
   const projectCode = activeProject?.site_project_code || activeProject?.project_code || activeInquiry?.projectCode || activeInquiry?.submissionId || activeInquiry?.submission_id || "MCPA-PRJ-2026";
 
@@ -96,16 +102,11 @@ export default function PortalStage2PlanningAndConsultation({
     else if (mode === "contract") setActiveSubTab("contract");
   }, [mode]);
 
-  // Primary active inquiry for this project
-  const activeInquiry = useMemo(() => {
-    if (inquiries.length > 0) return inquiries[0];
-    return null;
-  }, [inquiries]);
-
   // -------------------------------------------------------------
   // 1. WebRTC & Meeting State
   // -------------------------------------------------------------
   const [meetingRoom, setMeetingRoom] = useState(null);
+  const [messages, setMessages] = useState([]);
 
   // -------------------------------------------------------------
   // 1.1 Quotation & BOQ State
@@ -718,20 +719,46 @@ export default function PortalStage2PlanningAndConsultation({
     if (!hasDrawnSig) return;
     setIsSigning(true);
     try {
-      setTimeout(() => {
-        setIsSigning(false);
+      const canvas = sigCanvasRef.current;
+      const signatureImageUrl = canvas ? canvas.toDataURL("image/png") : "data:image/png;base64,SIGNED";
+      const targetContractId = contract?.contract_id && !isNaN(Number(contract.contract_id))
+        ? contract.contract_id
+        : (projectId || 0);
+
+      const res = await authFetch(`/api/contracts/${targetContractId}/sign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          signerRole: "CLIENT",
+          signerName: currentUser?.fullName || currentUser?.full_name || "Client",
+          signerEmail: currentUser?.email || activeInquiry?.clientEmail || activeInquiry?.client_email || "client@mcpa.com",
+          signatureImageUrl,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
         setIsSignModalOpen(false);
-        setContract({
-          contract_id: "CTR-2026-EXEC",
-          status: "FULLY_EXECUTED",
-          signed_date: new Date().toISOString(),
-          signer_name: currentUser?.fullName || "Client",
-        });
+        if (data.contract) {
+          setContract(data.contract);
+        } else {
+          setContract((prev) => ({
+            ...(prev || {}),
+            contract_id: data.signature?.contract_id || prev?.contract_id || "CTR-2026-EXEC",
+            status: "FULLY_EXECUTED",
+            signed_date: data.signature?.signed_at || new Date().toISOString(),
+            signer_name: currentUser?.fullName || currentUser?.full_name || "Client",
+          }));
+        }
         showToast?.("Construction Master Agreement executed with SHA-256 digital stamp!");
-      }, 1000);
+      } else {
+        throw new Error(data.message || "Failed to persist digital signature.");
+      }
     } catch (err) {
-      setIsSigning(false);
       showToast?.("Signing error: " + err.message);
+    } finally {
+      setIsSigning(false);
     }
   };
 
@@ -793,6 +820,42 @@ export default function PortalStage2PlanningAndConsultation({
   const formatPHP = (val) =>
     "₱" + Number(val || 0).toLocaleString("en-PH", { maximumFractionDigits: 0 });
 
+  // Dynamic Stage 2 Stepper Statuses
+  const step1ConsultationStatus = useMemo(() => {
+    const hasConcludedMeeting =
+      meetingHistory.length > 0 ||
+      (activeMeetingInfo?.status || "").toLowerCase().includes("conclud") ||
+      allBlueprints.length > 0 ||
+      quotationData?.status === "APPROVED";
+    if (hasConcludedMeeting) return "Completed";
+    if (activeMeetingInfo) return "In Progress";
+    return "Pending";
+  }, [meetingHistory, activeMeetingInfo, allBlueprints, quotationData]);
+
+  const step2BlueprintsStatus = useMemo(() => {
+    if (quotationData?.status === "APPROVED" && allBlueprints.length > 0) return "Completed";
+    if (allBlueprints.length > 0 || quotationData) return "In Progress";
+    return "Upcoming";
+  }, [allBlueprints, quotationData]);
+
+  const step3PermitsStatus = useMemo(() => {
+    const allPermitsDone =
+      permits.length > 0 &&
+      permits.every((p) => p.status === "APPROVED" || p.status === "RELEASED");
+    const allReqsVerified =
+      clientRequests.length > 0 &&
+      clientRequests.every((r) => r.status === "verified");
+    if (allPermitsDone || (allReqsVerified && contract?.status === "FULLY_EXECUTED")) return "Completed";
+    if (
+      permits.length > 0 ||
+      documents.length > 0 ||
+      clientRequests.some((r) => r.status === "uploaded" || r.status === "verified")
+    ) {
+      return "In Progress";
+    }
+    return "Upcoming";
+  }, [permits, documents, clientRequests, contract]);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* ------------------------------------------------------------- */}
@@ -841,10 +904,22 @@ export default function PortalStage2PlanningAndConsultation({
                 <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
                   Video Consultation &amp; Scoping
                 </p>
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-500 shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Completed</span>
-                </span>
+                {step1ConsultationStatus === "Completed" ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-500 shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Completed</span>
+                  </span>
+                ) : step1ConsultationStatus === "In Progress" ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-sky-500 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                    <span>In Progress</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-500 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <span>Pending</span>
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-1">
                 Initial brief review, preliminary estimate, and lot orientation.
@@ -859,10 +934,22 @@ export default function PortalStage2PlanningAndConsultation({
                 <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
                   Blueprints &amp; Pin Feedback
                 </p>
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-sky-500 shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
-                  <span>In Progress</span>
-                </span>
+                {step2BlueprintsStatus === "Completed" ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-500 shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Completed</span>
+                  </span>
+                ) : step2BlueprintsStatus === "In Progress" ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-sky-500 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                    <span>In Progress</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-neutral-400 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+                    <span>Upcoming</span>
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-1">
                 2D/3D floor plans, pin-drop revisions, and locked itemized BOQ.
@@ -870,17 +957,29 @@ export default function PortalStage2PlanningAndConsultation({
             </div>
 
             <div
-              onClick={() => onSelectTab ? onSelectTab("documents") : setActiveSubTab("documents")}
+              onClick={() => onSelectTab ? onSelectTab("documents") : setActiveSubTab("permits")}
               className="p-3.5 rounded-[12px] border text-left cursor-pointer transition-all bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/10"
             >
               <div className="flex items-start justify-between gap-2 mb-1">
                 <p className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
                   Documents &amp; Permits Vault
                 </p>
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-neutral-400 shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
-                  <span>Upcoming</span>
-                </span>
+                {step3PermitsStatus === "Completed" ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-500 shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Completed</span>
+                  </span>
+                ) : step3PermitsStatus === "In Progress" ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-sky-500 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                    <span>In Progress</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-neutral-400 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+                    <span>Upcoming</span>
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-1">
                 LGU clearances, municipal permits, and official transmittals.
@@ -1978,10 +2077,7 @@ export default function PortalStage2PlanningAndConsultation({
       {/* ------------------------------------------------------------- */}
       {/* SUB-TAB 5: MUNICIPAL PERMITS & DOCUMENT TRANSMITTALS          */}
       {/* ------------------------------------------------------------- */}
-      {/* ------------------------------------------------------------- */}
-      {/* SUB-TAB 5: MUNICIPAL PERMITS & DOCUMENT TRANSMITTALS          */}
-      {/* ------------------------------------------------------------- */}
-      {activeSubTab === "permits" && (
+      {(activeSubTab === "permits" || activeSubTab === "documents") && (
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* Header Card */}
           <div className="p-5 sm:p-6 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">

@@ -52,6 +52,7 @@ import { resolveClientAvatar } from "@/modules/admin/components/InquiryPipelineT
 import { GoogleIcon } from "@/modules/shared/Icons";
 import VenueCombobox from "@/modules/book/components/VenueCombobox";
 import MeetingFilterCombobox from "@/modules/admin/components/MeetingFilterCombobox";
+import { authFetch } from "@/modules/shared/authFetch";
 import {
   getConsultationHistory,
   fetchConsultationHistoryFromCloud,
@@ -128,6 +129,7 @@ export default function AdminMeetingsTab({
   clientBriefs = [],
   currentUser,
   showToast = () => {},
+  onRefresh = () => {},
 }) {
   const stableAdminUser = useMemo(
     () => currentUser || { name: "Engr. Raymart Quirante", role: "SUPER ADMIN" },
@@ -391,8 +393,33 @@ export default function AdminMeetingsTab({
     if (Array.isArray(clientBriefs) && clientBriefs.length > 0) {
       clientBriefs.forEach((b, idx) => {
         const clientEmail = (b.clientEmail || b.client_email || "").toLowerCase();
+        const bStatus = b.status || "Scheduled";
+        const isDiscontinued =
+          Boolean(b.is_rejected) ||
+          Boolean(b.isRejected) ||
+          bStatus.toLowerCase().includes("reject") ||
+          bStatus.toLowerCase().includes("decline") ||
+          bStatus.toLowerCase().includes("discontinue") ||
+          bStatus.toLowerCase().includes("withdrawn") ||
+          (b.availability_status || "").toLowerCase().includes("discontinue");
+        const isCompleted =
+          bStatus.toLowerCase().includes("aligned") ||
+          bStatus.toLowerCase().includes("complete") ||
+          bStatus.toLowerCase().includes("advance");
+
+        let statusText = "Scheduled";
+        if (isDiscontinued) {
+          statusText = "Discontinued / Closed";
+        } else if (isCompleted) {
+          statusText = "Completed / Aligned";
+        } else if (bStatus) {
+          statusText = bStatus;
+        }
+
         if (clientEmail === "martquirante@gmail.com" || clientEmail === "martquirante04@gmail.com") {
           if (b.meetingDate || b.meeting_date) {
+            baseList[0].briefId = b.id || b.brief_id || null;
+            baseList[0].submissionId = b.submissionId || b.submission_id || "MCPA-2026-MQ04B";
             baseList[0].date = b.meetingDate || b.meeting_date;
             baseList[0].displayDate = b.meetingDate || b.meeting_date;
             if (b.meetingTime || b.meeting_time) baseList[0].time = b.meetingTime || b.meeting_time;
@@ -401,6 +428,7 @@ export default function AdminMeetingsTab({
             baseList[0].roomCode = extractRoomCode(b);
             const cleanCode = b.trackingId || b.submissionId || b.submission_id || b.projectCode || (b.id && isNaN(Number(b.id)) ? b.id : "MCPA-2026-MQ04B");
             baseList[0].projectCode = cleanCode;
+            baseList[0].status = isDiscontinued ? "Discontinued / Closed" : (isCompleted ? "Completed / Aligned" : "Room Ready");
           }
           return;
         }
@@ -408,6 +436,8 @@ export default function AdminMeetingsTab({
           const briefCode = b.trackingId || b.submissionId || b.submission_id || b.projectCode || (b.id && isNaN(Number(b.id)) ? b.id : `INQ-2026-0${idx + 1}`);
           baseList.push({
             id: `brief-meet-${b.id || idx}`,
+            briefId: b.id || b.brief_id || null,
+            submissionId: b.submissionId || b.submission_id || briefCode,
             clientName: b.clientName || b.client_name || "Prospective Client",
             clientEmail: b.clientEmail || b.client_email || "client@example.com",
             clientPhone: b.clientPhone || b.client_phone || "+63 917 000 0000",
@@ -418,7 +448,7 @@ export default function AdminMeetingsTab({
             date: b.meetingDate || b.meeting_date,
             displayDate: b.meetingDate || b.meeting_date,
             time: b.meetingTime || b.meeting_time || "09:00 AM - 10:30 AM PHT",
-            status: "Scheduled",
+            status: statusText,
             leadConsultant: "Engr. Raymart Quirante",
             venue: (b.meetingMode || "").includes("In-Person")
               ? "MCPA Plaridel Central Office"
@@ -517,7 +547,9 @@ export default function AdminMeetingsTab({
       s.includes("archived") ||
       s.includes("discontinued") ||
       s.includes("concluded") ||
-      s.includes("withdrawn")
+      s.includes("withdrawn") ||
+      s.includes("reject") ||
+      s.includes("decline")
     ) {
       return true;
     }
@@ -861,26 +893,37 @@ export default function AdminMeetingsTab({
           }));
         } catch (e) {}
 
-        // Backend sync
-        await fetch(`/api/client/inquiries/${encodeURIComponent(targetId)}/status`, {
-          method: "PATCH",
+        // Backend sync using authFetch
+        await authFetch(`/api/briefs/${encodeURIComponent(targetId)}/reject`, {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             status: "Rejected / Declined",
             rejectionReason: discontinueReason,
             rejectionNotes: outcomeMinutes,
+            isRejected: true,
           }),
         }).catch(() => {});
       }
 
-      window.dispatchEvent(new CustomEvent("mcpa-meeting-updated", { detail: payload }));
-
-      // Call backend API for meeting outcome
-      await fetch(`/api/meetings/${encodeURIComponent(targetId)}/record-outcome`, {
+      // Call backend API for meeting outcome with authenticated headers
+      await authFetch(`/api/meetings/${encodeURIComponent(targetId)}/record-outcome`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }).catch(() => {});
+      }).catch((e) => console.warn("Meeting outcome API error:", e));
+
+      // Broadcast comprehensive real-time sync across Admin Dashboard, Inquiries, and Client Portal
+      window.dispatchEvent(new CustomEvent("mcpa-meeting-updated", { detail: payload }));
+      window.dispatchEvent(new CustomEvent("mcpa-project-stage-updated", { detail: payload }));
+      window.dispatchEvent(new CustomEvent("mcpa-briefs-updated", { detail: payload }));
+      try {
+        localStorage.setItem("mcpa_last_stage_sync", Date.now().toString());
+      } catch (e) {}
+
+      if (typeof onRefresh === "function") {
+        onRefresh();
+      }
 
       // Update local meetings list
       setMeetingsList((prev) =>

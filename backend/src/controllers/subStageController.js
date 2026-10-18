@@ -542,7 +542,7 @@ class SubStageController {
     try {
       const userId = req.user?.userId || req.user?.user_id;
       const contractId = parseInt(req.params.id, 10);
-      const { signerRole = "CLIENT", signerName, signerEmail, signatureImageUrl } = req.body || {};
+      const { projectId = null, signerRole = "CLIENT", signerName, signerEmail, signatureImageUrl } = req.body || {};
 
       if (!signatureImageUrl || !signerName || !signerEmail) {
         return res.status(400).json({ success: false, message: "Signature image, name, and email are required." });
@@ -553,6 +553,7 @@ class SubStageController {
 
       const signature = await stageEngineService.signProjectContract({
         contractId,
+        projectId,
         userId,
         signerRole,
         signerName,
@@ -562,10 +563,15 @@ class SubStageController {
         userAgent,
       });
 
+      const updatedContract = projectId
+        ? await stageEngineService.getProjectContract(parseInt(projectId, 10))
+        : null;
+
       return res.status(201).json({
         success: true,
         message: "Digital contract successfully signed with cryptographic hash verification.",
         signature,
+        contract: updatedContract,
       });
     } catch (err) {
       console.error("[SubStageController.signContract] Error:", err);

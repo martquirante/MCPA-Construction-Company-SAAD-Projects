@@ -381,10 +381,26 @@ export default function InquiryPipelineTab({
     } catch (e) {}
   };
 
+  const resolveBriefCurrentStage = (brief) => {
+    const explicitStage = brief?.current_project_stage || brief?.currentProjectStage || brief?.current_stage_status;
+    if (explicitStage) {
+      return explicitStage === "PRE_CONSTRUCTION" ? "CONSULTATION" : explicitStage;
+    }
+    const statusLower = (brief?.status || "Pending Review").toLowerCase();
+    const isApprovedStatus =
+      statusLower.includes("approve") ||
+      statusLower.includes("accept") ||
+      statusLower.includes("scheduled") ||
+      statusLower.includes("quotation") ||
+      statusLower.includes("contract");
+    return isApprovedStatus ? "CONSULTATION" : "PRE_INQUIRY";
+  };
+
   const openReviewModal = (brief) => {
     markBriefAsRead(brief);
     setSelectedBrief(brief);
-    setTargetLifecycleStage(brief.current_project_stage || brief.currentProjectStage || "CONSULTATION");
+    const currentResolved = resolveBriefCurrentStage(brief);
+    setTargetLifecycleStage(currentResolved === "PRE_INQUIRY" ? "CONSULTATION" : currentResolved);
     setStageAdvanceReason("");
     setStageAdvanceError("");
     setStageAdvanceSuccess("");
@@ -754,6 +770,14 @@ export default function InquiryPipelineTab({
 
       showToast(`Inquiry ${selectedBrief.submissionId || selectedBrief.id} officially rejected and automated email sent to ${selectedBrief.clientEmail || "client"}.`);
       setIsRejectModalOpen(false);
+
+      // Broadcast sync across tabs and Client Portal
+      window.dispatchEvent(new CustomEvent("mcpa-project-stage-updated"));
+      window.dispatchEvent(new CustomEvent("mcpa-briefs-updated"));
+      window.dispatchEvent(new CustomEvent("mcpa-meeting-updated"));
+      try {
+        localStorage.setItem("mcpa_last_stage_sync", Date.now().toString());
+      } catch (e) {}
       // Retain review modal open so admin sees real-time status change to REJECTED with Archive Dossier button
     } catch (err) {
       setRejectError(err.message || "Failed to reject inquiry.");
@@ -781,6 +805,9 @@ export default function InquiryPipelineTab({
 
       setSelectedBrief((prev) => (prev ? { ...prev, status: "Archived", isArchived: true } : null));
       showToast(`Dossier ${selectedBrief.submissionId || selectedBrief.id} archived successfully.`);
+      window.dispatchEvent(new CustomEvent("mcpa-project-stage-updated"));
+      window.dispatchEvent(new CustomEvent("mcpa-briefs-updated"));
+      window.dispatchEvent(new CustomEvent("mcpa-meeting-updated"));
     } catch (err) {
       showToast("Failed to archive dossier: " + err.message);
     } finally {
@@ -1949,31 +1976,36 @@ export default function InquiryPipelineTab({
                       </div>
                     )}
 
-                    {/* SECTION 8: 5-STAGE PROGRESSIVE DISCLOSURE CONTROL */}
+                    {/* SECTION 8: 4-STAGE PROGRESSIVE DISCLOSURE CONTROL */}
                     {!isBriefRejected && (
                       <div className="rounded-xl bg-white dark:bg-[#12151e] border border-neutral-200/80 dark:border-white/10 overflow-hidden shadow-xs">
                         <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02] flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <Layers className="w-4 h-4 text-amber-500 shrink-0" />
                             <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
-                              Stage Progression Controls (Progressive Disclosure)
+                              4-Stage Progression Controls (Progressive Disclosure)
                             </span>
                           </div>
                           <span className="text-xs font-mono">
                             Current Stage:{" "}
                             <span className="font-bold text-amber-600 dark:text-amber-400">
-                              {selectedBrief.current_project_stage || selectedBrief.currentProjectStage || "CONSULTATION"}
+                              {resolveBriefCurrentStage(selectedBrief)}
                             </span>
                           </span>
                         </div>
 
                         <div className="p-5 space-y-4">
                           <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                            Select the target milestone stage to elevate this client's project. Advancing unlocks the corresponding tab modules in their Client Portal:
+                            Select the target milestone stage (Stage 1 to Stage 4) for this client&apos;s project. Advancing unlocks the corresponding tab modules in their Client Portal:
                           </p>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                             {[
+                              {
+                                id: "PRE_INQUIRY",
+                                name: "Stage 1: Pre-Inquiry",
+                                desc: "Initial brief evaluation, feasibility review, and consultation scheduling.",
+                              },
                               {
                                 id: "CONSULTATION",
                                 name: "Stage 2: Consultation & Planning",
@@ -1987,10 +2019,10 @@ export default function InquiryPipelineTab({
                               {
                                 id: "COMPLETED",
                                 name: "Stage 4: Completed & Wrapped",
-                                desc: "100% turnkey completion: Spotify-style Construction Wrapped, before/after slider, digital 15-year warranty vault, and VIP repeat builder flow.",
+                                desc: "100% turnkey completion: Construction Wrapped, before/after slider, and digital 15-year warranty vault.",
                               },
                             ].map((stage) => {
-                              const currentRaw = selectedBrief.current_project_stage || selectedBrief.currentProjectStage || "CONSULTATION";
+                              const currentRaw = resolveBriefCurrentStage(selectedBrief);
                               const isCurrent =
                                 currentRaw === stage.id ||
                                 (stage.id === "CONSULTATION" && currentRaw === "PRE_CONSTRUCTION");
@@ -2010,12 +2042,12 @@ export default function InquiryPipelineTab({
                                       : "border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 bg-neutral-50/50 dark:bg-white/[0.02]"
                                   }`}
                                 >
-                                  <div className="flex items-center justify-between mb-1.5">
+                                  <div className="flex items-center justify-between mb-1.5 gap-1">
                                     <span className="text-xs font-bold font-mono text-neutral-900 dark:text-white">
                                       {stage.name}
                                     </span>
                                     {isCurrent && (
-                                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-bold uppercase">
+                                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-bold uppercase shrink-0">
                                         Active
                                       </span>
                                     )}
@@ -2064,12 +2096,24 @@ export default function InquiryPipelineTab({
                               onClick={() => handleAdvanceStage(targetLifecycleStage)}
                               disabled={
                                 isAdvancingStage ||
-                                (selectedBrief.current_project_stage || selectedBrief.currentProjectStage || "CONSULTATION") === targetLifecycleStage
+                                resolveBriefCurrentStage(selectedBrief) === targetLifecycleStage
                               }
                               className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
                             >
                               <Layers className="w-3.5 h-3.5" />
-                              <span>{isAdvancingStage ? "Advancing Stage..." : `Advance Project to ${targetLifecycleStage === "CONSULTATION" ? "Stage 2 (Consultation & Planning)" : targetLifecycleStage === "ACTIVE_BUILD" ? "Stage 3 (Active Build)" : "Stage 4 (Completed & Wrapped)"}`}</span>
+                              <span>
+                                {isAdvancingStage
+                                  ? "Updating Stage..."
+                                  : `Set Project to ${
+                                      targetLifecycleStage === "PRE_INQUIRY"
+                                        ? "Stage 1 (Pre-Inquiry)"
+                                        : targetLifecycleStage === "CONSULTATION"
+                                        ? "Stage 2 (Consultation & Planning)"
+                                        : targetLifecycleStage === "ACTIVE_BUILD"
+                                        ? "Stage 3 (Active Build)"
+                                        : "Stage 4 (Completed & Wrapped)"
+                                    }`}
+                              </span>
                             </button>
                           </div>
                         </div>

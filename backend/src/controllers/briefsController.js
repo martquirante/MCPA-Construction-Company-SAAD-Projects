@@ -146,6 +146,10 @@ class BriefsController {
         return res.status(400).json({ message: "Client name and email are required." });
       }
 
+      const id =
+        submissionId ||
+        req.body.id ||
+        `MCPA-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
       const normalizedEmail = clientEmail.trim().toLowerCase();
 
       // 1. Single Active Inquiry Policy: Max 1 active inquiry per client unless is_multi_project_approved
@@ -349,7 +353,7 @@ class BriefsController {
         console.warn("[BriefsController] Realtime broadcast warning:", rtErr.message);
       }
 
-      // Auto-bridge to client_projects table at 'CONSULTATION' stage if user account exists
+      // Auto-bridge to client_projects table at 'PRE_INQUIRY' stage (Stage 1B pending Admin review) if user account exists
       try {
         let targetUserId = userId ? parseInt(userId, 10) : null;
         if (!targetUserId) {
@@ -376,6 +380,7 @@ class BriefsController {
               projectType: projectType || "Residential Design & Build",
               targetLocation: location || null,
               briefId: savedBrief.brief_id,
+              initialStage: "PRE_INQUIRY",
             });
           }
         }
@@ -522,11 +527,85 @@ class BriefsController {
         }
       }
 
+      // If brief is being declined or rejected, revert client_projects to PRE_INQUIRY (Phase 1)
+      if (isRejectAction && updatedBrief) {
+        try {
+          const clientEmail = (updatedBrief.client_email || "").trim().toLowerCase();
+          const adminUserId = req.user?.userId || req.user?.user_id || 1;
+
+          await db.query(
+            `UPDATE public.client_projects 
+             SET stage_id = 'PRE_INQUIRY', 
+                 is_archived = TRUE, 
+                 updated_at = NOW() 
+             WHERE brief_id = $1 
+                OR (user_id = $2 AND $2 > 0)
+                OR ($3 != '' AND user_id IN (SELECT user_id FROM public.users WHERE LOWER(email) = $3));`,
+            [updatedBrief.brief_id, updatedBrief.user_id || -1, clientEmail]
+          );
+
+          await db.query(
+            `UPDATE public.site_projects 
+             SET is_active_build = FALSE, status = 'DISCONTINUED' 
+             WHERE ($1 != '' AND client_email ILIKE $1) 
+                OR project_code IN (
+                  SELECT project_code FROM public.client_projects 
+                  WHERE brief_id = $2 OR (user_id = $3 AND $3 > 0)
+                );`,
+            [clientEmail, updatedBrief.brief_id, updatedBrief.user_id || -1]
+          ).catch(() => {});
+        } catch (revertErr) {
+          console.warn("[updateStatus] Revert client_projects notice:", revertErr.message);
+        }
+      }
+
+      // Auto-advance project from Stage 1 (PRE_INQUIRY) to Stage 2 (CONSULTATION) when approved by Admin
+      if (isApproveAction && !Boolean(req.body.updatedByClient) && updatedBrief) {
+        try {
+          const stageEngineService = require("../services/stageEngineService");
+          const projCheck = await db.query(
+            "SELECT client_project_id, stage_id FROM public.client_projects WHERE brief_id = $1 LIMIT 1;",
+            [updatedBrief.brief_id]
+          );
+          const currentStage = projCheck.rows?.[0]?.stage_id;
+          if (!currentStage || currentStage === "PRE_INQUIRY") {
+            const advancedProj = await stageEngineService.advanceProjectStage({
+              briefId: updatedBrief.brief_id,
+              targetStage: "CONSULTATION",
+              adminUserId: req.user?.userId || req.user?.user_id || null,
+              reason: `Inquiry approved (${status}) — elevated to Stage 2 Consultation & Planning`,
+            });
+            if (advancedProj) {
+              updatedBrief.current_project_stage = "CONSULTATION";
+              updatedBrief.current_stage_status = "CONSULTATION";
+              updatedBrief.client_project_id = advancedProj.client_project_id;
+            }
+          }
+        } catch (stageErr) {
+          console.warn("[BriefsController.updateStatus] Stage 2 auto-advance notice:", stageErr.message);
+        }
+      }
+
       // Broadcast update in real-time
       try {
         const realtimeService = require("../services/realtimeService");
         if (realtimeService?.broadcastBriefUpdated) {
           realtimeService.broadcastBriefUpdated(updatedBrief);
+        }
+        if (isRejectAction && realtimeService?.broadcastStageChange) {
+          realtimeService.broadcastStageChange({
+            briefId: updatedBrief.brief_id,
+            clientEmail: updatedBrief.client_email,
+            targetStage: "PRE_INQUIRY",
+            stage_id: "PRE_INQUIRY",
+          });
+        } else if (isApproveAction && !Boolean(req.body.updatedByClient) && realtimeService?.broadcastStageChange) {
+          realtimeService.broadcastStageChange({
+            briefId: updatedBrief.brief_id,
+            clientEmail: updatedBrief.client_email,
+            targetStage: "CONSULTATION",
+            stage_id: "CONSULTATION",
+          });
         }
       } catch (rtErr) {}
 
@@ -801,22 +880,31 @@ class BriefsController {
     try {
       const { id } = req.params;
       const {
-        outcome, // "NEXT_MEETING" | "AGREED_ADVANCE" | "REVISION_DELIBERATION"
+        outcome, // "NEXT_MEETING" | "AGREED_ADVANCE" | "REVISION_DELIBERATION" | "DISCONTINUED_REJECTED"
         nextMeetingDate,
         nextMeetingTime,
         nextMeetingMode,
         nextMeetingAgenda,
         meetingMinutes,
         quotationAmount,
+        clientEmail: payloadClientEmail,
+        rejectionReason,
+        rejectionNotes,
       } = req.body || {};
 
       const cleanId = String(id || "").trim();
       const isNumeric = /^\d+$/.test(cleanId);
       const numericId = isNumeric ? parseInt(cleanId, 10) : -1;
+      const lookupEmail = (payloadClientEmail || cleanId || "").trim().toLowerCase();
 
+      // Find brief flexibly across numeric ID, submission code, or email
       const briefRes = await db.query(
-        "SELECT * FROM client_briefs WHERE brief_id = $1 OR submission_id = $2",
-        [numericId, cleanId]
+        `SELECT * FROM client_briefs 
+         WHERE brief_id = $1 
+            OR submission_id = $2 
+            OR ($3 != '' AND LOWER(client_email) = $3)
+         ORDER BY brief_id DESC LIMIT 1`,
+        [numericId, cleanId, lookupEmail]
       );
       const brief = briefRes.rows && briefRes.rows[0];
       if (!brief) {
@@ -825,11 +913,13 @@ class BriefsController {
 
       let newStatus = brief.status;
       let updatedBrief = brief;
+      const effectiveEmail = (brief.client_email || lookupEmail || "").trim().toLowerCase();
+      const adminUserId = req.user?.userId || req.user?.user_id || 1;
 
       if (outcome === "DISCONTINUED_REJECTED") {
         newStatus = "Rejected / Declined";
-        const reason = req.body.rejectionReason || req.body.reason || "Client and MCPA did not reach an agreement";
-        const notes = meetingMinutes || req.body.rejectionNotes || "Consultation concluded without proceeding.";
+        const reason = rejectionReason || req.body.reason || "Client and MCPA did not reach an agreement";
+        const notes = meetingMinutes || rejectionNotes || "Consultation concluded without proceeding.";
         const updateRes = await db.query(
           `UPDATE client_briefs 
            SET status = $1,
@@ -842,17 +932,86 @@ class BriefsController {
         );
         updatedBrief = updateRes.rows[0];
 
-        // Archive / reset active client_project for this brief if any exists
+        // 1. Reset client_projects to PRE_INQUIRY (Phase 1)
         try {
-          await db.query(
+          const projUpdateRes = await db.query(
             `UPDATE public.client_projects 
-             SET is_archived = TRUE, status = 'DISCONTINUED', updated_at = NOW() 
-             WHERE brief_id = $1 OR user_id = $2;`,
-            [brief.brief_id, brief.user_id || -1]
+             SET stage_id = 'PRE_INQUIRY', 
+                 is_archived = TRUE, 
+                 updated_at = NOW() 
+             WHERE brief_id = $1 
+                OR (user_id = $2 AND $2 > 0)
+                OR ($3 != '' AND user_id IN (SELECT user_id FROM public.users WHERE LOWER(email) = $3))
+             RETURNING client_project_id, project_code, stage_id;`,
+            [brief.brief_id, brief.user_id || -1, effectiveEmail]
           );
+
+          // 2. Audit transition to PRE_INQUIRY
+          if (projUpdateRes.rows && projUpdateRes.rows.length > 0) {
+            for (const p of projUpdateRes.rows) {
+              await db.query(
+                `INSERT INTO public.stage_transitions (
+                  client_project_id, from_stage, to_stage, transitioned_by, reason, metadata, created_at
+                ) VALUES ($1, 'CONSULTATION', 'PRE_INQUIRY', $2, $3, $4, NOW());`,
+                [
+                  p.client_project_id,
+                  adminUserId,
+                  `Consultation concluded with no agreement: ${reason}`,
+                  JSON.stringify({ notes, outcome }),
+                ]
+              ).catch(() => {});
+            }
+          }
+
+          // 3. Deactivate any site_projects entry so Stage 3 does not show it
+          await db.query(
+            `UPDATE public.site_projects 
+             SET is_active_build = FALSE, status = 'DISCONTINUED' 
+             WHERE ($1 != '' AND client_email ILIKE $1) 
+                OR project_code IN (
+                  SELECT project_code FROM public.client_projects 
+                  WHERE brief_id = $2 OR (user_id = $3 AND $3 > 0)
+                );`,
+            [effectiveEmail, brief.brief_id, brief.user_id || -1]
+          ).catch(() => {});
         } catch (projErr) {
-          console.warn("[recordMeetingOutcome] client_projects archive notice:", projErr.message);
+          console.warn("[recordMeetingOutcome] client_projects revert notice:", projErr.message);
         }
+
+        // 4. Log to meeting_history_logs for Concluded Consultations tab
+        try {
+          const sessionId = `sess-${Date.now()}`;
+          const displayDate = brief.meeting_date || new Date().toISOString().split("T")[0];
+          await db.query(
+            `INSERT INTO meeting_history_logs (
+              session_id, room_code, round_title, meeting_date, display_date, meeting_time,
+              duration, duration_seconds, mode, venue, lead_consultant, lead_role,
+              client_name, client_email, project_code, project_title, status, minutes, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
+            ON CONFLICT (session_id) DO NOTHING;`,
+            [
+              sessionId,
+              brief.meeting_room_code || "mcpa-meet-concluded",
+              "Consultation Review · Discontinued",
+              brief.meeting_date || displayDate,
+              displayDate,
+              brief.meeting_time || "10:00 AM - 11:30 AM PHT",
+              "Concluded",
+              0,
+              brief.meeting_mode || "Online Video Call",
+              brief.venue_details || "MCPA Secure Video Room",
+              "Engr. Raymart Quirante",
+              "Lead Architectural Engineer",
+              brief.client_name || "Client",
+              effectiveEmail,
+              brief.submission_id || "MCPA-CPB",
+              brief.project_type || "Architectural Project",
+              "Discontinued / Closed",
+              `[Discontinued Reason]: ${reason} — ${notes}`,
+            ]
+          ).catch((e) => console.warn("[recordMeetingOutcome] history log notice:", e.message));
+        } catch (histErr) {}
+
       } else if (outcome === "AGREED_ADVANCE") {
         newStatus = "Aligned — Advance to Pre-Construction";
         const updateRes = await db.query(
@@ -872,13 +1031,48 @@ class BriefsController {
           await stageEngineService.advanceProjectStage({
             briefId: brief.brief_id,
             targetStage: req.body?.targetStage || "PRE_CONSTRUCTION",
-            adminUserId: req.user?.userId || req.user?.user_id || 1,
+            adminUserId,
             reason: "Consultation alignment achieved. Both parties agreed on scope and preliminary budget.",
             metadata: { meetingMinutes, quotationAmount },
           });
         } catch (stageErr) {
           console.warn("[recordMeetingOutcome] advanceProjectStage warning:", stageErr.message);
         }
+
+        // Log to meeting_history_logs for Concluded Consultations tab
+        try {
+          const sessionId = `sess-${Date.now()}`;
+          const displayDate = brief.meeting_date || new Date().toISOString().split("T")[0];
+          await db.query(
+            `INSERT INTO meeting_history_logs (
+              session_id, room_code, round_title, meeting_date, display_date, meeting_time,
+              duration, duration_seconds, mode, venue, lead_consultant, lead_role,
+              client_name, client_email, project_code, project_title, status, minutes, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
+            ON CONFLICT (session_id) DO NOTHING;`,
+            [
+              sessionId,
+              brief.meeting_room_code || "mcpa-meet-concluded",
+              "Consultation Review · Agreement Reached",
+              brief.meeting_date || displayDate,
+              displayDate,
+              brief.meeting_time || "10:00 AM - 11:30 AM PHT",
+              "Concluded",
+              0,
+              brief.meeting_mode || "Online Video Call",
+              brief.venue_details || "MCPA Secure Video Room",
+              "Engr. Raymart Quirante",
+              "Lead Architectural Engineer",
+              brief.client_name || "Client",
+              effectiveEmail,
+              brief.submission_id || "MCPA-CPB",
+              brief.project_type || "Architectural Project",
+              "Completed / Aligned",
+              meetingMinutes || "Agreed on scope and preliminary budget.",
+            ]
+          ).catch((e) => console.warn("[recordMeetingOutcome] history log notice:", e.message));
+        } catch (histErr) {}
+
       } else if (outcome === "NEXT_MEETING") {
         newStatus = "Meeting Scheduled (Follow-Up Round)";
         const updateRes = await db.query(
@@ -917,6 +1111,14 @@ class BriefsController {
         const realtimeService = require("../services/realtimeService");
         if (realtimeService?.broadcastBriefUpdated) {
           realtimeService.broadcastBriefUpdated(updatedBrief);
+        }
+        if (realtimeService?.broadcastStageChange) {
+          realtimeService.broadcastStageChange({
+            briefId: brief.brief_id,
+            clientEmail: effectiveEmail,
+            targetStage: outcome === "DISCONTINUED_REJECTED" ? "PRE_INQUIRY" : (outcome === "AGREED_ADVANCE" ? "PRE_CONSTRUCTION" : "CONSULTATION"),
+            stage_id: outcome === "DISCONTINUED_REJECTED" ? "PRE_INQUIRY" : (outcome === "AGREED_ADVANCE" ? "PRE_CONSTRUCTION" : "CONSULTATION"),
+          });
         }
       } catch (e) {}
 

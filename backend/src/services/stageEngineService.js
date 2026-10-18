@@ -81,10 +81,22 @@ class StageEngineService {
    * @param {number} [params.briefId]
    * @param {Object} [params.metadata={}]
    */
-  async createInquiryProject({ userId, projectTitle, projectType = "Residential", targetLocation = null, briefId = null, metadata = {}, bypassAntiSpam = false }) {
+  async createInquiryProject({ userId, projectTitle, projectType = "Residential", targetLocation = null, briefId = null, initialStage = "PRE_INQUIRY", metadata = {}, bypassAntiSpam = false }) {
+    // 0. If briefId already has an existing project, return it to avoid duplicates
+    if (briefId) {
+      const existingByBrief = await db.query(
+        "SELECT * FROM public.client_projects WHERE brief_id = $1 AND is_archived = FALSE LIMIT 1;",
+        [briefId]
+      );
+      if (existingByBrief.rows && existingByBrief.rows.length > 0) {
+        return existingByBrief.rows[0];
+      }
+    }
+
     // 1. Run Anti-Spam Gatekeeper check (bypass if explicitly authorized, e.g. administrative advancement)
+    let eligibility = null;
     if (!bypassAntiSpam) {
-      const eligibility = await this.checkAntiSpamEligibility(userId);
+      eligibility = await this.checkAntiSpamEligibility(userId);
       if (!eligibility.allowed) {
         const err = new Error(
           "Policy Restriction: You have an existing active construction project. To initiate another project, your account must receive multi-project approval from MCPA Administration."
@@ -110,9 +122,10 @@ class StageEngineService {
       );
     }
 
-    const title = projectTitle || `${projectType} Residence (${eligibility.user.full_name || "Client"})`;
+    const title = projectTitle || `${projectType} Residence (${eligibility?.user?.full_name || "Client"})`;
+    const targetInitialStage = STAGE_ORDER[initialStage] ? initialStage : "PRE_INQUIRY";
 
-    // 3. Insert new row into client_projects at CONSULTATION stage
+    // 3. Insert new row into client_projects at targetInitialStage
     const insertRes = await db.query(
       `INSERT INTO public.client_projects (
         project_code,
@@ -124,9 +137,9 @@ class StageEngineService {
         brief_id,
         created_at,
         updated_at
-      ) VALUES ($1, $2, 'CONSULTATION', $3, $4, $5, $6, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
       RETURNING *;`,
-      [projectCode, userId, title, projectType, targetLocation, briefId]
+      [projectCode, userId, targetInitialStage, title, projectType, targetLocation, briefId]
     );
 
     const newProject = insertRes.rows[0];
@@ -141,11 +154,14 @@ class StageEngineService {
         reason,
         metadata,
         created_at
-      ) VALUES ($1, 'PRE_INQUIRY', 'CONSULTATION', $2, $3, $4, NOW());`,
+      ) VALUES ($1, 'PRE_INQUIRY', $2, $3, $4, $5, NOW());`,
       [
         newProject.client_project_id,
+        targetInitialStage,
         userId,
-        "Client inquiry initiated and elevated to Consultation stage",
+        targetInitialStage === "PRE_INQUIRY"
+          ? "Client inquiry submitted — awaiting initial engineering review (Stage 1B)"
+          : "Client inquiry initiated and elevated to Consultation stage",
         JSON.stringify({ ...metadata, clientIp: metadata.ip || null }),
       ]
     );
@@ -154,9 +170,9 @@ class StageEngineService {
     if (briefId) {
       await db.query(
         `UPDATE public.client_briefs 
-         SET client_project_id = $1, current_stage_status = 'CONSULTATION' 
-         WHERE brief_id = $2;`,
-        [newProject.client_project_id, briefId]
+         SET client_project_id = $1, current_stage_status = $2 
+         WHERE brief_id = $3;`,
+        [newProject.client_project_id, targetInitialStage, briefId]
       );
     }
 
@@ -335,6 +351,15 @@ class StageEngineService {
           };
         } else {
           try {
+            const briefStatusLower = (latestBrief.status || "Pending Review").toLowerCase();
+            const isBriefApproved =
+              briefStatusLower.includes("approve") ||
+              briefStatusLower.includes("accept") ||
+              briefStatusLower.includes("scheduled") ||
+              briefStatusLower.includes("quotation") ||
+              briefStatusLower.includes("contract");
+            const targetBridgeStage = isBriefApproved ? "CONSULTATION" : "PRE_INQUIRY";
+
             const projectTitle = `${latestBrief.project_type || "Residential"} Project (${user.full_name || latestBrief.client_name || "Client"})`;
             resolvedProject = await this.createInquiryProject({
               userId,
@@ -342,6 +367,7 @@ class StageEngineService {
               projectType: latestBrief.project_type || "Residential Design & Build",
               targetLocation: latestBrief.location || null,
               briefId: latestBrief.brief_id,
+              initialStage: targetBridgeStage,
             });
             resolvedProject.brief_submission_id = latestBrief.submission_id;
             resolvedProject.brief_status = latestBrief.status;
@@ -351,6 +377,29 @@ class StageEngineService {
           } catch (createErr) {
             console.warn("[stageEngineService] Auto-bridge client_project notice:", createErr.message);
           }
+        }
+      }
+    }
+
+    // 2.2 If resolvedProject is at PRE_INQUIRY but Admin already approved/scheduled the linked brief, elevate to CONSULTATION
+    if (resolvedProject && resolvedProject.stage_id === "PRE_INQUIRY") {
+      const briefStatusLower = (resolvedProject.brief_status || "").toLowerCase();
+      const isBriefApproved =
+        briefStatusLower.includes("approve") ||
+        briefStatusLower.includes("accept") ||
+        briefStatusLower.includes("scheduled") ||
+        briefStatusLower.includes("quotation") ||
+        briefStatusLower.includes("contract");
+      if (isBriefApproved) {
+        try {
+          await this.advanceProjectStage({
+            projectId: resolvedProject.client_project_id,
+            targetStage: "CONSULTATION",
+            reason: "Automated progression: Linked inquiry approved by administration",
+          });
+          resolvedProject.stage_id = "CONSULTATION";
+        } catch (elevErr) {
+          console.warn("[getDashboardState] Stage 2 auto-elevation notice:", elevErr.message);
         }
       }
     }
@@ -1423,10 +1472,44 @@ class StageEngineService {
    * CONTRACT & E-SIGNATURES
    */
   async getProjectContract(projectId) {
-    const contractRes = await db.query(
+    let contractRes = await db.query(
       `SELECT * FROM public.contracts WHERE client_project_id = $1 ORDER BY contract_id DESC LIMIT 1;`,
       [projectId]
     );
+
+    if (!contractRes.rows || contractRes.rows.length === 0) {
+      // Auto-provision default contract record for this project so e-signing persists cleanly
+      try {
+        const projRes = await db.query(
+          `SELECT cp.*, cq.total_amount 
+           FROM public.client_projects cp
+           LEFT JOIN public.client_quotations cq ON cq.client_project_id = cp.client_project_id
+           WHERE cp.client_project_id = $1
+           ORDER BY cq.quotation_id DESC
+           LIMIT 1;`,
+          [projectId]
+        );
+        if (projRes.rows && projRes.rows.length > 0) {
+          const proj = projRes.rows[0];
+          const contractNum = `CTR-${new Date().getFullYear()}-${proj.client_project_id}-${Math.floor(1000 + Math.random() * 9000)}`;
+          const totalAmount = Number(proj.total_amount) || 3500000;
+          contractRes = await db.query(
+            `INSERT INTO public.contracts (
+              client_project_id, contract_number, title, contract_type, total_contract_amount, downpayment_pct, retention_pct, contract_pdf_url, status, created_at, updated_at
+            ) VALUES ($1, $2, $3, 'MAIN_CONSTRUCTION', $4, 20.00, 10.00, '/assets/docs/mcpa-master-agreement.pdf', 'SENT_FOR_SIGNATURE', NOW(), NOW())
+            RETURNING *;`,
+            [
+              projectId,
+              contractNum,
+              `${proj.project_title || "Residential Construction"} — Master Turnkey Agreement`,
+              totalAmount,
+            ]
+          );
+        }
+      } catch (provErr) {
+        console.warn("[getProjectContract] Auto-provision contract notice:", provErr.message);
+      }
+    }
 
     if (!contractRes.rows || contractRes.rows.length === 0) {
       return null;
@@ -1444,8 +1527,32 @@ class StageEngineService {
     };
   }
 
-  async signProjectContract({ contractId, userId, signerRole, signerName, signerEmail, signatureImageUrl, ipAddress = null, userAgent = null }) {
-    const hashData = `${contractId}-${userId}-${signerEmail}-${new Date().toISOString()}`;
+  async signProjectContract({ contractId, projectId = null, userId, signerRole, signerName, signerEmail, signatureImageUrl, ipAddress = null, userAgent = null }) {
+    let resolvedContractId = parseInt(contractId, 10);
+
+    // If contractId is missing or invalid, resolve/provision via projectId
+    if ((isNaN(resolvedContractId) || resolvedContractId <= 0) && projectId) {
+      const projContract = await this.getProjectContract(parseInt(projectId, 10));
+      if (projContract?.contract_id) {
+        resolvedContractId = projContract.contract_id;
+      }
+    }
+
+    // Verify contract exists; if contractId was actually a projectId, resolve its contract
+    if (!isNaN(resolvedContractId) && resolvedContractId > 0) {
+      const checkRes = await db.query(
+        `SELECT contract_id FROM public.contracts WHERE contract_id = $1 LIMIT 1;`,
+        [resolvedContractId]
+      );
+      if (!checkRes.rows || checkRes.rows.length === 0) {
+        const byProj = await this.getProjectContract(resolvedContractId);
+        if (byProj?.contract_id) {
+          resolvedContractId = byProj.contract_id;
+        }
+      }
+    }
+
+    const hashData = `${resolvedContractId}-${userId}-${signerEmail}-${new Date().toISOString()}`;
     const hashSha256 = crypto.createHash("sha256").update(hashData).digest("hex");
 
     const sigRes = await db.query(
@@ -1453,7 +1560,7 @@ class StageEngineService {
         contract_id, user_id, signer_role, signer_name, signer_email, signature_type, signature_image_url, ip_address, user_agent, signed_at, hash_sha256
       ) VALUES ($1, $2, $3, $4, $5, 'DRAWN', $6, $7, $8, NOW(), $9)
       RETURNING *;`,
-      [contractId, userId, signerRole, signerName, signerEmail, signatureImageUrl, ipAddress, userAgent, hashSha256]
+      [resolvedContractId, userId, signerRole, signerName, signerEmail, signatureImageUrl, ipAddress, userAgent, hashSha256]
     );
 
     // Update contract status
@@ -1461,7 +1568,7 @@ class StageEngineService {
       `UPDATE public.contracts 
        SET status = 'FULLY_EXECUTED', updated_at = NOW()
        WHERE contract_id = $1;`,
-      [contractId]
+      [resolvedContractId]
     );
 
     return sigRes.rows[0];
@@ -1487,11 +1594,7 @@ class StageEngineService {
       [projectId]
     );
 
-    if (res.rows && res.rows.length > 0) {
-      return res.rows[0];
-    }
-
-    // Auto-generate initial wrapped draft from project telemetry if not yet present
+    // Fetch project & earliest/latest site photos to ensure real before/after imagery
     const projRes = await db.query(
       `SELECT cp.*, sp.contract_date, sp.original_turnover, sp.revised_turnover
        FROM public.client_projects cp
@@ -1500,10 +1603,36 @@ class StageEngineService {
       [projectId]
     );
 
-    if (!projRes.rows || projRes.rows.length === 0) return null;
+    const project = projRes.rows?.[0] || null;
+    const projectCode = project ? (project.site_project_code || project.project_code) : null;
 
-    const project = projRes.rows[0];
-    const projectCode = project.site_project_code || project.project_code;
+    let firstPhotoUrl = null;
+    let latestPhotoUrl = null;
+    if (projectCode) {
+      const [firstPhotoRes, latestPhotoRes] = await Promise.all([
+        db.query("SELECT image_url FROM public.site_photo_logs WHERE project_code = $1 ORDER BY created_at ASC, log_id ASC LIMIT 1;", [projectCode]).catch(() => ({ rows: [] })),
+        db.query("SELECT image_url FROM public.site_photo_logs WHERE project_code = $1 ORDER BY created_at DESC, log_id DESC LIMIT 1;", [projectCode]).catch(() => ({ rows: [] })),
+      ]);
+      firstPhotoUrl = firstPhotoRes.rows?.[0]?.image_url || null;
+      latestPhotoUrl = latestPhotoRes.rows?.[0]?.image_url || null;
+    }
+
+    if (res.rows && res.rows.length > 0) {
+      const existingWrapped = res.rows[0];
+      if ((!existingWrapped.before_photo_url && firstPhotoUrl) || (!existingWrapped.after_photo_url && latestPhotoUrl)) {
+        const updatedBefore = existingWrapped.before_photo_url || firstPhotoUrl;
+        const updatedAfter = existingWrapped.after_photo_url || latestPhotoUrl;
+        await db.query(
+          "UPDATE public.project_wrapped SET before_photo_url = $1, after_photo_url = $2 WHERE wrapped_id = $3;",
+          [updatedBefore, updatedAfter, existingWrapped.wrapped_id]
+        ).catch(() => {});
+        existingWrapped.before_photo_url = updatedBefore;
+        existingWrapped.after_photo_url = updatedAfter;
+      }
+      return existingWrapped;
+    }
+
+    if (!project) return null;
 
     // Gather stats
     const [photosCountRes, milestonesCountRes] = await Promise.all([
@@ -1542,10 +1671,10 @@ class StageEngineService {
 
     const insertRes = await db.query(
       `INSERT INTO public.project_wrapped (
-        client_project_id, total_days_duration, total_workers_employed, total_concrete_bags, total_steel_kg, total_photos_logged, story_cards, share_token, is_public_shared, created_at
-      ) VALUES ($1, $2, 0, 0, 0, $3, $4, $5, TRUE, NOW())
+        client_project_id, total_days_duration, total_workers_employed, total_concrete_bags, total_steel_kg, total_photos_logged, before_photo_url, after_photo_url, story_cards, share_token, is_public_shared, created_at
+      ) VALUES ($1, $2, 0, 0, 0, $3, $4, $5, $6, $7, TRUE, NOW())
       RETURNING *;`,
-      [projectId, buildDays, totalPhotos, JSON.stringify(defaultStoryCards), shareToken]
+      [projectId, buildDays, totalPhotos, firstPhotoUrl, latestPhotoUrl, JSON.stringify(defaultStoryCards), shareToken]
     );
 
     return insertRes.rows[0];

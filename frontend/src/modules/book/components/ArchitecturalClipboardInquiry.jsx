@@ -587,7 +587,7 @@ export default function ArchitecturalClipboardInquiry({
       mapCoordinates,
       lotStatus: lotStatus === "Other" ? (lotStatusOther || "Other") : lotStatus,
       lotArea: lotArea ? `${lotArea} sqm` : "Not specified",
-      budgetRange: budgetRange === "Other" ? (budgetRangeOther || "Other") : budgetRange,
+      budgetRange: budgetRange === "Other" ? (budgetCustom || "Other") : budgetRange,
       financingOption: financingOption === "Other" ? (financingOptionOther || "Other") : financingOption,
       spatialWishlist: {
         bedrooms: bedrooms === "Other" ? (bedroomsOther || "Other") : bedrooms,
