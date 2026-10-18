@@ -2193,6 +2193,8 @@ export default function AdminPage() {
           <DashboardTab
             clientBriefs={clientBriefs}
             allProjects={allProjects}
+            stage3Projects={stage3Projects}
+            onSelectProject={handleSelectSiteProject}
             onNavigateTab={setActiveTab}
             isLoading={isLoadingData}
           />
