@@ -369,11 +369,12 @@ function ClientPortalContent() {
     if (!userEmail) return;
     setIsLoadingInquiries(true);
     setIsLoadingDashboard(true);
+    let dashData = null;
 
     // Hydrate 5-Stage Progressive Disclosure State
     try {
       const dashRes = await authFetch(`/api/portal/dashboard-state?email=${encodeURIComponent(userEmail)}`);
-      const dashData = await dashRes.json();
+      dashData = await dashRes.json();
       if (dashRes.ok && dashData.success) {
         setDashboardState(dashData);
         // Seamless session healing: If server regenerated an expired/missing token, store it
