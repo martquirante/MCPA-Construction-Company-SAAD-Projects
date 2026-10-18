@@ -1,15 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ChevronDown,
   Search,
   Check,
-  Building,
   User,
   X,
-  Sparkles,
 } from "lucide-react";
 
 export default function Stage3CustomerSelector({
@@ -65,6 +62,27 @@ export default function Stage3CustomerSelector({
     };
   }, []);
 
+  // Always resolve full identity and avatar_url from the directory so it NEVER flickers to initials
+  const activeSelected = useMemo(() => {
+    if (!selectedProject) return null;
+    const match = projects.find(
+      (p) =>
+        (p.project_code && p.project_code === selectedProject.project_code) ||
+        (p.client_project_id && p.client_project_id === selectedProject.client_project_id) ||
+        (p.client_email && selectedProject.client_email && p.client_email.toLowerCase() === selectedProject.client_email.toLowerCase())
+    );
+
+    return {
+      ...selectedProject,
+      ...(match || {}),
+      avatar_url: selectedProject.avatar_url || match?.avatar_url || null,
+      client_name: selectedProject.client_name || match?.client_name || "Client",
+      client_email: selectedProject.client_email || match?.client_email,
+      project_code: selectedProject.project_code || match?.project_code,
+      project_title: selectedProject.project_title || selectedProject.name || match?.project_title || "Stage 3 Build",
+    };
+  }, [selectedProject, projects]);
+
   const filteredProjects = projects.filter((p) => {
     const q = searchQuery.toLowerCase();
     const name = (p.client_name || "").toLowerCase();
@@ -93,21 +111,21 @@ export default function Stage3CustomerSelector({
         onClick={() => setIsOpen(!isOpen)}
         className="w-full p-2.5 sm:p-3 rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-300 dark:border-white/10 hover:border-amber-500/50 dark:hover:border-amber-500/50 flex items-center justify-between gap-3 text-left transition-all duration-200 shadow-xs cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500"
       >
-        {selectedProject ? (
+        {activeSelected ? (
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            {/* Avatar / PFP */}
+            {/* Avatar / PFP - Direct non-flashing image rendering */}
             <div className="relative w-9 h-9 rounded-full bg-neutral-900 border border-amber-500/30 overflow-hidden shrink-0 flex items-center justify-center">
-              {selectedProject.avatar_url ? (
-                <Image
-                  src={selectedProject.avatar_url}
-                  alt={selectedProject.client_name || "Client"}
-                  fill
-                  sizes="36px"
-                  className="object-cover"
+              {activeSelected.avatar_url ? (
+                <img
+                  src={activeSelected.avatar_url}
+                  alt={activeSelected.client_name || "Client"}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
                 />
               ) : (
                 <span className="font-mono text-xs font-bold text-amber-400">
-                  {getInitials(selectedProject.client_name)}
+                  {getInitials(activeSelected.client_name)}
                 </span>
               )}
             </div>
@@ -116,14 +134,14 @@ export default function Stage3CustomerSelector({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-neutral-900 dark:text-white truncate">
-                  {selectedProject.client_name || "Client Project"}
+                  {activeSelected.client_name || "Client Project"}
                 </span>
                 <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-500/20">
-                  {selectedProject.project_code}
+                  {activeSelected.project_code}
                 </span>
               </div>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate font-mono">
-                {selectedProject.project_title || selectedProject.name || "Stage 3 Build"} • {selectedProject.client_email}
+                {activeSelected.project_title || activeSelected.name || "Stage 3 Build"} • {activeSelected.client_email}
               </p>
             </div>
           </div>
@@ -137,7 +155,7 @@ export default function Stage3CustomerSelector({
         )}
 
         <div className="flex items-center gap-1.5 shrink-0 text-neutral-400">
-          {selectedProject && (
+          {activeSelected && (
             <button
               type="button"
               onClick={(e) => {
@@ -187,7 +205,7 @@ export default function Stage3CustomerSelector({
               </div>
             ) : (
               filteredProjects.map((p) => {
-                const isSelected = selectedProject?.project_code === p.project_code;
+                const isSelected = activeSelected?.project_code === p.project_code;
                 return (
                   <button
                     key={p.client_project_id || p.project_code}
@@ -207,12 +225,12 @@ export default function Stage3CustomerSelector({
                       {/* Avatar */}
                       <div className="relative w-8 h-8 rounded-full bg-neutral-900 border border-amber-500/20 overflow-hidden shrink-0 flex items-center justify-center">
                         {p.avatar_url ? (
-                          <Image
+                          <img
                             src={p.avatar_url}
                             alt={p.client_name || "Client"}
-                            fill
-                            sizes="32px"
-                            className="object-cover"
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
                           />
                         ) : (
                           <span className="font-mono text-[11px] font-bold text-amber-400">

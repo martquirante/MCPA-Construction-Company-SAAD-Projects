@@ -10,18 +10,51 @@ class ConstructionController {
       let projRes;
 
       if (requestedCode) {
-        projRes = await db.query("SELECT * FROM site_projects WHERE project_code = $1", [requestedCode]);
+        projRes = await db.query(
+          `SELECT 
+            sp.*,
+            COALESCE(u.avatar_url, NULL) AS avatar_url,
+            COALESCE(u.full_name, sp.client_name) AS client_name,
+            COALESCE(u.email, sp.client_email) AS client_email,
+            COALESCE(cp.project_title, sp.name) AS project_title,
+            cp.stage_id
+           FROM site_projects sp
+           LEFT JOIN client_projects cp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
+           LEFT JOIN users u ON sp.user_id = u.user_id OR cp.user_id = u.user_id OR LOWER(u.email) = LOWER(sp.client_email)
+           WHERE sp.project_code = $1`,
+          [requestedCode]
+        );
       } else if (clientEmail) {
         projRes = await db.query(
-          `SELECT sp.* FROM site_projects sp
+          `SELECT 
+            sp.*,
+            COALESCE(u.avatar_url, NULL) AS avatar_url,
+            COALESCE(u.full_name, sp.client_name) AS client_name,
+            COALESCE(u.email, sp.client_email) AS client_email,
+            COALESCE(cp.project_title, sp.name) AS project_title,
+            cp.stage_id
+           FROM site_projects sp
            LEFT JOIN client_projects cp ON sp.client_project_id = cp.client_project_id OR sp.project_code = cp.site_project_code
+           LEFT JOIN users u ON sp.user_id = u.user_id OR cp.user_id = u.user_id OR LOWER(u.email) = LOWER(sp.client_email)
            WHERE LOWER(sp.client_email) = LOWER($1)
            ORDER BY CASE WHEN cp.stage_id = 'ACTIVE_BUILD' THEN 1 WHEN cp.stage_id = 'COMPLETED' THEN 2 ELSE 3 END, sp.project_id DESC
            LIMIT 1`,
           [clientEmail]
         );
       } else {
-        projRes = await db.query("SELECT * FROM site_projects ORDER BY project_id DESC LIMIT 1");
+        projRes = await db.query(
+          `SELECT 
+            sp.*,
+            COALESCE(u.avatar_url, NULL) AS avatar_url,
+            COALESCE(u.full_name, sp.client_name) AS client_name,
+            COALESCE(u.email, sp.client_email) AS client_email,
+            COALESCE(cp.project_title, sp.name) AS project_title,
+            cp.stage_id
+           FROM site_projects sp
+           LEFT JOIN client_projects cp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
+           LEFT JOIN users u ON sp.user_id = u.user_id OR cp.user_id = u.user_id OR LOWER(u.email) = LOWER(sp.client_email)
+           ORDER BY sp.project_id DESC LIMIT 1`
+        );
       }
 
       if (!projRes.rows || projRes.rows.length === 0) {

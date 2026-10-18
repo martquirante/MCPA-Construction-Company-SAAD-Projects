@@ -1061,7 +1061,15 @@ export default function AdminPage() {
         const res = await fetch(`/api/construction/projects/${encodeURIComponent(code)}`);
         const data = await res.json();
         if (data.success && data.project) {
-          setSiteProject(data.project);
+          setSiteProject((prev) => ({
+            ...selectedProj,
+            ...(prev || {}),
+            ...data.project,
+            avatar_url: data.project.avatar_url || selectedProj.avatar_url || prev?.avatar_url || null,
+            client_name: data.project.client_name || selectedProj.client_name || prev?.client_name,
+            client_email: data.project.client_email || selectedProj.client_email || prev?.client_email,
+            project_title: data.project.project_title || selectedProj.project_title || prev?.project_title,
+          }));
           setSiteMilestones(data.milestones || []);
           setSitePhotos(data.photos || []);
           setBillingLedger(data.billing || []);
