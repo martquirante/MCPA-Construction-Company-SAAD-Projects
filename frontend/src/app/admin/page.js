@@ -1587,26 +1587,45 @@ export default function AdminPage() {
           badge: siteProject?.progress_pct ? `${siteProject.progress_pct}%` : undefined,
         },
         {
+          id: "billing",
+          label: "Milestone Billing",
+          icon: CreditCardIcon,
+          badge: pendingBillsCount > 0 ? pendingBillsCount : undefined,
+        },
+        {
           id: "delays",
           label: "Delay Management",
           icon: ClockIcon,
           badge: delayEvents.length > 0 ? delayEvents.length : undefined,
         },
+        {
+          id: "meetings",
+          label: "Meeting",
+          icon: CalendarIcon,
+          badge: meetingsCount > 0 ? meetingsCount : undefined,
+        },
+        { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
+        {
+          id: "quotations",
+          label: "Budget & Quotation",
+          icon: CreditCardIcon,
+          badge: pendingQuotationsCount > 0 ? pendingQuotationsCount : undefined,
+        },
+        {
+          id: "documents",
+          label: "Documents & Permits",
+          icon: FileTextIcon,
+          badge: pendingDocsCount > 0 ? pendingDocsCount : undefined,
+        },
       ],
     },
     {
-      title: "Stage 4: Milestone Billing & Handover",
+      title: "Stage 4: Handover & Completed",
       stageBadge: "Stage 4",
       items: [
         {
-          id: "billing",
-          label: "Billing & Ledger",
-          icon: CreditCardIcon,
-          badge: pendingBillsCount > 0 ? pendingBillsCount : undefined,
-        },
-        {
           id: "warranty",
-          label: "Warranty & Tickets",
+          label: "Warranty & Maintenance",
           icon: ShieldCheckIcon,
           badge: activeWarrantyCount > 0 ? activeWarrantyCount : undefined,
         },
@@ -1793,13 +1812,13 @@ export default function AdminPage() {
               </div>
 
               {/* Items in Section */}
-              {section.items.map((item) => {
+              {section.items.map((item, iIdx) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 return (
-                  <div key={item.id} className="relative group flex justify-center">
+                  <div key={`${section.title}-${item.id}-${iIdx}`} className="relative group flex justify-center">
                     <button
-                      id={`tab-btn-${item.id}`}
+                      id={`tab-btn-${section.stageBadge || "sec"}-${item.id}`}
                       onClick={() => {
                         setActiveTab(item.id);
                         setIsMobileSidebarOpen(false);
