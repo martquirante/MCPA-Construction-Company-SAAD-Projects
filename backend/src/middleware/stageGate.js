@@ -7,25 +7,25 @@
 const db = require("../services/dbFailoverEngine");
 
 /**
- * Stage hierarchy level weights (Strictly Ordered 1 to 5)
+ * Stage hierarchy level weights (Strictly Ordered 1 to 4 for 4-Stage Model; PRE_CONSTRUCTION aliases Stage 2)
  */
 const STAGE_ORDER = Object.freeze({
   PRE_INQUIRY: 1,
   CONSULTATION: 2,
-  PRE_CONSTRUCTION: 3,
-  ACTIVE_BUILD: 4,
-  COMPLETED: 5,
+  PRE_CONSTRUCTION: 2,
+  ACTIVE_BUILD: 3,
+  COMPLETED: 4,
 });
 
 /**
- * User-facing canonical stage titles
+ * User-facing canonical stage titles (4-Stage Lifecycle)
  */
 const STAGE_NAMES = Object.freeze({
-  PRE_INQUIRY: "Pre-Inquiry & Spatial Discovery",
-  CONSULTATION: "Consultation & Architectural Brief",
-  PRE_CONSTRUCTION: "Pre-Construction & LGU Permitting",
-  ACTIVE_BUILD: "Active Site Execution & Milestones",
-  COMPLETED: "Turnover & 15-Year Structural Warranty",
+  PRE_INQUIRY: "Stage 1: Discovery & Pre-Inquiry",
+  CONSULTATION: "Stage 2: Consultation & Planning",
+  PRE_CONSTRUCTION: "Stage 2: Consultation & Planning",
+  ACTIVE_BUILD: "Stage 3: Active Site Execution",
+  COMPLETED: "Stage 4: Handover & 15-Year Structural Warranty",
 });
 
 /**

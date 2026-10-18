@@ -346,62 +346,73 @@ export default function PortalPhase5Wrapped({
         <div>
           <h2 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white tracking-tight flex items-center gap-2">
             <Compass className="w-4 h-4 text-amber-500" />
-            Site Evolution: Before & After Split Slider
+            Site Evolution: Before &amp; After Split Slider
           </h2>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans">
             Slide horizontally to witness the transformation from initial lot groundbreaking to completed architectural turnover.
           </p>
         </div>
 
-        {/* Slider Canvas */}
-        <div className="relative w-full h-80 sm:h-[420px] rounded-[6px] overflow-hidden select-none bg-neutral-950">
-          {/* AFTER PHOTO (Background full) */}
-          <img
-            src={wrapped?.after_photo_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"}
-            alt="Completed Project After"
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-
-          {/* BEFORE PHOTO (Clipped by slider percentage) */}
-          <div
-            className="absolute inset-y-0 left-0 overflow-hidden"
-            style={{ width: `${sliderPosition}%` }}
-          >
+        {wrapped?.before_photo_url || wrapped?.after_photo_url ? (
+          <div className="relative w-full h-80 sm:h-[420px] rounded-[6px] overflow-hidden select-none bg-neutral-950">
+            {/* AFTER PHOTO (Background full) */}
             <img
-              src={wrapped?.before_photo_url || "https://images.unsplash.com/photo-1541888946425-d0fbb1861593?auto=format&fit=crop&w=1200&q=80"}
-              alt="Raw Ground Lot Before"
-              className="absolute inset-y-0 left-0 max-w-none h-full object-cover"
-              style={{ width: "100%", minWidth: "800px" }}
+              src={wrapped?.after_photo_url || wrapped?.before_photo_url}
+              alt="Completed Project After"
+              className="absolute inset-0 w-full h-full object-cover"
             />
-            <div className="absolute top-4 left-4 px-3 py-1 rounded-[3px] bg-neutral-950/80 backdrop-blur-md text-[10px] font-mono font-bold text-white uppercase border border-white/20">
-              Groundbreaking 2026 (Before)
+
+            {/* BEFORE PHOTO (Clipped by slider percentage) */}
+            <div
+              className="absolute inset-y-0 left-0 overflow-hidden"
+              style={{ width: `${sliderPosition}%` }}
+            >
+              <img
+                src={wrapped?.before_photo_url || wrapped?.after_photo_url}
+                alt="Raw Ground Lot Before"
+                className="absolute inset-y-0 left-0 max-w-none h-full object-cover"
+                style={{ width: "100%", minWidth: "800px" }}
+              />
+              <div className="absolute top-4 left-4 px-3 py-1 rounded-[3px] bg-neutral-950/80 backdrop-blur-md text-[10px] font-mono font-bold text-white uppercase border border-white/20">
+                Groundbreaking (Before)
+              </div>
             </div>
-          </div>
 
-          <div className="absolute top-4 right-4 px-3 py-1 rounded-[3px] bg-neutral-950/80 backdrop-blur-md text-[10px] font-mono font-bold text-amber-400 uppercase border border-amber-500/40">
-            Turnkey Completed (After)
-          </div>
-
-          {/* Draggable Slider Bar */}
-          <div
-            className="absolute inset-y-0 w-1 bg-amber-500 shadow-2xl pointer-events-none z-20 flex items-center justify-center"
-            style={{ left: `${sliderPosition}%` }}
-          >
-            <div className="w-8 h-8 rounded-full bg-amber-500 text-neutral-950 font-mono text-[10px] font-bold flex items-center justify-center shadow-xl border-2 border-neutral-950">
-              ↔
+            <div className="absolute top-4 right-4 px-3 py-1 rounded-[3px] bg-neutral-950/80 backdrop-blur-md text-[10px] font-mono font-bold text-amber-400 uppercase border border-amber-500/40">
+              Turnkey Completed (After)
             </div>
-          </div>
 
-          {/* Native Slider input over the canvas */}
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={sliderPosition}
-            onChange={(e) => setSliderPosition(Number(e.target.value))}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
-          />
-        </div>
+            {/* Draggable Slider Bar */}
+            <div
+              className="absolute inset-y-0 w-1 bg-amber-500 shadow-2xl pointer-events-none z-20 flex items-center justify-center"
+              style={{ left: `${sliderPosition}%` }}
+            >
+              <div className="w-8 h-8 rounded-full bg-amber-500 text-neutral-950 font-mono text-[10px] font-bold flex items-center justify-center shadow-xl border-2 border-neutral-950">
+                ↔
+              </div>
+            </div>
+
+            {/* Native Slider input over the canvas */}
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={sliderPosition}
+              onChange={(e) => setSliderPosition(Number(e.target.value))}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
+            />
+          </div>
+        ) : (
+          <div className="p-10 rounded-[8px] border border-dashed border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950/50 text-center space-y-2">
+            <Camera className="w-8 h-8 text-amber-500 mx-auto opacity-80" />
+            <p className="text-xs font-mono font-bold uppercase text-neutral-800 dark:text-neutral-200">
+              Before &amp; After Site Comparison Pending Photo Logs
+            </p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
+              Once groundbreaking and final turnover inspection photos are uploaded to your project gallery, the interactive split-slider will automatically appear here.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 4. DIGITAL HANDOVER VAULT (WARRANTY & AS-BUILT MANUALS) */}

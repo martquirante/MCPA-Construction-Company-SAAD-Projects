@@ -125,29 +125,17 @@ export default function BillingLedgerTab({
     }
   };
 
-  // OCR Auto-Detection Engine
+  // Receipt URL Verification Helper (without overwriting Admin inputs with dummy values)
   const handleAutoScanReceipt = (imageSourceUrl) => {
     if (!imageSourceUrl) return;
     setIsScanningOcr(true);
 
-    // Simulate smart OCR text extraction with accurate defaults based on store patterns
     setTimeout(() => {
-      let detectedVendor = "Wilcon Depot - Bulacan Branch";
-      let detectedAmount = "18450.00";
-      let detectedItems = "20 bags Portland Cement Type 1P, 12 pcs 12mm Deformed Steel Bars, Tie Wire";
-
-      if (imageSourceUrl.toLowerCase().includes("citi") || imageSourceUrl.toLowerCase().includes("hardware")) {
-        detectedVendor = "CitiHardware Supply";
-        detectedAmount = "24800.00";
-        detectedItems = "Electrical Conduits, PVC Pipes 3-inch, Circuit Breaker 60A";
-      }
-
-      setVendorName(detectedVendor);
-      setExtractedTotal(detectedAmount);
-      setRawOcrNotes(`INVOICE: SI-2026-${Math.floor(10000 + Math.random() * 90000)}\nITEMS: ${detectedItems}\nSTATUS: Verified Original Store Slip`);
       setIsScanningOcr(false);
-      if (showToast) showToast("OCR Scan complete! Detected vendor and total amount.");
-    }, 900);
+      if (showToast) {
+        showToast("Receipt image linked. Please verify or enter the exact store name and receipt total.");
+      }
+    }, 400);
   };
 
   const handleSaveExpense = async (e) => {
@@ -564,11 +552,8 @@ export default function BillingLedgerTab({
                     type="url"
                     required
                     value={receiptImage}
-                    onChange={(e) => {
-                      setReceiptImage(e.target.value);
-                      handleAutoScanReceipt(e.target.value);
-                    }}
-                    placeholder="https://.../wilcon-receipt-slip.jpg"
+                    onChange={(e) => setReceiptImage(e.target.value)}
+                    placeholder="https://.../receipt-slip.jpg"
                     className="flex-1 px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
                   />
                   <button
