@@ -81,17 +81,19 @@ class StageEngineService {
    * @param {number} [params.briefId]
    * @param {Object} [params.metadata={}]
    */
-  async createInquiryProject({ userId, projectTitle, projectType = "Residential", targetLocation = null, briefId = null, metadata = {} }) {
-    // 1. Run Anti-Spam Gatekeeper check
-    const eligibility = await this.checkAntiSpamEligibility(userId);
-    if (!eligibility.allowed) {
-      const err = new Error(
-        "Policy Restriction: You have an existing active construction project. To initiate another project, your account must receive multi-project approval from MCPA Administration."
-      );
-      err.code = "ACTIVE_PROJECT_LIMIT_EXCEEDED";
-      err.statusCode = 409;
-      err.activeProject = eligibility.activeProject;
-      throw err;
+  async createInquiryProject({ userId, projectTitle, projectType = "Residential", targetLocation = null, briefId = null, metadata = {}, bypassAntiSpam = false }) {
+    // 1. Run Anti-Spam Gatekeeper check (bypass if explicitly authorized, e.g. administrative advancement)
+    if (!bypassAntiSpam) {
+      const eligibility = await this.checkAntiSpamEligibility(userId);
+      if (!eligibility.allowed) {
+        const err = new Error(
+          "Policy Restriction: You have an existing active construction project. To initiate another project, your account must receive multi-project approval from MCPA Administration."
+        );
+        err.code = "ACTIVE_PROJECT_LIMIT_EXCEEDED";
+        err.statusCode = 409;
+        err.activeProject = eligibility.activeProject;
+        throw err;
+      }
     }
 
     // 2. Generate unique code
@@ -388,6 +390,62 @@ class StageEngineService {
           activeMeeting: null,
         },
       };
+    }
+
+    // 3.1 Groundbreaking Ceremony Kickoff: Auto-advance to ACTIVE_BUILD if ceremony completed or date/time has passed
+    if (
+      resolvedProject &&
+      (resolvedProject.stage_id === "CONSULTATION" || resolvedProject.stage_id === "PRE_CONSTRUCTION")
+    ) {
+      const isPastGroundbreaking = Boolean(
+        resolvedProject.groundbreaking_date &&
+        new Date(resolvedProject.groundbreaking_date).getTime() <= Date.now()
+      );
+      const isCompletedGroundbreaking = Boolean(
+        resolvedProject.groundbreaking_status === "COMPLETED" || isPastGroundbreaking
+      );
+
+      if (isCompletedGroundbreaking) {
+        try {
+          if (resolvedProject.groundbreaking_status !== "COMPLETED") {
+            await db.query(
+              "UPDATE public.client_projects SET groundbreaking_status = 'COMPLETED', updated_at = NOW() WHERE client_project_id = $1;",
+              [resolvedProject.client_project_id]
+            );
+            resolvedProject.groundbreaking_status = "COMPLETED";
+          }
+          await this.advanceProjectStage({
+            projectId: resolvedProject.client_project_id,
+            targetStage: "ACTIVE_BUILD",
+            reason: isPastGroundbreaking
+              ? "Automated progression: Scheduled groundbreaking ceremony date/time concluded — physical site construction commenced"
+              : "Automated progression: Groundbreaking ceremony marked completed",
+          });
+
+          // Refresh resolvedProject with newly provisioned site execution telemetry
+          const refreshedProjectRes = await db.query(
+            `SELECT 
+              cp.*,
+              cb.submission_id as brief_submission_id,
+              cb.status as brief_status,
+              sp.progress_pct as site_progress_pct,
+              sp.current_phase as site_current_phase,
+              sp.lead_engineer,
+              sp.virtual_tour_url
+             FROM public.client_projects cp
+             LEFT JOIN public.client_briefs cb ON cp.brief_id = cb.brief_id
+             LEFT JOIN public.site_projects sp ON cp.site_project_code = sp.project_code
+             WHERE cp.client_project_id = $1
+             LIMIT 1;`,
+            [resolvedProject.client_project_id]
+          );
+          if (refreshedProjectRes.rows && refreshedProjectRes.rows.length > 0) {
+            resolvedProject = refreshedProjectRes.rows[0];
+          }
+        } catch (autoErr) {
+          console.warn("[getDashboardState] Groundbreaking auto-advance notice:", autoErr.message);
+        }
+      }
     }
 
     const activeProject = resolvedProject;
@@ -1109,6 +1167,33 @@ class StageEngineService {
       console.warn("[getAdminGroundbreakingOverview] History fetch notice:", e.message);
     }
 
+    // Auto-advance any projects whose groundbreaking date has passed and are still in pre-construction
+    for (const p of projects) {
+      const isPast = Boolean(p.groundbreaking_date && new Date(p.groundbreaking_date).getTime() <= Date.now());
+      if (
+        (p.stage_id === "CONSULTATION" || p.stage_id === "PRE_CONSTRUCTION") &&
+        (p.groundbreaking_status === "COMPLETED" || isPast)
+      ) {
+        try {
+          if (p.groundbreaking_status !== "COMPLETED") {
+            await db.query(
+              "UPDATE public.client_projects SET groundbreaking_status = 'COMPLETED', updated_at = NOW() WHERE client_project_id = $1;",
+              [p.client_project_id]
+            );
+            p.groundbreaking_status = "COMPLETED";
+          }
+          await this.advanceProjectStage({
+            projectId: p.client_project_id,
+            targetStage: "ACTIVE_BUILD",
+            reason: "Automated progression: Groundbreaking ceremony concluded — physical construction active",
+          });
+          p.stage_id = "ACTIVE_BUILD";
+        } catch (autoAdvErr) {
+          console.warn("[getAdminGroundbreakingOverview] Auto-advance notice:", autoAdvErr.message);
+        }
+      }
+    }
+
     return projects.map((p) => ({
       ...p,
       history: historyMap.get(p.client_project_id) || [],
@@ -1299,6 +1384,35 @@ class StageEngineService {
         ]
       );
     } catch (transErr) {}
+
+    // 5. Automatic Stage 3 (ACTIVE_BUILD) Promotion: If Groundbreaking is COMPLETED or ceremony date/time has passed
+    const isPastCeremony = Boolean(groundbreakingDate && new Date(groundbreakingDate).getTime() <= Date.now());
+    if (resolvedStatus === "COMPLETED" || isPastCeremony) {
+      try {
+        const curCheck = await db.query(
+          "SELECT stage_id FROM public.client_projects WHERE client_project_id = $1;",
+          [projectId]
+        );
+        const currentStage = curCheck.rows[0]?.stage_id;
+        if (currentStage === "CONSULTATION" || currentStage === "PRE_CONSTRUCTION") {
+          await this.advanceProjectStage({
+            projectId,
+            targetStage: "ACTIVE_BUILD",
+            adminUserId,
+            reason: resolvedStatus === "COMPLETED"
+              ? "Groundbreaking ceremony officially concluded — physical site execution commenced"
+              : "Scheduled groundbreaking ceremony date/time concluded — physical site execution commenced",
+            metadata: {
+              groundbreakingDate,
+              venue: resolvedVenue,
+              officiant: resolvedOfficiant,
+            },
+          });
+        }
+      } catch (advErr) {
+        console.warn("[scheduleGroundbreaking] Auto-advance to ACTIVE_BUILD warning:", advErr.message);
+      }
+    }
 
     const projectData = updateRes.rows[0];
     const fullProject = await this.getProjectGroundbreaking(projectId);
@@ -1560,12 +1674,19 @@ class StageEngineService {
             }
 
             if (uid) {
+              // Administrator is explicitly advancing/authorizing this brief -> grant multi-project permission and bypass anti-spam
+              await db.query(
+                "UPDATE public.users SET is_multi_project_approved = TRUE WHERE user_id = $1;",
+                [uid]
+              ).catch(() => {});
+
               project = await this.createInquiryProject({
                 userId: uid,
                 projectTitle: `${b.project_type || "Residential"} Project (${b.client_name || "Client"})`,
                 projectType: b.project_type || "Residential",
                 targetLocation: b.location || null,
                 briefId: b.brief_id,
+                bypassAntiSpam: true,
               });
             }
           }
@@ -1616,8 +1737,8 @@ class StageEngineService {
         const clientName = uRes.rows[0]?.full_name || "Valued Client";
 
         const spCheck = await db.query(
-          "SELECT project_id FROM public.site_projects WHERE project_code = $1 OR (client_email = $2 AND $2 != '') LIMIT 1;",
-          [pCode, clientEmail]
+          "SELECT project_id FROM public.site_projects WHERE project_code = $1 OR client_project_id = $2 LIMIT 1;",
+          [pCode, resolvedProjectId]
         );
 
         if (!spCheck.rows || spCheck.rows.length === 0) {
@@ -1625,10 +1746,10 @@ class StageEngineService {
             `INSERT INTO public.site_projects (
               project_code, name, client_name, client_email, location,
               contract_date, original_turnover, revised_turnover,
-              progress_pct, current_phase, lead_engineer, status
-            ) VALUES ($1, $2, $3, $4, $5, NOW(), 'Q4 2026', 'Q4 2026', 15, 'Mobilization & Foundation', 'Engr. Raymart Quirante, CE', 'Active Site Execution')
+              progress_pct, current_phase, lead_engineer, status, client_project_id
+            ) VALUES ($1, $2, $3, $4, $5, NOW(), 'Q4 2026', 'Q4 2026', 15, 'Mobilization & Foundation', 'Engr. Raymart Quirante, CE', 'Active Site Execution', $6)
             ON CONFLICT (project_code) DO NOTHING;`,
-            [pCode, updatedProject.project_title || "Residential Construction", clientName, clientEmail, updatedProject.target_location || "Bulacan"]
+            [pCode, updatedProject.project_title || "Residential Construction", clientName, clientEmail, updatedProject.target_location || "Bulacan", resolvedProjectId]
           );
 
           await db.query(

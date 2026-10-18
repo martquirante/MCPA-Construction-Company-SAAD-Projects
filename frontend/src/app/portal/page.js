@@ -468,13 +468,34 @@ function ClientPortalContent() {
   };
 
   useEffect(() => {
-    if (currentUser?.email) {
-      const email = currentUser.email;
-      queueMicrotask(() => {
+    if (!currentUser?.email) return;
+    const email = currentUser.email;
+
+    queueMicrotask(() => {
+      fetchClientData(email);
+    });
+
+    // Auto-sync when client tab is focused or becomes visible after admin updates stage
+    const handleSyncOnFocus = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
         fetchClientData(email);
-      });
-    }
-  }, [currentUser]);
+      }
+    };
+
+    window.addEventListener("focus", handleSyncOnFocus);
+    document.addEventListener("visibilitychange", handleSyncOnFocus);
+
+    // Heartbeat auto-poll every 15 seconds to stream live stage promotions
+    const heartbeatTimer = setInterval(() => {
+      fetchClientData(email);
+    }, 15000);
+
+    return () => {
+      window.removeEventListener("focus", handleSyncOnFocus);
+      document.removeEventListener("visibilitychange", handleSyncOnFocus);
+      clearInterval(heartbeatTimer);
+    };
+  }, [currentUser?.email]);
 
   const handleLoginSuccess = useCallback((user, token) => {
     setCurrentUser(user);

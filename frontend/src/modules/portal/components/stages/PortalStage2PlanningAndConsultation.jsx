@@ -446,6 +446,7 @@ export default function PortalStage2PlanningAndConsultation({
 
   // Real-time authoritative countdown to Ground Breaking Ceremony
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const hasTriggeredGroundbreakingAutoAdvance = useRef(false);
 
   useEffect(() => {
     if (!activeGroundbreakingDate) {
@@ -463,12 +464,18 @@ export default function PortalStage2PlanningAndConsultation({
         });
       } else {
         setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        if (!hasTriggeredGroundbreakingAutoAdvance.current) {
+          hasTriggeredGroundbreakingAutoAdvance.current = true;
+          if (typeof onRefreshState === "function") {
+            onRefreshState();
+          }
+        }
       }
     };
     calculateTimeLeft();
     const timer = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(timer);
-  }, [activeGroundbreakingDate]);
+  }, [activeGroundbreakingDate, onRefreshState]);
 
   // Load initial backend planning and consultation data
   useEffect(() => {

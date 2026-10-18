@@ -13,8 +13,9 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
   const meetingNotes = brief.meeting_notes || brief.meetingNotes || "";
   const meetingLink = brief.meeting_link || brief.meetingLink || "https://meet.google.com/mcp-buil-tab";
   const meetingMode = brief.meeting_mode || brief.meetingMode || "Online Video Call";
-  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa.ph";
+  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
   const portalUrl = `${websiteUrl}/portal`;
+  const portalMeetingUrl = `${portalUrl}?tab=meeting`;
 
   // Supabase High-Availability Public CDN Assets
   const logoLightUrl = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png";
@@ -24,8 +25,8 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
   const venueType = brief.venue_type || brief.venueType;
   const venueDetails = brief.venue_details || brief.venueDetails;
 
-  let venueTitle = "Virtual Video Conference Room";
-  let venueAddress = "Google Meet Virtual Session";
+  let venueTitle = "MCPA Online Meeting Room";
+  let venueAddress = "MCPA Client Portal · Meeting Room";
   let mapsUrl = "";
 
   if (isF2F) {
@@ -162,14 +163,14 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
                     <td colspan="2" valign="top" style="padding-bottom: 10px;">
                       <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Meeting Format</span>
                       <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">
-                        ${isF2F ? "Face-to-Face Physical Meeting" : "Virtual Video Consultation"}
+                        ${isF2F ? "Face-to-Face Physical Meeting" : "Virtual Video Consultation (MCPA Online Meeting Room)"}
                       </strong>
                     </td>
                   </tr>
                   <tr>
                     <td colspan="2" valign="top">
-                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">${isF2F ? "Venue Location" : "Video Conference"}</span>
-                      <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">${isF2F ? venueAddress : meetingLink}</strong>
+                      <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">${isF2F ? "Venue Location" : "Video Room Access"}</span>
+                      <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">${isF2F ? venueAddress : "MCPA Client Portal &bull; Meeting Hub"}</strong>
                     </td>
                   </tr>
                 </table>
@@ -186,9 +187,9 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 28px;">
                 <tr>
                   <td align="left">
-                    ${!isF2F && meetingLink ? `
-                    <a href="${meetingLink}" class="btn-cta" target="_blank" style="display: inline-block; background-color: #059669; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 700; text-decoration: none; padding: 13px 26px; border-radius: 8px; letter-spacing: 0.02em; text-transform: uppercase; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);">
-                      Join Google Meet Room &rarr;
+                    ${!isF2F ? `
+                    <a href="${portalMeetingUrl}" class="btn-cta" target="_blank" style="display: inline-block; background-color: #059669; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 700; text-decoration: none; padding: 13px 26px; border-radius: 8px; letter-spacing: 0.02em; text-transform: uppercase; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);">
+                      Enter Online Meeting Room &rarr;
                     </a>
                     ` : isF2F && mapsUrl ? `
                     <a href="${mapsUrl}" class="btn-cta" target="_blank" style="display: inline-block; background-color: #059669; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 700; text-decoration: none; padding: 13px 26px; border-radius: 8px; letter-spacing: 0.02em; text-transform: uppercase; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);">
@@ -212,6 +213,7 @@ function getInquiryMeetingConfirmationTemplate(brief = {}) {
                   <li>Lot dimensions, sketch plan, or Transfer Certificate of Title (TCT) copy if available.</li>
                   <li>Inspiration photos, preferred spatial room count, or special lifestyle requirements.</li>
                   <li>Any financing questions regarding bank loans or progress milestone billing.</li>
+                  <li>${isF2F ? "Please arrive at our Plaridel engineering lounge 10 minutes prior to schedule. Reserved client parking is provided." : "For online calls, your encrypted consultation room is built directly into your Client Portal under the Meeting tab. No third-party apps required."}</li>
                 </ul>
               </div>
 

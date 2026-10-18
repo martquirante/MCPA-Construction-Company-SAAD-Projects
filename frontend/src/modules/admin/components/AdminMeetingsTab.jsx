@@ -915,7 +915,7 @@ export default function AdminMeetingsTab({
       }
 
       if (outcomeType === "AGREED_ADVANCE") {
-        showToast("Mutual agreement recorded! Consultation concluded — Proceeded to Stage 2 Planning & Contract.");
+        showToast("Mutual agreement recorded! Consultation concluded — Proceeded to Stage 3 Planning & Contract.");
       } else if (outcomeType === "NEXT_MEETING") {
         showToast(`Round ${nextRound} Consultation scheduled for ${nextRoundDate} (${nextRoundSlot})! Client notified.`);
       } else if (outcomeType === "DISCONTINUED_REJECTED") {
@@ -2252,15 +2252,15 @@ export default function AdminMeetingsTab({
                             outcomeType === "AGREED_ADVANCE" ? "text-emerald-500" : "text-neutral-400"
                           }`} />
                           <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white truncate">
-                            Mutual Agreement Reached · Proceed to Planning & Contract
+                            Mutual Agreement Reached · Proceed to Stage 3 Planning & Contract
                           </span>
                         </div>
                         <span className="shrink-0 whitespace-nowrap text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                          Stage 2 Planning Unlocked
+                          Stage 3 Planning Unlocked
                         </span>
                       </div>
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-sans mt-1 leading-relaxed">
-                        Client and MCPA are in agreement with preliminary scope and budget. Conclude consultation and proceed to blueprints, permits, and contract signing in Stage 2.
+                        Client and MCPA are in agreement with preliminary scope and budget. Conclude consultation and proceed to blueprints, permits, and contract signing in Stage 3.
                       </p>
                     </div>
                   </div>
@@ -2498,7 +2498,7 @@ export default function AdminMeetingsTab({
                   ) : outcomeType === "DISCONTINUED_REJECTED" ? (
                     "Confirm & Revert to Phase 1"
                   ) : outcomeType === "AGREED_ADVANCE" ? (
-                    "Proceed to Planning & Contract"
+                    "Proceed to Stage 3 Planning & Contract"
                   ) : (
                     "Confirm Decision & Sync"
                   )}
@@ -2615,7 +2615,7 @@ export default function AdminMeetingsTab({
                 </div>
                 <div className="text-xs font-mono font-bold text-neutral-900 dark:text-white">
                   {outcomeType === "DISCONTINUED_REJECTED" && "Discontinued · Consultation Concluded"}
-                  {outcomeType === "AGREED_ADVANCE" && "Mutual Agreement Reached · Proceed to Stage 2 Planning & Contract"}
+                  {outcomeType === "AGREED_ADVANCE" && "Mutual Agreement Reached · Proceed to Stage 3 Planning & Contract"}
                   {outcomeType === "REVISION_DELIBERATION" && "Under Client Deliberation / Revisions in Progress"}
                   {outcomeType === "NEXT_MEETING" && "Schedule Follow-Up Consultation Meeting"}
                 </div>
@@ -2657,7 +2657,7 @@ export default function AdminMeetingsTab({
                     Milestone Advancement
                   </div>
                   <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed text-[11px]">
-                    Concluded consultation session. Advancing project to <strong>Stage 2 Pre-Construction Planning &amp; Contract</strong>, unlocking blueprints, permits, and contract signing.
+                    Concluded consultation session. Advancing project to <strong>Stage 3 Pre-Construction Planning &amp; Contract</strong>, unlocking blueprints, permits, and contract signing.
                   </p>
                 </div>
               )}
@@ -2738,7 +2738,7 @@ export default function AdminMeetingsTab({
                       {outcomeType === "DISCONTINUED_REJECTED"
                         ? "Confirm & Revert to Phase 1"
                         : outcomeType === "AGREED_ADVANCE"
-                        ? "Confirm & Proceed to Planning"
+                        ? "Confirm & Proceed to Stage 3 Planning"
                         : outcomeType === "NEXT_MEETING"
                         ? `Confirm Round ${(outcomeMeeting.round || 1) + 1} Schedule`
                         : "Confirm & Save Deliberation"}

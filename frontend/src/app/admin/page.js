@@ -1486,7 +1486,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex font-sans transition-colors duration-300">
       {/* Toast Notification */}
       {successToast && (
-        <div className="fixed top-6 right-6 z-50 px-4 py-2.5 rounded-[4px] bg-emerald-500 text-neutral-950 border border-emerald-400 font-bold text-xs shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
+        <div className="fixed top-6 right-6 z-[100] px-4 py-2.5 rounded-[4px] bg-emerald-500 text-neutral-950 border border-emerald-400 font-bold text-xs shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
           <CheckIcon className="w-4 h-4 shrink-0" />
           <span>{successToast}</span>
         </div>

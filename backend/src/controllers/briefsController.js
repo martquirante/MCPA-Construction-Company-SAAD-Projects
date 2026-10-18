@@ -866,12 +866,13 @@ class BriefsController {
         );
         updatedBrief = updateRes.rows[0];
 
-        // Advance project to Pre-Construction Planning (Stage 2)
+        // Advance project to Pre-Construction Planning (Stage 3)
         try {
           const stageEngineService = require("../services/stageEngineService");
           await stageEngineService.advanceProjectStage({
             briefId: brief.brief_id,
-            targetStage: "PRE_CONSTRUCTION",
+            targetStage: req.body?.targetStage || "PRE_CONSTRUCTION",
+            adminUserId: req.user?.userId || req.user?.user_id || 1,
             reason: "Consultation alignment achieved. Both parties agreed on scope and preliminary budget.",
             metadata: { meetingMinutes, quotationAmount },
           });

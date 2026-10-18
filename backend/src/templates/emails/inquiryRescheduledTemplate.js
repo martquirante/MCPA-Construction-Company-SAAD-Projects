@@ -14,8 +14,9 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
   const reason = rescheduleMeta.rescheduleReason || "Architectural Schedule Alignment";
   const notes = rescheduleMeta.rescheduleNotes || "";
   const meetingMode = rescheduleMeta.meetingMode || brief.meeting_mode || brief.meetingMode || "Online Video Call";
-  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa.ph";
+  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
   const portalUrl = `${websiteUrl}/portal`;
+  const portalMeetingUrl = `${portalUrl}?tab=meeting`;
 
   // Supabase High-Availability Public CDN Assets
   const logoLightUrl = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png";
@@ -27,7 +28,7 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
 
   let venueDisplay = isF2F
     ? (venueDetails || venueType || "MCPA Head Office, Tabang, Plaridel, Bulacan")
-    : "Virtual Google Meet Room";
+    : "MCPA Online Meeting Room (Client Portal)";
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -172,7 +173,7 @@ function getInquiryRescheduledTemplate(brief = {}, rescheduleMeta = {}) {
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 28px;">
                 <tr>
                   <td align="left">
-                    <a href="${portalUrl}" class="btn-cta" target="_blank" style="display: inline-block; background-color: #0284c7; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 700; text-decoration: none; padding: 13px 26px; border-radius: 8px; letter-spacing: 0.02em; text-transform: uppercase; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);">
+                    <a href="${portalMeetingUrl}" class="btn-cta" target="_blank" style="display: inline-block; background-color: #0284c7; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 700; text-decoration: none; padding: 13px 26px; border-radius: 8px; letter-spacing: 0.02em; text-transform: uppercase; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);">
                       Review Updated Schedule in Portal &rarr;
                     </a>
                   </td>

@@ -16,7 +16,7 @@ function getMeetingAttendanceReminderTemplate(meeting = {}) {
   const venue = meeting.venue || "MCPA Head Office, 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan";
   const roundText = meeting.roundTitle || "Technical & Architectural Consultation";
 
-  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa.ph";
+  const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
   const confirmUrl = `${websiteUrl}/portal?tab=meeting&confirm_attendance=true`;
 
   // Supabase High-Availability Public CDN Assets
@@ -149,7 +149,7 @@ function getMeetingAttendanceReminderTemplate(meeting = {}) {
                     <td colspan="2" valign="top" style="padding-bottom: 10px;">
                       <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">Meeting Format</span>
                       <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">
-                        ${isF2F ? "Face-to-Face Physical Meeting" : "Virtual Video Consultation"}
+                        ${isF2F ? "Face-to-Face Physical Meeting" : "Virtual Video Consultation (MCPA Online Meeting Room)"}
                       </strong>
                     </td>
                   </tr>
@@ -157,7 +157,7 @@ function getMeetingAttendanceReminderTemplate(meeting = {}) {
                     <td colspan="2" valign="top" style="padding-bottom: 10px;">
                       <span class="info-label" style="display: block; font-size: 10.5px; color: #64748b; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">${isF2F ? "Venue Location" : "Video Room Access"}</span>
                       <strong class="info-value" style="display: block; font-size: 13px; color: #0f172a; margin-top: 2px;">
-                        ${isF2F ? venue : "Google Meet Video Room (Unlocks 15 minutes before schedule)"}
+                        ${isF2F ? venue : "MCPA Online Meeting Room · Client Portal Meeting Hub"}
                       </strong>
                     </td>
                   </tr>
@@ -189,7 +189,7 @@ function getMeetingAttendanceReminderTemplate(meeting = {}) {
                   Session Guidelines:
                 </div>
                 <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.7; color: #475569;" class="text-body">
-                  <li>${isF2F ? "Please arrive at our Plaridel engineering lounge 10 minutes prior to schedule. Reserved client parking is provided." : "For online calls, your secure Google Meet room will automatically activate exactly 15 minutes before the session starts."}</li>
+                  <li>${isF2F ? "Please arrive at our Plaridel engineering lounge 10 minutes prior to schedule. Reserved client parking is provided." : "For online calls, your encrypted consultation room is accessible directly in the MCPA Client Portal under the Meeting tab."}</li>
                   <li>If you need to reschedule or adjust your time, please access the Client Portal at least 3 hours before your scheduled session.</li>
                 </ul>
               </div>

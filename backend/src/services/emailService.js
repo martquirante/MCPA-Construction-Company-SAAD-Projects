@@ -567,11 +567,12 @@ Please review and confirm this adjustment in the Admin Consultation Pipeline.`;
     const clientName = brief.client_name || brief.clientName || "Valued Client";
     const meetingDate = brief.meeting_date || brief.meetingDate || "To be coordinated";
     const meetingTime = brief.meeting_time || brief.meetingTime || "09:00 AM - 10:30 AM PHT";
-    const meetingLink = brief.meeting_link || brief.meetingLink || "https://meet.google.com/mcp-buil-tab";
     const meetingMode = brief.meeting_mode || brief.meetingMode || "Online Video Call";
     const meetingNotes = brief.meeting_notes || brief.meetingNotes || "";
     const isF2F = (meetingMode || "").toLowerCase().includes("in-person");
-    const venueAddress = isF2F ? (brief.venue_details || brief.venue_type || "MCPA Head Office") : meetingLink;
+    const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
+    const portalMeetingUrl = `${websiteUrl}/portal?tab=meeting`;
+    const venueAddress = isF2F ? (brief.venue_details || brief.venue_type || "MCPA Head Office") : "MCPA Online Meeting Room (Client Portal)";
 
     const subject = `Consultation Confirmed & Scheduled — Ref: ${subId}`;
     const htmlContent = getInquiryMeetingConfirmationTemplate(brief);
@@ -586,14 +587,18 @@ Your consultation appointment for Project Brief ${subId} has been confirmed. Our
 CONFIRMED CONSULTATION SCHEDULE:
 - Confirmed Date: ${meetingDate}
 - Time Slot: ${meetingTime}
-- Meeting Format: ${isF2F ? "Face-to-Face Physical Meeting" : "Virtual Video Consultation"}
-- Location / Link: ${venueAddress}
+- Meeting Format: ${isF2F ? "Face-to-Face Physical Meeting" : "Virtual Video Consultation (MCPA Online Meeting Room)"}
+- ${isF2F ? "Venue Location" : "Online Room Access"}: ${venueAddress}
 ${meetingNotes ? `- Architectural Meeting Note: "${meetingNotes}"\n` : ""}
+
+ACCESS YOUR CONSULTATION:
+${isF2F ? `Please proceed to: ${venueAddress}` : `Join your consultation room directly via your Client Portal:\n${portalMeetingUrl}`}
 
 TIPS TO PREPARE FOR YOUR SESSION:
 - Lot dimensions, sketch plan, or Transfer Certificate of Title (TCT) copy if available.
 - Inspiration photos, preferred spatial room count, or special lifestyle requirements.
 - Any financing questions regarding bank loans or progress milestone billing.
+- ${isF2F ? "Please arrive at our Plaridel engineering lounge 10 minutes prior to schedule. Reserved client parking is provided." : "For online calls, your encrypted consultation room is built directly into your Client Portal under the Meeting tab. No third-party apps required."}
 
 SITE OFFICE & CONTACT:
 MCPA Construction & Supply
@@ -624,7 +629,7 @@ Dear ${meetingData.clientName || "Valued Client"},
 Your scheduled consultation (${meetingData.date || "Upcoming"} at ${meetingData.time || "Scheduled Time"}) is approaching in ${leadHours}.
 Please confirm your attendance in the MCPA Client Portal to guarantee our engineering team and lounge/room availability.
 
-Visit your Client Appointments Hub: ${process.env.FRONTEND_URL || "http://localhost:3000"}/portal?tab=meeting&confirm_attendance=true
+Visit your Client Appointments Hub: ${process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app"}/portal?tab=meeting&confirm_attendance=true
 
 MCPA Construction & Supply • Building Better Tomorrows`;
 
@@ -645,6 +650,10 @@ MCPA Construction & Supply • Building Better Tomorrows`;
     const reason = rescheduleMeta.rescheduleReason || "Architectural Schedule Alignment";
     const notes = rescheduleMeta.rescheduleNotes || "";
     const meetingMode = rescheduleMeta.meetingMode || brief.meeting_mode || brief.meetingMode || "Online Video Call";
+    const isF2F = (meetingMode || "").toLowerCase().includes("in-person");
+    const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
+    const portalMeetingUrl = `${websiteUrl}/portal?tab=meeting`;
+    const venueAddress = isF2F ? (brief.venue_details || brief.venue_type || "MCPA Head Office") : "MCPA Online Meeting Room (Client Portal)";
 
     const subject = `Consultation Schedule Updated — Ref: ${subId}`;
     const htmlContent = getInquiryRescheduledTemplate(brief, rescheduleMeta);
@@ -660,6 +669,8 @@ SCHEDULE COMPARISON:
 - Previous Slot: ${previousMeetingDate} ${previousMeetingTime ? `(${previousMeetingTime})` : ""}
 - New Confirmed Slot: ${newMeetingDate} (${newMeetingTime})
 - Format: ${meetingMode}
+- Room / Venue: ${venueAddress}
+- Access Link: ${portalMeetingUrl}
 - Reason: ${reason}
 ${notes ? `- Note: "${notes}"\n` : ""}
 

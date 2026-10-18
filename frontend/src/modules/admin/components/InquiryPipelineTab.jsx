@@ -347,6 +347,8 @@ export default function InquiryPipelineTab({
   const [targetLifecycleStage, setTargetLifecycleStage] = useState("CONSULTATION");
   const [stageAdvanceReason, setStageAdvanceReason] = useState("");
   const [isAdvancingStage, setIsAdvancingStage] = useState(false);
+  const [stageAdvanceError, setStageAdvanceError] = useState("");
+  const [stageAdvanceSuccess, setStageAdvanceSuccess] = useState("");
 
   const filteredBriefs = clientBriefs.filter((b) => {
     const matchStage =
@@ -384,6 +386,8 @@ export default function InquiryPipelineTab({
     setSelectedBrief(brief);
     setTargetLifecycleStage(brief.current_project_stage || brief.currentProjectStage || "CONSULTATION");
     setStageAdvanceReason("");
+    setStageAdvanceError("");
+    setStageAdvanceSuccess("");
     const rawVenueType = brief.venueType || brief.venue_type || "";
     const hasPhysicalVenue =
       Boolean(rawVenueType) &&
@@ -420,6 +424,8 @@ export default function InquiryPipelineTab({
   const handleAdvanceStage = async (newStage) => {
     if (!selectedBrief) return;
     setIsAdvancingStage(true);
+    setStageAdvanceError("");
+    setStageAdvanceSuccess("");
     try {
       const targetProjectRef = selectedBrief.client_project_id || selectedBrief.brief_id || selectedBrief.id || selectedBrief.submissionId;
       const res = await authFetch(`/api/admin/projects/${encodeURIComponent(targetProjectRef)}/advance-stage`, {
@@ -463,11 +469,16 @@ export default function InquiryPipelineTab({
           );
         }
 
-        showToast?.(`Project stage successfully advanced to ${newStage === "ACTIVE_BUILD" ? "Stage 3 (Active Build)" : newStage}!`);
+        const successMsg = `Project stage successfully advanced to ${newStage === "ACTIVE_BUILD" ? "Stage 3 (Active Build)" : newStage}!`;
+        setStageAdvanceSuccess(successMsg);
+        showToast?.(successMsg);
       } else {
-        showToast?.(`Failed to advance stage: ${data.message || "Server error"}`);
+        const errMsg = data.message || "Failed to advance stage. Please check server logs.";
+        setStageAdvanceError(errMsg);
+        showToast?.(`Failed to advance stage: ${errMsg}`);
       }
     } catch (err) {
+      setStageAdvanceError(`Stage progression error: ${err.message}`);
       showToast?.(`Stage progression error: ${err.message}`);
     } finally {
       setIsAdvancingStage(false);
@@ -1988,7 +1999,11 @@ export default function InquiryPipelineTab({
                               return (
                                 <div
                                   key={stage.id}
-                                  onClick={() => setTargetLifecycleStage(stage.id)}
+                                  onClick={() => {
+                                    setTargetLifecycleStage(stage.id);
+                                    setStageAdvanceError("");
+                                    setStageAdvanceSuccess("");
+                                  }}
                                   className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all ${
                                     isTarget
                                       ? "ring-2 ring-amber-500 border-amber-500 bg-amber-50/40 dark:bg-amber-950/20"
@@ -2025,6 +2040,23 @@ export default function InquiryPipelineTab({
                               className="w-full px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-mono"
                             />
                           </div>
+
+                          {stageAdvanceError && (
+                            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-mono flex items-start gap-2 animate-in fade-in">
+                              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                              <div className="flex-1 leading-relaxed">
+                                <span className="font-bold">Stage Progression Blocked: </span>
+                                {stageAdvanceError}
+                              </div>
+                            </div>
+                          )}
+
+                          {stageAdvanceSuccess && (
+                            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-mono flex items-center gap-2 animate-in fade-in">
+                              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+                              <span className="font-bold">{stageAdvanceSuccess}</span>
+                            </div>
+                          )}
 
                           <div className="flex items-center justify-end pt-2 border-t border-neutral-100 dark:border-white/5">
                             <button
