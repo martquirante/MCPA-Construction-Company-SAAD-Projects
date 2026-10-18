@@ -62,7 +62,7 @@ export default function BillingLedgerTab({
     return () => {
       isMounted = false;
     };
-  }, [project, initialExpenses]);
+  }, [project?.project_code, initialExpenses]);
 
   const totalContract = billing.reduce((acc, curr) => acc + parseFloat(curr.amount_due || 0), 0);
   const totalPaid = billing

@@ -9,6 +9,9 @@ import {
   X,
 } from "lucide-react";
 
+// Module-level persistent cache across renders so it NEVER flickers "Loading..."
+let globalStage3ProjectsCache = null;
+
 export default function Stage3CustomerSelector({
   selectedProject = null,
   onSelectProject,
@@ -16,25 +19,66 @@ export default function Stage3CustomerSelector({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [projects, setProjects] = useState(externalProjects || []);
-  const [isLoading, setIsLoading] = useState(!externalProjects);
+  const [projects, setProjects] = useState(() => {
+    if (Array.isArray(externalProjects) && externalProjects.length > 0) return externalProjects;
+    if (globalStage3ProjectsCache && globalStage3ProjectsCache.length > 0) return globalStage3ProjectsCache;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("mcpa_stage3_projects");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            globalStage3ProjectsCache = parsed;
+            return parsed;
+          }
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    if (Array.isArray(externalProjects) && externalProjects.length > 0) return false;
+    if (globalStage3ProjectsCache && globalStage3ProjectsCache.length > 0) return false;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("mcpa_stage3_projects");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) return false;
+        }
+      } catch (e) {}
+    }
+    return true;
+  });
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    if (externalProjects && externalProjects.length > 0) {
+    if (Array.isArray(externalProjects) && externalProjects.length > 0) {
       setProjects(externalProjects);
+      globalStage3ProjectsCache = externalProjects;
+      try {
+        localStorage.setItem("mcpa_stage3_projects", JSON.stringify(externalProjects));
+      } catch (e) {}
       setIsLoading(false);
       return;
     }
 
+    // If already loaded in memory or storage, refresh silently without setting isLoading=true
     let isMounted = true;
     async function fetchStage3Clients() {
       try {
-        setIsLoading(true);
+        // Only trigger visible loading if we have zero projects in memory
+        if (projects.length === 0 && !globalStage3ProjectsCache) {
+          setIsLoading(true);
+        }
         const res = await fetch("/api/construction/stage3-projects");
         const data = await res.json();
-        if (isMounted && data.success) {
-          setProjects(data.projects || []);
+        if (isMounted && data.success && Array.isArray(data.projects)) {
+          globalStage3ProjectsCache = data.projects;
+          try {
+            localStorage.setItem("mcpa_stage3_projects", JSON.stringify(data.projects));
+          } catch (e) {}
+          setProjects(data.projects);
         }
       } catch (err) {
         console.warn("[Stage3CustomerSelector] Failed to fetch Stage 3 clients:", err);
@@ -47,7 +91,7 @@ export default function Stage3CustomerSelector({
     return () => {
       isMounted = false;
     };
-  }, [externalProjects]);
+  }, [externalProjects?.length]);
 
   // Click outside listener to close dropdown
   useEffect(() => {
@@ -192,7 +236,7 @@ export default function Stage3CustomerSelector({
 
           {/* Client List */}
           <div className="max-h-64 overflow-y-auto divide-y divide-neutral-100 dark:divide-white/5 p-1">
-            {isLoading ? (
+            {isLoading && projects.length === 0 ? (
               <div className="p-4 text-center text-xs font-mono text-neutral-400">
                 Loading Stage 3 client directory...
               </div>

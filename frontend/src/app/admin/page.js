@@ -198,6 +198,20 @@ export default function AdminPage() {
 
   // Construction & System states
   const [siteProject, setSiteProject] = useState(null);
+  const siteProjectRef = useRef(null);
+  siteProjectRef.current = siteProject;
+  const [stage3Projects, setStage3Projects] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("mcpa_stage3_projects");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
   const [siteMilestones, setSiteMilestones] = useState([]);
   const [sitePhotos, setSitePhotos] = useState([]);
   const [billingLedger, setBillingLedger] = useState([]);
@@ -343,10 +357,14 @@ export default function AdminPage() {
 
     // Try to load from Backend API first
     try {
-      const [projRes, briefsRes, siteRes] = await Promise.allSettled([
+      const currentSelectedCode = siteProjectRef.current?.project_code;
+      const [projRes, briefsRes, stage3Res, currentSiteRes] = await Promise.allSettled([
         fetch("/api/projects").then((r) => r.json()),
         fetch("/api/briefs").then((r) => r.json()),
-        fetch("/api/construction/project").then((r) => r.json()),
+        fetch("/api/construction/stage3-projects").then((r) => r.json()),
+        currentSelectedCode
+          ? fetch(`/api/construction/projects/${encodeURIComponent(currentSelectedCode)}`).then((r) => r.json())
+          : Promise.resolve(null),
       ]);
 
       if (projRes.status === "fulfilled" && projRes.value?.success && Array.isArray(projRes.value.projects)) {
@@ -440,18 +458,29 @@ export default function AdminPage() {
         fallbackLoadStoredBriefs();
       }
 
-      if (siteRes.status === "fulfilled" && siteRes.value?.success) {
-        // Keep siteProject null by default so admin can select client via combobox
+      if (stage3Res?.status === "fulfilled" && stage3Res.value?.success && Array.isArray(stage3Res.value.projects)) {
+        setStage3Projects(stage3Res.value.projects);
+        try {
+          localStorage.setItem("mcpa_stage3_projects", JSON.stringify(stage3Res.value.projects));
+        } catch (e) {}
+      }
+
+      if (currentSiteRes?.status === "fulfilled" && currentSiteRes.value?.success && currentSiteRes.value?.project) {
+        const fresh = currentSiteRes.value;
         setSiteProject((prev) => {
-          if (!prev?.project_code) return null;
-          return siteRes.value.project || prev;
+          if (!prev?.project_code || prev.project_code !== fresh.project.project_code) return prev;
+          return {
+            ...prev,
+            ...fresh.project,
+            avatar_url: fresh.project.avatar_url || prev.avatar_url || null,
+          };
         });
-        setSiteMilestones((prev) => (prev.length > 0 ? (siteRes.value.milestones || []) : []));
-        setSitePhotos((prev) => (prev.length > 0 ? (siteRes.value.photos || []) : []));
-        setBillingLedger((prev) => (prev.length > 0 ? (siteRes.value.billing || []) : []));
-        setDelayEvents((prev) => (prev.length > 0 ? (siteRes.value.delays || []) : []));
-        setWarrantyTickets((prev) => (prev.length > 0 ? (siteRes.value.warranty || []) : []));
-        setSiteExpenses((prev) => (prev.length > 0 ? (siteRes.value.expenses || []) : []));
+        setSiteMilestones(fresh.milestones || []);
+        setSitePhotos(fresh.photos || []);
+        setBillingLedger(fresh.billing || []);
+        setDelayEvents(fresh.delays || []);
+        setWarrantyTickets(fresh.warranty || []);
+        setSiteExpenses(fresh.expenses || []);
       }
     } catch (e) {
       fallbackLoadStoredProjects();
@@ -2272,6 +2301,7 @@ export default function AdminPage() {
         {activeTab === "site-progress" && (
           <SiteProgressTab
             project={siteProject}
+            projects={stage3Projects}
             milestones={siteMilestones}
             photos={sitePhotos}
             onSelectProject={handleSelectSiteProject}
@@ -2290,6 +2320,7 @@ export default function AdminPage() {
         {activeTab === "delays" && (
           <DelayManagementTab
             project={siteProject}
+            projects={stage3Projects}
             delays={delayEvents}
             onSelectProject={handleSelectSiteProject}
             onLogDelay={handleLogDelay}
@@ -2303,6 +2334,7 @@ export default function AdminPage() {
         {activeTab === "billing" && (
           <BillingLedgerTab
             project={siteProject}
+            projects={stage3Projects}
             billing={billingLedger}
             expenses={siteExpenses}
             onSelectProject={handleSelectSiteProject}

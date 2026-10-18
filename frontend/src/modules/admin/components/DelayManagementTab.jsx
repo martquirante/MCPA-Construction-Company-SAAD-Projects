@@ -34,7 +34,7 @@ export default function DelayManagementTab({
   const [isLoadingWeather, setIsLoadingWeather] = useState(false);
 
   useEffect(() => {
-    if (!project) {
+    if (!project?.project_code) {
       setWeatherData(null);
       return;
     }
@@ -42,7 +42,7 @@ export default function DelayManagementTab({
     let isMounted = true;
     async function loadWeather() {
       try {
-        setIsLoadingWeather(true);
+        if (!weatherData) setIsLoadingWeather(true);
         const loc = project.location || project.target_location || "Bulacan";
         const res = await fetch(`/api/weather/forecast?location=${encodeURIComponent(loc)}`);
         const data = await res.json();
@@ -59,7 +59,7 @@ export default function DelayManagementTab({
     return () => {
       isMounted = false;
     };
-  }, [project]);
+  }, [project?.project_code]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
