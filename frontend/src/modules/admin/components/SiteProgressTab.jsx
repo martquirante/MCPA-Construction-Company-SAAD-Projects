@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import {
   MapPin,
@@ -17,6 +17,10 @@ import {
   ChevronRight,
   HardHat,
   Sparkles,
+  Check,
+  Loader2,
+  Image as ImageIcon,
+  Link as LinkIcon,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
 
@@ -56,6 +60,25 @@ export default function SiteProgressTab({
   // 3D Video Walkthrough Form state
   const [videoUrl, setVideoUrl] = useState(project?.virtual_tour_url || "");
   const [isSavingVideo, setIsSavingVideo] = useState(false);
+  const [boqTrades, setBoqTrades] = useState([]);
+
+  useEffect(() => {
+    if (!project?.project_code && !project?.client_project_id) return;
+    const projId = project.client_project_id || project.project_code;
+    let isMounted = true;
+    fetch(`/api/projects/${encodeURIComponent(projId)}/quotation`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success && data.quotation?.items_breakdown && Array.isArray(data.quotation.items_breakdown)) {
+          setBoqTrades(data.quotation.items_breakdown);
+        }
+      })
+      .catch((err) => console.warn("[SiteProgressTab] Could not load project BOQ quotation:", err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.project_code, project?.client_project_id]);
 
   useEffect(() => {
     setVideoUrl(project?.virtual_tour_url || "");
@@ -69,6 +92,56 @@ export default function SiteProgressTab({
   const [photoUrl, setPhotoUrl] = useState("");
   const [is360, setIs360] = useState(false);
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [photoUploadError, setPhotoUploadError] = useState("");
+  const [useManualPhotoUrl, setUseManualPhotoUrl] = useState(false);
+  const photoFileInputRef = useRef(null);
+
+  const resetPhotoForm = () => {
+    setIsAddPhotoOpen(false);
+    setPhotoTitle("");
+    setPhotoCaption("");
+    setPhotoUrl("");
+    setPhotoPreview("");
+    setPhotoUploadError("");
+    setUseManualPhotoUrl(false);
+    setIsUploadingPhoto(false);
+    if (photoFileInputRef.current) photoFileInputRef.current.value = "";
+  };
+
+  const handlePhotoFileSelect = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setPhotoUploadError("Please select a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+    setPhotoUploadError("");
+    const localUrl = URL.createObjectURL(file);
+    setPhotoPreview(localUrl);
+    setIsUploadingPhoto(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload?category=portfolio", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        throw new Error(data.message || "Upload failed");
+      }
+      setPhotoUrl(data.url);
+      if (showToast) showToast("Photo uploaded to Azure Blob Storage & mirrored to Supabase + Neon!");
+    } catch (err) {
+      console.error("Photo upload error:", err);
+      setPhotoUploadError(err.message || "Upload failed. Please verify connection.");
+      if (showToast) showToast("Upload error: " + err.message);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   // Handlers
   const handleOpenUpdateModal = (ms) => {
@@ -142,6 +215,51 @@ export default function SiteProgressTab({
       setNewNotes("");
     } catch (err) {
       if (showToast) showToast("Error: " + err.message);
+    } finally {
+      setIsSavingMilestone(false);
+    }
+  };
+
+  const handleImportMilestonesFromBOQ = async () => {
+    if (!project || boqTrades.length === 0) return;
+    if (!confirm(`Import all ${boqTrades.length} trade categories from the project's BOQ as site milestone phases?`)) return;
+
+    setIsSavingMilestone(true);
+    try {
+      const evenWeight = Math.max(1, Math.floor(100 / boqTrades.length));
+      for (let i = 0; i < boqTrades.length; i++) {
+        const trade = boqTrades[i];
+        const phaseCode = `M${milestones.length + i + 1}`;
+        const itemsNotes = (trade.items || []).map((it) => it.item).filter(Boolean).slice(0, 4).join(", ");
+        const phaseWeight = i === boqTrades.length - 1 ? (100 - evenWeight * (boqTrades.length - 1)) : evenWeight;
+
+        if (onAddMilestone) {
+          await onAddMilestone({
+            projectCode: project.project_code,
+            phaseCode,
+            phaseName: trade.category,
+            weight: phaseWeight,
+            targetDate: "",
+            notes: itemsNotes,
+          });
+        } else {
+          await fetch("/api/construction/milestones", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectCode: project.project_code,
+              phaseCode,
+              phaseName: trade.category,
+              weight: phaseWeight,
+              targetDate: "",
+              notes: itemsNotes,
+            }),
+          });
+        }
+      }
+      if (showToast) showToast(`Successfully imported ${boqTrades.length} milestone phases from project BOQ!`);
+    } catch (err) {
+      if (showToast) showToast("Error importing from BOQ: " + err.message);
     } finally {
       setIsSavingMilestone(false);
     }
@@ -225,10 +343,7 @@ export default function SiteProgressTab({
         if (!res.ok) throw new Error(data.message || "Failed to add photo");
       }
       if (showToast) showToast(`${logType} update published to client portal!`);
-      setIsAddPhotoOpen(false);
-      setPhotoTitle("");
-      setPhotoCaption("");
-      setPhotoUrl("");
+      resetPhotoForm();
     } catch (err) {
       if (showToast) showToast("Error: " + err.message);
     } finally {
@@ -386,19 +501,33 @@ export default function SiteProgressTab({
             </div>
 
             {milestones.length === 0 ? (
-              <div className="p-8 text-center rounded-[8px] bg-neutral-50 dark:bg-neutral-900/30 border border-dashed border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-400 space-y-2">
+              <div className="p-8 text-center rounded-[8px] bg-neutral-50 dark:bg-neutral-900/30 border border-dashed border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-400 space-y-3">
                 <p>No milestone phases created for {project.project_code} yet.</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewPhaseCode("M1");
-                    setIsAddMilestoneOpen(true);
-                  }}
-                  className="px-3 py-1.5 rounded-[6px] bg-amber-500 text-neutral-950 font-bold text-xs cursor-pointer inline-flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Create Milestone 1</span>
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewPhaseCode("M1");
+                      setIsAddMilestoneOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs cursor-pointer inline-flex items-center gap-1 shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Create Milestone 1</span>
+                  </button>
+
+                  {boqTrades.length > 0 && (
+                    <button
+                      type="button"
+                      disabled={isSavingMilestone}
+                      onClick={handleImportMilestonesFromBOQ}
+                      className="px-3 py-1.5 rounded-[6px] bg-neutral-100 dark:bg-white/10 hover:bg-neutral-200 dark:hover:bg-white/15 text-neutral-800 dark:text-neutral-200 font-bold text-xs cursor-pointer inline-flex items-center gap-1.5 border border-neutral-200 dark:border-white/10"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Import {boqTrades.length} Phases from Project BOQ</span>
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -500,6 +629,33 @@ export default function SiteProgressTab({
             </div>
 
             <form onSubmit={handleCreateMilestone} className="space-y-3.5 text-xs font-mono">
+              {boqTrades.length > 0 && (
+                <div className="p-3 rounded-[8px] bg-amber-500/10 border border-amber-500/20 space-y-1.5">
+                  <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Quick-fill from Project BOQ Trades:</span>
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {boqTrades.map((trade, tIdx) => (
+                      <button
+                        key={tIdx}
+                        type="button"
+                        onClick={() => {
+                          setNewPhaseName(trade.category);
+                          if (!newPhaseCode) setNewPhaseCode(`M${milestones.length + 1}`);
+                          if (trade.items?.length > 0) {
+                            setNewNotes(trade.items.map((it) => it.item).filter(Boolean).slice(0, 4).join(", "));
+                          }
+                        }}
+                        className="px-2 py-0.5 rounded bg-white dark:bg-[#12151e] hover:bg-amber-500 hover:text-neutral-950 border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200 text-[10px] font-mono font-bold transition-all cursor-pointer shadow-2xs"
+                      >
+                        + {trade.category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-neutral-500 mb-1">Phase Code *</label>
@@ -796,15 +952,119 @@ export default function SiteProgressTab({
               </div>
 
               <div>
-                <label className="block text-neutral-500 mb-1">Image / Media URL *</label>
-                <input
-                  type="url"
-                  required
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  placeholder="https://.../site-inspection.jpg"
-                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-neutral-500 font-mono text-[11px] font-bold uppercase">
+                    Site Progress Photo File *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setUseManualPhotoUrl(!useManualPhotoUrl)}
+                    className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    {useManualPhotoUrl ? (
+                      <>
+                        <UploadCloud className="w-3 h-3" />
+                        <span>Switch to File Upload</span>
+                      </>
+                    ) : (
+                      <>
+                        <LinkIcon className="w-3 h-3" />
+                        <span>Or Paste Direct URL</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {useManualPhotoUrl ? (
+                  <input
+                    type="url"
+                    required
+                    value={photoUrl}
+                    onChange={(e) => setPhotoUrl(e.target.value)}
+                    placeholder="https://.../site-inspection.jpg"
+                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
+                  />
+                ) : (
+                  <div>
+                    <input
+                      ref={photoFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handlePhotoFileSelect(e.target.files?.[0])}
+                      className="hidden"
+                    />
+
+                    {photoUrl || photoPreview ? (
+                      <div className="relative rounded-[8px] overflow-hidden border border-amber-500/30 bg-neutral-900 p-2 space-y-2">
+                        <div className="relative w-full h-44 rounded-[6px] overflow-hidden bg-neutral-950 flex items-center justify-center">
+                          <img
+                            src={photoPreview || photoUrl}
+                            alt="Site Preview"
+                            className="w-full h-full object-cover"
+                          />
+                          {isUploadingPhoto && (
+                            <div className="absolute inset-0 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white p-3 text-center">
+                              <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+                              <span className="text-xs font-mono font-bold">Uploading to Azure Blob Storage...</span>
+                              <span className="text-[10px] font-mono text-neutral-300">Mirroring to Supabase &amp; Neon S3 Standby</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {!isUploadingPhoto && (
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1">
+                            <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                              <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                              <span>Azure Blob (Primary) • Supabase • Neon Mirror</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPhotoUrl("");
+                                setPhotoPreview("");
+                                if (photoFileInputRef.current) photoFileInputRef.current.value = "";
+                              }}
+                              className="text-[11px] font-mono text-rose-500 hover:underline cursor-pointer self-end sm:self-auto"
+                            >
+                              Change File
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) handlePhotoFileSelect(file);
+                        }}
+                        onClick={() => photoFileInputRef.current?.click()}
+                        className="w-full p-6 rounded-[8px] border-2 border-dashed border-neutral-300 dark:border-white/15 hover:border-amber-500/60 dark:hover:border-amber-500/60 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors text-center group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <UploadCloud className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                            Click to upload or drag &amp; drop site photo
+                          </p>
+                          <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
+                            PNG, JPG, WebP
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {photoUploadError && (
+                      <p className="text-[11px] font-mono text-rose-500 mt-1.5">{photoUploadError}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -821,17 +1081,29 @@ export default function SiteProgressTab({
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-white/5">
                 <button
                   type="button"
-                  onClick={() => setIsAddPhotoOpen(false)}
+                  onClick={resetPhotoForm}
                   className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingPhoto}
-                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs"
+                  disabled={isSavingPhoto || isUploadingPhoto || !photoUrl || !photoTitle}
+                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
                 >
-                  {isSavingPhoto ? "Posting..." : "Publish to Client"}
+                  {isSavingPhoto ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Posting...</span>
+                    </>
+                  ) : isUploadingPhoto ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Uploading File...</span>
+                    </>
+                  ) : (
+                    <span>Publish to Client</span>
+                  )}
                 </button>
               </div>
             </form>

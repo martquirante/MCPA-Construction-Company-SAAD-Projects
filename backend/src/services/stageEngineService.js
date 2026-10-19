@@ -1886,23 +1886,6 @@ class StageEngineService {
             "UPDATE public.client_projects SET site_project_code = $1 WHERE client_project_id = $2;",
             [pCode, resolvedProjectId]
           );
-
-          const defaultMilestones = [
-            { code: 'M1', name: 'Mobilization & Earthworks', pct: 0, status: 'Upcoming', date: null, weight: 15, notes: 'Site layout, temporary facilities, and initial earthworks.' },
-            { code: 'M2', name: 'Foundation & Substructure', pct: 0, status: 'Upcoming', date: null, weight: 25, notes: 'Footing tie beams and rebar installation.' },
-            { code: 'M3', name: 'Structural Framing', pct: 0, status: 'Upcoming', date: null, weight: 25, notes: 'Columns, 2nd floor beams, slab pouring.' },
-            { code: 'M4', name: 'Enclosure & Masonry', pct: 0, status: 'Upcoming', date: null, weight: 15, notes: 'CHB wall laying, plastering, door frames.' },
-            { code: 'M5', name: 'MEPF Rough-ins', pct: 0, status: 'Upcoming', date: null, weight: 10, notes: 'Plumbing conduits, electrical rough-in.' },
-            { code: 'M6', name: 'Architectural Finishes & Turnover', pct: 0, status: 'Upcoming', date: null, weight: 10, notes: 'Tiles, paint, fixtures, final inspection.' },
-          ];
-
-          for (const m of defaultMilestones) {
-            await db.query(
-              `INSERT INTO public.site_milestones (project_code, phase_code, phase_name, completion_pct, status, target_date, weight, notes)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;`,
-              [pCode, m.code, m.name, m.pct, m.status, m.date, m.weight, m.notes]
-            ).catch(() => {});
-          }
         }
       } catch (spErr) {
         console.warn("[stageEngineService] site_projects setup notice:", spErr.message);

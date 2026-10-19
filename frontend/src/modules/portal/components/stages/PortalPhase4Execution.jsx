@@ -147,39 +147,38 @@ export default function PortalPhase4Execution({
         </div>
 
         {/* Milestone Stepper */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 pt-4 text-xs font-mono">
-          {(milestones.length > 0 ? milestones : [
-            { milestone_id: 1, phase_name: "Mobilization & Earthworks", completion_pct: 0, status: "Upcoming" },
-            { milestone_id: 2, phase_name: "Foundation & Substructure", completion_pct: 0, status: "Upcoming" },
-            { milestone_id: 3, phase_name: "Structural Framing", completion_pct: 0, status: "Upcoming" },
-            { milestone_id: 4, phase_name: "Enclosure & Masonry", completion_pct: 0, status: "Upcoming" },
-            { milestone_id: 5, phase_name: "MEPF Rough-ins", completion_pct: 0, status: "Upcoming" },
-            { milestone_id: 6, phase_name: "Architectural Finishes & Turnover", completion_pct: 0, status: "Upcoming" },
-          ]).map((m, i) => (
-            <div
-              key={m.milestone_id || i}
-              className={`p-3 rounded-[6px] border flex flex-col justify-between space-y-1.5 transition-colors ${
-                m.completion_pct === 100
-                  ? "bg-amber-500/10 border-amber-500/30 text-neutral-900 dark:text-white"
-                  : m.completion_pct > 0
-                  ? "bg-neutral-50 dark:bg-white/[0.05] border-amber-500/50 text-neutral-900 dark:text-white"
-                  : "bg-neutral-50/50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-400 dark:text-neutral-500"
-              }`}
-            >
-              <div className="flex justify-between items-center text-[10px]">
-                <span className="font-bold">PHASE 0{i + 1}</span>
-                <span className="text-amber-600 dark:text-amber-400 font-bold">{m.completion_pct}%</span>
+        {milestones.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 pt-4 text-xs font-mono">
+            {milestones.map((m, i) => (
+              <div
+                key={m.milestone_id || i}
+                className={`p-3 rounded-[6px] border flex flex-col justify-between space-y-1.5 transition-colors ${
+                  m.completion_pct === 100
+                    ? "bg-amber-500/10 border-amber-500/30 text-neutral-900 dark:text-white"
+                    : m.completion_pct > 0
+                    ? "bg-neutral-50 dark:bg-white/[0.05] border-amber-500/50 text-neutral-900 dark:text-white"
+                    : "bg-neutral-50/50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-400 dark:text-neutral-500"
+                }`}
+              >
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="font-bold">{m.phase_code || `PHASE 0${i + 1}`}</span>
+                  <span className="text-amber-600 dark:text-amber-400 font-bold">{m.completion_pct || 0}%</span>
+                </div>
+                <div className="text-xs font-bold truncate">{m.phase_name}</div>
+                <div className="w-full bg-neutral-200 dark:bg-neutral-800 h-1 rounded-full overflow-hidden">
+                  <div
+                    className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${m.completion_pct || 0}%` }}
+                  />
+                </div>
               </div>
-              <div className="text-xs font-bold truncate">{m.phase_name}</div>
-              <div className="w-full bg-neutral-200 dark:bg-neutral-800 h-1 rounded-full overflow-hidden">
-                <div
-                  className="bg-amber-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${m.completion_pct}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="pt-4 text-center text-xs font-mono text-neutral-400">
+            No milestones scheduled yet. Site milestones will appear once defined by the supervising engineer.
+          </div>
+        )}
       </div>
 
       {/* 2. STAGE 3 EXECUTIVE DASHBOARD SUMMARY CARDS (SUMMARIZES OTHER ACTIVE NAV TABS) */}

@@ -149,56 +149,58 @@ export default function Stage3CustomerSelector({
         Active Stage 3 Project &amp; Client Selector
       </label>
 
-      {/* Main Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-2.5 sm:p-3 rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-300 dark:border-white/10 hover:border-amber-500/50 dark:hover:border-amber-500/50 flex items-center justify-between gap-3 text-left transition-all duration-200 shadow-xs cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500"
-      >
-        {activeSelected ? (
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            {/* Avatar / PFP - Direct non-flashing image rendering */}
-            <div className="relative w-9 h-9 rounded-full bg-neutral-900 border border-amber-500/30 overflow-hidden shrink-0 flex items-center justify-center">
-              {activeSelected.avatar_url ? (
-                <img
-                  src={activeSelected.avatar_url}
-                  alt={activeSelected.client_name || "Client"}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
-                />
-              ) : (
-                <span className="font-mono text-xs font-bold text-amber-400">
-                  {getInitials(activeSelected.client_name)}
-                </span>
-              )}
-            </div>
-
-            {/* Client Details */}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-neutral-900 dark:text-white truncate">
-                  {activeSelected.client_name || "Client Project"}
-                </span>
-                <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-500/20">
-                  {activeSelected.project_code}
-                </span>
+      {/* Main Trigger Bar */}
+      <div className="w-full rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-300 dark:border-white/10 hover:border-amber-500/50 dark:hover:border-amber-500/50 flex items-center justify-between transition-all duration-200 shadow-xs focus-within:ring-1 focus-within:ring-amber-500">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex-1 min-w-0 py-2.5 pl-2.5 pr-1 sm:py-3 sm:pl-3 sm:pr-2 flex items-center justify-between gap-3 text-left cursor-pointer focus:outline-none"
+        >
+          {activeSelected ? (
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {/* Avatar / PFP - Direct non-flashing image rendering */}
+              <div className="relative w-9 h-9 rounded-full bg-neutral-900 border border-amber-500/30 overflow-hidden shrink-0 flex items-center justify-center">
+                {activeSelected.avatar_url ? (
+                  <img
+                    src={activeSelected.avatar_url}
+                    alt={activeSelected.client_name || "Client"}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                  />
+                ) : (
+                  <span className="font-mono text-xs font-bold text-amber-400">
+                    {getInitials(activeSelected.client_name)}
+                  </span>
+                )}
               </div>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate font-mono">
-                {activeSelected.project_title || activeSelected.name || "Stage 3 Build"} • {activeSelected.client_email}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2.5 text-neutral-400 text-xs font-mono">
-            <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-white/5 border border-dashed border-neutral-300 dark:border-neutral-700 flex items-center justify-center shrink-0">
-              <User className="w-4 h-4 text-neutral-400" />
-            </div>
-            <span>Select a Stage 3 client to manage site logs &amp; milestones...</span>
-          </div>
-        )}
 
-        <div className="flex items-center gap-1.5 shrink-0 text-neutral-400">
+              {/* Client Details */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                    {activeSelected.client_name || "Client Project"}
+                  </span>
+                  <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-500/20">
+                    {activeSelected.project_code}
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate font-mono">
+                  {activeSelected.project_title || activeSelected.name || "Stage 3 Build"} • {activeSelected.client_email}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 text-neutral-400 text-xs font-mono">
+              <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-white/5 border border-dashed border-neutral-300 dark:border-neutral-700 flex items-center justify-center shrink-0">
+                <User className="w-4 h-4 text-neutral-400" />
+              </div>
+              <span>Select a Stage 3 client to manage site logs &amp; milestones...</span>
+            </div>
+          )}
+        </button>
+
+        <div className="flex items-center gap-1 pr-2.5 sm:pr-3 shrink-0 text-neutral-400">
           {activeSelected && (
             <button
               type="button"
@@ -206,15 +208,23 @@ export default function Stage3CustomerSelector({
                 e.stopPropagation();
                 if (onSelectProject) onSelectProject(null);
               }}
-              className="p-1 hover:text-neutral-900 dark:hover:text-white rounded hover:bg-neutral-100 dark:hover:bg-white/10"
+              className="p-1 hover:text-neutral-900 dark:hover:text-white rounded hover:bg-neutral-100 dark:hover:bg-white/10 cursor-pointer"
               title="Clear selection"
+              aria-label="Clear selection"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
-          <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180 text-amber-500" : ""}`} />
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            className="p-1 hover:text-neutral-900 dark:hover:text-white rounded hover:bg-neutral-100 dark:hover:bg-white/10 cursor-pointer focus:outline-none"
+            aria-label={isOpen ? "Close dropdown" : "Open dropdown"}
+          >
+            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180 text-amber-500" : ""}`} />
+          </button>
         </div>
-      </button>
+      </div>
 
       {/* Dropdown Menu */}
       {isOpen && (

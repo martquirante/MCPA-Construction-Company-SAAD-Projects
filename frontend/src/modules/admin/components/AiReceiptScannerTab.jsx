@@ -24,6 +24,24 @@ export default function AiReceiptScannerTab({
     setScanHistory(expenses);
   }, [expenses]);
 
+  const formatCommaNumber = (val) => {
+    if (val === "" || val === null || val === undefined) return "";
+    const cleaned = String(val).replace(/[^\d.]/g, "");
+    if (cleaned === "") return "";
+    const parts = cleaned.split(".");
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return parts.length > 1 ? integerPart + "." + parts.slice(1).join("") : integerPart;
+  };
+
+  const handleAmountChange = (val, setter) => {
+    if (val === "") {
+      setter("");
+      return;
+    }
+    const formatted = formatCommaNumber(val);
+    setter(formatted);
+  };
+
   const handleSimulateScan = () => {
     if (!receiptImage) {
       showToast("Please upload or select a receipt photo first.");
@@ -38,7 +56,8 @@ export default function AiReceiptScannerTab({
 
   const handleLogExpense = async (e) => {
     e.preventDefault();
-    if (!vendorName || !extractedTotal) return;
+    const cleanTotal = parseFloat(String(extractedTotal).replace(/,/g, ""));
+    if (!vendorName || !cleanTotal || isNaN(cleanTotal)) return;
     try {
       await fetch("/api/construction/expenses/ocr", {
         method: "POST",
@@ -47,8 +66,8 @@ export default function AiReceiptScannerTab({
           projectCode,
           vendorName,
           receiptImageUrl: receiptImage,
-          extractedTotal: parseFloat(extractedTotal),
-          rawOcrText: `OFFICIAL RECEIPT — ${vendorName}\nTOTAL AMOUNT: PHP ${extractedTotal}`,
+          extractedTotal: cleanTotal,
+          rawOcrText: `OFFICIAL RECEIPT — ${vendorName}\nTOTAL AMOUNT: PHP ${cleanTotal}`,
         }),
       });
 
@@ -56,7 +75,7 @@ export default function AiReceiptScannerTab({
         {
           id: Date.now(),
           vendor: vendorName,
-          total: parseFloat(extractedTotal),
+          total: cleanTotal,
           date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
           items: "Hardware materials, concrete fasteners & structural fittings",
         },
@@ -66,7 +85,7 @@ export default function AiReceiptScannerTab({
       setVendorName("");
       setExtractedTotal("");
       setReceiptImage("");
-      showToast(`Expense of ₱${Number(extractedTotal).toLocaleString()} logged successfully!`);
+      showToast(`Expense of ₱${Number(cleanTotal).toLocaleString()} logged successfully!`);
     } catch (err) {
       showToast("Could not sync with backend.");
     }
@@ -145,17 +164,22 @@ export default function AiReceiptScannerTab({
 
             <div>
               <label className="block text-neutral-600 dark:text-neutral-300 mb-1">
-                Extracted Total Amount (PHP)
+                Extracted Total Amount (PHP ₱)
               </label>
-              <input
-                type="number"
-                step="0.01"
-                required
-                placeholder="0.00"
-                value={extractedTotal}
-                onChange={(e) => setExtractedTotal(e.target.value)}
-                className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 text-base font-bold font-mono focus:outline-none focus:border-purple-500"
-              />
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-base font-bold text-emerald-600 dark:text-emerald-400 select-none pointer-events-none">
+                  ₱
+                </span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  required
+                  placeholder="0.00"
+                  value={extractedTotal}
+                  onChange={(e) => handleAmountChange(e.target.value, setExtractedTotal)}
+                  className="w-full pl-8 pr-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 text-base font-bold font-mono focus:outline-none focus:border-purple-500"
+                />
+              </div>
             </div>
 
             <button

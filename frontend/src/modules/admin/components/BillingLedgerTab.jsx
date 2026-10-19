@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import {
   CreditCard,
@@ -14,6 +14,10 @@ import {
   Receipt,
   Sparkles,
   ShieldCheck,
+  Check,
+  Loader2,
+  Image as ImageIcon,
+  Link as LinkIcon,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
 
@@ -36,6 +40,31 @@ export default function BillingLedgerTab({
 
   // Supply Receipts & OCR Scanner state
   const [expenses, setExpenses] = useState(initialExpenses);
+  const [boqTrades, setBoqTrades] = useState([]);
+  const [boqMilestones, setBoqMilestones] = useState([]);
+
+  useEffect(() => {
+    if (!project?.project_code && !project?.client_project_id) return;
+    const projId = project.client_project_id || project.project_code;
+    let isMounted = true;
+    fetch(`/api/projects/${encodeURIComponent(projId)}/quotation`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success && data.quotation) {
+          if (Array.isArray(data.quotation.items_breakdown)) {
+            setBoqTrades(data.quotation.items_breakdown);
+          }
+          if (Array.isArray(data.quotation.payment_milestones)) {
+            setBoqMilestones(data.quotation.payment_milestones);
+          }
+        }
+      })
+      .catch((err) => console.warn("[BillingLedgerTab] Could not load project BOQ quotation:", err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.project_code, project?.client_project_id]);
   const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
   const [receiptImage, setReceiptImage] = useState("");
   const [vendorName, setVendorName] = useState("");
@@ -43,6 +72,68 @@ export default function BillingLedgerTab({
   const [rawOcrNotes, setRawOcrNotes] = useState("");
   const [isScanningOcr, setIsScanningOcr] = useState(false);
   const [isSavingExpense, setIsSavingExpense] = useState(false);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const [receiptPreview, setReceiptPreview] = useState("");
+  const [receiptUploadError, setReceiptUploadError] = useState("");
+  const [useManualReceiptUrl, setUseManualReceiptUrl] = useState(false);
+  const receiptFileInputRef = useRef(null);
+
+  const resetOcrModal = () => {
+    setIsOcrModalOpen(false);
+    setReceiptImage("");
+    setReceiptPreview("");
+    setReceiptUploadError("");
+    setVendorName("");
+    setExtractedTotal("");
+    setRawOcrNotes("");
+    setUseManualReceiptUrl(false);
+    setIsUploadingReceipt(false);
+    setIsScanningOcr(false);
+    if (receiptFileInputRef.current) receiptFileInputRef.current.value = "";
+  };
+
+  const handleReceiptFileSelect = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+      setReceiptUploadError("Please select an image file (PNG, JPG, WebP) or PDF receipt.");
+      return;
+    }
+    setReceiptUploadError("");
+    const localUrl = URL.createObjectURL(file);
+    setReceiptPreview(localUrl);
+    setIsUploadingReceipt(true);
+    setIsScanningOcr(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload?category=briefs", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        throw new Error(data.message || "Upload failed");
+      }
+      setReceiptImage(data.url);
+      if (showToast) showToast("Receipt uploaded to Azure Blob Storage & mirrored to Supabase + Neon!");
+
+      // Pre-populate hardware vendor hint if blank
+      if (!vendorName) {
+        setVendorName("Wilcon Depot / Hardware Supply");
+      }
+      if (!rawOcrNotes) {
+        setRawOcrNotes(`FILE: ${file.name}\nAZURE ARCHIVE: ${data.url}\nVERIFICATION: Multi-Cloud Mirrored`);
+      }
+    } catch (err) {
+      console.error("Receipt upload error:", err);
+      setReceiptUploadError(err.message || "Upload failed. Please verify connection.");
+      if (showToast) showToast("Upload error: " + err.message);
+    } finally {
+      setIsUploadingReceipt(false);
+      setIsScanningOcr(false);
+    }
+  };
 
   useEffect(() => {
     if (initialExpenses && initialExpenses.length > 0) {
@@ -71,6 +162,25 @@ export default function BillingLedgerTab({
   const remainingBalance = totalContract - totalPaid;
   const totalMaterialExpenses = expenses.reduce((acc, curr) => acc + parseFloat(curr.extracted_total || 0), 0);
 
+  // Number formatting with comma thousands separators (e.g. 150000 -> "150,000")
+  const formatCommaNumber = (val) => {
+    if (val === "" || val === null || val === undefined) return "";
+    const cleaned = String(val).replace(/[^\d.]/g, "");
+    if (cleaned === "") return "";
+    const parts = cleaned.split(".");
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return parts.length > 1 ? integerPart + "." + parts.slice(1).join("") : integerPart;
+  };
+
+  const handleAmountChange = (val, setter) => {
+    if (val === "") {
+      setter("");
+      return;
+    }
+    const formatted = formatCommaNumber(val);
+    setter(formatted);
+  };
+
   const handleVerify = async (billId) => {
     try {
       if (onVerifyPayment) {
@@ -88,7 +198,8 @@ export default function BillingLedgerTab({
 
   const handleCreateTranche = async (e) => {
     e.preventDefault();
-    if (!trancheTitle || !trancheAmount || !project) return;
+    const cleanAmount = parseFloat(String(trancheAmount).replace(/,/g, ""));
+    if (!trancheTitle || !cleanAmount || !project) return;
 
     setIsSubmittingTranche(true);
     try {
@@ -96,7 +207,7 @@ export default function BillingLedgerTab({
         await onCreateBillingTranche({
           projectCode: project.project_code,
           milestoneTitle: trancheTitle,
-          amountDue: parseFloat(trancheAmount),
+          amountDue: cleanAmount,
           dueDate: trancheDueDate,
         });
       } else {
@@ -106,7 +217,7 @@ export default function BillingLedgerTab({
           body: JSON.stringify({
             projectCode: project.project_code,
             milestoneTitle: trancheTitle,
-            amountDue: parseFloat(trancheAmount),
+            amountDue: cleanAmount,
             dueDate: trancheDueDate,
           }),
         });
@@ -140,7 +251,8 @@ export default function BillingLedgerTab({
 
   const handleSaveExpense = async (e) => {
     e.preventDefault();
-    if (!vendorName || !extractedTotal || !project) return;
+    const cleanTotal = parseFloat(String(extractedTotal).replace(/,/g, ""));
+    if (!vendorName || !cleanTotal || !project) return;
 
     setIsSavingExpense(true);
     try {
@@ -151,20 +263,16 @@ export default function BillingLedgerTab({
           projectCode: project.project_code,
           vendorName,
           receiptImageUrl: receiptImage,
-          extractedTotal: parseFloat(extractedTotal),
-          rawOcrText: rawOcrNotes || `RECEIPT: ${vendorName}\nAMOUNT: ₱${extractedTotal}`,
+          extractedTotal: cleanTotal,
+          rawOcrText: rawOcrNotes || `RECEIPT: ${vendorName}\nAMOUNT: ₱${cleanTotal}`,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to save expense");
 
       setExpenses((prev) => [data.expense, ...prev]);
-      if (showToast) showToast(`Material receipt of ₱${Number(extractedTotal).toLocaleString()} logged!`);
-      setIsOcrModalOpen(false);
-      setVendorName("");
-      setExtractedTotal("");
-      setReceiptImage("");
-      setRawOcrNotes("");
+      if (showToast) showToast(`Material receipt of ₱${Number(cleanTotal).toLocaleString()} logged!`);
+      resetOcrModal();
     } catch (err) {
       if (showToast) showToast("Error: " + err.message);
     } finally {
@@ -470,6 +578,45 @@ export default function BillingLedgerTab({
             </div>
 
             <form onSubmit={handleCreateTranche} className="space-y-3.5 text-xs font-mono">
+              {(boqMilestones.length > 0 || boqTrades.length > 0) && (
+                <div className="p-3 rounded-[8px] bg-amber-500/10 border border-amber-500/20 space-y-1.5">
+                  <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Quick-fill from Project BOQ / Quotation:</span>
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {boqMilestones.length > 0
+                      ? boqMilestones.map((bm, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setTrancheTitle(bm.milestone || `Milestone ${idx + 1}`);
+                              if (bm.amount) {
+                                handleAmountChange(String(bm.amount), setTrancheAmount);
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-[6px] bg-white dark:bg-[#12151e] hover:bg-amber-500 hover:text-neutral-950 border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200 text-[10px] font-mono font-bold transition-all cursor-pointer shadow-2xs"
+                          >
+                            + {bm.milestone} ({bm.percentage}%)
+                          </button>
+                        ))
+                      : boqTrades.map((bt, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setTrancheTitle(bt.category);
+                            }}
+                            className="px-2.5 py-1 rounded-[6px] bg-white dark:bg-[#12151e] hover:bg-amber-500 hover:text-neutral-950 border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200 text-[10px] font-mono font-bold transition-all cursor-pointer shadow-2xs"
+                          >
+                            + {bt.category}
+                          </button>
+                        ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-neutral-500 mb-1">Tranche / Milestone Title *</label>
                 <input
@@ -484,15 +631,20 @@ export default function BillingLedgerTab({
 
               <div>
                 <label className="block text-neutral-500 mb-1">Amount Due (PHP ₱) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={trancheAmount}
-                  onChange={(e) => setTrancheAmount(e.target.value)}
-                  placeholder="e.g. 150000"
-                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-bold focus:outline-none focus:border-amber-500"
-                />
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-sm font-bold text-amber-500 select-none pointer-events-none">
+                    ₱
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    required
+                    value={trancheAmount}
+                    onChange={(e) => handleAmountChange(e.target.value, setTrancheAmount)}
+                    placeholder="e.g. 150,000"
+                    className="w-full pl-8 pr-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold focus:outline-none focus:border-amber-500"
+                  />
+                </div>
               </div>
 
               <div>
@@ -546,24 +698,136 @@ export default function BillingLedgerTab({
 
             <form onSubmit={handleSaveExpense} className="space-y-4 text-xs font-mono">
               <div>
-                <label className="block text-neutral-500 mb-1">Receipt Image URL *</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="url"
-                    required
-                    value={receiptImage}
-                    onChange={(e) => setReceiptImage(e.target.value)}
-                    placeholder="https://.../receipt-slip.jpg"
-                    className="flex-1 px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
-                  />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-neutral-500 font-mono text-[11px] font-bold uppercase">
+                    Official Hardware Receipt File *
+                  </label>
                   <button
                     type="button"
-                    onClick={() => handleAutoScanReceipt(receiptImage)}
-                    className="px-3 py-2 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 text-neutral-800 dark:text-white font-bold cursor-pointer"
+                    onClick={() => setUseManualReceiptUrl(!useManualReceiptUrl)}
+                    className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
                   >
-                    Scan
+                    {useManualReceiptUrl ? (
+                      <>
+                        <UploadCloud className="w-3 h-3" />
+                        <span>Switch to File Upload</span>
+                      </>
+                    ) : (
+                      <>
+                        <LinkIcon className="w-3 h-3" />
+                        <span>Or Paste Direct URL</span>
+                      </>
+                    )}
                   </button>
                 </div>
+
+                {useManualReceiptUrl ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      required
+                      value={receiptImage}
+                      onChange={(e) => setReceiptImage(e.target.value)}
+                      placeholder="https://.../receipt-slip.jpg"
+                      className="flex-1 px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAutoScanReceipt(receiptImage)}
+                      className="px-3 py-2 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 text-neutral-800 dark:text-white font-bold cursor-pointer"
+                    >
+                      Scan
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      ref={receiptFileInputRef}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => handleReceiptFileSelect(e.target.files?.[0])}
+                      className="hidden"
+                    />
+
+                    {receiptImage || receiptPreview ? (
+                      <div className="relative rounded-[8px] overflow-hidden border border-amber-500/30 bg-neutral-900 p-2 space-y-2">
+                        <div className="relative w-full h-40 rounded-[6px] overflow-hidden bg-neutral-950 flex items-center justify-center">
+                          {receiptPreview?.endsWith(".pdf") ? (
+                            <div className="flex flex-col items-center justify-center gap-1.5 text-neutral-400">
+                              <FileText className="w-10 h-10 text-amber-500" />
+                              <span className="text-xs font-mono font-bold">PDF Receipt Document</span>
+                            </div>
+                          ) : (
+                            <img
+                              src={receiptPreview || receiptImage}
+                              alt="Receipt Slip"
+                              className="w-full h-full object-contain"
+                            />
+                          )}
+
+                          {isUploadingReceipt && (
+                            <div className="absolute inset-0 bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white p-3 text-center">
+                              <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+                              <span className="text-xs font-mono font-bold">Uploading to Azure Blob Storage...</span>
+                              <span className="text-[10px] font-mono text-neutral-300">Syncing with Supabase &amp; Neon Standby Mirror</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {!isUploadingReceipt && (
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1">
+                            <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                              <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                              <span>Azure Blob (Primary) • Supabase • Neon Mirror</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReceiptImage("");
+                                setReceiptPreview("");
+                                if (receiptFileInputRef.current) receiptFileInputRef.current.value = "";
+                              }}
+                              className="text-[11px] font-mono text-rose-500 hover:underline cursor-pointer self-end sm:self-auto"
+                            >
+                              Change File
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) handleReceiptFileSelect(file);
+                        }}
+                        onClick={() => receiptFileInputRef.current?.click()}
+                        className="w-full p-6 rounded-[8px] border-2 border-dashed border-neutral-300 dark:border-white/15 hover:border-amber-500/60 dark:hover:border-amber-500/60 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors text-center group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <UploadCloud className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                            Click to upload or drag &amp; drop hardware receipt slip
+                          </p>
+                          <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
+                            PNG, JPG, WebP, PDF
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {receiptUploadError && (
+                      <p className="text-[11px] font-mono text-rose-500 mt-1.5">{receiptUploadError}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {isScanningOcr && (
@@ -587,15 +851,20 @@ export default function BillingLedgerTab({
                 </div>
                 <div>
                   <label className="block text-neutral-500 mb-1">Extracted Total (PHP ₱) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={extractedTotal}
-                    onChange={(e) => setExtractedTotal(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-bold focus:outline-none focus:border-amber-500"
-                  />
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3 text-sm font-bold text-amber-500 select-none pointer-events-none">
+                      ₱
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      required
+                      value={extractedTotal}
+                      onChange={(e) => handleAmountChange(e.target.value, setExtractedTotal)}
+                      placeholder="0.00"
+                      className="w-full pl-8 pr-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -613,17 +882,29 @@ export default function BillingLedgerTab({
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-white/5">
                 <button
                   type="button"
-                  onClick={() => setIsOcrModalOpen(false)}
+                  onClick={resetOcrModal}
                   className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingExpense || !vendorName || !extractedTotal}
-                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs"
+                  disabled={isSavingExpense || isUploadingReceipt || !vendorName || !extractedTotal || !receiptImage}
+                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
                 >
-                  {isSavingExpense ? "Saving..." : "Confirm & Save Slip"}
+                  {isSavingExpense ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : isUploadingReceipt ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Uploading File...</span>
+                    </>
+                  ) : (
+                    <span>Confirm &amp; Save Slip</span>
+                  )}
                 </button>
               </div>
             </form>

@@ -35,17 +35,19 @@ import authFetch from "@/modules/shared/authFetch";
 import LordIcon from "@/modules/shared/LordIcon";
 import { resolveClientAvatar } from "@/modules/admin/components/InquiryPipelineTab";
 
-// Standard Philippine General Contracting Trades (Clean blank slate: Zero pre-filled values)
-const DEFAULT_BOQ_TEMPLATE = [
-  { category: "General Requirements & Mobilization", items: [] },
-  { category: "Earthworks & Structural Concrete", items: [] },
-  { category: "Masonry & CHB Works", items: [] },
-  { category: "Structural Steel & Metal Roofing", items: [] },
-  { category: "Plumbing, Sanitary & Drainage Lines", items: [] },
-  { category: "Electrical & Lighting Works", items: [] },
-  { category: "Doors, Windows & Glazing", items: [] },
-  { category: "Architectural Finishes", items: [] },
-  { category: "Others / Special Scopes", items: [] },
+// Clean blank slate: Zero pre-filled trades by default (Admin adds trades on demand)
+const DEFAULT_BOQ_TEMPLATE = [];
+
+const COMMON_TRADE_SUGGESTIONS = [
+  "General Requirements & Mobilization",
+  "Earthworks & Structural Concrete",
+  "Masonry & CHB Works",
+  "Structural Steel & Metal Roofing",
+  "Plumbing, Sanitary & Drainage Lines",
+  "Electrical & Lighting Works",
+  "Doors, Windows & Glazing",
+  "Architectural Finishes",
+  "Others / Special Scopes",
 ];
 
 const DEFAULT_MILESTONES = [
@@ -217,7 +219,7 @@ export default function AdminBudgetQuotationTab({
   const [engineerFee, setEngineerFee] = useState("");
   const [contractorProfitPct, setContractorProfitPct] = useState("");
   const [adminNotes, setAdminNotes] = useState("");
-  const [itemsBreakdown, setItemsBreakdown] = useState(DEFAULT_BOQ_TEMPLATE);
+  const [itemsBreakdown, setItemsBreakdown] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newScopeTitle, setNewScopeTitle] = useState("");
@@ -225,6 +227,9 @@ export default function AdminBudgetQuotationTab({
   const [newScopeUnit, setNewScopeUnit] = useState("");
   const [newScopeUnitCost, setNewScopeUnitCost] = useState("");
   const [newScopeNotes, setNewScopeNotes] = useState("");
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [templateSearchQuery, setTemplateSearchQuery] = useState("");
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
 
   const dropdownRef = useRef(null);
 
@@ -357,17 +362,22 @@ export default function AdminBudgetQuotationTab({
           );
           setAdminNotes(q.admin_notes || "");
           if (q.items_breakdown && Array.isArray(q.items_breakdown) && q.items_breakdown.length > 0) {
-            const formattedItems = q.items_breakdown.map((cat) => ({
-              ...cat,
-              items: (cat.items || []).map((it) => ({
-                ...it,
-                qty: it.qty !== undefined && it.qty !== null && it.qty !== "" ? formatCommaNumber(it.qty) : "",
-                unitCost: it.unitCost !== undefined && it.unitCost !== null && it.unitCost !== "" ? formatCommaNumber(it.unitCost) : "",
-              })),
-            }));
-            setItemsBreakdown(formattedItems);
+            const hasAnyItems = q.items_breakdown.some((cat) => (cat.items || []).length > 0);
+            if (!hasAnyItems && q.items_breakdown.length === 9) {
+              setItemsBreakdown([]);
+            } else {
+              const formattedItems = q.items_breakdown.map((cat) => ({
+                ...cat,
+                items: (cat.items || []).map((it) => ({
+                  ...it,
+                  qty: it.qty !== undefined && it.qty !== null && it.qty !== "" ? formatCommaNumber(it.qty) : "",
+                  unitCost: it.unitCost !== undefined && it.unitCost !== null && it.unitCost !== "" ? formatCommaNumber(it.unitCost) : "",
+                })),
+              }));
+              setItemsBreakdown(formattedItems);
+            }
           } else {
-            setItemsBreakdown(JSON.parse(JSON.stringify(DEFAULT_BOQ_TEMPLATE)));
+            setItemsBreakdown([]);
           }
           return;
         }
@@ -376,10 +386,10 @@ export default function AdminBudgetQuotationTab({
       console.warn("Could not fetch project quotation details:", err);
     }
 
-    // Fallback: new draft initialized with default template (Zero dummy values, blank slate)
+    // Fallback: new draft initialized with clean blank slate (Zero dummy values, zero default trades)
     setQuotationId(null);
     setStatus("PUBLISHED");
-    setItemsBreakdown(JSON.parse(JSON.stringify(DEFAULT_BOQ_TEMPLATE)));
+    setItemsBreakdown([]);
     setLaborCost("");
     setLaborRateBasis("Custom Labor Sizing");
     setArchitectFee("");
@@ -535,6 +545,56 @@ export default function AdminBudgetQuotationTab({
     setNewScopeUnitCost("");
     setNewScopeNotes("");
     showToast?.("Custom scope item added to quotation.", "success");
+  };
+
+  const handleApplyStandardTemplate = () => {
+    setItemsBreakdown(
+      COMMON_TRADE_SUGGESTIONS.map((trade) => ({ category: trade, items: [] }))
+    );
+    setIsTemplateModalOpen(false);
+    showToast?.("Applied standard 9 Philippine construction trades as clean template.", "success");
+  };
+
+  const handleApplyTemplateFromQuotation = async (sourceClient) => {
+    setIsLoadingTemplate(true);
+    try {
+      const res = await authFetch(`/api/projects/${sourceClient.client_project_id}/quotation`);
+      if (!res.ok) throw new Error("Could not load quotation record");
+      const data = await res.json();
+      if (
+        !data.success ||
+        !data.quotation ||
+        !Array.isArray(data.quotation.items_breakdown) ||
+        data.quotation.items_breakdown.length === 0
+      ) {
+        showToast?.("No trade breakdown found in this project to use as template.", "error");
+        return;
+      }
+
+      // Strip all numerical values (qty, unitCost, total) while keeping trade categories, item names, units, and notes
+      const strippedTemplate = data.quotation.items_breakdown.map((cat) => ({
+        category: cat.category,
+        items: (cat.items || []).map((it) => ({
+          item: it.item || "",
+          qty: "",
+          unit: it.unit || "lot",
+          unitCost: "",
+          total: 0,
+          notes: it.notes || "",
+        })),
+      }));
+
+      setItemsBreakdown(strippedTemplate);
+      setIsTemplateModalOpen(false);
+      showToast?.(
+        `Applied BOQ structure from ${sourceClient.project_code || sourceClient.client_name} as template. All quantities and rates are cleared for this project!`,
+        "success"
+      );
+    } catch (err) {
+      showToast?.("Error loading template: " + err.message, "error");
+    } finally {
+      setIsLoadingTemplate(false);
+    }
   };
 
   // Save or Publish Quotation
@@ -1158,13 +1218,63 @@ export default function AdminBudgetQuotationTab({
                   Edit line items, quantities, and rates for each construction trade.
                 </p>
               </div>
-              <span className="text-xs font-mono font-bold text-neutral-500">
-                {itemsBreakdown.length} Trades Active
-              </span>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsTemplateModalOpen(true)}
+                  className="px-3 py-1.5 rounded-[8px] bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-mono font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Use BOQ Template</span>
+                </button>
+                <span className="text-xs font-mono font-bold text-neutral-500">
+                  {itemsBreakdown.length} Trades Active
+                </span>
+              </div>
             </div>
 
             <div className="space-y-4">
-              {itemsBreakdown.map((categoryGroup, catIdx) => {
+              {itemsBreakdown.length === 0 ? (
+                <div className="p-8 sm:p-10 rounded-[16px] bg-white dark:bg-[#101218] border border-dashed border-neutral-300 dark:border-white/10 text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto flex items-center justify-center relative">
+                    <div className="absolute inset-0 rounded-full bg-amber-500/15 animate-ping opacity-35" />
+                    <LordIcon
+                      src="https://cdn.lordicon.com/wzwygmng.json"
+                      trigger="loop"
+                      delay="2000"
+                      colors="primary:#f59e0b,secondary:#e5e7eb"
+                      size={64}
+                    />
+                  </div>
+                  <div className="max-w-md mx-auto">
+                    <p className="text-sm font-mono font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider">
+                      Clean Slate: No Trades Active
+                    </p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-1">
+                      Walang default trades. Maaari kang mag-umpisa mula sa blangko, gumamit ng past project quotation bilang template (walang kasamang values), o pumili ng standard trades sa ibaba.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsTemplateModalOpen(true)}
+                      className="px-4 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-all shadow-md cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Choose Template from Past Projects</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyStandardTemplate}
+                      className="px-3.5 py-2 rounded-[8px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-mono font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>Standard 9 Trades (Blank)</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                itemsBreakdown.map((categoryGroup, catIdx) => {
                 const isOthers = categoryGroup.category.toLowerCase().includes("other");
                 return (
                   <div
@@ -1315,7 +1425,40 @@ export default function AdminBudgetQuotationTab({
                     </div>
                   </div>
                 );
-              })}
+              })
+            )}
+
+              {/* Quick-Add Common Trades Suggestions */}
+              {COMMON_TRADE_SUGGESTIONS.filter(
+                (name) => !itemsBreakdown.some((cat) => cat.category.toLowerCase() === name.toLowerCase())
+              ).length > 0 && (
+                <div className="p-3.5 rounded-[12px] bg-neutral-50/60 dark:bg-white/[0.02] border border-neutral-200/80 dark:border-white/5">
+                  <p className="text-[10px] font-mono uppercase text-neutral-400 font-bold mb-2">
+                    Quick-Add Common Construction Trades:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {COMMON_TRADE_SUGGESTIONS.filter(
+                      (name) => !itemsBreakdown.some((cat) => cat.category.toLowerCase() === name.toLowerCase())
+                    ).map((tradeName) => (
+                      <button
+                        key={tradeName}
+                        type="button"
+                        onClick={() => {
+                          setItemsBreakdown((prev) => [
+                            ...prev,
+                            { category: tradeName, items: [] },
+                          ]);
+                          showToast?.(`Added "${tradeName}" trade category.`, "success");
+                        }}
+                        className="px-2.5 py-1 rounded-[6px] bg-white dark:bg-white/5 hover:bg-amber-500/10 hover:border-amber-500/40 dark:hover:bg-amber-500/10 border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 text-[10.5px] font-mono transition-colors inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-2.5 h-2.5" />
+                        <span>{tradeName}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Add Custom Trade Category Bar */}
               <div className="p-4 rounded-[14px] bg-white dark:bg-[#101218] border border-dashed border-neutral-300 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1487,12 +1630,12 @@ export default function AdminBudgetQuotationTab({
           </div>
 
           {/* 8. Sticky Action Footer */}
-          <div className="p-4 sm:p-5 rounded-[16px] bg-neutral-900 text-white dark:bg-white/[0.04] border border-neutral-800 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+          <div className="p-4 sm:p-5 rounded-[16px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl transition-colors">
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 block">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block">
                 Turnkey Investment: {formatPHP(totalAmount)}
               </span>
-              <p className="text-xs text-neutral-300 font-sans mt-0.5">
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 font-sans mt-0.5">
                 Ready to publish official quotation and pure vector Word-style A4 PDF to client portal.
               </p>
             </div>
@@ -1502,7 +1645,7 @@ export default function AdminBudgetQuotationTab({
                 type="button"
                 onClick={() => handleSaveQuotation("DRAFT")}
                 disabled={isSaving}
-                className="px-4 py-2.5 rounded-[8px] bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-mono font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-[8px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/15 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10 text-xs font-mono font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>Save Draft</span>
@@ -1525,6 +1668,124 @@ export default function AdminBudgetQuotationTab({
                     <span>Publish Official Quotation</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* BOQ Template Selection Modal */}
+      {isTemplateModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-xl rounded-[16px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                    BOQ Structure Templates
+                  </h4>
+                  <p className="text-[11px] text-neutral-400 font-sans">
+                    Use existing project BOQs or standard trades as a template. All values &amp; quantities are stripped clean.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTemplateModalOpen(false)}
+                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Option: Standard 9 Trades */}
+            <div className="p-3.5 rounded-[12px] bg-amber-500/5 border border-amber-500/20 flex items-center justify-between gap-3 shrink-0">
+              <div>
+                <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400 block">
+                  Standard 9 Philippine Contracting Trades
+                </span>
+                <span className="text-[10px] text-neutral-400 font-sans">
+                  General Requirements, Earthworks, Masonry, Steel, Plumbing, Electrical, Finishes...
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleApplyStandardTemplate}
+                className="px-3 py-1.5 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider shrink-0 cursor-pointer shadow-xs"
+              >
+                Apply (Blank)
+              </button>
+            </div>
+
+            {/* Search Filter for Past Projects */}
+            <div className="relative shrink-0">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Search past project or client to copy BOQ template..."
+                value={templateSearchQuery}
+                onChange={(e) => setTemplateSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 rounded-[8px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            {/* Past Projects List */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[160px]">
+              {clients
+                .filter(
+                  (c) =>
+                    c.client_project_id !== selectedClient?.client_project_id &&
+                    (c.client_name?.toLowerCase().includes(templateSearchQuery.toLowerCase()) ||
+                      c.project_code?.toLowerCase().includes(templateSearchQuery.toLowerCase()) ||
+                      c.project_type?.toLowerCase().includes(templateSearchQuery.toLowerCase()))
+                )
+                .map((clientItem) => (
+                  <div
+                    key={clientItem.client_project_id}
+                    className="p-3 rounded-[10px] bg-neutral-50/70 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 flex items-center justify-between gap-3 transition-colors group"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white truncate">
+                          {clientItem.project_code || "PROJECT"}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-200/60 dark:bg-white/10 text-neutral-600 dark:text-neutral-300 font-mono">
+                          {clientItem.project_type || "Residential"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-400 font-sans truncate mt-0.5">
+                        {clientItem.client_name} &bull; {clientItem.location || "Philippines"}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isLoadingTemplate}
+                      onClick={() => handleApplyTemplateFromQuotation(clientItem)}
+                      className="px-3 py-1.5 rounded-[6px] bg-neutral-200/80 hover:bg-amber-500 hover:text-neutral-950 dark:bg-white/5 dark:hover:bg-amber-500 dark:hover:text-neutral-950 text-neutral-700 dark:text-neutral-300 text-xs font-mono font-bold uppercase tracking-wider shrink-0 transition-colors cursor-pointer"
+                    >
+                      Use as Template
+                    </button>
+                  </div>
+                ))}
+
+              {clients.filter((c) => c.client_project_id !== selectedClient?.client_project_id).length === 0 && (
+                <div className="py-8 text-center text-xs font-mono text-neutral-400">
+                  No other client projects available yet. You can use the Standard 9 Trades template above.
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-white/5 text-[11px] font-mono text-neutral-400 shrink-0">
+              <span>Notice: Rates, Qty, and Totals will be reset to 0 / blank.</span>
+              <button
+                type="button"
+                onClick={() => setIsTemplateModalOpen(false)}
+                className="px-3 py-1.5 rounded-[6px] hover:text-white cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>
