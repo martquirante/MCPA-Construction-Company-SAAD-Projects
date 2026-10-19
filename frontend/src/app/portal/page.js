@@ -63,8 +63,6 @@ import PortalMobileBottomNav from "@/modules/portal/components/PortalMobileBotto
 import PortalEmptyState from "@/modules/portal/components/PortalEmptyState";
 import PortalPhase1PreInquiry from "@/modules/portal/components/stages/PortalPhase1PreInquiry";
 import PortalStage2PlanningAndConsultation from "@/modules/portal/components/stages/PortalStage2PlanningAndConsultation";
-import PortalPhase2Consultation from "@/modules/portal/components/stages/PortalPhase2Consultation";
-import PortalPhase3Planning from "@/modules/portal/components/stages/PortalPhase3Planning";
 import PortalPhase4Execution from "@/modules/portal/components/stages/PortalPhase4Execution";
 import PortalPhase5Wrapped from "@/modules/portal/components/stages/PortalPhase5Wrapped";
 import MultiProjectRequestModal from "@/modules/portal/components/MultiProjectRequestModal";
@@ -145,7 +143,14 @@ function ClientPortalContent() {
     const updateCount = () => {
       try {
         const reqs = loadDocumentRequests();
-        const pending = reqs.filter((r) => r.status === "pending").length;
+        const clientEmail = (currentUser?.email || "").toLowerCase().trim();
+        const clientProjId = String(dashboardState?.activeProject?.client_project_id || "");
+        const pending = reqs.filter((r) => {
+          if (r.status !== "pending") return false;
+          if (clientProjId && r.client_project_id && String(r.client_project_id) === clientProjId) return true;
+          if (clientEmail && r.clientEmail && r.clientEmail.toLowerCase() === clientEmail) return true;
+          return !r.clientEmail && !r.client_project_id;
+        }).length;
         setPendingDocumentRequestsCount(pending);
       } catch (e) {}
     };
@@ -156,7 +161,7 @@ function ClientPortalContent() {
       window.removeEventListener("mcpa-document-requests-updated", updateCount);
       window.removeEventListener("storage", updateCount);
     };
-  }, []);
+  }, [currentUser?.email, dashboardState?.activeProject?.client_project_id]);
 
   // Modal & Toast states
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
@@ -630,6 +635,7 @@ function ClientPortalContent() {
             { id: "blueprints", label: "Blueprints & Plans", icon: Layers },
             { id: "boq", label: "Budget & Quotation", icon: CreditCard },
             { id: "documents", label: "Documents & Permits", icon: FileText, badge: pendingDocumentRequestsCount > 0 ? pendingDocumentRequestsCount : undefined },
+            { id: "contract", label: "Contract & E-Sign", icon: FileCheck },
             { id: "inquiries", label: "Inquiries Brief", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [

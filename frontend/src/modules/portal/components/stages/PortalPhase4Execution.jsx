@@ -41,14 +41,26 @@ export default function PortalPhase4Execution({
   const projectId = activeProject?.client_project_id;
   const projectCode = activeProject?.site_project_code || activeProject?.project_code;
 
-  // Telemetry states
-  const [siteDetails, setSiteDetails] = useState(null);
+  // Telemetry states (hydrated from props or live fetch)
+  const [siteDetails, setSiteDetails] = useState(siteProject || null);
   const [milestones, setMilestones] = useState([]);
-  const [photoLogs, setPhotoLogs] = useState([]);
-  const [billing, setBilling] = useState([]);
+  const [photoLogs, setPhotoLogs] = useState(sitePhotos || []);
+  const [billing, setBilling] = useState(billingLedger || []);
   const [delays, setDelays] = useState([]);
   const [loans, setLoans] = useState([]);
   const [activePhotoModal, setActivePhotoModal] = useState(null);
+
+  useEffect(() => {
+    if (siteProject) setSiteDetails(siteProject);
+  }, [siteProject]);
+
+  useEffect(() => {
+    if (sitePhotos && sitePhotos.length > 0) setPhotoLogs(sitePhotos);
+  }, [sitePhotos]);
+
+  useEffect(() => {
+    if (billingLedger && billingLedger.length > 0) setBilling(billingLedger);
+  }, [billingLedger]);
 
   // Financial calculations
   const totalBilled = billing.reduce((acc, b) => acc + Number(b.amount_due || 0), 0);
@@ -62,20 +74,21 @@ export default function PortalPhase4Execution({
 
   // Load live construction telemetry
   const loadExecutionTelemetry = async () => {
-    if (!projectCode) return;
-
-    try {
-      const res = await fetch(`/api/construction/projects/${encodeURIComponent(projectCode)}`);
-      const data = await res.json();
-      if (data.success) {
-        setSiteDetails(data.project);
-        setMilestones(data.milestones || []);
-        setPhotoLogs(data.photos || []);
-        setBilling(data.billing || []);
-        setDelays(data.delays || []);
+    const code = projectCode || siteProject?.project_code || activeProject?.project_code;
+    if (code) {
+      try {
+        const res = await fetch(`/api/construction/projects/${encodeURIComponent(code)}`);
+        const data = await res.json();
+        if (data.success) {
+          if (data.project) setSiteDetails(data.project);
+          if (data.milestones) setMilestones(data.milestones || []);
+          if (data.photos && data.photos.length > 0) setPhotoLogs(data.photos);
+          if (data.billing && data.billing.length > 0) setBilling(data.billing);
+          if (data.delays) setDelays(data.delays || []);
+        }
+      } catch (e) {
+        console.warn("Failed to load construction site execution telemetry:", e);
       }
-    } catch (e) {
-      console.warn("Failed to load construction site execution telemetry:", e);
     }
 
     // Load Loans/BNPL
@@ -388,13 +401,25 @@ export default function PortalPhase4Execution({
                       </td>
                       <td className="p-2.5">{formatPHP(b.amount_due)}</td>
                       <td className="p-2.5">
-                        <span className={`px-2 py-0.5 rounded-[3px] text-[9px] font-bold uppercase ${
-                          b.status === "Paid" || b.status === "Verified"
-                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                        }`}>
-                          {b.status}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded-[3px] text-[9px] font-bold uppercase ${
+                            b.status === "Paid" || b.status === "Verified"
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                              : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                          }`}>
+                            {b.status}
+                          </span>
+                          {b.status !== "Paid" && b.status !== "Verified" && (
+                            <button
+                              type="button"
+                              onClick={() => onSelectTab?.("billing")}
+                              className="text-[9px] font-mono text-amber-500 underline font-bold hover:text-amber-400 cursor-pointer"
+                              title="Submit payment receipt proof"
+                            >
+                              Submit Proof
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="p-2.5 text-neutral-400 text-[10px]">
                         {b.or_number ? <span className="text-amber-500 font-bold">{b.or_number}</span> : "Pending"}

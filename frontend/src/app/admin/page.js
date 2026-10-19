@@ -1118,7 +1118,7 @@ export default function AdminPage() {
 
   const handleAddMilestone = async (milestoneData) => {
     try {
-      const res = await fetch("/api/construction/milestones", {
+      const res = await authFetch("/api/construction/milestones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(milestoneData),
@@ -1127,7 +1127,7 @@ export default function AdminPage() {
       if (data.success) {
         const code = milestoneData.projectCode || siteProject?.project_code;
         if (code) {
-          const siteRes = await fetch(`/api/construction/projects/${encodeURIComponent(code)}`).then((r) => r.json());
+          const siteRes = await authFetch(`/api/construction/projects/${encodeURIComponent(code)}`).then((r) => r.json());
           if (siteRes.success && siteRes.project) {
             setSiteProject(siteRes.project);
             setSiteMilestones(siteRes.milestones || []);
@@ -1144,13 +1144,13 @@ export default function AdminPage() {
 
   const handleDeleteMilestone = async (milestoneId) => {
     try {
-      const res = await fetch(`/api/construction/milestones/${encodeURIComponent(milestoneId)}`, {
+      const res = await authFetch(`/api/construction/milestones/${encodeURIComponent(milestoneId)}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (data.success) {
         if (siteProject?.project_code) {
-          const siteRes = await fetch(`/api/construction/projects/${encodeURIComponent(siteProject.project_code)}`).then((r) => r.json());
+          const siteRes = await authFetch(`/api/construction/projects/${encodeURIComponent(siteProject.project_code)}`).then((r) => r.json());
           if (siteRes.success && siteRes.project) {
             setSiteProject(siteRes.project);
             setSiteMilestones(siteRes.milestones || []);
@@ -1168,7 +1168,7 @@ export default function AdminPage() {
   const handleUpdateVirtualTour = async (tourUrl) => {
     try {
       if (!siteProject?.project_code) return { success: false, message: "No project selected." };
-      const res = await fetch("/api/construction/virtual-tour", {
+      const res = await authFetch("/api/construction/virtual-tour", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1190,7 +1190,7 @@ export default function AdminPage() {
 
   const handleCreateBillingTranche = async (trancheData) => {
     try {
-      const res = await fetch("/api/construction/billing", {
+      const res = await authFetch("/api/construction/billing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(trancheData),
@@ -1209,7 +1209,7 @@ export default function AdminPage() {
 
   const handleUpdateMilestone = async (milestoneId, data) => {
     try {
-      const res = await fetch(`/api/construction/milestones/${milestoneId}`, {
+      const res = await authFetch(`/api/construction/milestones/${milestoneId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -1219,7 +1219,7 @@ export default function AdminPage() {
         const siteEndpoint = siteProject?.project_code
           ? `/api/construction/projects/${siteProject.project_code}`
           : "/api/construction/project";
-        const siteRes = await fetch(siteEndpoint).then((r) => r.json());
+        const siteRes = await authFetch(siteEndpoint).then((r) => r.json());
         if (siteRes.success) {
           setSiteProject(siteRes.project);
           setSiteMilestones(siteRes.milestones || []);
@@ -1232,7 +1232,7 @@ export default function AdminPage() {
 
   const handleAddPhoto = async (photoData) => {
     try {
-      const res = await fetch("/api/construction/photos", {
+      const res = await authFetch("/api/construction/photos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(photoData),
@@ -1248,7 +1248,7 @@ export default function AdminPage() {
 
   const handleVerifyPayment = async (billId) => {
     try {
-      const res = await fetch(`/api/construction/billing/${billId}/verify`, {
+      const res = await authFetch(`/api/construction/billing/${billId}/verify`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -1265,7 +1265,7 @@ export default function AdminPage() {
 
   const handleLogDelay = async (delayData) => {
     try {
-      const res = await fetch("/api/construction/delays", {
+      const res = await authFetch("/api/construction/delays", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(delayData),
@@ -1276,7 +1276,7 @@ export default function AdminPage() {
         const siteEndpoint = siteProject?.project_code
           ? `/api/construction/projects/${siteProject.project_code}`
           : "/api/construction/project";
-        const siteRes = await fetch(siteEndpoint).then((r) => r.json());
+        const siteRes = await authFetch(siteEndpoint).then((r) => r.json());
         if (siteRes.success) {
           setSiteProject(siteRes.project);
         }
@@ -1288,7 +1288,7 @@ export default function AdminPage() {
 
   const handleUpdateWarranty = async (ticketId, status) => {
     try {
-      await fetch(`/api/construction/warranty/${ticketId}`, {
+      await authFetch(`/api/construction/warranty/${ticketId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),

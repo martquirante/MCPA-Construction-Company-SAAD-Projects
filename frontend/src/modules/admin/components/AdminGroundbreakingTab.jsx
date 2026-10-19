@@ -23,6 +23,13 @@ import {
   LayoutGrid,
   Table as TableIcon,
   Check,
+  FileCheck,
+  FileText,
+  Printer,
+  PenTool,
+  ExternalLink,
+  Shield,
+  Download,
 } from "lucide-react";
 import authFetch from "@/modules/shared/authFetch";
 import { resolveClientAvatar } from "@/modules/admin/components/InquiryPipelineTab";
@@ -355,6 +362,23 @@ export default function AdminGroundbreakingTab({
   const [formReason, setFormReason] = useState("");
   const [formStatus, setFormStatus] = useState("SCHEDULED");
 
+  // Contract Modal State (Dual E-Signature & Review)
+  const [contractModalProject, setContractModalProject] = useState(null);
+  const [contractData, setContractData] = useState(null);
+  const [isLoadingContract, setIsLoadingContract] = useState(false);
+  const [isSigningContract, setIsSigningContract] = useState(false);
+  const [contractorSignerName, setContractorSignerName] = useState(
+    currentUser?.fullName || currentUser?.name || "Engr. Raymart Quirante"
+  );
+  const [contractorTitle, setContractorTitle] = useState(
+    "Authorized Managing Officer, M.C.P.A. Design & Construction"
+  );
+  const [contractorSignatureData, setContractorSignatureData] = useState("");
+  const [adminSignMode, setAdminSignMode] = useState("type"); // "type" | "draw"
+
+  // Advance to Stage 3 State
+  const [isAdvancingId, setIsAdvancingId] = useState(null);
+
   // Expanded history drawer per project ID
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
 
@@ -482,6 +506,113 @@ export default function AdminGroundbreakingTab({
       showToast?.("Network error while saving groundbreaking date.", "error");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Open Contract Modal (Fetches authoritative contract and dual signatures)
+  const handleOpenContractModal = async (proj) => {
+    setContractModalProject(proj);
+    setIsLoadingContract(true);
+    setContractData(null);
+    setContractorSignatureData("");
+    try {
+      const res = await authFetch(`/api/projects/${proj.client_project_id}/contract`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.contract) {
+          setContractData(data.contract);
+        }
+      }
+    } catch (e) {
+      console.warn("handleOpenContractModal error:", e);
+    } finally {
+      setIsLoadingContract(false);
+    }
+  };
+
+  const handleCloseContractModal = () => {
+    setContractModalProject(null);
+    setContractData(null);
+    setIsSigningContract(false);
+  };
+
+  // Sign Contract as Contractor (Admin / Authorized Managing Officer)
+  const handleSignContractAsAdmin = async (e) => {
+    e?.preventDefault();
+    if (!contractData?.contract_id) {
+      showToast?.("No active contract loaded for this project.", "error");
+      return;
+    }
+    const signatureValue =
+      contractorSignatureData.trim() || contractorSignerName.trim() || "Engr. Raymart Quirante";
+    setIsSigningContract(true);
+    try {
+      const res = await authFetch(`/api/contracts/${contractData.contract_id}/sign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          signerRole: "CONTRACTOR",
+          signerName: contractorSignerName,
+          signatureData: signatureValue,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.contract) {
+        setContractData(data.contract);
+        showToast?.(
+          data.contract.status === "FULLY_EXECUTED"
+            ? "Turnkey Contract is now FULLY EXECUTED with dual verified signatures & SHA-256 seal!"
+            : "Turnkey Contract signed as Contractor Representative!",
+          "success"
+        );
+        fetchGroundbreakingOverview();
+      } else {
+        showToast?.(data.message || "Failed to sign contract", "error");
+      }
+    } catch (err) {
+      console.error("handleSignContractAsAdmin error:", err);
+      showToast?.(err.message || "Network error signing contract", "error");
+    } finally {
+      setIsSigningContract(false);
+    }
+  };
+
+  // Direct Advance to Stage 3 (Active Build) with confirmation
+  const handleAdvanceToStage3 = async (proj) => {
+    const confirmMsg = `Advance project ${proj.project_code || ""} (${proj.client_name || "Client"}) to Stage 3: Active Build / Site Execution?\n\nThis will initialize physical site mobilization, activate the Live Site Stepper, and unlock the Site Progress Hub on the Client Portal.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsAdvancingId(proj.client_project_id);
+    try {
+      const res = await authFetch(
+        `/api/admin/projects/${proj.client_project_id}/advance-stage`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetStage: "ACTIVE_BUILD",
+            reason: "Groundbreaking ceremony concluded. Mobilizing site resources for Active Build.",
+          }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast?.(
+          `Project ${proj.project_code} successfully advanced to Stage 3 (Active Build)!`,
+          "success"
+        );
+        fetchGroundbreakingOverview();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("mcpa-project-stage-updated"));
+        }
+      } else {
+        showToast?.(data.message || "Failed to advance stage", "error");
+      }
+    } catch (err) {
+      console.error("handleAdvanceToStage3 error:", err);
+      showToast?.(err.message || "Error advancing project to Stage 3", "error");
+    } finally {
+      setIsAdvancingId(null);
     }
   };
 
@@ -856,6 +987,16 @@ export default function AdminGroundbreakingTab({
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenContractModal(p)}
+                            className="px-2.5 py-1.5 rounded-[6px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10 font-mono font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1"
+                            title="Review and Countersign Construction Contract"
+                          >
+                            <FileCheck className="w-3 h-3 text-amber-500" />
+                            <span>Contract</span>
+                          </button>
+
                           {isScheduled ? (
                             <button
                               type="button"
@@ -873,6 +1014,19 @@ export default function AdminGroundbreakingTab({
                               Schedule
                             </button>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleAdvanceToStage3(p)}
+                            disabled={isAdvancingId === p.client_project_id}
+                            className="px-2.5 py-1.5 rounded-[6px] bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1 disabled:opacity-50"
+                            title="Mobilize site and advance project to Stage 3 (Active Build)"
+                          >
+                            <HardHat className="w-3 h-3" />
+                            <span>
+                              {isAdvancingId === p.client_project_id ? "Advancing..." : "To Stage 3"}
+                            </span>
+                          </button>
 
                           {historyCount > 0 && (
                             <button
@@ -1003,7 +1157,17 @@ export default function AdminGroundbreakingTab({
                   </div>
 
                   {/* Right: Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenContractModal(p)}
+                      className="px-3 py-2 rounded-[8px] bg-white dark:bg-[#12151c] hover:bg-neutral-100 dark:hover:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      title="Review Contract and Dual E-Signatures"
+                    >
+                      <FileCheck className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Review Contract</span>
+                    </button>
+
                     {isScheduled ? (
                       <button
                         type="button"
@@ -1011,7 +1175,7 @@ export default function AdminGroundbreakingTab({
                         className="px-3.5 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <Clock className="w-3.5 h-3.5" />
-                        <span>Adjust / Reschedule Date</span>
+                        <span>Adjust Date</span>
                       </button>
                     ) : (
                       <button
@@ -1020,9 +1184,22 @@ export default function AdminGroundbreakingTab({
                         className="px-3.5 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <CalendarCheck className="w-3.5 h-3.5" />
-                        <span>Schedule Kickoff Date</span>
+                        <span>Schedule Date</span>
                       </button>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleAdvanceToStage3(p)}
+                      disabled={isAdvancingId === p.client_project_id}
+                      className="px-3.5 py-2 rounded-[8px] bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                      title="Mobilize site and advance project to Stage 3 (Active Build)"
+                    >
+                      <HardHat className="w-3.5 h-3.5" />
+                      <span>
+                        {isAdvancingId === p.client_project_id ? "Advancing..." : "Advance to Stage 3"}
+                      </span>
+                    </button>
 
                     {historyCount > 0 && (
                       <button
@@ -1395,6 +1572,402 @@ export default function AdminGroundbreakingTab({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. TURNKEY MASTER CONTRACT AGREEMENT REVIEW & COUNTERSIGNING MODAL (DUAL E-SIGNATURE) */}
+      {contractModalProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-4xl rounded-[20px] bg-white dark:bg-[#12151c] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-neutral-200/80 dark:border-white/10 flex items-center justify-between bg-neutral-50/50 dark:bg-white/[0.02]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                  <FileCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                      Construction Agreement &amp; Dual Signatures
+                    </h3>
+                    {contractData?.status === "FULLY_EXECUTED" ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-mono font-bold uppercase border border-emerald-500/30 flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        Fully Executed
+                      </span>
+                    ) : contractData?.client_signed_at || contractData?.contractor_signed_at ? (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold uppercase border border-amber-500/30">
+                        Partially Executed
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-neutral-200/70 dark:bg-white/10 text-neutral-600 dark:text-neutral-400 text-[10px] font-mono font-bold uppercase">
+                        Draft Agreement
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-500 font-mono">
+                    Project: {contractModalProject.project_code} • Client: {contractModalProject.client_name}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3 py-1.5 rounded-[8px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-mono font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer"
+                  title="Print or Save as PDF"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Print / PDF</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloseContractModal}
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6">
+              {isLoadingContract ? (
+                <div className="p-12 text-center space-y-3">
+                  <RefreshCw className="w-6 h-6 animate-spin text-amber-500 mx-auto" />
+                  <p className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
+                    Loading authoritative contract agreement and digital signatures...
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Human Word-Style Document Container */}
+                  <div className="p-8 sm:p-10 bg-white text-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg shadow-sm font-sans text-xs leading-relaxed space-y-6">
+                    {/* Letterhead */}
+                    <div className="flex items-center justify-between pb-4 border-b-2 border-neutral-800">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src="/assets/mcpa-logo-white-bg.png"
+                          alt="MCPA Logo"
+                          className="h-12 w-auto object-contain"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                        <div>
+                          <h2 className="font-serif text-sm font-bold tracking-wide uppercase text-neutral-900">
+                            M.C.P.A. DESIGN &amp; CONSTRUCTION
+                          </h2>
+                          <p className="text-[10px] text-neutral-600 font-sans">
+                            General Building Contractor &amp; Architectural Engineering Consultancy
+                          </p>
+                          <p className="text-[9px] text-neutral-500 font-mono">
+                            Provincial Office: Bulacan, Philippines • contact@mcpadesignbuild.com
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right font-mono text-[10px] text-neutral-500">
+                        <div>REF: {contractModalProject.project_code || "MCPA-PRJ"}</div>
+                        <div>DATE: {new Date().toLocaleDateString("en-PH")}</div>
+                      </div>
+                    </div>
+
+                    {/* Document Title */}
+                    <div className="text-center py-2">
+                      <h1 className="font-serif text-base font-bold uppercase tracking-wider text-neutral-900">
+                        CONSTRUCTION MASTER CONTRACT AGREEMENT
+                      </h1>
+                      <p className="text-[10px] text-neutral-500 font-mono uppercase tracking-widest mt-0.5">
+                        TURNKEY RESIDENTIAL DESIGN AND CONSTRUCTION
+                      </p>
+                    </div>
+
+                    {/* Parties Overview */}
+                    <div className="space-y-2 border-y border-neutral-200 py-3">
+                      <p>
+                        <strong>KNOW ALL MEN BY THESE PRESENTS:</strong> This Construction Agreement is entered into by and between:
+                      </p>
+                      <p className="pl-4">
+                        <strong>THE OWNER / FIRST PARTY:</strong>{" "}
+                        <span className="font-semibold uppercase">
+                          {contractData?.project_meta?.client_name || contractModalProject.client_name || "Valued Client"}
+                        </span>
+                        , of legal age, Filipino, with contact email at{" "}
+                        <span className="font-mono text-neutral-700">
+                          {contractData?.project_meta?.client_email || contractModalProject.client_email || "client@email.com"}
+                        </span>
+                        , herein referred to as the <strong>&quot;OWNER&quot;</strong>;
+                      </p>
+                      <p className="text-center font-bold text-[10px] uppercase text-neutral-500">- and -</p>
+                      <p className="pl-4">
+                        <strong>THE CONTRACTOR / SECOND PARTY:</strong>{" "}
+                        <span className="font-semibold uppercase">M.C.P.A. DESIGN &amp; CONSTRUCTION</span>, a general construction entity duly organized under Philippine laws, with principal engineering office in Bulacan, represented herein by its Authorized Managing Officer,{" "}
+                        <span className="font-semibold uppercase">
+                          {contractData?.contractor_signer_name || "Engr. Raymart Quirante"}
+                        </span>
+                        , herein referred to as the <strong>&quot;CONTRACTOR&quot;</strong>.
+                      </p>
+                    </div>
+
+                    {/* Article 1: Scope */}
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-[11px] uppercase tracking-wider text-neutral-900">
+                        ARTICLE 1. SCOPE OF WORK &amp; DELIVERABLES
+                      </h4>
+                      <p className="text-neutral-700 text-justify">
+                        The CONTRACTOR agrees to furnish all architectural designs, engineering blueprints, construction materials, skilled labor, equipment, and technical supervision necessary for the complete construction of the Turnkey Residential Project located at{" "}
+                        <strong>{contractData?.project_meta?.location || contractModalProject.target_location || "Bulacan, Philippines"}</strong>{" "}
+                        in accordance with the approved architectural and structural plans.
+                      </p>
+                    </div>
+
+                    {/* Article 2: Contract Price & Progress Billing */}
+                    <div className="space-y-2">
+                      <h4 className="font-bold text-[11px] uppercase tracking-wider text-neutral-900">
+                        ARTICLE 2. CONTRACT SUM &amp; PROGRESS BILLING SCHEDULE
+                      </h4>
+                      <p className="text-neutral-700">
+                        The agreed total contract amount for the complete execution of the turnkey project is{" "}
+                        <strong className="text-neutral-900 font-mono">
+                          ₱{(Number(contractData?.contract_sum || 2850000)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                        </strong>
+                        , payable under the standard 5-stage progress milestone schedule:
+                      </p>
+
+                      <div className="border border-neutral-300 rounded overflow-hidden">
+                        <table className="w-full text-[10px] font-mono">
+                          <thead className="bg-neutral-100 border-b border-neutral-300 font-bold text-neutral-700">
+                            <tr>
+                              <th className="p-2 text-left">Tranche Stage</th>
+                              <th className="p-2 text-left">Description</th>
+                              <th className="p-2 text-center">% Share</th>
+                              <th className="p-2 text-right">Amount (PHP)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-200">
+                            <tr>
+                              <td className="p-2 font-semibold">Tranche 1</td>
+                              <td className="p-2">Mobilization &amp; Site Clearing (DP)</td>
+                              <td className="p-2 text-center">15%</td>
+                              <td className="p-2 text-right">₱{(Number(contractData?.contract_sum || 2850000) * 0.15).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                            <tr>
+                              <td className="p-2 font-semibold">Tranche 2</td>
+                              <td className="p-2">Substructure &amp; Foundation Pouring</td>
+                              <td className="p-2 text-center">25%</td>
+                              <td className="p-2 text-right">₱{(Number(contractData?.contract_sum || 2850000) * 0.25).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                            <tr>
+                              <td className="p-2 font-semibold">Tranche 3</td>
+                              <td className="p-2">Superstructure, Framing &amp; Masonry</td>
+                              <td className="p-2 text-center">25%</td>
+                              <td className="p-2 text-right">₱{(Number(contractData?.contract_sum || 2850000) * 0.25).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                            <tr>
+                              <td className="p-2 font-semibold">Tranche 4</td>
+                              <td className="p-2">Roofing, MEPFS Rough-ins &amp; Plastering</td>
+                              <td className="p-2 text-center">25%</td>
+                              <td className="p-2 text-right">₱{(Number(contractData?.contract_sum || 2850000) * 0.25).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                            <tr>
+                              <td className="p-2 font-semibold">Tranche 5</td>
+                              <td className="p-2">Architectural Finishes, Punchlist &amp; Handover</td>
+                              <td className="p-2 text-center">10%</td>
+                              <td className="p-2 text-right">₱{(Number(contractData?.contract_sum || 2850000) * 0.10).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Article 3 & 4: Timeline & 15-Year Warranty */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-[11px] uppercase tracking-wider text-neutral-900">
+                          ARTICLE 3. TIMELINE &amp; COMPLETION
+                        </h4>
+                        <p className="text-neutral-700 text-justify">
+                          Construction commences upon groundbreaking ceremony and receipt of Tranche 1, targeted for completion within 180 to 240 calendar days, subject to force majeure adjustments.
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-[11px] uppercase tracking-wider text-neutral-900">
+                          ARTICLE 4. 15-YEAR WARRANTY (CIVIL CODE 1723)
+                        </h4>
+                        <p className="text-neutral-700 text-justify">
+                          In accordance with Article 1723 of the Civil Code of the Philippines, the CONTRACTOR guarantees structural integrity against collapse or major defects for a period of fifteen (15) years.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* SHA-256 Stamp if Executed */}
+                    {contractData?.sha256_hash && (
+                      <div className="p-3 bg-neutral-50 rounded border border-neutral-200 flex items-center justify-between font-mono text-[9px] text-neutral-600">
+                        <div className="flex items-center gap-1.5">
+                          <Shield className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>CRYPTOGRAPHIC TAMPER-EVIDENT CONTRACT SEAL:</span>
+                        </div>
+                        <span className="truncate max-w-sm font-bold text-neutral-800">{contractData.sha256_hash}</span>
+                      </div>
+                    )}
+
+                    {/* DUAL SIGNATURE BLOCKS */}
+                    <div className="pt-6 border-t border-neutral-300">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                        {/* Owner Signature Block */}
+                        <div className="border border-neutral-200 rounded p-4 text-center space-y-2 bg-neutral-50/50">
+                          <span className="text-[10px] font-mono uppercase text-neutral-500 font-bold block">
+                            FIRST PARTY / OWNER (CLIENT)
+                          </span>
+                          <div className="h-16 flex items-center justify-center border-b border-neutral-300">
+                            {contractData?.client_signed_at ? (
+                              <div className="space-y-0.5">
+                                <span className="font-serif italic text-lg text-emerald-800 font-bold block">
+                                  {contractData.client_signer_name || contractModalProject.client_name}
+                                </span>
+                                <span className="text-[9px] font-mono text-emerald-600 flex items-center justify-center gap-1">
+                                  <Check className="w-3 h-3" /> E-Signed {new Date(contractData.client_signed_at).toLocaleDateString("en-PH")}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-neutral-400 font-mono text-[10px] italic">
+                                Pending Client E-Signature in Portal
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-bold text-xs uppercase text-neutral-900 block">
+                            {contractData?.client_signer_name || contractModalProject.client_name || "Owner"}
+                          </span>
+                          <span className="text-[10px] text-neutral-500">Owner &amp; Principal Client</span>
+                        </div>
+
+                        {/* Contractor Signature Block */}
+                        <div className="border border-neutral-200 rounded p-4 text-center space-y-2 bg-neutral-50/50">
+                          <span className="text-[10px] font-mono uppercase text-neutral-500 font-bold block">
+                            SECOND PARTY / CONTRACTOR (M.C.P.A.)
+                          </span>
+                          <div className="h-16 flex items-center justify-center border-b border-neutral-300">
+                            {contractData?.contractor_signed_at ? (
+                              <div className="space-y-0.5">
+                                <span className="font-serif italic text-lg text-emerald-800 font-bold block">
+                                  {contractData.contractor_signer_name || "Engr. Raymart Quirante"}
+                                </span>
+                                <span className="text-[9px] font-mono text-emerald-600 flex items-center justify-center gap-1">
+                                  <Check className="w-3 h-3" /> Countersigned {new Date(contractData.contractor_signed_at).toLocaleDateString("en-PH")}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-amber-600 font-mono text-[10px] font-bold">
+                                Ready for Admin Countersigning Below
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-bold text-xs uppercase text-neutral-900 block">
+                            {contractData?.contractor_signer_name || contractorSignerName || "Engr. Raymart Quirante"}
+                          </span>
+                          <span className="text-[10px] text-neutral-500">Authorized Managing Officer</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ADMIN COUNTERSIGNING FORM (IF NOT YET SIGNED BY CONTRACTOR) */}
+                  {!contractData?.contractor_signed_at && (
+                    <form
+                      onSubmit={handleSignContractAsAdmin}
+                      className="p-5 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-4"
+                    >
+                      <div className="flex items-center gap-2">
+                        <PenTool className="w-4 h-4 text-amber-500" />
+                        <h4 className="text-xs font-mono font-bold uppercase text-neutral-900 dark:text-white">
+                          Contractor Representative E-Signature Execution
+                        </h4>
+                      </div>
+                      <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                        Countersign this Turnkey Construction Master Agreement as Authorized Managing Officer of M.C.P.A. Design &amp; Construction.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                            Managing Officer Name
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={contractorSignerName}
+                            onChange={(e) => setContractorSignerName(e.target.value)}
+                            className="w-full px-3 py-2 rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                            Signer Title / Designation
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={contractorTitle}
+                            onChange={(e) => setContractorTitle(e.target.value)}
+                            className="w-full px-3 py-2 rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                          Digital Signature Stamp / Handwritten Type
+                        </label>
+                        <div className="p-3 bg-white dark:bg-[#101218] rounded-[8px] border border-neutral-300 dark:border-white/10 flex items-center justify-between">
+                          <span className="font-serif italic text-lg text-neutral-900 dark:text-white font-bold pl-2">
+                            {contractorSignerName || "Engr. Raymart Quirante"}
+                          </span>
+                          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded">
+                            Verified Contractor Key
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-3 pt-2">
+                        <button
+                          type="submit"
+                          disabled={isSigningContract}
+                          className="px-5 py-2.5 rounded-[10px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+                        >
+                          {isSigningContract ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>Hashing &amp; Stamping SHA-256...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Countersign &amp; Execute Agreement</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-neutral-200/80 dark:border-white/10 flex items-center justify-between bg-neutral-50/50 dark:bg-white/[0.02]">
+              <span className="text-[11px] font-mono text-neutral-500">
+                Republic of the Philippines Civil Code Compliant
+              </span>
+              <button
+                type="button"
+                onClick={handleCloseContractModal}
+                className="px-4 py-2 rounded-[8px] bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold uppercase transition-colors cursor-pointer"
+              >
+                Close Window
+              </button>
+            </div>
           </div>
         </div>
       )}

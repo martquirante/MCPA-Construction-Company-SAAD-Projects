@@ -28,6 +28,8 @@ import {
   Sparkles,
   List,
   LayoutGrid,
+  Calendar,
+  Edit3,
 } from "lucide-react";
 import {
   STANDARD_REQUEST_DOCUMENTS,
@@ -98,8 +100,19 @@ export default function AdminDocumentRequestsTab({
   const [dbClients, setDbClients] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all"); // "all" | "pending" | "uploaded" | "verified" | "transmittals"
+  const [activeFilter, setActiveFilter] = useState("all"); // "all" | "pending" | "uploaded" | "verified" | "transmittals" | "permits"
   const [viewMode, setViewMode] = useState("table"); // "table" | "grid"
+
+  // State for LGU Permits & Regulatory Clearances
+  const [permits, setPermits] = useState([]);
+  const [isPermitModalOpen, setIsPermitModalOpen] = useState(false);
+  const [editingPermit, setEditingPermit] = useState(null);
+  const [permitStatusInput, setPermitStatusInput] = useState("SUBMITTED");
+  const [permitFilingDate, setPermitFilingDate] = useState("");
+  const [permitTargetDate, setPermitTargetDate] = useState("");
+  const [permitActualDate, setPermitActualDate] = useState("");
+  const [permitRemarks, setPermitRemarks] = useState("");
+  const [isUpdatingPermit, setIsUpdatingPermit] = useState(false);
 
   // Modal 1: Request Document from Client
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
@@ -220,6 +233,67 @@ export default function AdminDocumentRequestsTab({
     }
   };
 
+  // Fetch LGU Permits Overview across all projects
+  const fetchPermits = useCallback(async () => {
+    try {
+      const res = await authFetch("/api/admin/permits/overview");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.permits)) {
+          setPermits(data.permits);
+        }
+      }
+    } catch (e) {
+      console.warn("fetchPermits error:", e);
+    }
+  }, []);
+
+  const handleOpenEditPermit = (p) => {
+    setEditingPermit(p);
+    setPermitStatusInput(p.status || "SUBMITTED");
+    setPermitFilingDate(p.filing_date ? p.filing_date.slice(0, 10) : "");
+    setPermitTargetDate(p.target_release_date ? p.target_release_date.slice(0, 10) : "");
+    setPermitActualDate(p.actual_release_date ? p.actual_release_date.slice(0, 10) : "");
+    setPermitRemarks(p.remarks || "");
+    setIsPermitModalOpen(true);
+  };
+
+  const handleSavePermit = async (e) => {
+    e?.preventDefault();
+    if (!editingPermit?.permit_id) return;
+    setIsUpdatingPermit(true);
+    try {
+      const res = await authFetch(`/api/admin/permits/${editingPermit.permit_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: permitStatusInput,
+          filingDate: permitFilingDate || null,
+          targetReleaseDate: permitTargetDate || null,
+          actualReleaseDate: permitActualDate || null,
+          remarks: permitRemarks || null,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast?.(`Permit record updated to ${permitStatusInput}!`, "success");
+        setIsPermitModalOpen(false);
+        setEditingPermit(null);
+        fetchPermits();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("mcpa-permits-updated"));
+        }
+      } else {
+        showToast?.(data.message || "Failed to update permit", "error");
+      }
+    } catch (err) {
+      console.error("handleSavePermit error:", err);
+      showToast?.(err.message || "Error updating permit", "error");
+    } finally {
+      setIsUpdatingPermit(false);
+    }
+  };
+
   // Load data on mount & listen to cross-tab updates
   useEffect(() => {
     const initialReqs = loadDocumentRequests();
@@ -228,27 +302,32 @@ export default function AdminDocumentRequestsTab({
     if (initialTxs?.length > 0) setTransmittals(initialTxs);
 
     fetchOverview();
+    fetchPermits();
 
     const handleRequestsUpdate = () => {
       fetchOverview();
+      fetchPermits();
     };
 
     const handleStorageChange = (e) => {
       if (e.key === "mcpa_document_requests" || e.key === "mcpa_admin_transmittals") {
         fetchOverview();
+        fetchPermits();
       }
     };
 
     window.addEventListener("mcpa-document-requests-updated", handleRequestsUpdate);
     window.addEventListener("mcpa-admin-transmittals-updated", handleRequestsUpdate);
+    window.addEventListener("mcpa-permits-updated", handleRequestsUpdate);
     window.addEventListener("storage", handleStorageChange);
 
     return () => {
       window.removeEventListener("mcpa-document-requests-updated", handleRequestsUpdate);
       window.removeEventListener("mcpa-admin-transmittals-updated", handleRequestsUpdate);
+      window.removeEventListener("mcpa-permits-updated", handleRequestsUpdate);
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, []);
+  }, [fetchPermits]);
 
   // Update default note when template changes
   useEffect(() => {
@@ -382,6 +461,24 @@ export default function AdminDocumentRequestsTab({
     }
     return list;
   }, [transmittals, searchQuery]);
+
+  // Filtered LGU Permits
+  const filteredPermits = useMemo(() => {
+    let list = [...permits];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (p) =>
+          p.permit_type?.toLowerCase().includes(q) ||
+          p.lgu_agency?.toLowerCase().includes(q) ||
+          p.client_name?.toLowerCase().includes(q) ||
+          p.project_code?.toLowerCase().includes(q) ||
+          p.status?.toLowerCase().includes(q) ||
+          p.remarks?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [permits, searchQuery]);
 
   // Metrics counts
   const pendingCount = useMemo(() => requests.filter((r) => r.status === "pending").length, [requests]);
@@ -773,6 +870,18 @@ export default function AdminDocumentRequestsTab({
           >
             MCPA Issued ({transmittals.length})
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter("permits")}
+            className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 ${
+              activeFilter === "permits"
+                ? "bg-amber-500 text-neutral-950"
+                : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5"
+            }`}
+          >
+            LGU Permits &amp; Clearances ({permits.length})
+          </button>
         </div>
 
         {/* Right Section: Search & View Mode Switcher */}
@@ -820,8 +929,141 @@ export default function AdminDocumentRequestsTab({
         </div>
       </div>
 
-      {/* 4. CONTENT LIST: REQUESTS OR MCPA TRANSMITTALS */}
-      {activeFilter === "transmittals" ? (
+      {/* 4. CONTENT LIST: PERMITS, TRANSMITTALS, OR REQUESTS */}
+      {activeFilter === "permits" ? (
+        /* LGU PERMITS & REGULATORY CLEARANCES TRACKER */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-mono font-bold uppercase text-neutral-500 tracking-wider">
+              LGU Regulatory Permits &amp; Municipal Clearances ({filteredPermits.length})
+            </h3>
+            <span className="text-[11px] font-mono text-neutral-400">
+              Synchronized with Stage 2 Client Portal &bull; City Hall Pipeline
+            </span>
+          </div>
+
+          {filteredPermits.length === 0 ? (
+            <AdminEmptyState
+              fallback={Building2}
+              badgeText="Permits Pipeline Standby"
+              title="No LGU Permits Records Found"
+              description="Permits are automatically initialized for consultation projects or when clients enter Stage 2 Pre-Construction Planning."
+            />
+          ) : (
+            <div className="overflow-x-auto rounded-[8px] border border-neutral-200 dark:border-white/5 bg-white dark:bg-[#101218] shadow-xs">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-neutral-200 dark:border-white/5 bg-neutral-50 dark:bg-white/[0.02] text-neutral-500 font-mono text-[11px] uppercase tracking-wider">
+                    <th className="py-3 px-4 font-bold">Permit Name &amp; Agency</th>
+                    <th className="py-3 px-4 font-bold">Client / Project</th>
+                    <th className="py-3 px-4 font-bold">Status</th>
+                    <th className="py-3 px-4 font-bold">Filing Date</th>
+                    <th className="py-3 px-4 font-bold">Target Release</th>
+                    <th className="py-3 px-4 font-bold">Actual Release</th>
+                    <th className="py-3 px-4 font-bold">Remarks / LGU Notes</th>
+                    <th className="py-3 px-4 font-bold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100 dark:divide-white/5 font-sans">
+                  {filteredPermits.map((perm) => {
+                    const isApproved = perm.status === "APPROVED" || perm.status === "RELEASED";
+                    const isPending = perm.status === "SUBMITTED" || perm.status === "UNDER_EVALUATION";
+                    const isRejected = perm.status === "REJECTED";
+
+                    const formatPermitType = (type) => {
+                      if (!type) return "Permit Document";
+                      return type
+                        .replace(/_/g, " ")
+                        .toLowerCase()
+                        .replace(/\b\w/g, (c) => c.toUpperCase());
+                    };
+
+                    return (
+                      <tr
+                        key={perm.permit_id}
+                        className="hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors"
+                      >
+                        <td className="py-3.5 px-4 min-w-[200px]">
+                          <div className="space-y-1">
+                            <span className="font-bold text-neutral-900 dark:text-white block">
+                              {formatPermitType(perm.permit_type)}
+                            </span>
+                            <span className="text-[11px] text-neutral-500 font-mono flex items-center gap-1">
+                              <Building2 className="w-3 h-3 text-amber-500 shrink-0" />
+                              {perm.lgu_agency || "Municipal Hall"}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="space-y-0.5">
+                            <span className="font-bold text-neutral-900 dark:text-white font-mono block">
+                              {perm.client_name || "Valued Client"}
+                            </span>
+                            <span className="text-[10px] text-neutral-500 font-mono">
+                              {perm.project_code || "PRJ"} &bull; {perm.target_location || "Bulacan"}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4 whitespace-nowrap font-mono">
+                          {isApproved ? (
+                            <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              {perm.status}
+                            </span>
+                          ) : isPending ? (
+                            <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/30 inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {perm.status}
+                            </span>
+                          ) : isRejected ? (
+                            <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 inline-flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              {perm.status}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase bg-neutral-200/60 dark:bg-white/10 text-neutral-600 dark:text-neutral-400 inline-flex items-center gap-1">
+                              {perm.status || "NOT_STARTED"}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 whitespace-nowrap font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+                          {perm.filing_date ? new Date(perm.filing_date).toLocaleDateString("en-PH") : "—"}
+                        </td>
+
+                        <td className="py-3.5 px-4 whitespace-nowrap font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+                          {perm.target_release_date ? new Date(perm.target_release_date).toLocaleDateString("en-PH") : "—"}
+                        </td>
+
+                        <td className="py-3.5 px-4 whitespace-nowrap font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+                          {perm.actual_release_date ? new Date(perm.actual_release_date).toLocaleDateString("en-PH") : "—"}
+                        </td>
+
+                        <td className="py-3.5 px-4 max-w-xs text-[11px] text-neutral-600 dark:text-neutral-400 truncate">
+                          {perm.remarks || "—"}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditPermit(perm)}
+                            className="px-2.5 py-1.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Edit3 className="w-3 h-3 text-amber-500" />
+                            <span>Update</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : activeFilter === "transmittals" ? (
         /* MCPA TRANSMITTALS SECTION */
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -2028,6 +2270,158 @@ export default function AdminDocumentRequestsTab({
           }}
           onUploadSuccess={handleDirectUploadSuccess}
         />
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: EDIT / UPDATE LGU PERMIT STATUS & DETAILS                        */}
+      {/* ========================================================================= */}
+      {isPermitModalOpen && editingPermit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-lg rounded-[16px] bg-white dark:bg-[#12151c] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-5 border-b border-neutral-200/80 dark:border-white/10 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-0.5">
+                  LGU Regulatory Action
+                </span>
+                <h3 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                  Update LGU Permit Status
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPermitModalOpen(false);
+                  setEditingPermit(null);
+                }}
+                className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePermit} className="p-5 space-y-4 overflow-y-auto">
+              <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/70 dark:border-white/5 text-xs font-mono space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-neutral-400 uppercase text-[10px]">Permit Document</span>
+                  <span className="font-bold text-neutral-900 dark:text-white">
+                    {editingPermit.permit_type?.replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-400 uppercase text-[10px]">Client / Project</span>
+                  <span className="text-neutral-700 dark:text-neutral-300">
+                    {editingPermit.client_name} ({editingPermit.project_code})
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-400 uppercase text-[10px]">LGU Agency</span>
+                  <span className="text-neutral-700 dark:text-neutral-300">
+                    {editingPermit.lgu_agency}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono uppercase font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                  Evaluation &amp; Approval Status
+                </label>
+                <select
+                  value={permitStatusInput}
+                  onChange={(e) => setPermitStatusInput(e.target.value)}
+                  className="w-full px-3 py-2 rounded-[8px] bg-neutral-50 dark:bg-white/[0.04] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="NOT_STARTED">NOT_STARTED — Not Yet Initiated</option>
+                  <option value="IN_PREPARATION">IN_PREPARATION — Compiling Requirements</option>
+                  <option value="SUBMITTED">SUBMITTED — Filed at City Hall / Barangay</option>
+                  <option value="UNDER_EVALUATION">UNDER_EVALUATION — Technical Evaluation by OBO</option>
+                  <option value="APPROVED">APPROVED — Formal Clearance Granted</option>
+                  <option value="RELEASED">RELEASED — Official Stamped Permit Picked Up</option>
+                  <option value="REJECTED">REJECTED — Revision / Correction Required</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                    Filing Date
+                  </label>
+                  <input
+                    type="date"
+                    value={permitFilingDate}
+                    onChange={(e) => setPermitFilingDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-[6px] bg-neutral-50 dark:bg-white/[0.04] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                    Target Release
+                  </label>
+                  <input
+                    type="date"
+                    value={permitTargetDate}
+                    onChange={(e) => setPermitTargetDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-[6px] bg-neutral-50 dark:bg-white/[0.04] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                    Actual Release
+                  </label>
+                  <input
+                    type="date"
+                    value={permitActualDate}
+                    onChange={(e) => setPermitActualDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-[6px] bg-neutral-50 dark:bg-white/[0.04] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                  City Hall / Liaison Officer Remarks &amp; Feedback
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Enter remarks, tracking reference numbers, or requirements needed..."
+                  value={permitRemarks}
+                  onChange={(e) => setPermitRemarks(e.target.value)}
+                  className="w-full px-3 py-2 rounded-[8px] bg-neutral-50 dark:bg-white/[0.04] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-neutral-200/80 dark:border-white/10 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPermitModalOpen(false);
+                    setEditingPermit(null);
+                  }}
+                  disabled={isUpdatingPermit}
+                  className="px-4 py-2 rounded-[8px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-mono font-bold uppercase transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingPermit}
+                  className="px-5 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  {isUpdatingPermit ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving to Database...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save &amp; Sync to Portal</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

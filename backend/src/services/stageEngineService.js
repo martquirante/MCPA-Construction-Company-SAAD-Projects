@@ -1129,9 +1129,48 @@ class StageEngineService {
    * PERMITS & REVISIONS TRACKER
    */
   async getProjectPermits(projectId) {
-    const res = await db.query(
+    let res = await db.query(
       `SELECT * FROM public.permit_records WHERE client_project_id = $1 ORDER BY permit_id ASC;`,
       [projectId]
+    );
+    if (!res.rows || res.rows.length === 0) {
+      // Seed default standard Philippine LGU permits for the project
+      const defaultPermits = [
+        { type: "BARANGAY_CLEARANCE", agency: "Barangay Hall (Local Jurisdiction)", status: "SUBMITTED", remarks: "Barangay construction permit application filed" },
+        { type: "LOCATIONAL_CLEARANCE", agency: "City/Municipal Planning & Development Office", status: "UNDER_EVALUATION", remarks: "Zoning and land use conformance evaluation" },
+        { type: "BUILDING_PERMIT", agency: "Office of the Building Official (OBO)", status: "UNDER_EVALUATION", remarks: "Architectural, Structural, MEPFS clearance review" },
+        { type: "FSEC_FIRE", agency: "Bureau of Fire Protection (BFP)", status: "IN_PREPARATION", remarks: "Fire Safety Evaluation Clearance documents compiled" },
+        { type: "OCCUPANCY_PERMIT", agency: "City/Municipal Engineering & Inspection", status: "NOT_STARTED", remarks: "Scheduled upon final post-construction punchlist clearance" },
+      ];
+      for (const p of defaultPermits) {
+        try {
+          await db.query(
+            `INSERT INTO public.permit_records (client_project_id, permit_type, lgu_agency, status, remarks)
+             VALUES ($1, $2, $3, $4, $5);`,
+            [projectId, p.type, p.agency, p.status, p.remarks]
+          );
+        } catch (seedErr) {
+          console.warn("[getProjectPermits] Seed notice:", seedErr.message);
+        }
+      }
+      res = await db.query(
+        `SELECT * FROM public.permit_records WHERE client_project_id = $1 ORDER BY permit_id ASC;`,
+        [projectId]
+      );
+    }
+    return res.rows || [];
+  }
+
+  async getAdminPermitsOverview() {
+    const res = await db.query(
+      `SELECT pr.*, cp.project_code, cp.project_title, cp.target_location, cp.status as project_status,
+              COALESCE(u.full_name, cb.full_name, 'Valued Client') as client_name,
+              COALESCE(u.email, cb.email, '') as client_email
+       FROM public.permit_records pr
+       JOIN public.client_projects cp ON pr.client_project_id = cp.client_project_id
+       LEFT JOIN public.users u ON cp.user_id = u.user_id
+       LEFT JOIN public.client_briefs cb ON cp.brief_id = cb.brief_id
+       ORDER BY pr.client_project_id DESC, pr.permit_id ASC;`
     );
     return res.rows || [];
   }
@@ -1521,8 +1560,32 @@ class StageEngineService {
       [contract.contract_id]
     );
 
+    // Fetch project metadata to enrich contract preview (client name, site address, floor area, etc.)
+    let projectMeta = {};
+    try {
+      const projectRes = await db.query(
+        `SELECT cp.client_project_id, cp.project_code, cp.project_title, cp.project_type, 
+                COALESCE(cp.target_location, cp.location) AS location, 
+                cp.lot_area, cp.floor_area, cp.storeys, cp.current_stage,
+                COALESCE(u.full_name, cp.client_name, 'Client') AS client_name,
+                COALESCE(u.email, cp.client_email, 'client@mcpa.com') AS client_email,
+                cp.client_phone
+         FROM public.client_projects cp
+         LEFT JOIN public.users u ON cp.user_id = u.user_id
+         WHERE cp.client_project_id = $1
+         LIMIT 1;`,
+        [contract.client_project_id]
+      );
+      if (projectRes.rows && projectRes.rows.length > 0) {
+        projectMeta = projectRes.rows[0];
+      }
+    } catch (metaErr) {
+      console.warn("[getProjectContract] Could not enrich project metadata:", metaErr.message);
+    }
+
     return {
       ...contract,
+      project_meta: projectMeta,
       signatures: sigsRes.rows || [],
     };
   }
@@ -1552,7 +1615,8 @@ class StageEngineService {
       }
     }
 
-    const hashData = `${resolvedContractId}-${userId}-${signerEmail}-${new Date().toISOString()}`;
+    const normalizedRole = (signerRole || "CLIENT").toUpperCase();
+    const hashData = `${resolvedContractId}-${userId || 0}-${normalizedRole}-${signerEmail}-${new Date().toISOString()}`;
     const hashSha256 = crypto.createHash("sha256").update(hashData).digest("hex");
 
     const sigRes = await db.query(
@@ -1560,15 +1624,26 @@ class StageEngineService {
         contract_id, user_id, signer_role, signer_name, signer_email, signature_type, signature_image_url, ip_address, user_agent, signed_at, hash_sha256
       ) VALUES ($1, $2, $3, $4, $5, 'DRAWN', $6, $7, $8, NOW(), $9)
       RETURNING *;`,
-      [resolvedContractId, userId, signerRole, signerName, signerEmail, signatureImageUrl, ipAddress, userAgent, hashSha256]
+      [resolvedContractId, userId || null, normalizedRole, signerName, signerEmail, signatureImageUrl, ipAddress, userAgent, hashSha256]
     );
+
+    // Determine mutual execution status: check all signatures for this contract
+    const allSigsRes = await db.query(
+      `SELECT signer_role FROM public.contract_signatures WHERE contract_id = $1;`,
+      [resolvedContractId]
+    );
+    const existingRoles = (allSigsRes.rows || []).map((r) => (r.signer_role || "").toUpperCase());
+    const hasClientSig = existingRoles.includes("CLIENT");
+    const hasContractorSig = existingRoles.includes("CONTRACTOR") || existingRoles.includes("ADMIN");
+
+    const updatedStatus = (hasClientSig && hasContractorSig) ? "FULLY_EXECUTED" : "PARTIALLY_EXECUTED";
 
     // Update contract status
     await db.query(
       `UPDATE public.contracts 
-       SET status = 'FULLY_EXECUTED', updated_at = NOW()
-       WHERE contract_id = $1;`,
-      [resolvedContractId]
+       SET status = $1, updated_at = NOW()
+       WHERE contract_id = $2;`,
+      [updatedStatus, resolvedContractId]
     );
 
     return sigRes.rows[0];

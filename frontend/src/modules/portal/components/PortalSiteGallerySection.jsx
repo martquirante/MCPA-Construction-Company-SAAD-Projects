@@ -52,6 +52,15 @@ export default function PortalSiteGallerySection({
     ? photos.filter((p) => (p.title || "").toLowerCase().includes("week") || (p.caption || "").toLowerCase().includes("week"))
     : activeFilter === "daily"
     ? photos.filter((p) => (p.title || "").toLowerCase().includes("day") || (p.title || "").toLowerCase().includes("daily"))
+    : activeFilter === "inspections"
+    ? photos.filter((p) => 
+        (p.category || "").toLowerCase().includes("inspect") ||
+        (p.title || "").toLowerCase().includes("inspect") || 
+        (p.caption || "").toLowerCase().includes("inspect") ||
+        (p.title || "").toLowerCase().includes("proof") ||
+        (p.title || "").toLowerCase().includes("qc") ||
+        (p.tags || "").toLowerCase().includes("inspect")
+      )
     : photos;
 
   return (

@@ -284,6 +284,7 @@ app.delete("/api/projects/:id/blueprints/:blueprintId", requireAuth, requireRole
 app.post("/api/projects/:id/blueprints/:blueprintId/pins", requireAuth, (req, res) => subStageController.saveBlueprintPins(req, res));
 app.patch("/api/admin/blueprints/:blueprintId/pins/:pinId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updateBlueprintPinStatus(req, res));
 app.get("/api/projects/:id/permits", requireAuth, (req, res) => subStageController.getPermits(req, res));
+app.get("/api/admin/permits/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminPermitsOverview(req, res));
 app.patch("/api/admin/permits/:permitId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updatePermit(req, res));
 app.get("/api/admin/groundbreaking/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminGroundbreakingOverview(req, res));
 app.get("/api/projects/:id/groundbreaking", optionalAuth, (req, res) => subStageController.getGroundbreaking(req, res));
@@ -338,23 +339,23 @@ app.delete("/api/meetings/history/:sessionId", requireAuth, requireRole("admin",
 // -----------------------------------------------------------------------------
 // CONSTRUCTION SITE EXECUTION ROUTES (SAAD FLOWCHART PHASE 5)
 // -----------------------------------------------------------------------------
-app.get("/api/construction/stage3-projects", (req, res) => constructionController.getStage3Projects(req, res));
-app.get("/api/construction/project", (req, res) => constructionController.getProject(req, res));
-app.get("/api/construction/projects/:code", (req, res) => constructionController.getProject(req, res));
-app.post("/api/construction/milestones", (req, res) => constructionController.createMilestone(req, res));
-app.patch("/api/construction/milestones/:milestoneId", (req, res) => constructionController.updateMilestone(req, res));
-app.delete("/api/construction/milestones/:milestoneId", (req, res) => constructionController.deleteMilestone(req, res));
-app.post("/api/construction/virtual-tour", (req, res) => constructionController.updateVirtualTour(req, res));
-app.post("/api/construction/photos", (req, res) => constructionController.addPhotoLog(req, res));
-app.post("/api/construction/billing", (req, res) => constructionController.createBillingTranche(req, res));
-app.patch("/api/construction/billing/:billId/verify", (req, res) => constructionController.verifyPayment(req, res));
-app.patch("/api/construction/billing/:billId/proof", (req, res) => constructionController.uploadPaymentProof(req, res));
-app.post("/api/construction/billing/:billId/proof", (req, res) => constructionController.uploadPaymentProof(req, res));
-app.get("/api/construction/expenses/:code", (req, res) => constructionController.getProjectExpenses(req, res));
-app.post("/api/construction/delays", (req, res) => constructionController.logDelay(req, res));
-app.post("/api/construction/warranty", (req, res) => constructionController.submitWarrantyTicket(req, res));
-app.patch("/api/construction/warranty/:ticketId", (req, res) => constructionController.updateWarrantyStatus(req, res));
-app.post("/api/construction/expenses/ocr", (req, res) => constructionController.logOcrExpense(req, res));
+app.get("/api/construction/stage3-projects", optionalAuth, (req, res) => constructionController.getStage3Projects(req, res));
+app.get("/api/construction/project", optionalAuth, (req, res) => constructionController.getProject(req, res));
+app.get("/api/construction/projects/:code", optionalAuth, (req, res) => constructionController.getProject(req, res));
+app.post("/api/construction/milestones", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.createMilestone(req, res));
+app.patch("/api/construction/milestones/:milestoneId", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.updateMilestone(req, res));
+app.delete("/api/construction/milestones/:milestoneId", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.deleteMilestone(req, res));
+app.post("/api/construction/virtual-tour", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.updateVirtualTour(req, res));
+app.post("/api/construction/photos", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.addPhotoLog(req, res));
+app.post("/api/construction/billing", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.createBillingTranche(req, res));
+app.patch("/api/construction/billing/:billId/verify", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.verifyPayment(req, res));
+app.patch("/api/construction/billing/:billId/proof", optionalAuth, (req, res) => constructionController.uploadPaymentProof(req, res));
+app.post("/api/construction/billing/:billId/proof", optionalAuth, (req, res) => constructionController.uploadPaymentProof(req, res));
+app.get("/api/construction/expenses/:code", optionalAuth, (req, res) => constructionController.getProjectExpenses(req, res));
+app.post("/api/construction/delays", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.logDelay(req, res));
+app.post("/api/construction/warranty", optionalAuth, (req, res) => constructionController.submitWarrantyTicket(req, res));
+app.patch("/api/construction/warranty/:ticketId", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.updateWarrantyStatus(req, res));
+app.post("/api/construction/expenses/ocr", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.logOcrExpense(req, res));
 
 // OCR RECEIPT AUTO-SCAN & PARSING ROUTE
 app.post("/api/construction/scan-receipt", (req, res, next) => {

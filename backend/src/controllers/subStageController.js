@@ -440,6 +440,19 @@ class SubStageController {
   }
 
   /**
+   * GET /api/admin/permits/overview
+   */
+  async getAdminPermitsOverview(req, res) {
+    try {
+      const permits = await stageEngineService.getAdminPermitsOverview();
+      return res.status(200).json({ success: true, permits });
+    } catch (err) {
+      console.error("[SubStageController.getAdminPermitsOverview] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
    * PATCH /api/admin/permits/:permitId
    */
   async updatePermit(req, res) {

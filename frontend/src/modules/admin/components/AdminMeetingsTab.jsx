@@ -326,6 +326,72 @@ export default function AdminMeetingsTab({
       .catch(() => {});
   }, []);
 
+  // Synthesize rich meetings list from client briefs & active project records
+  const initialMeetings = useMemo(() => {
+    const baseList = [];
+
+    // Merge any clientBriefs that have meeting data
+    if (Array.isArray(clientBriefs) && clientBriefs.length > 0) {
+      clientBriefs.forEach((b, idx) => {
+        const clientEmail = (b.clientEmail || b.client_email || "").toLowerCase();
+        const bStatus = b.status || "Scheduled";
+        const isDiscontinued =
+          Boolean(b.is_rejected) ||
+          Boolean(b.isRejected) ||
+          bStatus.toLowerCase().includes("reject") ||
+          bStatus.toLowerCase().includes("decline") ||
+          bStatus.toLowerCase().includes("discontinue") ||
+          bStatus.toLowerCase().includes("withdrawn") ||
+          (b.availability_status || "").toLowerCase().includes("discontinue");
+        const isCompleted =
+          bStatus.toLowerCase().includes("aligned") ||
+          bStatus.toLowerCase().includes("complete") ||
+          bStatus.toLowerCase().includes("advance");
+
+        let statusText = "Scheduled";
+        if (isDiscontinued) {
+          statusText = "Discontinued / Closed";
+        } else if (isCompleted) {
+          statusText = "Completed / Aligned";
+        } else if (bStatus) {
+          statusText = bStatus;
+        }
+
+        if (b.meetingDate || b.meeting_date || b.meetingTime || b.meeting_time) {
+          const briefCode = b.trackingId || b.submissionId || b.submission_id || b.projectCode || (b.id && isNaN(Number(b.id)) ? b.id : `INQ-2026-0${idx + 1}`);
+          baseList.push({
+            id: `brief-meet-${b.id || idx}`,
+            briefId: b.id || b.brief_id || null,
+            submissionId: b.submissionId || b.submission_id || briefCode,
+            clientName: b.clientName || b.client_name || "Client",
+            clientEmail: b.clientEmail || b.client_email || "",
+            clientPhone: b.clientPhone || b.client_phone || "+63 900 000 0000",
+            projectCode: briefCode,
+            projectTitle: b.projectType || b.project_type || "Custom Residential Project",
+            roomCode: extractRoomCode(b),
+            mode: b.meetingMode || b.meeting_mode || "Online Video Call",
+            date: b.meetingDate || b.meeting_date || new Date().toISOString().split("T")[0],
+            displayDate: b.meetingDate || b.meeting_date || "Scheduled Date",
+            time: b.meetingTime || b.meeting_time || "10:00 AM - 11:30 AM PHT",
+            status: statusText,
+            leadConsultant: "Lead Technical Consultant",
+            venue: b.meetingMode?.toLowerCase().includes("office") ? "MCPA Pasig Headquarters" : "MCPA Secure Video Room",
+            notes: b.meetingNotes || b.meeting_notes || b.message || "Consultation deliberation",
+            isToday: Boolean(b.meetingDate && b.meetingDate === new Date().toISOString().split("T")[0]),
+          });
+        }
+      });
+    }
+
+    return baseList;
+  }, [clientBriefs]);
+
+  const [meetingsList, setMeetingsList] = useState(initialMeetings);
+
+  useEffect(() => {
+    setMeetingsList(initialMeetings);
+  }, [initialMeetings]);
+
   // Synchronize meeting updates from Client Portal in real-time
   useEffect(() => {
     const handleMeetingSync = (e) => {
@@ -364,110 +430,6 @@ export default function AdminMeetingsTab({
       window.removeEventListener("storage", handleHistorySync);
     };
   }, []);
-
-  // Synthesize rich meetings list from client briefs & active project records
-  const initialMeetings = useMemo(() => {
-    // Default base consultations for Raymart and other inquiries
-    const baseList = [
-      {
-        id: "meet-1",
-        clientName: "Raymart Quirante",
-        clientEmail: "martquirante@gmail.com",
-        clientPhone: "+63 917 839 2011",
-        projectCode: "MCPA-2026-MQ04B",
-        projectTitle: "Modern Tropical Residence (Raymart Quirante)",
-        roomCode: "mcpa-meet-7ecea339",
-        mode: "Online Video Call",
-        date: "2026-10-15",
-        displayDate: "Thu, Oct 15, 2026",
-        time: "10:00 AM - 11:30 AM PHT",
-        status: "Room Ready",
-        leadConsultant: "Engr. Raymart Quirante",
-        venue: "MCPA Secure Video Room",
-        notes: "Lot boundary review, TCT documentation check, and initial structural steel requirements.",
-        isToday: true,
-      },
-    ];
-
-    // Merge any clientBriefs that have meeting data
-    if (Array.isArray(clientBriefs) && clientBriefs.length > 0) {
-      clientBriefs.forEach((b, idx) => {
-        const clientEmail = (b.clientEmail || b.client_email || "").toLowerCase();
-        const bStatus = b.status || "Scheduled";
-        const isDiscontinued =
-          Boolean(b.is_rejected) ||
-          Boolean(b.isRejected) ||
-          bStatus.toLowerCase().includes("reject") ||
-          bStatus.toLowerCase().includes("decline") ||
-          bStatus.toLowerCase().includes("discontinue") ||
-          bStatus.toLowerCase().includes("withdrawn") ||
-          (b.availability_status || "").toLowerCase().includes("discontinue");
-        const isCompleted =
-          bStatus.toLowerCase().includes("aligned") ||
-          bStatus.toLowerCase().includes("complete") ||
-          bStatus.toLowerCase().includes("advance");
-
-        let statusText = "Scheduled";
-        if (isDiscontinued) {
-          statusText = "Discontinued / Closed";
-        } else if (isCompleted) {
-          statusText = "Completed / Aligned";
-        } else if (bStatus) {
-          statusText = bStatus;
-        }
-
-        if (clientEmail === "martquirante@gmail.com" || clientEmail === "martquirante04@gmail.com") {
-          if (b.meetingDate || b.meeting_date) {
-            baseList[0].briefId = b.id || b.brief_id || null;
-            baseList[0].submissionId = b.submissionId || b.submission_id || "MCPA-2026-MQ04B";
-            baseList[0].date = b.meetingDate || b.meeting_date;
-            baseList[0].displayDate = b.meetingDate || b.meeting_date;
-            if (b.meetingTime || b.meeting_time) baseList[0].time = b.meetingTime || b.meeting_time;
-            if (b.meetingMode || b.meeting_mode) baseList[0].mode = b.meetingMode || b.meeting_mode;
-            if (b.projectType || b.project_type) baseList[0].projectTitle = b.projectType || b.project_type;
-            baseList[0].roomCode = extractRoomCode(b);
-            const cleanCode = b.trackingId || b.submissionId || b.submission_id || b.projectCode || (b.id && isNaN(Number(b.id)) ? b.id : "MCPA-2026-MQ04B");
-            baseList[0].projectCode = cleanCode;
-            baseList[0].status = isDiscontinued ? "Discontinued / Closed" : (isCompleted ? "Completed / Aligned" : "Room Ready");
-          }
-          return;
-        }
-        if (b.meetingDate || b.meeting_date) {
-          const briefCode = b.trackingId || b.submissionId || b.submission_id || b.projectCode || (b.id && isNaN(Number(b.id)) ? b.id : `INQ-2026-0${idx + 1}`);
-          baseList.push({
-            id: `brief-meet-${b.id || idx}`,
-            briefId: b.id || b.brief_id || null,
-            submissionId: b.submissionId || b.submission_id || briefCode,
-            clientName: b.clientName || b.client_name || "Prospective Client",
-            clientEmail: b.clientEmail || b.client_email || "client@example.com",
-            clientPhone: b.clientPhone || b.client_phone || "+63 917 000 0000",
-            projectCode: briefCode,
-            projectTitle: b.projectType || "Residential Construction Inquiry",
-            roomCode: extractRoomCode(b),
-            mode: b.meetingMode || b.meeting_mode || "Online Video Call",
-            date: b.meetingDate || b.meeting_date,
-            displayDate: b.meetingDate || b.meeting_date,
-            time: b.meetingTime || b.meeting_time || "09:00 AM - 10:30 AM PHT",
-            status: statusText,
-            leadConsultant: "Engr. Raymart Quirante",
-            venue: (b.meetingMode || "").includes("In-Person")
-              ? "MCPA Plaridel Central Office"
-              : "MCPA Secure Video Room",
-            notes: b.meetingNotes || b.meeting_notes || "Initial consultation brief.",
-            isToday: false,
-          });
-        }
-      });
-    }
-
-    return baseList;
-  }, [clientBriefs]);
-
-  const [meetingsList, setMeetingsList] = useState(initialMeetings);
-
-  useEffect(() => {
-    setMeetingsList(initialMeetings);
-  }, [initialMeetings]);
 
   // Combined master list merging scheduled meetings and concluded consultations with ratings & notes
   const allMeetings = useMemo(() => {

@@ -289,6 +289,18 @@ export default function PortalStage2PlanningAndConsultation({
     });
   }, [documentRequests, documents, currentUser, activeInquiry, projectCode, projectId]);
 
+  const clientTransmittals = useMemo(() => {
+    const email = (currentUser?.email || "").toLowerCase().trim();
+    const pid = String(projectId || "");
+    const pCode = String(projectCode || "").trim().toLowerCase();
+    return adminTransmittals.filter((tx) => {
+      if (pid && tx.projectId && String(tx.projectId) === pid) return true;
+      if (pCode && tx.projectCode && String(tx.projectCode).toLowerCase() === pCode) return true;
+      if (email && tx.clientEmail && tx.clientEmail.toLowerCase() === email) return true;
+      return !tx.projectId && !tx.clientEmail;
+    });
+  }, [adminTransmittals, currentUser, projectCode, projectId]);
+
   const handleRequestUploadSuccess = async (uploadedFile) => {
     if (!activeUploadRequest) return;
 
@@ -2177,42 +2189,50 @@ export default function PortalStage2PlanningAndConsultation({
                   </div>
                 </div>
               ) : (
-                permits.map((perm) => (
-                  <div
-                    key={perm.id}
-                    className="p-5 rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-3 shadow-xs hover:border-amber-500/30 transition-all"
-                  >
-                    <div className="flex items-center justify-between border-b border-neutral-200 dark:border-white/5 pb-2.5">
-                      <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
-                        {perm.issuing_agency}
-                      </span>
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${
-                        perm.status === "APPROVED"
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                          : perm.status === "IN_PROGRESS"
-                          ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 animate-pulse border border-sky-500/30"
-                          : "bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
-                      }`}>
-                        {perm.status.replace("_", " ")}
-                      </span>
-                    </div>
+                permits.map((perm) => {
+                  const permName = perm.permit_type || perm.name || "Building Permit";
+                  const agency = perm.lgu_agency || perm.issuing_agency || "City / Municipal Engineering Office";
+                  const refNum = perm.remarks || perm.permit_id || perm.ref_number || "LGU-REF-PENDING";
+                  const releaseDate = perm.actual_release_date || perm.target_release_date || perm.issue_date || perm.filing_date;
+                  const statusNormalized = (perm.status || "IN_PROGRESS").toUpperCase();
 
-                    <div>
-                      <h4 className="text-sm font-bold text-neutral-900 dark:text-white font-mono">
-                        {perm.name}
-                      </h4>
-                      <p className="text-xs font-mono text-neutral-500 mt-1">
-                        Ref #: {perm.ref_number}
-                      </p>
-                      {perm.issue_date && (
-                        <p className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Cleared on {new Date(perm.issue_date).toLocaleDateString("en-PH", { dateStyle: "medium" })}</span>
+                  return (
+                    <div
+                      key={perm.permit_id || perm.id || permName}
+                      className="p-5 rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-3 shadow-xs hover:border-amber-500/30 transition-all"
+                    >
+                      <div className="flex items-center justify-between border-b border-neutral-200 dark:border-white/5 pb-2.5">
+                        <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
+                          {agency}
+                        </span>
+                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${
+                          statusNormalized === "APPROVED" || statusNormalized === "APPROVED_RELEASED"
+                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                            : statusNormalized === "IN_PROGRESS" || statusNormalized === "UNDER_REVIEW"
+                            ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 animate-pulse border border-sky-500/30"
+                            : "bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-400"
+                        }`}>
+                          {statusNormalized.replace(/_/g, " ")}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-bold text-neutral-900 dark:text-white font-mono">
+                          {permName}
+                        </h4>
+                        <p className="text-xs font-mono text-neutral-500 mt-1">
+                          Ref / Status Note: {refNum}
                         </p>
-                      )}
+                        {releaseDate && (
+                          <p className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Target / Release: {new Date(releaseDate).toLocaleDateString("en-PH", { dateStyle: "medium" })}</span>
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -2329,7 +2349,7 @@ export default function PortalStage2PlanningAndConsultation({
                     Official Engineering Releases
                   </span>
                   <span className="text-xs font-mono text-neutral-400">
-                    ({adminTransmittals.length} Transmittals)
+                    ({clientTransmittals.length} Transmittals)
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-neutral-900 dark:text-white font-mono uppercase">
@@ -2341,7 +2361,7 @@ export default function PortalStage2PlanningAndConsultation({
               </p>
             </div>
 
-            {adminTransmittals.length === 0 ? (
+            {clientTransmittals.length === 0 ? (
               <div className="p-8 text-center rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-dashed border-neutral-200 dark:border-white/10 space-y-2.5">
                 <div className="w-12 h-12 mx-auto flex items-center justify-center rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20">
                   <LordIcon
@@ -2363,7 +2383,7 @@ export default function PortalStage2PlanningAndConsultation({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {adminTransmittals.map((tx) => (
+                {clientTransmittals.map((tx) => (
                   <div
                     key={tx.id || tx.transmittal_id}
                     className="p-4 rounded-[12px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 hover:border-amber-500/40 transition-all flex flex-col justify-between space-y-3"
@@ -2416,59 +2436,402 @@ export default function PortalStage2PlanningAndConsultation({
       {/* ------------------------------------------------------------- */}
       {/* SUB-TAB 6: E-CONTRACT & GROUND BREAKING SCHEDULER              */}
       {/* ------------------------------------------------------------- */}
-      {activeSubTab === "contract" && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* E-Contract Digital Signing Card */}
-            <div className="p-6 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-4">
-              <div className="flex items-center justify-between border-b border-neutral-200 dark:border-white/5 pb-3">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                  Legal Master Agreement
-                </span>
-                {contract?.status === "FULLY_EXECUTED" ? (
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 uppercase">
-                    Fully Executed
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 uppercase">
-                    Awaiting E-Signature
-                  </span>
-                )}
+      {activeSubTab === "contract" && (() => {
+        const clientSig = contract?.signatures?.find(
+          (s) => (s.signer_role || "").toUpperCase() === "CLIENT"
+        );
+        const contractorSig = contract?.signatures?.find(
+          (s) => (s.signer_role || "").toUpperCase() === "CONTRACTOR" || (s.signer_role || "").toUpperCase() === "ADMIN"
+        );
+        const isFullyExecuted = Boolean(contract?.status === "FULLY_EXECUTED" || (clientSig && contractorSig));
+        const isClientSigned = Boolean(clientSig);
+
+        const projectRefCode = contract?.project_meta?.project_code || projectCode || activeProject?.project_code || "MCPA-2026-001";
+        const contractDateStr = contract?.created_at
+          ? new Date(contract.created_at).toLocaleDateString("en-PH", { day: "numeric", month: "long", year: "numeric" })
+          : new Date().toLocaleDateString("en-PH", { day: "numeric", month: "long", year: "numeric" });
+        const clientLegalName = contract?.project_meta?.client_name || currentUser?.fullName || currentUser?.name || activeProject?.client_name || "Client / Property Owner";
+        const clientAddress = contract?.project_meta?.location || activeProject?.target_location || activeProject?.location || "Complete Residential Address, Philippines";
+        const clientPhone = contract?.project_meta?.client_phone || currentUser?.phone || activeProject?.client_phone || "[Contact Number on Record]";
+        const clientEmail = contract?.project_meta?.client_email || currentUser?.email || "[Email on Record]";
+        const projectTitle = contract?.project_meta?.project_title || activeProject?.project_title || "Residential Construction & Turnkey Build";
+        const siteLocation = contract?.project_meta?.location || activeProject?.target_location || activeProject?.location || "Complete Project Site Address";
+        const lotFloorArea = `${contract?.project_meta?.lot_area || activeProject?.lot_area || 180} sq. m. Lot / ${contract?.project_meta?.floor_area || activeProject?.floor_area || 220} sq. m. Floor`;
+        const blueprintRef = allBlueprints?.[0] ? `${allBlueprints[0].title} (v${allBlueprints[0].version || "1.0"})` : "Architectural & Structural Master Blueprint Set Rev 1.0";
+        const boqRef = quotationData?.quotation_code || "BOQ-MCPA-2026-FINAL";
+        const lockedPrice = totalBOQAmount > 0 ? totalBOQAmount : Number(contract?.total_contract_amount) || 4500000;
+
+        return (
+          <div className="space-y-6">
+            {/* Top Toolbar / Status Strip */}
+            <div className="p-4 sm:p-5 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  isFullyExecuted
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                    : isClientSigned
+                    ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30"
+                    : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                }`}>
+                  {isFullyExecuted ? (
+                    <ShieldCheck className="w-5 h-5" />
+                  ) : isClientSigned ? (
+                    <Clock className="w-5 h-5" />
+                  ) : (
+                    <PenTool className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                      Turnkey Master Construction Contract
+                    </h3>
+                    <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                      isFullyExecuted
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                        : isClientSigned
+                        ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30"
+                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                    }`}>
+                      {isFullyExecuted ? "Fully Executed" : isClientSigned ? "Signed by Client (Awaiting Countersignature)" : "Awaiting E-Signature"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+                    {isFullyExecuted
+                      ? "Both Client & Contractor signatures are cryptographically sealed with SHA-256 verification."
+                      : isClientSigned
+                      ? "Your digital signature has been recorded. M.C.P.A. Managing Officer is scheduled for countersigning."
+                      : "Please review the agreement below and affix your digital signature to proceed to site execution."}
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <h3 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white">
-                  Turnkey Construction Master Contract
-                </h3>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
-                  Binding contract incorporating the final locked BOQ ({formatPHP(totalBOQAmount)}), 15-year structural warranty, and milestone billing progression terms.
+              <div className="flex items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-2 rounded-[8px] border border-neutral-300 dark:border-white/10 hover:bg-neutral-100 dark:hover:bg-white/5 text-neutral-700 dark:text-neutral-300 font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Print / Save PDF</span>
+                </button>
+
+                {!isClientSigned && (
+                  <button
+                    type="button"
+                    onClick={() => setIsSignModalOpen(true)}
+                    className="px-4 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <PenTool className="w-4 h-4" />
+                    <span>Sign Master Contract</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Realistic Human-Typed MS Word Style Document Container */}
+            <div className="bg-white text-neutral-900 border border-neutral-300 dark:border-neutral-700 shadow-2xl rounded-[8px] max-w-4xl mx-auto p-6 sm:p-12 space-y-6 text-xs font-sans leading-relaxed print:p-0 print:border-none print:shadow-none">
+              {/* Header Letterhead with MCPA Logo */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-2 border-neutral-900 pb-5 gap-4">
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/assets/mcpa-logo-white-bg.png"
+                    alt="MCPA Logo"
+                    className="h-14 sm:h-16 w-auto object-contain"
+                    onError={(e) => {
+                      e.currentTarget.src = "/assets/mcpa-logo.png";
+                    }}
+                  />
+                  <div>
+                    <h1 className="text-base sm:text-lg font-black tracking-tight uppercase text-neutral-950 font-sans">
+                      M.C.P.A. DESIGN &amp; CONSTRUCTION
+                    </h1>
+                    <p className="text-[11px] text-neutral-600 font-medium">
+                      General Engineering, Architectural Design &amp; Build
+                    </p>
+                    <p className="text-[10px] text-neutral-500">
+                      Unit 402, Builders Tower, Emerald Ave, Pasig City, Metro Manila
+                    </p>
+                    <p className="text-[10px] text-neutral-500">
+                      Contact: (+63) 917 123 4567 | Email: legal@mcpabuilders.com | PCAB License No.: 48291-B
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-left sm:text-right font-mono text-[11px] text-neutral-600 space-y-0.5">
+                  <div>Ref Code: <span className="font-bold text-neutral-900">{projectRefCode}</span></div>
+                  <div>Date: <span className="font-bold text-neutral-900">{contractDateStr}</span></div>
+                </div>
+              </div>
+
+              {/* Document Title */}
+              <div className="text-center py-2">
+                <h2 className="text-base sm:text-lg font-bold uppercase tracking-wider text-neutral-950 font-mono underline decoration-2 underline-offset-4">
+                  CONSTRUCTION CONTRACT AGREEMENT
+                </h2>
+                <p className="text-[11px] text-neutral-500 mt-1 font-mono">
+                  Master Turnkey Design-and-Build Legal Accord
                 </p>
               </div>
 
-              {contract?.status === "FULLY_EXECUTED" ? (
-                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs space-y-2">
-                  <div className="flex items-center gap-2 font-bold font-mono uppercase">
-                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    <span>Cryptographic SHA-256 Seal Active</span>
+              {/* Parties Involved */}
+              <div className="space-y-2 text-justify">
+                <h3 className="font-bold font-mono uppercase text-neutral-900 text-[11px]">
+                  PARTIES INVOLVED
+                </h3>
+                <p>
+                  <strong>CONTRACTOR:</strong> M.C.P.A. Design &amp; Construction (MCPA Builders), with office address at Unit 402, Builders Tower, Emerald Ave, Pasig City, Metro Manila, represented by its authorized managing officer.
+                </p>
+                <p>
+                  <strong>CLIENT / OWNER:</strong> {clientLegalName}, residing at {clientAddress}, Contact No.: {clientPhone}, Email: {clientEmail}.
+                </p>
+                <p>
+                  The parties agree to the following terms and mutual covenants for the construction project described below:
+                </p>
+              </div>
+
+              {/* Article 1 */}
+              <div className="space-y-1.5 text-justify">
+                <h3 className="font-bold font-mono uppercase text-neutral-900 text-[11px]">
+                  ARTICLE 1. PROJECT OVERVIEW &amp; SCOPE OF WORK
+                </h3>
+                <ul className="list-disc pl-5 space-y-1 text-neutral-800">
+                  <li><strong>Project Title:</strong> {projectTitle}</li>
+                  <li><strong>Project Site Location:</strong> {siteLocation}</li>
+                  <li><strong>Lot Area / Floor Area:</strong> {lotFloorArea}</li>
+                  <li><strong>Approved Blueprint Version:</strong> {blueprintRef}</li>
+                  <li><strong>Approved Bill of Quantities (BOQ) Ref:</strong> {boqRef}</li>
+                </ul>
+                <p className="text-neutral-700 pt-1">
+                  The Contractor shall perform the work described in the approved plans, specifications, and BOQ identified above. Any exclusion, variation, or additional work must be documented in a written change order approved by both parties, including any price and schedule adjustment. The approved plans, specifications, BOQ, and signed change orders form part of this Agreement.
+                </p>
+              </div>
+
+              {/* Article 2 */}
+              <div className="space-y-1.5 text-justify">
+                <h3 className="font-bold font-mono uppercase text-neutral-900 text-[11px]">
+                  ARTICLE 2. TOTAL CONTRACT PRICE &amp; SELECTED PAYMENT METHOD
+                </h3>
+                <p>
+                  <strong>Total Locked BOQ Contract Price:</strong> <span className="font-bold text-neutral-950 font-mono text-sm">{formatPHP(lockedPrice)}</span> (inclusive of materials, direct labor, and standard engineering supervision as itemized in the approved BOQ).
+                </p>
+                <div className="p-3 bg-neutral-50 rounded border border-neutral-200 font-mono text-[11px] space-y-1">
+                  <div className="font-bold text-neutral-900">Selected Payment Mode:</div>
+                  <div className="flex flex-wrap gap-4 pt-1">
+                    <span className="inline-flex items-center gap-1 font-bold text-neutral-900">
+                      [X] Cash / Milestone Progress Billing
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-neutral-500">
+                      [ ] Bank Housing Loan Financing
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-neutral-500">
+                      [ ] Staged Escrow / In-House
+                    </span>
                   </div>
-                  <p className="text-[11px] leading-relaxed">
-                    Signed by {contract.signer_name || currentUser?.fullName} on {new Date(contract.signed_date || Date.now()).toLocaleDateString("en-PH", { dateStyle: "long" })}.
-                  </p>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsSignModalOpen(true)}
-                  className="w-full py-3 rounded-[10px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                >
-                  <PenTool className="w-4 h-4" />
-                  <span>Review &amp; Sign Master Contract</span>
-                </button>
-              )}
+                <p className="text-neutral-700 text-[11px]">
+                  The contract price is based on the approved BOQ. No price change shall apply unless recorded in a written change order signed by both parties. For bank financing or escrow, documentary requirements, release conditions, and fees shall be confirmed separately in writing.
+                </p>
+              </div>
+
+              {/* Article 3 */}
+              <div className="space-y-2">
+                <h3 className="font-bold font-mono uppercase text-neutral-900 text-[11px]">
+                  ARTICLE 3. PROGRESS BILLING SCHEDULE
+                </h3>
+                <div className="border border-neutral-300 rounded overflow-hidden">
+                  <table className="w-full text-left font-mono text-[11px]">
+                    <thead className="bg-neutral-100 border-b border-neutral-300 text-neutral-700 uppercase">
+                      <tr>
+                        <th className="p-2 border-r border-neutral-300">Tranche</th>
+                        <th className="p-2 border-r border-neutral-300">Milestone Stage</th>
+                        <th className="p-2 text-right">Amount (PHP)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200">
+                      <tr>
+                        <td className="p-2 border-r border-neutral-200 font-bold">1 — 20%</td>
+                        <td className="p-2 border-r border-neutral-200">Mobilization / Downpayment</td>
+                        <td className="p-2 text-right font-bold">{formatPHP(lockedPrice * 0.20)}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 border-r border-neutral-200 font-bold">2 — 25%</td>
+                        <td className="p-2 border-r border-neutral-200">Foundation &amp; Structural Works</td>
+                        <td className="p-2 text-right font-bold">{formatPHP(lockedPrice * 0.25)}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 border-r border-neutral-200 font-bold">3 — 25%</td>
+                        <td className="p-2 border-r border-neutral-200">Roof Framing &amp; Masonry Enclosure</td>
+                        <td className="p-2 text-right font-bold">{formatPHP(lockedPrice * 0.25)}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 border-r border-neutral-200 font-bold">4 — 25%</td>
+                        <td className="p-2 border-r border-neutral-200">Architectural &amp; MEPFS Finishes</td>
+                        <td className="p-2 text-right font-bold">{formatPHP(lockedPrice * 0.25)}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 border-r border-neutral-200 font-bold">5 — 5%</td>
+                        <td className="p-2 border-r border-neutral-200">Final Inspection, Turnover &amp; Retention</td>
+                        <td className="p-2 text-right font-bold">{formatPHP(lockedPrice * 0.05)}</td>
+                      </tr>
+                      <tr className="bg-neutral-100 font-bold">
+                        <td className="p-2 border-r border-neutral-300 uppercase">TOTAL — 100%</td>
+                        <td className="p-2 border-r border-neutral-300">Total Contract Price</td>
+                        <td className="p-2 text-right text-neutral-950">{formatPHP(lockedPrice)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[11px] text-neutral-600">
+                  Each progress payment becomes due upon completion of the corresponding milestone and submission of a billing statement, subject to reasonable verification by the Client/Owner. The final 5% is payable at final turnover, subject to completion of agreed punch-list items and delivery of turnover documents.
+                </p>
+              </div>
+
+              {/* Article 4 */}
+              <div className="space-y-1.5 text-justify">
+                <h3 className="font-bold font-mono uppercase text-neutral-900 text-[11px]">
+                  ARTICLE 4. TARGET TIMELINE &amp; FORCE MAJEURE
+                </h3>
+                <p>
+                  <strong>Estimated Construction Period:</strong> 180 calendar days | <strong>Target Start:</strong> Upon permit issuance and mobilization readiness | <strong>Target Turnover:</strong> 180 Calendar Days from Mobilization.
+                </p>
+                <p className="text-neutral-700">
+                  The period begins on agreed commencement trigger (site handover, permit readiness, and receipt of initial payment). The completion date shall be reasonably adjusted for documented delays beyond the Contractor&apos;s reasonable control, including severe weather, natural disasters, government restrictions, utility delays, labor or material supply disruptions, and other force majeure events. The Contractor shall notify the Client within a reasonable time and take reasonable steps to mitigate delay.
+                </p>
+              </div>
+
+              {/* Article 5 */}
+              <div className="space-y-1.5 text-justify">
+                <h3 className="font-bold font-mono uppercase text-neutral-900 text-[11px]">
+                  ARTICLE 5. STRUCTURAL &amp; WORKMANSHIP WARRANTY
+                </h3>
+                <p>
+                  <strong>1. Structural Warranty:</strong> Structural liability shall be governed by applicable Philippine law, including <strong>Article 1723 of the Civil Code of the Philippines</strong>, which addresses liability for building collapse due to defects in plans or specifications, defects in construction, or use of defective materials within the statutory period of <strong>fifteen (15) years</strong>.
+                </p>
+                <p>
+                  <strong>2. Workmanship Warranty:</strong> The Contractor provides a <strong>one (1) year</strong> workmanship warranty from turnover for defects attributable to workmanship, subject to written notice and reasonable access for inspection and repair.
+                </p>
+              </div>
+
+              {/* Signatures Section: Both Parties */}
+              <div className="pt-6 border-t-2 border-neutral-900 space-y-6">
+                <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-500">
+                  MUTUAL SIGNATURE EXECUTION BLOCK
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                  {/* CLIENT / OWNER COLUMN */}
+                  <div className="space-y-2 border p-4 rounded bg-neutral-50/50">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-700 block">
+                      CLIENT / OWNER
+                    </span>
+
+                    {clientSig ? (
+                      <div className="space-y-1.5">
+                        <div className="h-16 flex items-center justify-start border-b border-neutral-400">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={clientSig.signature_image_url}
+                            alt="Client Signature"
+                            className="max-h-14 max-w-full object-contain"
+                          />
+                        </div>
+                        <div className="font-bold text-neutral-950 font-mono text-xs">
+                          {clientSig.signer_name || clientLegalName}
+                        </div>
+                        <div className="text-[10px] font-mono text-neutral-500">
+                          Date Signed: {new Date(clientSig.signed_at).toLocaleDateString("en-PH", { dateStyle: "long" })}
+                        </div>
+                        <div className="text-[9px] font-mono text-emerald-600 truncate">
+                          SHA-256: {clientSig.hash_sha256?.slice(0, 24)}...
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="h-16 border-b border-dashed border-neutral-400 flex items-center justify-center text-neutral-400 font-mono text-[10px]">
+                          [Awaiting Client Digital Signature]
+                        </div>
+                        <div className="font-bold text-neutral-950 font-mono text-xs">
+                          {clientLegalName}
+                        </div>
+                        <div className="text-[10px] font-mono text-neutral-500">
+                          Date: Pending Execution
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsSignModalOpen(true)}
+                          className="w-full py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-[10px] uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <PenTool className="w-3 h-3" />
+                          <span>Affix Digital Signature</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CONTRACTOR REPRESENTATIVE COLUMN */}
+                  <div className="space-y-2 border p-4 rounded bg-neutral-50/50">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-600 block">
+                      CONTRACTOR REPRESENTATIVE
+                    </span>
+
+                    {contractorSig ? (
+                      <div className="space-y-1.5">
+                        <div className="h-16 flex items-center justify-start border-b border-neutral-400">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={contractorSig.signature_image_url}
+                            alt="Contractor Signature"
+                            className="max-h-14 max-w-full object-contain"
+                          />
+                        </div>
+                        <div className="font-bold text-neutral-950 font-mono text-xs">
+                          Authorized Managing Officer
+                        </div>
+                        <div className="text-[10px] font-mono text-neutral-500">
+                          M.C.P.A. Design &amp; Construction
+                        </div>
+                        <div className="text-[10px] font-mono text-neutral-500">
+                          Date Signed: {new Date(contractorSig.signed_at).toLocaleDateString("en-PH", { dateStyle: "long" })}
+                        </div>
+                        <div className="text-[9px] font-mono text-emerald-600 truncate">
+                          SHA-256: {contractorSig.hash_sha256?.slice(0, 24)}...
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="h-16 border-b border-dashed border-neutral-400 flex items-center justify-center text-neutral-400 font-mono text-[10px]">
+                          [Pending Contractor Countersignature in Admin Console]
+                        </div>
+                        <div className="font-bold text-neutral-950 font-mono text-xs">
+                          Authorized Managing Officer
+                        </div>
+                        <div className="text-[10px] font-mono text-neutral-500">
+                          M.C.P.A. Design &amp; Construction
+                        </div>
+                        <div className="text-[10px] font-mono text-neutral-400">
+                          Countersigning via MCPA Admin Console
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Document Footer & Verification Ref */}
+                <div className="pt-4 border-t border-neutral-200 text-center font-mono text-[10px] text-neutral-500 space-y-1">
+                  <div>
+                    Witness / Digital Verification Reference: [{isFullyExecuted ? "MUTUALLY SEALED & VERIFIED" : "PORTAL AUDIT ACTIVE"}] | Record ID: {contract?.contract_number || projectRefCode}
+                  </div>
+                  <div className="text-neutral-400">
+                    M.C.P.A. DESIGN &amp; CONSTRUCTION | Construction Contract Agreement
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ------------------------------------------------------------- */}
       {/* MODAL: DOCUMENT UPLOAD MODAL                                  */}
@@ -2479,6 +2842,26 @@ export default function PortalStage2PlanningAndConsultation({
           onClose={() => setActiveUploadRequest(null)}
           onUploadSuccess={handleRequestUploadSuccess}
           targetRequest={activeUploadRequest}
+          clientName={currentUser?.fullName || currentUser?.name || "Client"}
+          projectCode={projectCode}
+          uploadType="client"
+        />
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL: EXTRA SUPPORTING DOCUMENT UPLOAD MODAL                  */}
+      {/* ------------------------------------------------------------- */}
+      {isExtraUploadModalOpen && (
+        <DocumentUploadModal
+          isOpen={isExtraUploadModalOpen}
+          onClose={() => setIsExtraUploadModalOpen(false)}
+          onUploadSuccess={handleRequestUploadSuccess}
+          targetRequest={{
+            id: `extra-${Date.now()}`,
+            title: "Client Supporting Document",
+            category: "Permits & Legal",
+            description: "Direct client submission for municipal engineering verification.",
+          }}
           clientName={currentUser?.fullName || currentUser?.name || "Client"}
           projectCode={projectCode}
           uploadType="client"
