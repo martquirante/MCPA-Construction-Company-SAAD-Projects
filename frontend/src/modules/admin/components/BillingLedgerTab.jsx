@@ -18,6 +18,9 @@ import {
   Loader2,
   Image as ImageIcon,
   Link as LinkIcon,
+  Maximize2,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
 
@@ -70,6 +73,9 @@ export default function BillingLedgerTab({
   const [vendorName, setVendorName] = useState("");
   const [extractedTotal, setExtractedTotal] = useState("");
   const [rawOcrNotes, setRawOcrNotes] = useState("");
+  const [parsedItems, setParsedItems] = useState([]);
+  const [isReceiptFullscreenOpen, setIsReceiptFullscreenOpen] = useState(false);
+  const [ocrZoom, setOcrZoom] = useState(1);
   const [isScanningOcr, setIsScanningOcr] = useState(false);
   const [isSavingExpense, setIsSavingExpense] = useState(false);
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
@@ -86,16 +92,19 @@ export default function BillingLedgerTab({
     setVendorName("");
     setExtractedTotal("");
     setRawOcrNotes("");
+    setParsedItems([]);
     setUseManualReceiptUrl(false);
     setIsUploadingReceipt(false);
     setIsScanningOcr(false);
+    setIsReceiptFullscreenOpen(false);
+    setOcrZoom(1);
     if (receiptFileInputRef.current) receiptFileInputRef.current.value = "";
   };
 
   const handleReceiptFileSelect = async (file) => {
     if (!file) return;
     if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-      setReceiptUploadError("Please select an image file (PNG, JPG, WebP) or PDF receipt.");
+      setReceiptUploadError("Please select a valid image file (PNG, JPG, WebP) or PDF receipt.");
       return;
     }
     setReceiptUploadError("");
@@ -105,32 +114,99 @@ export default function BillingLedgerTab({
     setIsScanningOcr(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/upload?category=briefs", {
+      // 1. Storage upload for permanent cloud asset
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+      const uploadPromise = fetch("/api/upload?category=briefs", {
         method: "POST",
-        body: formData,
+        body: uploadFormData,
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok || !data.url) throw new Error(data.message || "Upload failed");
+        return data.url;
       });
-      const data = await res.json();
-      if (!res.ok || !data.url) {
-        throw new Error(data.message || "Upload failed");
-      }
-      setReceiptImage(data.url);
-      if (showToast) showToast("Receipt uploaded to Azure Blob Storage & mirrored to Supabase + Neon!");
 
-      // Pre-populate hardware vendor hint if blank
-      if (!vendorName) {
-        setVendorName("Wilcon Depot / Hardware Supply");
+      // 2. Real AI / OCR Analysis directly on the file
+      const ocrFormData = new FormData();
+      ocrFormData.append("file", file);
+      const ocrPromise = fetch("/api/construction/scan-receipt", {
+        method: "POST",
+        body: ocrFormData,
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "OCR Scan failed");
+        return data;
+      });
+
+      // Await both simultaneously
+      const [uploadedUrl, ocrData] = await Promise.all([uploadPromise, ocrPromise]);
+
+      setReceiptImage(uploadedUrl);
+
+      // Auto-fill Detected Hardware / Store
+      if (ocrData.vendorName) {
+        setVendorName(ocrData.vendorName);
       }
-      if (!rawOcrNotes) {
-        setRawOcrNotes(`FILE: ${file.name}\nAZURE ARCHIVE: ${data.url}\nVERIFICATION: Multi-Cloud Mirrored`);
+
+      // Auto-fill Extracted Total (with comma formatting)
+      if (ocrData.extractedTotalFormatted) {
+        setExtractedTotal(ocrData.extractedTotalFormatted);
+      } else if (ocrData.extractedTotal) {
+        setExtractedTotal(formatCommaNumber(ocrData.extractedTotal));
+      }
+
+      // Auto-fill OCR Verification Summary / Item Lines
+      if (ocrData.summaryText) {
+        setRawOcrNotes(ocrData.summaryText);
+      }
+
+      if (Array.isArray(ocrData.items)) {
+        setParsedItems(ocrData.items);
+      }
+
+      if (showToast) {
+        showToast(`Receipt analyzed: ${ocrData.vendorName || "Store"} • Total: ₱${ocrData.extractedTotalFormatted || ocrData.extractedTotal}`);
       }
     } catch (err) {
-      console.error("Receipt upload error:", err);
-      setReceiptUploadError(err.message || "Upload failed. Please verify connection.");
-      if (showToast) showToast("Upload error: " + err.message);
+      console.error("Receipt upload/OCR error:", err);
+      setReceiptUploadError(err.message || "Upload/OCR analysis failed. Please verify connection.");
+      if (showToast) showToast("Error: " + err.message);
     } finally {
       setIsUploadingReceipt(false);
+      setIsScanningOcr(false);
+    }
+  };
+
+  const handleAutoScanReceipt = async (url) => {
+    if (!url) return;
+    setIsScanningOcr(true);
+    setReceiptUploadError("");
+    try {
+      const res = await fetch("/api/construction/scan-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: url }),
+      });
+      const ocrData = await res.json();
+      if (!res.ok) throw new Error(ocrData.message || "OCR Scan failed");
+
+      if (ocrData.vendorName) setVendorName(ocrData.vendorName);
+      if (ocrData.extractedTotalFormatted) {
+        setExtractedTotal(ocrData.extractedTotalFormatted);
+      } else if (ocrData.extractedTotal) {
+        setExtractedTotal(formatCommaNumber(ocrData.extractedTotal));
+      }
+      if (ocrData.summaryText) setRawOcrNotes(ocrData.summaryText);
+      if (Array.isArray(ocrData.items)) setParsedItems(ocrData.items);
+
+      if (showToast) {
+        showToast(`OCR Scan Completed: ₱${ocrData.extractedTotalFormatted || ocrData.extractedTotal}`);
+      }
+    } catch (err) {
+      console.error("Manual URL OCR error:", err);
+      setReceiptUploadError(err.message || "Failed to scan URL.");
+      if (showToast) showToast("Scan error: " + err.message);
+    } finally {
       setIsScanningOcr(false);
     }
   };
@@ -236,18 +312,6 @@ export default function BillingLedgerTab({
     }
   };
 
-  // Receipt URL Verification Helper (without overwriting Admin inputs with dummy values)
-  const handleAutoScanReceipt = (imageSourceUrl) => {
-    if (!imageSourceUrl) return;
-    setIsScanningOcr(true);
-
-    setTimeout(() => {
-      setIsScanningOcr(false);
-      if (showToast) {
-        showToast("Receipt image linked. Please verify or enter the exact store name and receipt total.");
-      }
-    }, 400);
-  };
 
   const handleSaveExpense = async (e) => {
     e.preventDefault();
@@ -751,7 +815,14 @@ export default function BillingLedgerTab({
 
                     {receiptImage || receiptPreview ? (
                       <div className="relative rounded-[8px] overflow-hidden border border-amber-500/30 bg-neutral-900 p-2 space-y-2">
-                        <div className="relative w-full h-40 rounded-[6px] overflow-hidden bg-neutral-950 flex items-center justify-center">
+                        <div
+                          className="group relative w-full h-44 rounded-[6px] overflow-hidden bg-neutral-950 flex items-center justify-center cursor-pointer border border-neutral-800"
+                          onClick={() => {
+                            setOcrZoom(1);
+                            setIsReceiptFullscreenOpen(true);
+                          }}
+                          title="Click to view receipt in Fullscreen"
+                        >
                           {receiptPreview?.endsWith(".pdf") ? (
                             <div className="flex flex-col items-center justify-center gap-1.5 text-neutral-400">
                               <FileText className="w-10 h-10 text-amber-500" />
@@ -761,15 +832,23 @@ export default function BillingLedgerTab({
                             <img
                               src={receiptPreview || receiptImage}
                               alt="Receipt Slip"
-                              className="w-full h-full object-contain"
+                              className="w-full h-full object-contain group-hover:scale-102 transition-transform duration-200"
                             />
                           )}
 
+                          {/* Fullscreen Quick-Action Badge */}
+                          <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+                            <span className="px-2.5 py-1 rounded-[6px] bg-black/80 hover:bg-black text-white text-[11px] font-mono font-semibold flex items-center gap-1.5 shadow-md border border-white/10 backdrop-blur-xs">
+                              <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                              Fullscreen
+                            </span>
+                          </div>
+
                           {isUploadingReceipt && (
-                            <div className="absolute inset-0 bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white p-3 text-center">
+                            <div className="absolute inset-0 bg-black/85 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white p-3 text-center z-20">
                               <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
-                              <span className="text-xs font-mono font-bold">Uploading to Azure Blob Storage...</span>
-                              <span className="text-[10px] font-mono text-neutral-300">Syncing with Supabase &amp; Neon Standby Mirror</span>
+                              <span className="text-xs font-mono font-bold">Processing Receipt Slip...</span>
+                              <span className="text-[10.5px] font-mono text-neutral-300">Scanning products, quantities &amp; prices</span>
                             </div>
                           )}
                         </div>
@@ -778,19 +857,32 @@ export default function BillingLedgerTab({
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1">
                             <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
                               <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                              <span>Azure Blob (Primary) • Supabase • Neon Mirror</span>
+                              <span>Official Receipt Attached &amp; Analyzed</span>
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setReceiptImage("");
-                                setReceiptPreview("");
-                                if (receiptFileInputRef.current) receiptFileInputRef.current.value = "";
-                              }}
-                              className="text-[11px] font-mono text-rose-500 hover:underline cursor-pointer self-end sm:self-auto"
-                            >
-                              Change File
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOcrZoom(1);
+                                  setIsReceiptFullscreenOpen(true);
+                                }}
+                                className="text-[11px] font-mono text-amber-500 hover:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
+                              >
+                                <Maximize2 className="w-3 h-3" /> Fullscreen
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReceiptImage("");
+                                  setReceiptPreview("");
+                                  setParsedItems([]);
+                                  if (receiptFileInputRef.current) receiptFileInputRef.current.value = "";
+                                }}
+                                className="text-[11px] font-mono text-rose-500 hover:underline cursor-pointer self-end sm:self-auto"
+                              >
+                                Change File
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -831,26 +923,72 @@ export default function BillingLedgerTab({
               </div>
 
               {isScanningOcr && (
-                <div className="p-3 rounded-[6px] bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                  <div className="w-3.5 h-3.5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                  <span>OCR Engine scanning receipt text &amp; computing amounts...</span>
+                <div className="p-3 rounded-[6px] bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-2.5">
+                  <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span className="text-xs font-mono">
+                    AI OCR reading receipt text &amp; summarizing line items, quantities, and prices...
+                  </span>
+                </div>
+              )}
+
+              {/* Extracted Products & Itemized Summary */}
+              {parsedItems && parsedItems.length > 0 && (
+                <div className="rounded-[8px] border border-amber-500/30 bg-amber-500/5 dark:bg-[#0c0e14] p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      Extracted Itemized Summary ({parsedItems.length} items)
+                    </span>
+                    <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
+                      Total: <span className="font-bold text-neutral-900 dark:text-white">₱ {extractedTotal || "0.00"}</span>
+                    </span>
+                  </div>
+
+                  <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                    {parsedItems.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-[5px] bg-white dark:bg-white/[0.03] border border-neutral-200/70 dark:border-white/5 shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 font-bold w-4 text-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="font-medium text-neutral-800 dark:text-neutral-200 truncate">
+                            {item.description}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0 font-mono text-[11px]">
+                          {(item.quantity || item.qty) && (
+                            <span className="text-neutral-500">
+                              {item.quantity || item.qty} {item.unit || "pc"}
+                              {item.unitPrice ? ` @ ₱${formatCommaNumber(item.unitPrice)}` : ""}
+                            </span>
+                          )}
+                          <span className="font-bold text-neutral-900 dark:text-white">
+                            ₱{formatCommaNumber(item.lineTotal || item.amount || (item.unitPrice && item.quantity ? item.unitPrice * parseFloat(item.quantity) : 0))}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-neutral-500 mb-1">Detected Hardware / Store *</label>
+                  <label className="block text-neutral-500 mb-1 text-xs font-medium">Detected Hardware / Store *</label>
                   <input
                     type="text"
                     required
                     value={vendorName}
                     onChange={(e) => setVendorName(e.target.value)}
-                    placeholder="e.g. Wilcon Depot"
-                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-sans"
+                    placeholder="e.g. New Lite Lumber or Wilcon Depot"
+                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-sans text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-neutral-500 mb-1">Extracted Total (PHP ₱) *</label>
+                  <label className="block text-neutral-500 mb-1 text-xs font-medium">Extracted Total (PHP ₱) *</label>
                   <div className="relative flex items-center">
                     <span className="absolute left-3 text-sm font-bold text-amber-500 select-none pointer-events-none">
                       ₱
@@ -862,20 +1000,20 @@ export default function BillingLedgerTab({
                       value={extractedTotal}
                       onChange={(e) => handleAmountChange(e.target.value, setExtractedTotal)}
                       placeholder="0.00"
-                      className="w-full pl-8 pr-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold focus:outline-none focus:border-amber-500"
+                      className="w-full pl-8 pr-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold text-xs focus:outline-none focus:border-amber-500"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-neutral-500 mb-1">OCR Verification Summary / Item Lines</label>
+                <label className="block text-neutral-500 mb-1 text-xs font-medium">OCR Verification Summary / Item Lines</label>
                 <textarea
-                  rows={2}
+                  rows={3}
                   value={rawOcrNotes}
                   onChange={(e) => setRawOcrNotes(e.target.value)}
                   placeholder="Official receipt lines, cement bags, rebar specifications..."
-                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-sans text-xs"
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono text-xs leading-relaxed"
                 />
               </div>
 
@@ -883,14 +1021,14 @@ export default function BillingLedgerTab({
                 <button
                   type="button"
                   onClick={resetOcrModal}
-                  className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
+                  className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingExpense || isUploadingReceipt || !vendorName || !extractedTotal || !receiptImage}
-                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5 text-xs"
                 >
                   {isSavingExpense ? (
                     <>
@@ -908,6 +1046,93 @@ export default function BillingLedgerTab({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN RECEIPT INSPECTOR MODAL */}
+      {isReceiptFullscreenOpen && (receiptPreview || receiptImage) && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex flex-col p-4 animate-in fade-in duration-200 select-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsReceiptFullscreenOpen(false);
+          }}
+        >
+          {/* Top Header Bar */}
+          <div className="flex items-center justify-between p-3 border-b border-white/10 text-white shrink-0 bg-neutral-950/90 rounded-t-[10px]">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">
+                Receipt Inspector
+              </span>
+              {vendorName && (
+                <span className="text-xs font-medium text-neutral-300">
+                  • {vendorName}
+                </span>
+              )}
+              {extractedTotal && (
+                <span className="text-xs font-mono font-bold text-emerald-400">
+                  (₱ {extractedTotal})
+                </span>
+              )}
+            </div>
+
+            {/* Controls: Zoom In, Zoom Out, Reset, Close */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setOcrZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))}
+                className="p-1.5 rounded-[6px] bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setOcrZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                className="p-1.5 rounded-[6px] bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setOcrZoom(1)}
+                className="px-2.5 py-1 rounded-[6px] bg-white/10 hover:bg-white/20 text-xs font-mono text-white cursor-pointer transition-colors"
+                title="Reset Zoom"
+              >
+                {Math.round(ocrZoom * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsReceiptFullscreenOpen(false)}
+                className="p-1.5 rounded-[6px] bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 cursor-pointer transition-colors ml-2"
+                title="Close Fullscreen"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Image Canvas with Pan / Scroll / Zoom */}
+          <div className="flex-1 bg-black/80 rounded-b-[10px] overflow-auto flex items-center justify-center p-4">
+            {receiptPreview?.endsWith(".pdf") ? (
+              <iframe
+                src={receiptPreview || receiptImage}
+                className="w-full h-full rounded-[6px] border border-white/10"
+                title="PDF Receipt Viewer"
+              />
+            ) : (
+              <div
+                className="transition-transform duration-150 ease-out flex items-center justify-center"
+                style={{ transform: `scale(${ocrZoom})`, transformOrigin: "center center" }}
+              >
+                <img
+                  src={receiptPreview || receiptImage}
+                  alt="Receipt Fullscreen"
+                  className="max-h-[82vh] max-w-full object-contain rounded-[6px] shadow-2xl"
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

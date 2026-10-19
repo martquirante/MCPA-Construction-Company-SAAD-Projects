@@ -60,5 +60,7 @@ Thumbs.db
 .idea/
 scratch/
 __pycache__/
-*.pyc
+# 8. Machine Learning & OCR Binary Weights
+*.traineddata
+backend/*.traineddata
 

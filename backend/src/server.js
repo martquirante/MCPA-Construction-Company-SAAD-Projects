@@ -355,6 +355,38 @@ app.post("/api/construction/delays", (req, res) => constructionController.logDel
 app.post("/api/construction/warranty", (req, res) => constructionController.submitWarrantyTicket(req, res));
 app.patch("/api/construction/warranty/:ticketId", (req, res) => constructionController.updateWarrantyStatus(req, res));
 app.post("/api/construction/expenses/ocr", (req, res) => constructionController.logOcrExpense(req, res));
+
+// OCR RECEIPT AUTO-SCAN & PARSING ROUTE
+app.post("/api/construction/scan-receipt", (req, res, next) => {
+  upload.single("file")(req, res, (err) => {
+    if (err) return res.status(400).json({ success: false, message: "File error: " + err.message });
+    next();
+  });
+}, async (req, res) => {
+  try {
+    const receiptOcrService = require("./services/receiptOcrService");
+    let imageSource = null;
+
+    if (req.file && req.file.buffer) {
+      imageSource = req.file.buffer;
+    } else if (req.body?.imageUrl) {
+      imageSource = req.body.imageUrl;
+    } else if (req.body?.image) {
+      imageSource = req.body.image;
+    }
+
+    if (!imageSource) {
+      return res.status(400).json({ success: false, message: "No image file or URL provided for OCR scan." });
+    }
+
+    const scanResult = await receiptOcrService.scanReceiptImage(imageSource);
+    return res.json(scanResult);
+  } catch (err) {
+    console.error("[OCR Scan Route] Error:", err);
+    return res.status(500).json({ success: false, message: "OCR Scan failed: " + err.message });
+  }
+});
+
 app.get("/api/weather/forecast", (req, res) => weatherController.getForecast(req, res));
 
 // -----------------------------------------------------------------------------
