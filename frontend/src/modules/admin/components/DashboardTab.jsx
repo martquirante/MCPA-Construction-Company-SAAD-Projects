@@ -122,7 +122,7 @@ export default function DashboardTab({
         category: sp.project_type || "Commercial & Mixed-Use",
         stage: sp.current_phase || "Site Mobilization & Earthworks",
         progress: typeof sp.progress_pct === "number" ? sp.progress_pct : 0,
-        lead_engineer: sp.lead_engineer || "Engr. Reyes",
+        lead_engineer: sp.lead_engineer || "Engr. Raymart Quirante",
         isStage3Build: true,
         rawProject: sp,
       });
@@ -150,7 +150,7 @@ export default function DashboardTab({
           category: p.category || "Residential",
           stage: p.stage || "Under Construction",
           progress: progress,
-          lead_engineer: p.lead_engineer || "Engr. Reyes",
+          lead_engineer: p.lead_engineer || "Engr. Raymart Quirante",
           isStage3Build: false,
           rawProject: p,
         });
@@ -329,7 +329,7 @@ export default function DashboardTab({
 
                     {/* Card Footer */}
                     <div className="flex items-center justify-between pt-1 text-[11px] font-mono text-neutral-400">
-                      <span>Lead Engineer: <strong className="text-neutral-700 dark:text-neutral-300 font-semibold">{project.lead_engineer || "Engr. Reyes"}</strong></span>
+                      <span>Lead Engineer: <strong className="text-neutral-700 dark:text-neutral-300 font-semibold">{project.lead_engineer || "Engr. Raymart Quirante"}</strong></span>
                       {project.isStage3Build && (
                         <span className="text-amber-600 dark:text-amber-400 font-bold group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
                           <span>Inspect Site Logs</span>

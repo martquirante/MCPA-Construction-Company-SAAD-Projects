@@ -2288,6 +2288,7 @@ export default function AdminPage() {
         {/* ================================================================= */}
         {activeTab === "site-progress" && (
           <SiteProgressTab
+            currentUser={currentUser}
             project={siteProject}
             projects={stage3Projects}
             milestones={siteMilestones}

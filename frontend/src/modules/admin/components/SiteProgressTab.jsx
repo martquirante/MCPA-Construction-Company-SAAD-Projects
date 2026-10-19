@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import {
   MapPin,
@@ -21,10 +21,90 @@ import {
   Loader2,
   Image as ImageIcon,
   Link as LinkIcon,
+  ChevronDown,
+  UserCheck,
+  User,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
+import { authFetch } from "@/modules/shared/authFetch";
+
+export function resolveAdminAvatar(user) {
+  if (!user) return null;
+  const direct = user.avatar_url || user.avatarUrl;
+  if (
+    direct &&
+    typeof direct === "string" &&
+    direct.trim() &&
+    direct !== "null" &&
+    direct !== "undefined"
+  ) {
+    return direct.trim();
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("mcpa_admin_avatar");
+      if (stored && stored.trim() && stored !== "null" && stored !== "undefined") {
+        return stored.trim();
+      }
+    } catch {}
+  }
+
+  const email = (user.email || "").toLowerCase().trim();
+  const name = (user.full_name || user.fullName || user.name || "").toLowerCase().trim();
+  if (
+    email.includes("quirante") ||
+    email === "dbprojectmartquirante@gmail.com" ||
+    email === "martquirante@gmail.com" ||
+    email === "martquirante04@gmail.com" ||
+    name.includes("raymart") ||
+    name.includes("quirante")
+  ) {
+    return "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
+  }
+
+  return null;
+}
+
+function AdminAvatarPfp({ user, name, size = "w-6 h-6", text = "text-[10px]" }) {
+  const avatarUrl = resolveAdminAvatar(user);
+  const [hasFailed, setHasFailed] = useState(false);
+  const displayName = name || user?.full_name || user?.fullName || user?.name || "Admin";
+  const initials = displayName
+    .replace(/^Engr\.\s*/i, "")
+    .replace(/^Arch\.\s*/i, "")
+    .trim()
+    .split(/\s+/)
+    .map((n) => n[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "AD";
+
+  if (avatarUrl && !hasFailed) {
+    return (
+      <div className={`${size} rounded-full overflow-hidden bg-neutral-900 border border-amber-500/40 shrink-0 shadow-xs flex items-center justify-center`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={avatarUrl}
+          alt={displayName}
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+          onError={() => setHasFailed(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${size} rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 font-mono font-bold text-amber-600 dark:text-amber-400 ${text} shadow-xs`}>
+      {initials}
+    </div>
+  );
+}
 
 export default function SiteProgressTab({
+  currentUser = null,
   project = null,
   projects = [],
   milestones = [],
@@ -42,6 +122,122 @@ export default function SiteProgressTab({
   const [activeUpdateMilestone, setActiveUpdateMilestone] = useState(null);
   const [is3DVideoModalOpen, setIs3DVideoModalOpen] = useState(false);
   const [isAddPhotoOpen, setIsAddPhotoOpen] = useState(false);
+
+  // Admin combobox & accounts state
+  const [adminAccounts, setAdminAccounts] = useState([]);
+  const [isInspectorDropdownOpen, setIsInspectorDropdownOpen] = useState(false);
+  const [isCustomInspector, setIsCustomInspector] = useState(false);
+  const inspectorDropdownRef = useRef(null);
+
+  // Fetch registered admin / engineer accounts from database
+  useEffect(() => {
+    let isMounted = true;
+    const loadAdmins = async () => {
+      try {
+        const res = await authFetch("/api/admin/accounts");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.accounts)) {
+            const staffList = data.accounts.filter(
+              (acc) =>
+                acc.role === "admin" ||
+                acc.role === "super_admin" ||
+                acc.role === "engineer" ||
+                (acc.full_name && acc.full_name.toLowerCase().includes("engr"))
+            );
+            if (isMounted && staffList.length > 0) {
+              setAdminAccounts(staffList);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch admin list:", e);
+      }
+    };
+    loadAdmins();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Close inspector dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (inspectorDropdownRef.current && !inspectorDropdownRef.current.contains(e.target)) {
+        setIsInspectorDropdownOpen(false);
+      }
+    };
+    if (isInspectorDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isInspectorDropdownOpen]);
+
+  // Combine currentUser, database accounts, and fallback active admins
+  const availableAdmins = useMemo(() => {
+    const map = new Map();
+
+    // 1. Current logged-in admin if available
+    if (currentUser) {
+      const uName = currentUser.fullName || currentUser.full_name || currentUser.name;
+      if (uName) {
+        map.set(uName.toLowerCase(), {
+          user_id: currentUser.user_id || currentUser.id || "current",
+          full_name: uName,
+          email: currentUser.email || "",
+          role: currentUser.role || "admin",
+          avatar_url: currentUser.avatar_url || currentUser.avatarUrl,
+        });
+      }
+    }
+
+    // 2. Accounts from DB
+    adminAccounts.forEach((acc) => {
+      const name = acc.full_name || acc.fullName;
+      if (name && !map.has(name.toLowerCase())) {
+        map.set(name.toLowerCase(), acc);
+      }
+    });
+
+    // 3. Fallback active company admins
+    const defaults = [
+      {
+        user_id: 1,
+        full_name: "Engr. Raymart Quirante",
+        email: "dbprojectmartquirante@gmail.com",
+        role: "admin",
+        avatar_url: "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c",
+      },
+      {
+        user_id: 3,
+        full_name: "MCPA Lead Administrator",
+        email: "admin@mcpa.com",
+        role: "admin",
+        avatar_url: null,
+      },
+    ];
+
+    defaults.forEach((def) => {
+      if (!map.has(def.full_name.toLowerCase())) {
+        map.set(def.full_name.toLowerCase(), def);
+      }
+    });
+
+    return Array.from(map.values());
+  }, [adminAccounts, currentUser]);
+
+  const getInitialInspector = () => {
+    if (project?.lead_engineer && project.lead_engineer !== "Engr. Reyes") {
+      return project.lead_engineer;
+    }
+    if (currentUser) {
+      const uName = currentUser.fullName || currentUser.full_name || currentUser.name;
+      if (uName) return uName;
+    }
+    return "Engr. Raymart Quirante";
+  };
 
   // Add Milestone Form state
   const [newPhaseCode, setNewPhaseCode] = useState("");
@@ -88,7 +284,7 @@ export default function SiteProgressTab({
   const [logType, setLogType] = useState("Daily Log");
   const [photoTitle, setPhotoTitle] = useState("");
   const [photoCaption, setPhotoCaption] = useState("");
-  const [photoInspector, setPhotoInspector] = useState(project?.lead_engineer || "Engr. Reyes");
+  const [photoInspector, setPhotoInspector] = useState(getInitialInspector);
   const [photoUrl, setPhotoUrl] = useState("");
   const [is360, setIs360] = useState(false);
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
@@ -97,6 +293,26 @@ export default function SiteProgressTab({
   const [photoUploadError, setPhotoUploadError] = useState("");
   const [useManualPhotoUrl, setUseManualPhotoUrl] = useState(false);
   const photoFileInputRef = useRef(null);
+
+  // Sync photoInspector when project or currentUser changes
+  useEffect(() => {
+    if (project?.lead_engineer && project.lead_engineer !== "Engr. Reyes") {
+      setPhotoInspector(project.lead_engineer);
+    } else if (currentUser) {
+      const uName = currentUser.fullName || currentUser.full_name || currentUser.name;
+      if (uName && (!photoInspector || photoInspector === "Engr. Reyes")) {
+        setPhotoInspector(uName);
+      }
+    }
+  }, [project?.lead_engineer, currentUser]);
+
+  const selectedAdminObj = useMemo(() => {
+    return (
+      availableAdmins.find(
+        (a) => (a.full_name || "").trim().toLowerCase() === (photoInspector || "").trim().toLowerCase()
+      ) || null
+    );
+  }, [availableAdmins, photoInspector]);
 
   const resetPhotoForm = () => {
     setIsAddPhotoOpen(false);
@@ -107,6 +323,8 @@ export default function SiteProgressTab({
     setPhotoUploadError("");
     setUseManualPhotoUrl(false);
     setIsUploadingPhoto(false);
+    setIsInspectorDropdownOpen(false);
+    setIsCustomInspector(false);
     if (photoFileInputRef.current) photoFileInputRef.current.value = "";
   };
 
@@ -928,14 +1146,121 @@ export default function SiteProgressTab({
                     <option value="Inspection Proof">QC Inspection Proof</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-neutral-500 mb-1">Inspector Sign-off</label>
-                  <input
-                    type="text"
-                    value={photoInspector}
-                    onChange={(e) => setPhotoInspector(e.target.value)}
-                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
-                  />
+                <div className="relative" ref={inspectorDropdownRef}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-neutral-500">Inspector Sign-off</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomInspector((prev) => !prev);
+                        setIsInspectorDropdownOpen(false);
+                      }}
+                      className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                    >
+                      {isCustomInspector ? "Admin Pick" : "+ Custom"}
+                    </button>
+                  </div>
+
+                  {isCustomInspector ? (
+                    <input
+                      type="text"
+                      value={photoInspector}
+                      onChange={(e) => setPhotoInspector(e.target.value)}
+                      placeholder="e.g. Engr. Santos / QC Inspector"
+                      className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
+                    />
+                  ) : (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsInspectorDropdownOpen((prev) => !prev)}
+                        className="w-full px-2.5 py-1.5 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white hover:border-amber-500/50 focus:outline-none focus:border-amber-500 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <AdminAvatarPfp
+                            user={selectedAdminObj}
+                            name={photoInspector}
+                            size="w-6 h-6"
+                            text="text-[10px]"
+                          />
+                          <div className="truncate">
+                            <span className="font-semibold text-neutral-900 dark:text-white block truncate text-xs">
+                              {photoInspector || "Select Admin"}
+                            </span>
+                            <span className="text-[9.5px] text-neutral-400 dark:text-neutral-500 block truncate">
+                              {selectedAdminObj?.role === "super_admin"
+                                ? "Super Admin"
+                                : selectedAdminObj?.role === "admin"
+                                ? "Admin / Engineer"
+                                : "Site QC Lead"}
+                            </span>
+                          </div>
+                        </div>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 text-neutral-400 shrink-0 transition-transform duration-200 ${
+                            isInspectorDropdownOpen ? "rotate-180 text-amber-500" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {isInspectorDropdownOpen && (
+                        <div className="absolute right-0 top-full mt-1.5 w-64 max-h-56 overflow-y-auto rounded-[8px] bg-white dark:bg-[#151922] border border-neutral-200 dark:border-white/10 shadow-xl p-1 z-50 space-y-1">
+                          <div className="px-2 py-1 text-[10px] uppercase tracking-wider font-semibold text-neutral-400 border-b border-neutral-100 dark:border-white/5">
+                            Authorize As Admin
+                          </div>
+                          {availableAdmins.map((admin) => {
+                            const isSelected =
+                              photoInspector.trim().toLowerCase() === (admin.full_name || "").trim().toLowerCase();
+                            return (
+                              <button
+                                key={admin.user_id || admin.email}
+                                type="button"
+                                onClick={() => {
+                                  setPhotoInspector(admin.full_name);
+                                  setIsInspectorDropdownOpen(false);
+                                }}
+                                className={`w-full px-2 py-1.5 rounded-[5px] flex items-center justify-between gap-2 text-left transition-colors cursor-pointer ${
+                                  isSelected
+                                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold"
+                                    : "hover:bg-neutral-100 dark:hover:bg-white/5 text-neutral-700 dark:text-neutral-200"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <AdminAvatarPfp
+                                    user={admin}
+                                    name={admin.full_name}
+                                    size="w-6 h-6"
+                                    text="text-[10px]"
+                                  />
+                                  <div className="truncate">
+                                    <span className="block truncate text-xs">{admin.full_name}</span>
+                                    <span className="block truncate text-[9.5px] text-neutral-400">
+                                      {admin.email || admin.role}
+                                    </span>
+                                  </div>
+                                </div>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                              </button>
+                            );
+                          })}
+
+                          <div className="border-t border-neutral-100 dark:border-white/5 pt-1 mt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsCustomInspector(true);
+                                setIsInspectorDropdownOpen(false);
+                              }}
+                              className="w-full px-2 py-1 text-[10.5px] text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 rounded-[4px] text-left flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Type custom inspector name...</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
