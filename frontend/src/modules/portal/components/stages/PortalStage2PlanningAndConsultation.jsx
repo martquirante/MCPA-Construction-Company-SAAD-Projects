@@ -822,15 +822,46 @@ export default function PortalStage2PlanningAndConsultation({
 
   // Dynamic Stage 2 Stepper Statuses
   const step1ConsultationStatus = useMemo(() => {
+    let hasLocalHistory = false;
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("mcpa_consultation_history");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            hasLocalHistory = true;
+          }
+        }
+      } catch {}
+    }
+
+    const meetingStatus = (
+      meetingRoom?.status ||
+      activeInquiry?.availability_status ||
+      activeProject?.availability_status ||
+      ""
+    ).toLowerCase();
+
     const hasConcludedMeeting =
-      meetingHistory.length > 0 ||
-      (activeMeetingInfo?.status || "").toLowerCase().includes("conclud") ||
+      hasLocalHistory ||
+      meetingStatus.includes("conclud") ||
+      meetingStatus.includes("complet") ||
       allBlueprints.length > 0 ||
       quotationData?.status === "APPROVED";
+
     if (hasConcludedMeeting) return "Completed";
-    if (activeMeetingInfo) return "In Progress";
+
+    const hasActiveOrScheduledMeeting =
+      Boolean(meetingRoom) ||
+      Boolean(activeInquiry?.meeting_date || activeInquiry?.meetingDate) ||
+      Boolean(activeProject?.meeting_date) ||
+      meetingStatus.includes("schedul") ||
+      meetingStatus.includes("progress") ||
+      meetingStatus.includes("book");
+
+    if (hasActiveOrScheduledMeeting) return "In Progress";
     return "Pending";
-  }, [meetingHistory, activeMeetingInfo, allBlueprints, quotationData]);
+  }, [meetingRoom, activeInquiry, activeProject, allBlueprints, quotationData]);
 
   const step2BlueprintsStatus = useMemo(() => {
     if (quotationData?.status === "APPROVED" && allBlueprints.length > 0) return "Completed";
