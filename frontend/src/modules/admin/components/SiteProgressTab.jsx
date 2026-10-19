@@ -24,6 +24,9 @@ import {
   ChevronDown,
   UserCheck,
   User,
+  AlertCircle,
+  FileVideo,
+  CheckCircle,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
 import { authFetch } from "@/modules/shared/authFetch";
@@ -255,8 +258,140 @@ export default function SiteProgressTab({
 
   // 3D Video Walkthrough Form state
   const [videoUrl, setVideoUrl] = useState(project?.virtual_tour_url || "");
+  const [videoFile, setVideoFile] = useState(null);
+  const [videoPreview, setVideoPreview] = useState("");
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+  const [videoUploadError, setVideoUploadError] = useState("");
+  const [useManualVideoUrl, setUseManualVideoUrl] = useState(false);
+  const [videoUploadedSuccessfully, setVideoUploadedSuccessfully] = useState(false);
   const [isSavingVideo, setIsSavingVideo] = useState(false);
+  const videoFileInputRef = useRef(null);
+  const videoXhrRef = useRef(null);
   const [boqTrades, setBoqTrades] = useState([]);
+
+  // Friendly error formatter for non-technical users
+  const formatFriendlyVideoError = (err) => {
+    if (!err) return "";
+    const msg = typeof err === "string" ? err : err.message || "";
+    const lower = msg.toLowerCase();
+
+    if (lower.includes("limit_file_size") || lower.includes("too large") || lower.includes("413") || lower.includes("size")) {
+      return "Medyo malaki po ang video file. Pakipili po ang mas maikli o naka-compress na MP4/WebM video (hanggang 150MB) upang mabilis itong mapanood ng kliyente.";
+    }
+    if (lower.includes("network") || lower.includes("failed to fetch") || lower.includes("offline") || lower.includes("connection")) {
+      return "Nawala po ang koneksyon sa internet habang nag-a-upload. Pakisuri po ang inyong Wi-Fi o data connection at subukan muli.";
+    }
+    if (lower.includes("format") || lower.includes("type") || lower.includes("mimetype") || lower.includes("not a video")) {
+      return "Pakipili po ang isang video file (tulad ng MP4, MOV, o WebM). Hindi po suportado ang ibang uri ng file.";
+    }
+    if (lower.includes("abort") || lower.includes("cancelled")) {
+      return "Kinansela po ang pag-upload ng video.";
+    }
+    return "Hindi po matapos ang pag-upload ng video sa ngayon. Pakisubukang i-upload muli makalipas ang ilang sandali o i-refresh ang inyong browser.";
+  };
+
+  const resetVideoModal = () => {
+    if (videoXhrRef.current) {
+      try {
+        videoXhrRef.current.abort();
+      } catch {}
+      videoXhrRef.current = null;
+    }
+    setIs3DVideoModalOpen(false);
+    setIsUploadingVideo(false);
+    setVideoUploadProgress(0);
+    setVideoUploadError("");
+    setVideoUploadedSuccessfully(false);
+    setVideoFile(null);
+    setVideoPreview("");
+    setUseManualVideoUrl(false);
+    if (videoFileInputRef.current) videoFileInputRef.current.value = "";
+  };
+
+  const handleVideoFileSelect = (file) => {
+    if (!file) return;
+
+    // Check if video file
+    const isVideo = file.type.startsWith("video/") || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+    if (!isVideo) {
+      setVideoUploadError("Pakipili po ang isang valid na video file (tulad ng MP4, MOV, o WebM).");
+      return;
+    }
+
+    // Check size - guidance warning if > 250MB
+    const MAX_SIZE_MB = 250;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      setVideoUploadError(`Medyo malaki po ang napiling video (${(file.size / (1024 * 1024)).toFixed(1)}MB). Ang suhestiyong laki ay hanggang ${MAX_SIZE_MB}MB upang mabilis mag-load para sa kliyente.`);
+      return;
+    }
+
+    setVideoUploadError("");
+    setVideoUploadedSuccessfully(false);
+    setVideoFile(file);
+    setVideoUploadProgress(0);
+
+    // Instant local preview
+    const localUrl = URL.createObjectURL(file);
+    setVideoPreview(localUrl);
+    setIsUploadingVideo(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const xhr = new XMLHttpRequest();
+    videoXhrRef.current = xhr;
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+        setVideoUploadProgress(pct);
+      }
+    });
+
+    xhr.addEventListener("load", () => {
+      setIsUploadingVideo(false);
+      videoXhrRef.current = null;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (data && data.url) {
+            setVideoUploadProgress(100);
+            setVideoUrl(data.url);
+            setVideoUploadedSuccessfully(true);
+            if (showToast) {
+              showToast("🎉 3D Walk-Around Video uploaded successfully to cloud storage! Ready to publish.");
+            }
+          } else {
+            throw new Error(data.message || "Invalid upload response");
+          }
+        } catch (e) {
+          setVideoUploadError(formatFriendlyVideoError(e));
+        }
+      } else {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setVideoUploadError(formatFriendlyVideoError(data.message || "Upload error"));
+        } catch {
+          setVideoUploadError(formatFriendlyVideoError("Upload failed"));
+        }
+      }
+    });
+
+    xhr.addEventListener("error", () => {
+      setIsUploadingVideo(false);
+      videoXhrRef.current = null;
+      setVideoUploadError(formatFriendlyVideoError("Network error"));
+    });
+
+    xhr.addEventListener("abort", () => {
+      setIsUploadingVideo(false);
+      videoXhrRef.current = null;
+    });
+
+    xhr.open("POST", "/api/upload?category=portfolio");
+    xhr.send(formData);
+  };
 
   useEffect(() => {
     if (!project?.project_code && !project?.client_project_id) return;
@@ -502,8 +637,13 @@ export default function SiteProgressTab({
   const handleSaveVideo = async (e) => {
     e.preventDefault();
     if (!project) return;
+    if (!videoUrl) {
+      setVideoUploadError("Pakipili po o mag-upload ng video file bago i-publish.");
+      return;
+    }
 
     setIsSavingVideo(true);
+    setVideoUploadError("");
     try {
       if (onUpdateVirtualTour) {
         await onUpdateVirtualTour(videoUrl);
@@ -519,10 +659,14 @@ export default function SiteProgressTab({
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to update tour");
       }
-      if (showToast) showToast("3D Architectural walk-around video updated!");
-      setIs3DVideoModalOpen(false);
+      if (showToast) {
+        showToast("🎉 3D Architectural Walk-Around Video successfully published to client portal!");
+      }
+      resetVideoModal();
     } catch (err) {
-      if (showToast) showToast("Error: " + err.message);
+      const friendly = formatFriendlyVideoError(err);
+      setVideoUploadError(friendly);
+      if (showToast) showToast(friendly);
     } finally {
       setIsSavingVideo(false);
     }
@@ -1050,63 +1194,230 @@ export default function SiteProgressTab({
 
       {/* MODAL 3: 3D WALKTHROUGH VIDEO UPLOAD / URL */}
       {is3DVideoModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-lg rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
-              <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
-                <Film className="w-4 h-4 text-amber-500" />
-                <span>3D Architectural Walk-Around Video</span>
-              </h4>
+              <div>
+                <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+                  <Film className="w-4 h-4 text-amber-500" />
+                  <span>3D Architectural Walk-Around Video</span>
+                </h4>
+                <p className="text-[10.5px] text-neutral-400 mt-0.5">
+                  I-upload ang walkthrough video para sa high-definition 3D streaming sa client portal.
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setIs3DVideoModalOpen(false)}
-                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
+                onClick={resetVideoModal}
+                className="text-neutral-400 hover:text-white p-1 cursor-pointer rounded-[4px] hover:bg-neutral-100 dark:hover:bg-white/10"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleSaveVideo} className="space-y-4 text-xs font-mono">
-              <div>
-                <label className="block text-neutral-500 mb-1">
-                  Walkthrough Video URL (MP4, Cloud Storage, or Embed URL) *
+              {/* Mode switch: File Upload vs Direct URL */}
+              <div className="flex items-center justify-between">
+                <label className="block text-neutral-700 dark:text-neutral-300 font-bold uppercase text-[10.5px] tracking-wider">
+                  {useManualVideoUrl ? "Direct Video / Embed URL" : "Upload Video File *"}
                 </label>
-                <input
-                  type="url"
-                  required
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="https://.../house-3d-walkaround.mp4"
-                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
-                />
-                <p className="text-[10px] text-neutral-400 mt-1">
-                  Video will stream in high definition on the client portal with full-screen capability.
-                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseManualVideoUrl(!useManualVideoUrl);
+                    setVideoUploadError("");
+                  }}
+                  className="text-[10.5px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  {useManualVideoUrl ? (
+                    <>
+                      <UploadCloud className="w-3 h-3" />
+                      <span>Switch to Video File Upload</span>
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="w-3 h-3" />
+                      <span>Or Paste Direct Video URL</span>
+                    </>
+                  )}
+                </button>
               </div>
 
-              {videoUrl && (
-                <div className="space-y-1">
-                  <span className="text-[10px] text-neutral-400 uppercase">Live Preview:</span>
-                  <div className="aspect-video rounded-[8px] overflow-hidden bg-black border border-neutral-200 dark:border-white/10">
-                    <video src={videoUrl} controls className="w-full h-full object-cover" />
+              {/* Upload Zone or URL Input */}
+              {useManualVideoUrl ? (
+                <div>
+                  <input
+                    type="url"
+                    required
+                    value={videoUrl}
+                    onChange={(e) => {
+                      setVideoUrl(e.target.value);
+                      setVideoUploadError("");
+                    }}
+                    placeholder="https://.../house-3d-walkaround.mp4"
+                    className="w-full px-3 py-2.5 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 text-xs"
+                  />
+                  <p className="text-[10px] text-neutral-400 mt-1">
+                    Direct MP4, WebM link, or cloud streaming video URL.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    ref={videoFileInputRef}
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/*"
+                    onChange={(e) => handleVideoFileSelect(e.target.files?.[0])}
+                    className="hidden"
+                  />
+
+                  {videoPreview || videoUrl ? (
+                    <div className="rounded-[8px] overflow-hidden border border-amber-500/30 bg-neutral-950 p-2.5 space-y-2">
+                      <div className="relative aspect-video rounded-[6px] overflow-hidden bg-black flex items-center justify-center">
+                        <video
+                          src={videoPreview || videoUrl}
+                          controls
+                          playsInline
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+
+                      {/* Video status bar */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pt-1 px-1">
+                        <span className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold text-emerald-400">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>
+                            {videoUploadedSuccessfully
+                              ? "Video Uploaded & Ready to Publish"
+                              : "Video Attached & Streaming Ready"}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          disabled={isUploadingVideo}
+                          onClick={() => {
+                            if (videoFileInputRef.current) {
+                              videoFileInputRef.current.value = "";
+                              videoFileInputRef.current.click();
+                            }
+                          }}
+                          className="text-[11px] text-amber-500 hover:text-amber-400 hover:underline cursor-pointer disabled:opacity-40"
+                        >
+                          Change Video
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) handleVideoFileSelect(file);
+                      }}
+                      onClick={() => videoFileInputRef.current?.click()}
+                      className="w-full p-8 rounded-[8px] border-2 border-dashed border-neutral-300 dark:border-white/15 hover:border-amber-500/60 dark:hover:border-amber-500/60 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-colors text-center group"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <FileVideo className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                          Click to select or drag &amp; drop 3D Walk-Around Video
+                        </p>
+                        <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
+                          MP4, WebM, MOV (Recommended up to 150MB)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Upload Progress Animation (0% - 100%) */}
+              {isUploadingVideo && (
+                <div className="p-3.5 rounded-[8px] bg-amber-500/10 border border-amber-500/20 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>
+                        {videoUploadProgress < 100
+                          ? "Uploading Video to Cloud Storage..."
+                          : "Finalizing & Syncing Video Stream..."}
+                      </span>
+                    </span>
+                    <span className="text-neutral-900 dark:text-white font-mono font-bold text-sm">
+                      {videoUploadProgress}%
+                    </span>
                   </div>
+
+                  {/* Progress Bar Container with Gradient & Shimmer */}
+                  <div className="w-full h-2.5 rounded-full bg-neutral-200 dark:bg-white/10 overflow-hidden relative">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 transition-all duration-200 ease-out relative"
+                      style={{ width: `${videoUploadProgress}%` }}
+                    >
+                      <div className="absolute inset-0 bg-white/25 animate-pulse" />
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">
+                    {videoFile?.name ? `${videoFile.name} • ${(videoFile.size / (1024 * 1024)).toFixed(1)} MB` : "Streaming video file..."}
+                  </p>
+                </div>
+              )}
+
+              {/* Friendly Error Message for Non-IT users */}
+              {videoUploadError && (
+                <div className="p-3 rounded-[8px] bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                      Paunawa sa Pag-Upload
+                    </p>
+                    <p className="text-[11.5px] leading-relaxed font-sans">{videoUploadError}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Success Confirmation Badge */}
+              {videoUploadedSuccessfully && !isUploadingVideo && (
+                <div className="p-2.5 rounded-[6px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>Matagumpay na nai-upload ang video! Pindutin ang "Publish Walkthrough" upang mai-publish sa portal.</span>
                 </div>
               )}
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-white/5">
                 <button
                   type="button"
-                  onClick={() => setIs3DVideoModalOpen(false)}
+                  onClick={resetVideoModal}
                   className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingVideo}
-                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs"
+                  disabled={isSavingVideo || isUploadingVideo || (!videoUrl && !videoPreview)}
+                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
                 >
-                  {isSavingVideo ? "Publishing..." : "Publish Walkthrough"}
+                  {isSavingVideo ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Publishing...</span>
+                    </>
+                  ) : isUploadingVideo ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Uploading ({videoUploadProgress}%)...</span>
+                    </>
+                  ) : (
+                    <span>Publish Walkthrough</span>
+                  )}
                 </button>
               </div>
             </form>
