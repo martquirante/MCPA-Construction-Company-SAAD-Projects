@@ -57,7 +57,12 @@ class QuotationController {
       if (clientProjectId) {
         quoRes = await db.query(
           `SELECT * FROM client_quotations 
-           WHERE client_project_id = $1 OR project_code = $2 
+           WHERE client_project_id = $1 
+              OR project_code = $2 
+              OR client_project_id IN (
+                SELECT cp.client_project_id FROM client_projects cp 
+                WHERE cp.user_id = (SELECT user_id FROM client_projects WHERE client_project_id = $1)
+              )
            ORDER BY quotation_id DESC LIMIT 1`,
           [clientProjectId, projectCode]
         );
@@ -252,6 +257,9 @@ class QuotationController {
          LEFT JOIN LATERAL (
            SELECT * FROM client_quotations 
            WHERE client_project_id = cp.client_project_id 
+              OR client_project_id IN (
+                SELECT cp2.client_project_id FROM client_projects cp2 WHERE cp2.user_id = cp.user_id
+              )
            ORDER BY quotation_id DESC LIMIT 1
          ) cq ON TRUE
          ORDER BY 
@@ -497,7 +505,12 @@ class QuotationController {
       if (clientProjectId) {
         quoRes = await db.query(
           `SELECT * FROM client_quotations 
-           WHERE client_project_id = $1 OR project_code = $2 
+           WHERE client_project_id = $1 
+              OR project_code = $2 
+              OR client_project_id IN (
+                SELECT cp.client_project_id FROM client_projects cp 
+                WHERE cp.user_id = (SELECT user_id FROM client_projects WHERE client_project_id = $1)
+              )
            ORDER BY quotation_id DESC LIMIT 1`,
           [clientProjectId, projectCode]
         );

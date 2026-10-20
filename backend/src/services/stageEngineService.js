@@ -520,20 +520,45 @@ class StageEngineService {
     const projectCode = activeProject.site_project_code || activeProject.project_code;
 
     const [docsCountRes, unreadChatRes, meetingRes, blueprintsRes, pendingBillsRes] = await Promise.all([
-      db.query("SELECT COUNT(*) FROM public.project_documents WHERE client_project_id = $1;", [projectId]),
       db.query(
-        "SELECT COUNT(*) FROM public.chat_messages WHERE client_project_id = $1 AND sender_user_id != $2 AND is_read = FALSE;",
+        `SELECT COUNT(*) FROM public.project_documents 
+         WHERE client_project_id = $1 
+            OR client_project_id IN (
+              SELECT cp.client_project_id FROM public.client_projects cp WHERE cp.user_id = $2
+            );`,
+        [projectId, userId]
+      ),
+      db.query(
+        `SELECT COUNT(*) FROM public.chat_messages 
+         WHERE (
+           client_project_id = $1 
+           OR client_project_id IN (
+             SELECT cp.client_project_id FROM public.client_projects cp WHERE cp.user_id = $2
+           )
+         ) AND sender_user_id != $2 AND is_read = FALSE;`,
         [projectId, userId]
       ),
       db.query(
         `SELECT room_code, scheduled_start, scheduled_end, meeting_status, recording_url 
          FROM public.meeting_rooms 
-         WHERE client_project_id = $1 AND meeting_status IN ('SCHEDULED', 'IN_PROGRESS') 
+         WHERE (
+           client_project_id = $1 
+           OR client_project_id IN (
+             SELECT cp.client_project_id FROM public.client_projects cp WHERE cp.user_id = $2
+           )
+         ) AND meeting_status IN ('SCHEDULED', 'IN_PROGRESS') 
          ORDER BY scheduled_start ASC 
          LIMIT 1;`,
-        [projectId]
+        [projectId, userId]
       ),
-      db.query("SELECT COUNT(*) FROM public.blueprints WHERE client_project_id = $1;", [projectId]),
+      db.query(
+        `SELECT COUNT(DISTINCT blueprint_id) FROM public.blueprints 
+         WHERE client_project_id = $1 
+            OR client_project_id IN (
+              SELECT cp.client_project_id FROM public.client_projects cp WHERE cp.user_id = $2
+            );`,
+        [projectId, userId]
+      ),
       db.query(
         "SELECT COUNT(*) FROM public.billing_ledger WHERE project_code = $1 AND status = 'Pending';",
         [projectCode]
@@ -646,7 +671,14 @@ class StageEngineService {
       FROM public.project_documents pd
       LEFT JOIN public.users u ON pd.uploaded_by = u.user_id
       LEFT JOIN public.users v ON pd.verified_by = v.user_id
-      WHERE pd.client_project_id = $1
+      WHERE (
+        pd.client_project_id = $1
+        OR pd.client_project_id IN (
+          SELECT cp.client_project_id 
+          FROM public.client_projects cp 
+          WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
+        )
+      )
     `;
     const params = [projectId];
 
@@ -713,9 +745,9 @@ class StageEngineService {
         u.full_name as client_name,
         u.email as client_email,
         u.avatar_url,
-        (SELECT COUNT(*) FROM public.project_document_requests WHERE client_project_id = cp.client_project_id) as total_requests,
-        (SELECT COUNT(*) FROM public.project_transmittals WHERE client_project_id = cp.client_project_id) as total_transmittals,
-        (SELECT COUNT(*) FROM public.project_documents WHERE client_project_id = cp.client_project_id) as total_uploaded_docs
+        (SELECT COUNT(*) FROM public.project_document_requests WHERE client_project_id = cp.client_project_id OR client_project_id IN (SELECT cp2.client_project_id FROM public.client_projects cp2 WHERE cp2.user_id = cp.user_id)) as total_requests,
+        (SELECT COUNT(*) FROM public.project_transmittals WHERE client_project_id = cp.client_project_id OR client_project_id IN (SELECT cp2.client_project_id FROM public.client_projects cp2 WHERE cp2.user_id = cp.user_id)) as total_transmittals,
+        (SELECT COUNT(*) FROM public.project_documents WHERE client_project_id = cp.client_project_id OR client_project_id IN (SELECT cp2.client_project_id FROM public.client_projects cp2 WHERE cp2.user_id = cp.user_id)) as total_uploaded_docs
       FROM public.client_projects cp
       JOIN public.users u ON cp.user_id = u.user_id
       ORDER BY cp.created_at DESC;
@@ -816,6 +848,11 @@ class StageEngineService {
     const res = await db.query(`
       SELECT * FROM public.project_document_requests
       WHERE client_project_id = $1
+         OR client_project_id IN (
+           SELECT cp.client_project_id 
+           FROM public.client_projects cp 
+           WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
+         )
       ORDER BY created_at DESC;
     `, [projectId]);
     return res.rows || [];
@@ -825,6 +862,11 @@ class StageEngineService {
     const res = await db.query(`
       SELECT * FROM public.project_transmittals
       WHERE client_project_id = $1
+         OR client_project_id IN (
+           SELECT cp.client_project_id 
+           FROM public.client_projects cp 
+           WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
+         )
       ORDER BY created_at DESC;
     `, [projectId]);
     return res.rows || [];
@@ -865,7 +907,12 @@ class StageEngineService {
     // Check if room exists
     const existing = await db.query(
       `SELECT * FROM public.meeting_rooms 
-       WHERE client_project_id = $1 AND meeting_status IN ('SCHEDULED', 'IN_PROGRESS')
+       WHERE (
+         client_project_id = $1 
+         OR client_project_id IN (
+           SELECT cp.client_project_id FROM public.client_projects cp WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
+         )
+       ) AND meeting_status IN ('SCHEDULED', 'IN_PROGRESS')
        ORDER BY scheduled_start DESC LIMIT 1;`,
       [projectId]
     );
@@ -895,7 +942,14 @@ class StageEngineService {
       `SELECT cm.*, u.full_name as sender_name, u.role as sender_role, u.avatar_url as sender_avatar
        FROM public.chat_messages cm
        JOIN public.users u ON cm.sender_user_id = u.user_id
-       WHERE cm.client_project_id = $1
+       WHERE (
+         cm.client_project_id = $1
+         OR cm.client_project_id IN (
+           SELECT cp.client_project_id 
+           FROM public.client_projects cp 
+           WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
+         )
+       )
        ORDER BY cm.created_at ASC
        LIMIT $2;`,
       [projectId, limit]
@@ -931,15 +985,30 @@ class StageEngineService {
    * BLUEPRINT VIEWER: Get drawings with pins
    */
   async getProjectBlueprints(projectId, discipline = null) {
-    let query = `SELECT * FROM public.blueprints WHERE client_project_id = $1`;
+    let query = `
+      SELECT * FROM (
+        SELECT DISTINCT ON (COALESCE(NULLIF(TRIM(b.sheet_number), ''), b.blueprint_id::text)) b.*
+        FROM public.blueprints b
+        WHERE (
+          b.client_project_id = $1 
+          OR b.client_project_id IN (
+            SELECT cp.client_project_id 
+            FROM public.client_projects cp 
+            WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
+          )
+        )
+        ORDER BY COALESCE(NULLIF(TRIM(b.sheet_number), ''), b.blueprint_id::text), b.client_project_id DESC, b.blueprint_id DESC
+      ) sub
+      WHERE 1=1
+    `;
     const params = [projectId];
 
-    if (discipline) {
-      query += ` AND discipline = $2`;
+    if (discipline && discipline !== "ALL") {
+      query += ` AND sub.discipline = $2`;
       params.push(discipline);
     }
 
-    query += ` ORDER BY blueprint_id ASC;`;
+    query += ` ORDER BY sub.blueprint_id ASC;`;
     const res = await db.query(query, params);
     return res.rows || [];
   }
@@ -1067,17 +1136,23 @@ class StageEngineService {
       LEFT JOIN public.users u ON cp.user_id = u.user_id
       LEFT JOIN (
         SELECT 
-          client_project_id,
-          COUNT(*)::INT AS total_blueprints,
-          COUNT(CASE WHEN media_type = 'video' THEN 1 END)::INT AS total_videos,
-          COUNT(CASE WHEN discipline = 'ARCHITECTURAL' THEN 1 END)::INT AS architectural_count,
-          COUNT(CASE WHEN discipline = 'STRUCTURAL' THEN 1 END)::INT AS structural_count,
-          COUNT(CASE WHEN discipline = 'ELECTRICAL' THEN 1 END)::INT AS electrical_count,
-          COUNT(CASE WHEN discipline = 'PLUMBING' THEN 1 END)::INT AS plumbing_count,
-          COUNT(CASE WHEN discipline = '3D_ELEVATION' THEN 1 END)::INT AS elevation_count,
-          COUNT(CASE WHEN discipline = '3D_WALKTHROUGH' THEN 1 END)::INT AS walkthrough_count
-        FROM public.blueprints
-        GROUP BY client_project_id
+          cp_inner.client_project_id,
+          COUNT(DISTINCT b.blueprint_id)::INT AS total_blueprints,
+          COUNT(DISTINCT CASE WHEN b.media_type = 'video' THEN b.blueprint_id END)::INT AS total_videos,
+          COUNT(DISTINCT CASE WHEN b.discipline = 'ARCHITECTURAL' THEN b.blueprint_id END)::INT AS architectural_count,
+          COUNT(DISTINCT CASE WHEN b.discipline = 'STRUCTURAL' THEN b.blueprint_id END)::INT AS structural_count,
+          COUNT(DISTINCT CASE WHEN b.discipline = 'ELECTRICAL' THEN b.blueprint_id END)::INT AS electrical_count,
+          COUNT(DISTINCT CASE WHEN b.discipline = 'PLUMBING' THEN b.blueprint_id END)::INT AS plumbing_count,
+          COUNT(DISTINCT CASE WHEN b.discipline = '3D_ELEVATION' THEN b.blueprint_id END)::INT AS elevation_count,
+          COUNT(DISTINCT CASE WHEN b.discipline = '3D_WALKTHROUGH' THEN b.blueprint_id END)::INT AS walkthrough_count
+        FROM public.client_projects cp_inner
+        LEFT JOIN public.blueprints b ON (
+          b.client_project_id = cp_inner.client_project_id 
+          OR b.client_project_id IN (
+            SELECT cp2.client_project_id FROM public.client_projects cp2 WHERE cp2.user_id = cp_inner.user_id
+          )
+        )
+        GROUP BY cp_inner.client_project_id
       ) b_stats ON cp.client_project_id = b_stats.client_project_id
       ORDER BY 
         CASE WHEN cp.stage_id = 'CONSULTATION' THEN 0 ELSE 1 END,
@@ -1130,7 +1205,12 @@ class StageEngineService {
    */
   async getProjectPermits(projectId) {
     let res = await db.query(
-      `SELECT * FROM public.permit_records WHERE client_project_id = $1 ORDER BY permit_id ASC;`,
+      `SELECT * FROM public.permit_records 
+       WHERE client_project_id = $1 
+          OR client_project_id IN (
+            SELECT cp.client_project_id FROM public.client_projects cp WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
+          )
+       ORDER BY permit_id ASC;`,
       [projectId]
     );
     if (!res.rows || res.rows.length === 0) {
@@ -1296,11 +1376,11 @@ class StageEngineService {
         cp.project_title,
         cp.stage_id,
         cp.target_location,
-        cp.groundbreaking_date,
-        cp.groundbreaking_status,
-        cp.groundbreaking_venue,
-        cp.groundbreaking_officiant,
-        cp.groundbreaking_notes,
+        COALESCE(cp.groundbreaking_date, (SELECT cp2.groundbreaking_date FROM public.client_projects cp2 WHERE cp2.user_id = cp.user_id AND cp2.groundbreaking_date IS NOT NULL ORDER BY cp2.client_project_id DESC LIMIT 1)) AS groundbreaking_date,
+        COALESCE(cp.groundbreaking_status, (SELECT cp2.groundbreaking_status FROM public.client_projects cp2 WHERE cp2.user_id = cp.user_id AND cp2.groundbreaking_date IS NOT NULL ORDER BY cp2.client_project_id DESC LIMIT 1), 'PENDING') AS groundbreaking_status,
+        COALESCE(cp.groundbreaking_venue, (SELECT cp2.groundbreaking_venue FROM public.client_projects cp2 WHERE cp2.user_id = cp.user_id AND cp2.groundbreaking_venue IS NOT NULL ORDER BY cp2.client_project_id DESC LIMIT 1)) AS groundbreaking_venue,
+        COALESCE(cp.groundbreaking_officiant, (SELECT cp2.groundbreaking_officiant FROM public.client_projects cp2 WHERE cp2.user_id = cp.user_id AND cp2.groundbreaking_officiant IS NOT NULL ORDER BY cp2.client_project_id DESC LIMIT 1)) AS groundbreaking_officiant,
+        COALESCE(cp.groundbreaking_notes, (SELECT cp2.groundbreaking_notes FROM public.client_projects cp2 WHERE cp2.user_id = cp.user_id AND cp2.groundbreaking_notes IS NOT NULL ORDER BY cp2.client_project_id DESC LIMIT 1)) AS groundbreaking_notes,
         cp.groundbreaking_rescheduled_count,
         cp.groundbreaking_updated_at,
         cb.location,
@@ -1322,6 +1402,9 @@ class StageEngineService {
          FROM public.groundbreaking_history gh 
          LEFT JOIN public.users u ON gh.created_by = u.user_id 
          WHERE gh.client_project_id = $1 
+            OR gh.client_project_id IN (
+              SELECT cp.client_project_id FROM public.client_projects cp WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
+            )
          ORDER BY gh.created_at DESC;`,
         [projectId]
       );
@@ -1512,7 +1595,14 @@ class StageEngineService {
    */
   async getProjectContract(projectId) {
     let contractRes = await db.query(
-      `SELECT * FROM public.contracts WHERE client_project_id = $1 ORDER BY contract_id DESC LIMIT 1;`,
+      `SELECT * FROM public.contracts 
+       WHERE client_project_id = $1 
+          OR client_project_id IN (
+            SELECT cp.client_project_id 
+            FROM public.client_projects cp 
+            WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
+          )
+       ORDER BY contract_id DESC LIMIT 1;`,
       [projectId]
     );
 
