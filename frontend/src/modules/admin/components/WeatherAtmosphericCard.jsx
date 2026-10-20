@@ -169,48 +169,64 @@ export default function WeatherAtmosphericCard({
 
   return (
     <div className="relative overflow-hidden rounded-[20px] bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white shadow-md dark:shadow-xl border border-neutral-200/80 dark:border-white/10 transition-colors duration-300 select-none">
-      {/* 1. PHOTOREALISTIC SKY IMAGE BACKDROP WITH CONTINUOUS DRIFT */}
+      {/* 1. PHOTOREALISTIC SKY IMAGE BACKDROP (ANIMATED CINEMAGRAPH / LIVE WEATHER GIF EFFECT) */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        <Image
-          src={bgImage}
-          alt="Atmospheric Sky"
-          fill
-          priority
-          sizes="(max-width: 1200px) 100vw, 1200px"
-          className="object-cover object-center animate-weather-sky-drift scale-105 opacity-90 dark:opacity-100 transition-opacity duration-500"
-        />
+        {/* Continuous Seamless Infinite Moving Sky Panorama (Real Cloud Photography) */}
+        <div
+          className={`absolute top-0 left-0 w-[200%] h-full flex ${
+            isHeavyRain || isStormy
+              ? "animate-weather-infinite-drift-fast"
+              : "animate-weather-infinite-drift"
+          }`}
+        >
+          <div className="relative w-1/2 h-full shrink-0">
+            <Image
+              src={bgImage}
+              alt="Atmospheric Sky Primary"
+              fill
+              priority
+              sizes="(max-width: 1200px) 100vw, 1200px"
+              className="object-cover object-center"
+            />
+          </div>
+          <div className="relative w-1/2 h-full shrink-0">
+            <Image
+              src={bgImage}
+              alt="Atmospheric Sky Seamless Mirror"
+              fill
+              sizes="(max-width: 1200px) 100vw, 1200px"
+              className="object-cover object-center scale-x-[-1]"
+            />
+          </div>
+        </div>
+
+        {/* Secondary Billowing Cloud Parallax Layer (Real Photo Overlap for Volumetric 3D Depth) */}
+        {(weatherType === "cloudy" || weatherType === "storm" || weatherType === "rain") && (
+          <div className="absolute -inset-[15%] w-[130%] h-[130%] animate-weather-cloud-billow mix-blend-screen dark:mix-blend-screen opacity-35 dark:opacity-45 pointer-events-none">
+            <Image
+              src={bgImage}
+              alt="Atmospheric Cloud Volumetric Parallax"
+              fill
+              sizes="(max-width: 1200px) 100vw, 1200px"
+              className="object-cover object-top filter blur-[0.5px] scale-x-[-1]"
+            />
+          </div>
+        )}
 
         {/* Adaptive Ambient Vignette Overlay: Light vs Dark Theme */}
         <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/50 to-white/20 dark:from-black/85 dark:via-black/45 dark:to-black/30 pointer-events-none transition-colors duration-300" />
 
-        {/* 2. DYNAMIC WEATHER EFFECTS (CLOUDS, SUN, RAIN, WIND, LIGHTNING) */}
+        {/* 2. DYNAMIC WEATHER EFFECTS (SUN, RAIN, WIND, LIGHTNING) */}
 
-        {/* Sunny: Breathing Solar Flare & Corona Rays */}
+        {/* Sunny: Breathing Solar Flare, Rotating Rays & Corona */}
         {weatherType === "sunny" && (
-          <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 pointer-events-none animate-weather-sunlight-sweep opacity-85">
             <div className="absolute -top-16 -right-16 w-96 h-96 rounded-full bg-gradient-to-br from-amber-400/30 via-orange-300/10 to-transparent blur-3xl animate-weather-sun-pulse" />
             <div className="absolute top-2 right-12 w-64 h-64 rounded-full border border-amber-400/30 dark:border-amber-300/30 animate-weather-sun-rotate opacity-75" />
             <div className="absolute top-6 right-16 w-56 h-56 rounded-full border border-dashed border-amber-400/40 dark:border-amber-200/40 animate-weather-sun-rays opacity-50" />
           </div>
         )}
 
-        {/* Cloudy / Overcast: Drifting Volumetric Cloud Silhouettes */}
-        {(weatherType === "cloudy" || weatherType === "storm") && (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            {/* Slow distant cloud layer */}
-            <div className="absolute top-4 left-0 w-[140%] opacity-30 dark:opacity-40 animate-weather-cloud-horizon">
-              <svg width="600" height="180" viewBox="0 0 600 180" fill="currentColor" className="text-slate-400/50 dark:text-slate-300/60 blur-xs">
-                <path d="M60 140 A50 50 0 0 1 120 70 A80 80 0 0 1 270 60 A60 60 0 0 1 360 90 A50 50 0 0 1 410 140 Z M380 150 A40 40 0 0 1 440 95 A65 65 0 0 1 540 90 A45 45 0 0 1 590 150 Z" />
-              </svg>
-            </div>
-            {/* Faster foreground cloud layer */}
-            <div className="absolute top-16 right-[-10%] w-[120%] opacity-25 dark:opacity-30 animate-weather-cloud-fast">
-              <svg width="500" height="150" viewBox="0 0 500 150" fill="currentColor" className="text-slate-500/40 dark:text-slate-400/50">
-                <path d="M50 120 A40 40 0 0 1 100 65 A65 65 0 0 1 220 55 A50 50 0 0 1 290 80 A40 40 0 0 1 330 120 Z" />
-              </svg>
-            </div>
-          </div>
-        )}
 
         {/* Rain: Dynamic Droplet Density based on Rain Intensity */}
         {(isHeavyRain || isLightRain) && (

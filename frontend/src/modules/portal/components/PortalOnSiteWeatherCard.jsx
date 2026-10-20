@@ -117,26 +117,50 @@ export default function PortalOnSiteWeatherCard({
 
   return (
     <div className="relative overflow-hidden rounded-[18px] bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white border border-neutral-200/80 dark:border-white/10 p-5 sm:p-6 shadow-sm dark:shadow-xl flex flex-col justify-between transition-colors duration-300 select-none">
-      {/* Sky Image Background */}
+      {/* Sky Image Background (Live Cinemagraph / GIF Motion) */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        <Image
-          src={bgImage}
-          alt="Atmospheric Sky"
-          fill
-          priority
-          sizes="(max-width: 768px) 100vw, 400px"
-          className="object-cover object-center animate-weather-sky-drift scale-105 opacity-90 dark:opacity-100 transition-opacity duration-500"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/50 to-white/20 dark:from-black/85 dark:via-black/45 dark:to-black/30 pointer-events-none transition-colors duration-300" />
+        {/* Infinite Seamless Moving Sky Panorama (Real Cloud Photography) */}
+        <div
+          className={`absolute top-0 left-0 w-[200%] h-full flex ${
+            isHeavyRain ? "animate-weather-infinite-drift-fast" : "animate-weather-infinite-drift"
+          }`}
+        >
+          <div className="relative w-1/2 h-full shrink-0">
+            <Image
+              src={bgImage}
+              alt="Atmospheric Sky Primary"
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, 400px"
+              className="object-cover object-center"
+            />
+          </div>
+          <div className="relative w-1/2 h-full shrink-0">
+            <Image
+              src={bgImage}
+              alt="Atmospheric Sky Seamless Mirror"
+              fill
+              sizes="(max-width: 768px) 100vw, 400px"
+              className="object-cover object-center scale-x-[-1]"
+            />
+          </div>
+        </div>
 
-        {/* Clouds overlay */}
+        {/* Secondary Billowing Cloud Parallax Layer */}
         {weatherType === "cloudy" && (
-          <div className="absolute top-0 right-[-10%] w-[120%] opacity-30 dark:opacity-35 animate-weather-cloud-fast">
-            <svg width="300" height="90" viewBox="0 0 240 90" fill="currentColor" className="text-slate-400 dark:text-slate-300">
-              <path d="M40 70 A25 25 0 0 1 70 35 A40 40 0 0 1 145 30 A30 30 0 0 1 190 45 A25 25 0 0 1 215 70 Z" />
-            </svg>
+          <div className="absolute -inset-[15%] w-[130%] h-[130%] animate-weather-cloud-billow mix-blend-screen dark:mix-blend-screen opacity-35 dark:opacity-45 pointer-events-none">
+            <Image
+              src={bgImage}
+              alt="Atmospheric Cloud Volumetric Parallax"
+              fill
+              sizes="(max-width: 768px) 100vw, 400px"
+              className="object-cover object-top filter blur-[0.5px] scale-x-[-1]"
+            />
           </div>
         )}
+
+        <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/50 to-white/20 dark:from-black/85 dark:via-black/45 dark:to-black/30 pointer-events-none transition-colors duration-300" />
+
 
         {/* Rain droplets */}
         {(isHeavyRain || isLightRain) && (
