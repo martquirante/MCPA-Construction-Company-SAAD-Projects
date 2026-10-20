@@ -877,67 +877,34 @@ export default function AdminDocumentRequestsTab({
 
       {/* 3. FILTER TABS, SEARCH, AND VIEW TOGGLE */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-2 border-b border-neutral-200 dark:border-white/5">
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setActiveFilter("all")}
-            className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 ${
-              activeFilter === "all"
-                ? "bg-amber-500 text-neutral-950"
-                : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5"
-            }`}
-          >
-            All Requests ({requests.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveFilter("pending")}
-            className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 ${
-              activeFilter === "pending"
-                ? "bg-amber-500 text-neutral-950"
-                : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5"
-            }`}
-          >
-            Awaiting Upload ({pendingCount})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveFilter("uploaded")}
-            className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 ${
-              activeFilter === "uploaded"
-                ? "bg-amber-500 text-neutral-950"
-                : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5"
-            }`}
-          >
-            Ready for Review ({uploadedCount})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveFilter("transmittals")}
-            className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 ${
-              activeFilter === "transmittals"
-                ? "bg-amber-500 text-neutral-950"
-                : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5"
-            }`}
-          >
-            MCPA Issued ({transmittals.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveFilter("permits")}
-            className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0 ${
-              activeFilter === "permits"
-                ? "bg-amber-500 text-neutral-950"
-                : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5"
-            }`}
-          >
-            LGU Permits &amp; Clearances ({permits.length})
-          </button>
+        {/* Filter Combobox */}
+        <div className="relative min-w-[220px] sm:w-72 shrink-0">
+          <label className="sr-only">Filter Document Requests</label>
+          <div className="relative flex items-center">
+            <Filter className="w-3.5 h-3.5 text-amber-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              value={activeFilter}
+              onChange={(e) => setActiveFilter(e.target.value)}
+              className="w-full appearance-none pl-9 pr-9 py-2 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-300 dark:border-white/10 text-xs font-mono font-bold text-neutral-900 dark:text-white uppercase tracking-wider focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-xs transition-colors"
+            >
+              <option value="all" className="bg-white dark:bg-[#101218] text-neutral-900 dark:text-white font-mono">
+                All Requests ({requests.length})
+              </option>
+              <option value="pending" className="bg-white dark:bg-[#101218] text-neutral-900 dark:text-white font-mono">
+                Awaiting Upload ({pendingCount})
+              </option>
+              <option value="uploaded" className="bg-white dark:bg-[#101218] text-neutral-900 dark:text-white font-mono">
+                Ready for Review ({uploadedCount})
+              </option>
+              <option value="transmittals" className="bg-white dark:bg-[#101218] text-neutral-900 dark:text-white font-mono">
+                MCPA Issued ({transmittals.length})
+              </option>
+              <option value="permits" className="bg-white dark:bg-[#101218] text-neutral-900 dark:text-white font-mono">
+                LGU Permits &amp; Clearances ({permits.length})
+              </option>
+            </select>
+            <ChevronDown className="w-4 h-4 text-neutral-400 pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
+          </div>
         </div>
 
         {/* Right Section: Search & View Mode Switcher */}
