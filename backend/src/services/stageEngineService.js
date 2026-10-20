@@ -217,7 +217,8 @@ class StageEngineService {
         sp.progress_pct as site_progress_pct,
         sp.current_phase as site_current_phase,
         sp.lead_engineer,
-        sp.virtual_tour_url
+        sp.virtual_tour_url,
+        sp.virtual_tour_urls
        FROM public.client_projects cp
        LEFT JOIN public.client_briefs cb ON cp.brief_id = cb.brief_id
        LEFT JOIN public.site_projects sp ON cp.site_project_code = sp.project_code
@@ -480,7 +481,8 @@ class StageEngineService {
               sp.progress_pct as site_progress_pct,
               sp.current_phase as site_current_phase,
               sp.lead_engineer,
-              sp.virtual_tour_url
+              sp.virtual_tour_url,
+              sp.virtual_tour_urls
              FROM public.client_projects cp
              LEFT JOIN public.client_briefs cb ON cp.brief_id = cb.brief_id
              LEFT JOIN public.site_projects sp ON cp.site_project_code = sp.project_code
@@ -586,6 +588,7 @@ class StageEngineService {
         site_current_phase: activeProject.site_current_phase || null,
         lead_engineer: activeProject.lead_engineer || null,
         virtual_tour_url: activeProject.virtual_tour_url || null,
+        virtual_tour_urls: activeProject.virtual_tour_urls || [],
         created_at: activeProject.created_at,
         updated_at: activeProject.updated_at,
       },

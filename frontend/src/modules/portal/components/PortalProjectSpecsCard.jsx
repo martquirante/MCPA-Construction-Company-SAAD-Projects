@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import Image from "next/image";
 import {
   MapPin,
@@ -24,7 +24,38 @@ export default function PortalProjectSpecsCard({
 }) {
   const [isFullscreenVideo, setIsFullscreenVideo] = useState(false);
   const [selectedZone, setSelectedZone] = useState("all");
+  const [activeWalkthroughIndex, setActiveWalkthroughIndex] = useState(0);
   const videoRef = useRef(null);
+
+  // Parse multiple or single 3D walkthrough videos
+  const walkthroughVideos = useMemo(() => {
+    if (!project) return [];
+    let list = [];
+    if (Array.isArray(project.virtual_tour_urls) && project.virtual_tour_urls.length > 0) {
+      list = project.virtual_tour_urls;
+    } else if (typeof project.virtual_tour_urls === "string") {
+      try {
+        const parsed = JSON.parse(project.virtual_tour_urls);
+        if (Array.isArray(parsed)) list = parsed;
+      } catch {}
+    }
+    if (list.length === 0 && project.virtual_tour_url) {
+      try {
+        const parsed = JSON.parse(project.virtual_tour_url);
+        if (Array.isArray(parsed)) list = parsed;
+        else list = [{ url: project.virtual_tour_url, title: "Full 3D Architectural Walk-Around" }];
+      } catch {
+        list = [{ url: project.virtual_tour_url, title: "Full 3D Architectural Walk-Around" }];
+      }
+    }
+    return list
+      .map((item, idx) => ({
+        url: typeof item === "string" ? item : item.url,
+        title: typeof item === "object" && item.title ? item.title : `Walkaround Part ${idx + 1}`,
+        name: typeof item === "object" && item.name ? item.name : `Video ${idx + 1}`,
+      }))
+      .filter((v) => Boolean(v.url));
+  }, [project?.virtual_tour_urls, project?.virtual_tour_url]);
 
   if (!project) {
     return (
@@ -40,7 +71,8 @@ export default function PortalProjectSpecsCard({
   const projectName = project.name || project.project_title || "Assigned Site Project";
   const projectCode = project.project_code || project.site_project_code || "PRJ-ACTIVE";
   const location = project.location || project.target_location || "Site Location";
-  const virtualTourUrl = project.virtual_tour_url || "";
+  const activeVideo = walkthroughVideos[activeWalkthroughIndex] || walkthroughVideos[0] || null;
+  const virtualTourUrl = activeVideo?.url || project.virtual_tour_url || "";
   const currentPhase = project.current_phase || "Site Mobilization & Earthworks";
 
   const resolvedMilestones = (milestones && milestones.length > 0)
@@ -151,19 +183,24 @@ export default function PortalProjectSpecsCard({
 
       {/* 3D Walk-Around Video & Virtual Tour Section */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Film className="w-4 h-4 text-amber-500" />
             <h4 className="text-xs font-mono font-bold uppercase text-neutral-900 dark:text-white tracking-wider">
               3D Architectural Walk-Around &amp; Virtual Tour
             </h4>
+            {walkthroughVideos.length > 1 && (
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold">
+                {walkthroughVideos.length} Videos Available
+              </span>
+            )}
           </div>
 
           {virtualTourUrl && (
             <button
               type="button"
               onClick={handleToggleFullscreen}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/15 text-neutral-800 dark:text-white text-[11px] font-mono font-semibold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/15 text-neutral-800 dark:text-white text-[11px] font-mono font-semibold transition-colors cursor-pointer self-start sm:self-auto"
               title="Full-Screen Walkthrough"
             >
               {isFullscreenVideo ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -172,11 +209,36 @@ export default function PortalProjectSpecsCard({
           )}
         </div>
 
+        {/* Multi-Walkthrough Video Tabs */}
+        {walkthroughVideos.length > 1 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {walkthroughVideos.map((vid, idx) => {
+              const isSelected = activeWalkthroughIndex === idx;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveWalkthroughIndex(idx)}
+                  className={`px-3 py-1.5 rounded-[6px] text-xs font-mono font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 shrink-0 shadow-2xs ${
+                    isSelected
+                      ? "bg-amber-500 text-neutral-950 font-extrabold"
+                      : "bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/5"
+                  }`}
+                >
+                  <Play className={`w-3 h-3 ${isSelected ? "fill-neutral-950 text-neutral-950" : "text-amber-500"}`} />
+                  <span>{vid.title || `Walkaround ${idx + 1}`}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Video Player or Responsive Container */}
         {virtualTourUrl ? (
           <div className="relative aspect-video rounded-[12px] overflow-hidden bg-black border border-neutral-200 dark:border-white/10 shadow-md group">
             {isVideoUrl ? (
               <video
+                key={virtualTourUrl}
                 ref={videoRef}
                 src={virtualTourUrl}
                 controls

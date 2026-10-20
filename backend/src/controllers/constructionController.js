@@ -431,6 +431,7 @@ class ConstructionController {
           COALESCE(sp.current_phase, 'Mobilization & Earthworks') AS current_phase,
           sp.lead_engineer,
           sp.virtual_tour_url,
+          sp.virtual_tour_urls,
           sp.contract_date,
           sp.original_turnover,
           sp.revised_turnover
@@ -507,13 +508,32 @@ class ConstructionController {
   // 12. UPDATE 3D VIRTUAL TOUR / WALKTHROUGH VIDEO
   async updateVirtualTour(req, res) {
     try {
-      const { projectCode, virtualTourUrl } = req.body;
+      const { projectCode, virtualTourUrl, virtualTourUrls } = req.body;
       if (!projectCode) {
         return res.status(400).json({ success: false, message: "projectCode is required." });
       }
+
+      let resolvedSingleUrl = virtualTourUrl || null;
+      let jsonTourUrls = null;
+
+      if (Array.isArray(virtualTourUrls)) {
+        jsonTourUrls = JSON.stringify(virtualTourUrls);
+        if (!resolvedSingleUrl && virtualTourUrls.length > 0) {
+          const first = virtualTourUrls[0];
+          resolvedSingleUrl = typeof first === "string" ? first : first.url;
+        }
+      } else if (virtualTourUrl) {
+        resolvedSingleUrl = virtualTourUrl;
+        jsonTourUrls = JSON.stringify([{ url: virtualTourUrl, title: "Full 3D Architectural Walk-Around Tour" }]);
+      }
+
       const result = await db.query(
-        "UPDATE site_projects SET virtual_tour_url = $1 WHERE project_code = $2 RETURNING *",
-        [virtualTourUrl || null, projectCode]
+        `UPDATE site_projects 
+         SET virtual_tour_url = COALESCE($1, virtual_tour_url),
+             virtual_tour_urls = COALESCE($2::jsonb, virtual_tour_urls)
+         WHERE project_code = $3 
+         RETURNING *`,
+        [resolvedSingleUrl, jsonTourUrls, projectCode]
       );
       return res.json({ success: true, project: result.rows ? result.rows[0] : null, message: "3D virtual walkthrough tour updated." });
     } catch (err) {

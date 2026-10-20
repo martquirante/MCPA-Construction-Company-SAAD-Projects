@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Image from "next/image";
 import {
   MapPin,
@@ -28,6 +28,7 @@ import {
   CheckCircle,
   Play,
   Eye,
+  FileVideo,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
 import { authFetch } from "@/modules/shared/authFetch";
@@ -258,19 +259,53 @@ export default function SiteProgressTab({
   const [updateNotes, setUpdateNotes] = useState("");
   const [isSubmittingUpdate, setIsSubmittingUpdate] = useState(false);
 
-  // 3D Video Walkthrough Form state
-  const [videoUrl, setVideoUrl] = useState(project?.virtual_tour_url || "");
-  const [videoFile, setVideoFile] = useState(null);
-  const [videoPreview, setVideoPreview] = useState("");
-  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
-  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
-  const [videoUploadError, setVideoUploadError] = useState("");
-  const [useManualVideoUrl, setUseManualVideoUrl] = useState(false);
-  const [videoUploadedSuccessfully, setVideoUploadedSuccessfully] = useState(false);
-  const [isSavingVideo, setIsSavingVideo] = useState(false);
-  const videoFileInputRef = useRef(null);
-  const videoXhrRef = useRef(null);
+  // 3D Video Walkthrough Form state (Multiple videos supported, no file size limit)
+  const [walkthroughVideos, setWalkthroughVideos] = useState([]);
+  const [manualWalkthroughUrl, setManualWalkthroughUrl] = useState("");
+  const [manualWalkthroughTitle, setManualWalkthroughTitle] = useState("");
+  const [walkthroughUploadError, setWalkthroughUploadError] = useState("");
+  const [showAddUrlInput, setShowAddUrlInput] = useState(false);
+  const [isSavingWalkthrough, setIsSavingWalkthrough] = useState(false);
+  const walkthroughFileInputRef = useRef(null);
+  const walkthroughXhrsRef = useRef({});
   const [boqTrades, setBoqTrades] = useState([]);
+
+  // Resolve initial list of walkthrough videos from project
+  const resolveInitialWalkthroughs = useCallback((proj) => {
+    if (!proj) return [];
+    let list = [];
+    if (Array.isArray(proj.virtual_tour_urls) && proj.virtual_tour_urls.length > 0) {
+      list = proj.virtual_tour_urls;
+    } else if (typeof proj.virtual_tour_urls === "string") {
+      try {
+        const parsed = JSON.parse(proj.virtual_tour_urls);
+        if (Array.isArray(parsed)) list = parsed;
+      } catch {}
+    }
+    if (list.length === 0 && proj.virtual_tour_url) {
+      try {
+        const parsed = JSON.parse(proj.virtual_tour_url);
+        if (Array.isArray(parsed)) list = parsed;
+        else list = [{ url: proj.virtual_tour_url, title: "Full 3D Architectural Walk-Around" }];
+      } catch {
+        list = [{ url: proj.virtual_tour_url, title: "Full 3D Architectural Walk-Around" }];
+      }
+    }
+    return list
+      .map((item, idx) => ({
+        id: `vt-init-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+        file: null,
+        previewUrl: typeof item === "string" ? item : item.url,
+        url: typeof item === "string" ? item : item.url,
+        title: typeof item === "object" && item.title ? item.title : `Walkaround Part ${idx + 1}`,
+        name: typeof item === "object" && item.name ? item.name : `Video ${idx + 1}`,
+        size: typeof item === "object" && item.size ? item.size : 0,
+        isUploading: false,
+        uploadProgress: 100,
+        error: null,
+      }))
+      .filter((v) => Boolean(v.url));
+  }, []);
 
   // Friendly error formatter for non-technical users
   const formatFriendlyVideoError = (err) => {
@@ -278,9 +313,6 @@ export default function SiteProgressTab({
     const msg = typeof err === "string" ? err : err.message || "";
     const lower = msg.toLowerCase();
 
-    if (lower.includes("limit_file_size") || lower.includes("too large") || lower.includes("413") || lower.includes("size")) {
-      return "Medyo malaki po ang video file. Pakipili po ang mas maikli o naka-compress na MP4/WebM video (hanggang 150MB) upang mabilis itong mapanood ng kliyente.";
-    }
     if (lower.includes("network") || lower.includes("failed to fetch") || lower.includes("offline") || lower.includes("connection")) {
       return "Nawala po ang koneksyon sa internet habang nag-a-upload. Pakisuri po ang inyong Wi-Fi o data connection at subukan muli.";
     }
@@ -294,105 +326,191 @@ export default function SiteProgressTab({
   };
 
   const resetVideoModal = () => {
-    if (videoXhrRef.current) {
-      try {
-        videoXhrRef.current.abort();
-      } catch {}
-      videoXhrRef.current = null;
+    if (walkthroughXhrsRef.current) {
+      Object.values(walkthroughXhrsRef.current).forEach((xhr) => {
+        try {
+          xhr.abort();
+        } catch {}
+      });
+      walkthroughXhrsRef.current = {};
     }
     setIs3DVideoModalOpen(false);
-    setIsUploadingVideo(false);
-    setVideoUploadProgress(0);
-    setVideoUploadError("");
-    setVideoUploadedSuccessfully(false);
-    setVideoFile(null);
-    setVideoPreview("");
-    setUseManualVideoUrl(false);
-    if (videoFileInputRef.current) videoFileInputRef.current.value = "";
+    setWalkthroughUploadError("");
+    setManualWalkthroughUrl("");
+    setManualWalkthroughTitle("");
+    setShowAddUrlInput(false);
+    if (walkthroughFileInputRef.current) walkthroughFileInputRef.current.value = "";
   };
 
-  const handleVideoFileSelect = (file) => {
-    if (!file) return;
-
-    // Check if video file
-    const isVideo = file.type.startsWith("video/") || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
-    if (!isVideo) {
-      setVideoUploadError("Pakipili po ang isang valid na video file (tulad ng MP4, MOV, o WebM).");
-      return;
-    }
-
-    // Check size - guidance warning if > 250MB
-    const MAX_SIZE_MB = 250;
-    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      setVideoUploadError(`Medyo malaki po ang napiling video (${(file.size / (1024 * 1024)).toFixed(1)}MB). Ang suhestiyong laki ay hanggang ${MAX_SIZE_MB}MB upang mabilis mag-load para sa kliyente.`);
-      return;
-    }
-
-    setVideoUploadError("");
-    setVideoUploadedSuccessfully(false);
-    setVideoFile(file);
-    setVideoUploadProgress(0);
-
-    // Instant local preview
-    const localUrl = URL.createObjectURL(file);
-    setVideoPreview(localUrl);
-    setIsUploadingVideo(true);
-
+  const uploadWalkthroughItem = (item) => {
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", item.file);
 
     const xhr = new XMLHttpRequest();
-    videoXhrRef.current = xhr;
+    walkthroughXhrsRef.current[item.id] = xhr;
 
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) {
         const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
-        setVideoUploadProgress(pct);
+        setWalkthroughVideos((prev) =>
+          prev.map((it) => (it.id === item.id ? { ...it, uploadProgress: pct } : it))
+        );
       }
     });
 
     xhr.addEventListener("load", () => {
-      setIsUploadingVideo(false);
-      videoXhrRef.current = null;
+      delete walkthroughXhrsRef.current[item.id];
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const data = JSON.parse(xhr.responseText);
           if (data && data.url) {
-            setVideoUploadProgress(100);
-            setVideoUrl(data.url);
-            setVideoUploadedSuccessfully(true);
+            setWalkthroughVideos((prev) =>
+              prev.map((it) =>
+                it.id === item.id
+                  ? { ...it, isUploading: false, uploadProgress: 100, url: data.url, error: null }
+                  : it
+              )
+            );
             if (showToast) {
-              showToast("🎉 3D Walk-Around Video uploaded successfully to cloud storage! Ready to publish.");
+              showToast(`🎉 "${item.title || item.name}" uploaded successfully!`);
             }
           } else {
             throw new Error(data.message || "Invalid upload response");
           }
         } catch (e) {
-          setVideoUploadError(formatFriendlyVideoError(e));
+          const friendly = formatFriendlyVideoError(e);
+          setWalkthroughVideos((prev) =>
+            prev.map((it) => (it.id === item.id ? { ...it, isUploading: false, error: friendly } : it))
+          );
         }
       } else {
         try {
           const data = JSON.parse(xhr.responseText);
-          setVideoUploadError(formatFriendlyVideoError(data.message || "Upload error"));
+          const friendly = formatFriendlyVideoError(data.message || "Upload error");
+          setWalkthroughVideos((prev) =>
+            prev.map((it) => (it.id === item.id ? { ...it, isUploading: false, error: friendly } : it))
+          );
         } catch {
-          setVideoUploadError(formatFriendlyVideoError("Upload failed"));
+          setWalkthroughVideos((prev) =>
+            prev.map((it) => (it.id === item.id ? { ...it, isUploading: false, error: "Upload failed" } : it))
+          );
         }
       }
     });
 
     xhr.addEventListener("error", () => {
-      setIsUploadingVideo(false);
-      videoXhrRef.current = null;
-      setVideoUploadError(formatFriendlyVideoError("Network error"));
+      delete walkthroughXhrsRef.current[item.id];
+      setWalkthroughVideos((prev) =>
+        prev.map((it) => (it.id === item.id ? { ...it, isUploading: false, error: "Network error during upload" } : it))
+      );
     });
 
     xhr.addEventListener("abort", () => {
-      setIsUploadingVideo(false);
-      videoXhrRef.current = null;
+      delete walkthroughXhrsRef.current[item.id];
+      setWalkthroughVideos((prev) =>
+        prev.map((it) => (it.id === item.id ? { ...it, isUploading: false, error: "Cancelled" } : it))
+      );
     });
 
     xhr.open("POST", "/api/upload?category=portfolio");
     xhr.send(formData);
+  };
+
+  const handleWalkthroughFilesSelect = (files) => {
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files);
+    const newItems = [];
+
+    const defaultLabels = [
+      "Full House Walkthrough",
+      "Ground Living & Dining",
+      "2nd Floor Bedrooms",
+      "Facade & Exterior",
+      "Roof Deck & Balcony",
+      "Kitchen & Utility",
+      "Master Suite & Bath",
+    ];
+
+    fileList.forEach((file, fileIdx) => {
+      const isVideo = file.type.startsWith("video/") || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+      if (!isVideo) {
+        if (showToast) showToast(`"${file.name}" is not a recognized video file.`);
+        return;
+      }
+
+      // No size limit on videos! (cloud storage streaming)
+      const id = `vt-${Date.now()}-${fileIdx}-${Math.random().toString(36).slice(2, 6)}`;
+      const previewUrl = URL.createObjectURL(file);
+      const existingCount = walkthroughVideos.length + newItems.length;
+
+      let autoTitle = "";
+      if (existingCount < defaultLabels.length) {
+        autoTitle = defaultLabels[existingCount];
+      } else {
+        autoTitle = `Walkaround Zone ${existingCount + 1}`;
+      }
+
+      const itemObj = {
+        id,
+        file,
+        previewUrl,
+        url: "",
+        title: autoTitle,
+        name: file.name,
+        size: file.size,
+        isUploading: true,
+        uploadProgress: 0,
+        error: null,
+      };
+      newItems.push(itemObj);
+    });
+
+    if (newItems.length === 0) return;
+    setWalkthroughUploadError("");
+    setWalkthroughVideos((prev) => [...prev, ...newItems]);
+    newItems.forEach((item) => uploadWalkthroughItem(item));
+  };
+
+  const handleAddManualWalkthroughUrl = () => {
+    if (!manualWalkthroughUrl || !manualWalkthroughUrl.trim()) return;
+    const url = manualWalkthroughUrl.trim();
+    const id = `vt-url-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const title = (manualWalkthroughTitle || "").trim() || `Walkaround View ${walkthroughVideos.length + 1}`;
+
+    setWalkthroughVideos((prev) => [
+      ...prev,
+      {
+        id,
+        file: null,
+        previewUrl: url,
+        url,
+        title,
+        name: url.split("/").pop() || "Direct Video Stream",
+        size: 0,
+        isUploading: false,
+        uploadProgress: 100,
+        error: null,
+      },
+    ]);
+    setManualWalkthroughUrl("");
+    setManualWalkthroughTitle("");
+    setShowAddUrlInput(false);
+  };
+
+  const handleRemoveWalkthrough = (id) => {
+    if (walkthroughXhrsRef.current[id]) {
+      try {
+        walkthroughXhrsRef.current[id].abort();
+      } catch {}
+      delete walkthroughXhrsRef.current[id];
+    }
+    setWalkthroughVideos((prev) => prev.filter((it) => it.id !== id));
+  };
+
+  const handleUpdateWalkthroughTitle = (id, newTitle) => {
+    setWalkthroughVideos((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, title: newTitle } : it))
+    );
   };
 
   useEffect(() => {
@@ -414,8 +532,8 @@ export default function SiteProgressTab({
   }, [project?.project_code, project?.client_project_id]);
 
   useEffect(() => {
-    setVideoUrl(project?.virtual_tour_url || "");
-  }, [project?.virtual_tour_url]);
+    setWalkthroughVideos(resolveInitialWalkthroughs(project));
+  }, [project?.project_code, project?.virtual_tour_url, project?.virtual_tour_urls, resolveInitialWalkthroughs]);
 
   // Post Photo/Video Log Form state
   const [logType, setLogType] = useState("Daily Log");
@@ -756,41 +874,61 @@ export default function SiteProgressTab({
     }
   };
 
-  const handleSaveVideo = async (e) => {
+  const handleSaveWalkthroughVideos = async (e) => {
     e.preventDefault();
     if (!project) return;
-    if (!videoUrl) {
-      setVideoUploadError("Pakipili po o mag-upload ng video file bago i-publish.");
+
+    const readyItems = walkthroughVideos.filter((v) => v.url && !v.error);
+    if (readyItems.length === 0) {
+      setWalkthroughUploadError("Pakipili po o mag-upload ng kahit isang walkthrough video bago i-publish.");
       return;
     }
 
-    setIsSavingVideo(true);
-    setVideoUploadError("");
+    const stillUploading = walkthroughVideos.some((v) => v.isUploading);
+    if (stillUploading) {
+      setWalkthroughUploadError("Pakihintay po munang matapos ang pag-upload ng lahat ng video bago i-publish.");
+      return;
+    }
+
+    setIsSavingWalkthrough(true);
+    setWalkthroughUploadError("");
     try {
+      const formattedList = readyItems.map((v, idx) => ({
+        url: v.url,
+        title: (v.title || "").trim() || `Walkaround View ${idx + 1}`,
+        name: v.name || "",
+        size: v.size || 0,
+      }));
+      const primaryUrl = formattedList[0].url;
+
+      const payload = {
+        projectCode: project.project_code,
+        virtualTourUrl: primaryUrl,
+        virtualTourUrls: formattedList,
+      };
+
       if (onUpdateVirtualTour) {
-        await onUpdateVirtualTour(videoUrl);
+        await onUpdateVirtualTour(payload);
       } else {
         const res = await fetch("/api/construction/virtual-tour", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectCode: project.project_code,
-            virtualTourUrl: videoUrl,
-          }),
+          body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to update tour");
       }
+
       if (showToast) {
-        showToast("🎉 3D Architectural Walk-Around Video successfully published to client portal!");
+        showToast(`🎉 Na-publish ang ${formattedList.length} 3D architectural walk-around video sa client portal!`);
       }
       resetVideoModal();
     } catch (err) {
       const friendly = formatFriendlyVideoError(err);
-      setVideoUploadError(friendly);
+      setWalkthroughUploadError(friendly);
       if (showToast) showToast(friendly);
     } finally {
-      setIsSavingVideo(false);
+      setIsSavingWalkthrough(false);
     }
   };
 
@@ -886,13 +1024,14 @@ export default function SiteProgressTab({
             <button
               type="button"
               onClick={() => {
-                setVideoUrl(project.virtual_tour_url || "");
+                setWalkthroughVideos(resolveInitialWalkthroughs(project));
+                setWalkthroughUploadError("");
                 setIs3DVideoModalOpen(true);
               }}
               className="px-3 py-2 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/15 text-neutral-800 dark:text-white font-mono text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Film className="w-3.5 h-3.5 text-amber-500" />
-              <span>3D Walkthrough Video</span>
+              <span>3D Walkthrough Videos</span>
             </button>
 
             <button
@@ -1525,233 +1664,333 @@ export default function SiteProgressTab({
         </div>
       )}
 
-      {/* MODAL 3: 3D WALKTHROUGH VIDEO UPLOAD / URL */}
+      {/* MODAL 3: 3D WALKTHROUGH VIDEO UPLOAD / URL (MULTIPLE VIDEOS) */}
       {is3DVideoModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl max-h-[92vh] flex flex-col rounded-[14px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 p-4 sm:p-5 shrink-0 bg-neutral-50/50 dark:bg-white/[0.02]">
               <div>
-                <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
-                  <Film className="w-4 h-4 text-amber-500" />
-                  <span>3D Architectural Walk-Around Video</span>
-                </h4>
-                <p className="text-[10.5px] text-neutral-400 mt-0.5">
-                  I-upload ang walkthrough video para sa high-definition 3D streaming sa client portal.
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                    <Film className="w-4 h-4" />
+                  </span>
+                  <h4 className="text-sm sm:text-base font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                    3D Architectural Walk-Around Videos
+                  </h4>
+                  {walkthroughVideos.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold">
+                      {walkthroughVideos.length} Attached
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
+                  Mag-upload ng maramihang walkthrough videos (hal. Exterior, Ground Floor, 2nd Floor, Roofing) na may sariling label/title para sa client portal.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={resetVideoModal}
-                className="text-neutral-400 hover:text-white p-1 cursor-pointer rounded-[4px] hover:bg-neutral-100 dark:hover:bg-white/10"
+                className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white p-1.5 cursor-pointer rounded-lg hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveVideo} className="space-y-4 text-xs font-mono">
-              {/* Mode switch: File Upload vs Direct URL */}
-              <div className="flex items-center justify-between">
-                <label className="block text-neutral-700 dark:text-neutral-300 font-bold uppercase text-[10.5px] tracking-wider">
-                  {useManualVideoUrl ? "Direct Video / Embed URL" : "Upload Video File *"}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUseManualVideoUrl(!useManualVideoUrl);
-                    setVideoUploadError("");
-                  }}
-                  className="text-[10.5px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  {useManualVideoUrl ? (
-                    <>
-                      <UploadCloud className="w-3 h-3" />
-                      <span>Switch to Video File Upload</span>
-                    </>
-                  ) : (
-                    <>
-                      <LinkIcon className="w-3 h-3" />
-                      <span>Or Paste Direct Video URL</span>
-                    </>
-                  )}
-                </button>
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleSaveWalkthroughVideos} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs font-mono">
+              {/* Hidden file input */}
+              <input
+                ref={walkthroughFileInputRef}
+                type="file"
+                multiple
+                accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/*"
+                onChange={(e) => {
+                  handleWalkthroughFilesSelect(e.target.files);
+                  if (e.target) e.target.value = "";
+                }}
+                className="hidden"
+              />
+
+              {/* Action Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 dark:border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => walkthroughFileInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-[6px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Upload Videos (Multiple)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddUrlInput(!showAddUrlInput);
+                      setWalkthroughUploadError("");
+                    }}
+                    className="px-3 py-1.5 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <LinkIcon className="w-3.5 h-3.5" />
+                    <span>{showAddUrlInput ? "Hide URL Input" : "Add Direct URL"}</span>
+                  </button>
+                </div>
+
+                <span className="text-[10px] text-neutral-400 font-mono">
+                  No size limit • MP4, WebM, MOV
+                </span>
               </div>
 
-              {/* Upload Zone or URL Input */}
-              {useManualVideoUrl ? (
-                <div>
-                  <input
-                    type="url"
-                    required
-                    value={videoUrl}
-                    onChange={(e) => {
-                      setVideoUrl(e.target.value);
-                      setVideoUploadError("");
-                    }}
-                    placeholder="https://.../house-3d-walkaround.mp4"
-                    className="w-full px-3 py-2.5 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 text-xs"
-                  />
-                  <p className="text-[10px] text-neutral-400 mt-1">
-                    Direct MP4, WebM link, or cloud streaming video URL.
-                  </p>
+              {/* Inline Direct URL Card */}
+              {showAddUrlInput && (
+                <div className="p-3.5 rounded-[8px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider">
+                      Add Direct Video / Streaming Link
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddUrlInput(false)}
+                      className="text-neutral-400 hover:text-white text-[11px]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="url"
+                      value={manualWalkthroughUrl}
+                      onChange={(e) => setManualWalkthroughUrl(e.target.value)}
+                      placeholder="https://.../video.mp4"
+                      className="px-3 py-2 rounded-[6px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white text-xs focus:outline-none focus:border-amber-500"
+                    />
+                    <input
+                      type="text"
+                      value={manualWalkthroughTitle}
+                      onChange={(e) => setManualWalkthroughTitle(e.target.value)}
+                      placeholder="Title (e.g. 2nd Floor Bedrooms)"
+                      className="px-3 py-2 rounded-[6px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={!manualWalkthroughUrl.trim()}
+                      onClick={handleAddManualWalkthroughUrl}
+                      className="px-3 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer text-xs"
+                    >
+                      + Add to Walkthrough List
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Empty State / Dropzone when no videos */}
+              {walkthroughVideos.length === 0 ? (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.dataTransfer.files) handleWalkthroughFilesSelect(e.dataTransfer.files);
+                  }}
+                  onClick={() => walkthroughFileInputRef.current?.click()}
+                  className="w-full p-10 rounded-[10px] border-2 border-dashed border-neutral-300 dark:border-white/15 hover:border-amber-500/60 dark:hover:border-amber-500/60 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors text-center group"
+                >
+                  <div className="w-14 h-14 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Film className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-neutral-800 dark:text-neutral-200">
+                      Click to select or drag &amp; drop 3D Walk-Around Videos
+                    </p>
+                    <p className="text-[11px] text-neutral-400 font-mono mt-1">
+                      Puwede mag-upload ng maramihang videos (Exterior, Ground Floor, 2nd Floor, Roofing) • Walang size limit
+                    </p>
+                  </div>
                 </div>
               ) : (
-                <div>
-                  <input
-                    ref={videoFileInputRef}
-                    type="file"
-                    accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/*"
-                    onChange={(e) => handleVideoFileSelect(e.target.files?.[0])}
-                    className="hidden"
-                  />
+                /* Videos Queue Cards */
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
+                    <span>Attached Walkthrough Videos ({walkthroughVideos.length})</span>
+                    <span>Client Portal Order</span>
+                  </div>
 
-                  {videoPreview || videoUrl ? (
-                    <div className="rounded-[8px] overflow-hidden border border-amber-500/30 bg-neutral-950 p-2.5 space-y-2">
-                      <div className="relative aspect-video rounded-[6px] overflow-hidden bg-black flex items-center justify-center">
-                        <video
-                          src={videoPreview || videoUrl}
-                          controls
-                          playsInline
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
+                  <div className="space-y-2.5">
+                    {walkthroughVideos.map((vid, idx) => (
+                      <div
+                        key={vid.id}
+                        className="rounded-[10px] border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-[#0c0e14] p-3 space-y-2.5 transition-colors"
+                      >
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          {/* Video Thumbnail / Preview */}
+                          <div className="w-full sm:w-48 aspect-video sm:aspect-auto sm:h-28 rounded-[6px] overflow-hidden bg-black shrink-0 relative flex items-center justify-center border border-black/20">
+                            {vid.previewUrl || vid.url ? (
+                              <video
+                                src={vid.previewUrl || vid.url}
+                                controls
+                                playsInline
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center text-neutral-500">
+                                <Film className="w-6 h-6 animate-pulse" />
+                              </div>
+                            )}
+                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-xs text-white text-[9.5px] font-mono font-bold">
+                              #{idx + 1}
+                            </span>
+                          </div>
 
-                      {/* Video status bar */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pt-1 px-1">
-                        <span className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold text-emerald-400">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>
-                            {videoUploadedSuccessfully
-                              ? "Video Uploaded & Ready to Publish"
-                              : "Video Attached & Streaming Ready"}
-                          </span>
-                        </span>
-                        <button
-                          type="button"
-                          disabled={isUploadingVideo}
-                          onClick={() => {
-                            if (videoFileInputRef.current) {
-                              videoFileInputRef.current.value = "";
-                              videoFileInputRef.current.click();
-                            }
-                          }}
-                          className="text-[11px] text-amber-500 hover:text-amber-400 hover:underline cursor-pointer disabled:opacity-40"
-                        >
-                          Change Video
-                        </button>
+                          {/* Video Info & Editable Title */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-between space-y-2">
+                            <div className="space-y-1.5">
+                              <div className="flex items-start justify-between gap-2">
+                                <label className="text-[10px] uppercase font-bold text-neutral-500 dark:text-neutral-400 tracking-wider">
+                                  Part / Zone Name (Ipapakita sa client tab)
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveWalkthrough(vid.id)}
+                                  className="text-neutral-400 hover:text-rose-500 p-1 rounded hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors"
+                                  title="Remove this video"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+
+                              <input
+                                type="text"
+                                value={vid.title}
+                                onChange={(e) => handleUpdateWalkthroughTitle(vid.id, e.target.value)}
+                                placeholder="hal. Ground Living & Dining"
+                                className="w-full px-3 py-1.5 rounded-[6px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-sans text-xs focus:outline-none focus:border-amber-500"
+                              />
+
+                              <p className="text-[10px] text-neutral-400 truncate font-mono">
+                                {vid.name} {vid.size ? `• ${(vid.size / (1024 * 1024)).toFixed(1)} MB` : ""}
+                              </p>
+                            </div>
+
+                            {/* Status & Progress */}
+                            <div>
+                              {vid.isUploading ? (
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between text-[10.5px]">
+                                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      <span>
+                                        {vid.uploadProgress < 100
+                                          ? "Uploading to Cloud Storage..."
+                                          : "Finalizing stream..."}
+                                      </span>
+                                    </span>
+                                    <span className="font-bold text-neutral-900 dark:text-white">
+                                      {vid.uploadProgress}%
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-1.5 rounded-full bg-neutral-200 dark:bg-white/10 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-200"
+                                      style={{ width: `${vid.uploadProgress}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ) : vid.error ? (
+                                <div className="text-[10.5px] text-rose-500 flex items-center gap-1">
+                                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                  <span>{vid.error}</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5 text-[10.5px] text-emerald-500 font-semibold">
+                                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                                  <span>Video Attached &amp; Streaming Ready</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const file = e.dataTransfer.files?.[0];
-                        if (file) handleVideoFileSelect(file);
-                      }}
-                      onClick={() => videoFileInputRef.current?.click()}
-                      className="w-full p-8 rounded-[8px] border-2 border-dashed border-neutral-300 dark:border-white/15 hover:border-amber-500/60 dark:hover:border-amber-500/60 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-colors text-center group"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform">
-                        <FileVideo className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
-                          Click to select or drag &amp; drop 3D Walk-Around Video
-                        </p>
-                        <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
-                          MP4, WebM, MOV (Recommended up to 150MB)
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
+
+                  {/* Add more videos dashed drop strip */}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (e.dataTransfer.files) handleWalkthroughFilesSelect(e.dataTransfer.files);
+                    }}
+                    onClick={() => walkthroughFileInputRef.current?.click()}
+                    className="p-3.5 rounded-[8px] border-2 border-dashed border-neutral-300 dark:border-white/15 hover:border-amber-500/60 dark:hover:border-amber-500/60 bg-neutral-50/50 dark:bg-white/[0.02] flex items-center justify-center gap-2 cursor-pointer transition-colors text-center text-xs font-semibold text-neutral-600 dark:text-neutral-300"
+                  >
+                    <Plus className="w-4 h-4 text-amber-500" />
+                    <span>+ Add More Walk-Around Videos</span>
+                  </div>
                 </div>
               )}
 
-              {/* Upload Progress Animation (0% - 100%) */}
-              {isUploadingVideo && (
-                <div className="p-3.5 rounded-[8px] bg-amber-500/10 border border-amber-500/20 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold">
-                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>
-                        {videoUploadProgress < 100
-                          ? "Uploading Video to Cloud Storage..."
-                          : "Finalizing & Syncing Video Stream..."}
-                      </span>
-                    </span>
-                    <span className="text-neutral-900 dark:text-white font-mono font-bold text-sm">
-                      {videoUploadProgress}%
-                    </span>
-                  </div>
-
-                  {/* Progress Bar Container with Gradient & Shimmer */}
-                  <div className="w-full h-2.5 rounded-full bg-neutral-200 dark:bg-white/10 overflow-hidden relative">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 transition-all duration-200 ease-out relative"
-                      style={{ width: `${videoUploadProgress}%` }}
-                    >
-                      <div className="absolute inset-0 bg-white/25 animate-pulse" />
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">
-                    {videoFile?.name ? `${videoFile.name} • ${(videoFile.size / (1024 * 1024)).toFixed(1)} MB` : "Streaming video file..."}
-                  </p>
-                </div>
-              )}
-
-              {/* Friendly Error Message for Non-IT users */}
-              {videoUploadError && (
+              {/* Error Alert */}
+              {walkthroughUploadError && (
                 <div className="p-3 rounded-[8px] bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
                   <div className="space-y-0.5">
                     <p className="font-bold text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400">
                       Paunawa sa Pag-Upload
                     </p>
-                    <p className="text-[11.5px] leading-relaxed font-sans">{videoUploadError}</p>
+                    <p className="text-[11.5px] leading-relaxed font-sans">{walkthroughUploadError}</p>
                   </div>
                 </div>
               )}
 
-              {/* Success Confirmation Badge */}
-              {videoUploadedSuccessfully && !isUploadingVideo && (
-                <div className="p-2.5 rounded-[6px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                  <span>Matagumpay na nai-upload ang video! Pindutin ang "Publish Walkthrough" upang mai-publish sa portal.</span>
-                </div>
-              )}
+              {/* Footer */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-neutral-100 dark:border-white/5">
+                <span className="text-[11px] text-neutral-400 font-mono">
+                  {walkthroughVideos.filter((v) => v.url && !v.error).length} of {walkthroughVideos.length} video(s) ready to stream
+                </span>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={resetVideoModal}
-                  className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingVideo || isUploadingVideo || (!videoUrl && !videoPreview)}
-                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
-                >
-                  {isSavingVideo ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Publishing...</span>
-                    </>
-                  ) : isUploadingVideo ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Uploading ({videoUploadProgress}%)...</span>
-                    </>
-                  ) : (
-                    <span>Publish Walkthrough</span>
-                  )}
-                </button>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={resetVideoModal}
+                    className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={
+                      isSavingWalkthrough ||
+                      walkthroughVideos.some((v) => v.isUploading) ||
+                      walkthroughVideos.filter((v) => v.url && !v.error).length === 0
+                    }
+                    className="px-4 py-2 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                  >
+                    {isSavingWalkthrough ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Publishing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>
+                          {walkthroughVideos.length > 1
+                            ? `Publish ${walkthroughVideos.length} Walkthrough Videos`
+                            : "Publish Walkthrough"}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

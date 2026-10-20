@@ -1165,20 +1165,31 @@ export default function AdminPage() {
     }
   };
 
-  const handleUpdateVirtualTour = async (tourUrl) => {
+  const handleUpdateVirtualTour = async (tourData) => {
     try {
       if (!siteProject?.project_code) return { success: false, message: "No project selected." };
+      const payload =
+        typeof tourData === "string"
+          ? { projectCode: siteProject.project_code, virtualTourUrl: tourData }
+          : { projectCode: siteProject.project_code, ...tourData };
+
       const res = await authFetch("/api/construction/virtual-tour", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectCode: siteProject.project_code,
-          virtualTourUrl: tourUrl,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
-        setSiteProject((prev) => (prev ? { ...prev, virtual_tour_url: tourUrl } : prev));
+        setSiteProject((prev) => {
+          if (!prev) return prev;
+          const updatedSingle = data.project?.virtual_tour_url || (typeof tourData === "string" ? tourData : tourData.virtualTourUrl);
+          const updatedArray = data.project?.virtual_tour_urls || (typeof tourData === "object" ? tourData.virtualTourUrls : prev.virtual_tour_urls);
+          return {
+            ...prev,
+            virtual_tour_url: updatedSingle,
+            virtual_tour_urls: updatedArray,
+          };
+        });
         return { success: true };
       }
       return { success: false, message: data.message };
