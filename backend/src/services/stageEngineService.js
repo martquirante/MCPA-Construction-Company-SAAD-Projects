@@ -1565,13 +1565,14 @@ class StageEngineService {
     try {
       const projectRes = await db.query(
         `SELECT cp.client_project_id, cp.project_code, cp.project_title, cp.project_type, 
-                COALESCE(cp.target_location, cp.location) AS location, 
-                cp.lot_area, cp.floor_area, cp.storeys, cp.current_stage,
-                COALESCE(u.full_name, cp.client_name, 'Client') AS client_name,
-                COALESCE(u.email, cp.client_email, 'client@mcpa.com') AS client_email,
-                cp.client_phone
+                COALESCE(cp.target_location, cb.location) AS location, 
+                cb.lot_area, cb.storeys, cp.stage_id AS current_stage,
+                COALESCE(u.full_name, cb.client_name, 'Client') AS client_name,
+                COALESCE(u.email, cb.client_email, 'client@mcpa.com') AS client_email,
+                cb.client_phone
          FROM public.client_projects cp
          LEFT JOIN public.users u ON cp.user_id = u.user_id
+         LEFT JOIN public.client_briefs cb ON cp.brief_id = cb.brief_id
          WHERE cp.client_project_id = $1
          LIMIT 1;`,
         [contract.client_project_id]

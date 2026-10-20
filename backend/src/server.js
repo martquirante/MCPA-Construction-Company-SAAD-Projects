@@ -142,20 +142,78 @@ app.get("/api/health", async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// WEBRTC ICE SERVERS (STUN & TURN RELAY CONFIGURATION)
+// WEBRTC ICE SERVERS (CLOUDFLARE CALLS + METERED TURN CONFIGURATION)
 // -----------------------------------------------------------------------------
+let cloudflareTurnCache = {
+  expiresAt: 0,
+  servers: [],
+};
+
 let dynamicTurnCache = {
   expiresAt: 0,
   servers: [],
 };
 
 app.get("/api/webrtc/ice-servers", async (req, res) => {
+  const cfTurnKeyId = process.env.CLOUDFLARE_TURN_KEY_ID || "";
+  const cfTurnApiToken = process.env.CLOUDFLARE_TURN_KEY_API_TOKEN || "";
+  const now = Date.now();
+
+  // 1. Primary Enterprise WebRTC: Cloudflare Calls Realtime Edge TURN (1,000 GB/month, MNL/CEB Edge)
+  if (cfTurnKeyId && cfTurnApiToken) {
+    if (cloudflareTurnCache.expiresAt > now && cloudflareTurnCache.servers.length > 0) {
+      return res.json({
+        success: true,
+        iceServers: cloudflareTurnCache.servers,
+        source: "cloudflare-calls-cached",
+      });
+    }
+
+    try {
+      const cfRes = await fetch(
+        `https://rtc.live.cloudflare.com/v1/turn/keys/${cfTurnKeyId}/credentials/generate-ice-servers`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${cfTurnApiToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ttl: 86400 }),
+        }
+      );
+
+      if (cfRes.ok) {
+        const cfData = await cfRes.json();
+        if (cfData && Array.isArray(cfData.iceServers) && cfData.iceServers.length > 0) {
+          const combinedCfServers = [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            ...cfData.iceServers,
+          ];
+          cloudflareTurnCache = {
+            expiresAt: now + 12 * 60 * 60 * 1000, // Cache for 12 hours
+            servers: combinedCfServers,
+          };
+          return res.json({
+            success: true,
+            iceServers: combinedCfServers,
+            source: "cloudflare-calls",
+          });
+        }
+      } else {
+        const errText = await cfRes.text();
+        console.warn("[WEBRTC] Cloudflare Calls credential generation returned non-200:", cfRes.status, errText);
+      }
+    } catch (cfErr) {
+      console.warn("[WEBRTC] Cloudflare Calls error, failing over to secondary relay:", cfErr?.message || cfErr);
+    }
+  }
+
   const meteredApiKey = process.env.METERED_API_KEY || "";
   const meteredAppName = process.env.METERED_APP_NAME || "";
 
-  // 1. Dynamic ephemeral TURN credentials via Metered REST API if API Key is configured
+  // 2. Secondary WebRTC: Dynamic ephemeral TURN credentials via Metered REST API
   if (meteredApiKey && meteredAppName) {
-    const now = Date.now();
     if (dynamicTurnCache.expiresAt > now && dynamicTurnCache.servers.length > 0) {
       return res.json({
         success: true,
@@ -193,7 +251,7 @@ app.get("/api/webrtc/ice-servers", async (req, res) => {
     }
   }
 
-  // 2. Static username/password credentials configuration
+  // 3. Tertiary: Static username/password credentials configuration
   const turnUsername =
     process.env.METERED_TURN_USERNAME ||
     process.env.NEXT_PUBLIC_METERED_TURN_USERNAME ||

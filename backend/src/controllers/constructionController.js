@@ -359,12 +359,12 @@ class ConstructionController {
           cp.project_code,
           cp.project_title,
           cp.project_type,
-          COALESCE(cp.target_location, cp.location) AS target_location,
-          COALESCE(cp.stage_id, cp.current_stage) AS stage_id,
+          COALESCE(cp.target_location, sp.location) AS target_location,
+          cp.stage_id,
           cp.created_at,
           u.user_id,
-          COALESCE(u.full_name, cp.client_name, 'Client') AS client_name,
-          COALESCE(u.email, cp.client_email, 'No email') AS client_email,
+          COALESCE(u.full_name, sp.client_name, 'Client') AS client_name,
+          COALESCE(u.email, sp.client_email, 'No email') AS client_email,
           u.avatar_url,
           sp.project_id AS site_project_id,
           COALESCE(sp.progress_pct, 0) AS progress_pct,
@@ -376,8 +376,8 @@ class ConstructionController {
           sp.revised_turnover
         FROM public.client_projects cp
         LEFT JOIN public.users u ON cp.user_id = u.user_id
-        LEFT JOIN public.site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
-        WHERE (cp.stage_id = 'ACTIVE_BUILD' OR cp.current_stage = 'ACTIVE_BUILD') AND cp.is_archived = FALSE
+        LEFT JOIN public.site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id OR sp.project_code = cp.site_project_code
+        WHERE cp.stage_id = 'ACTIVE_BUILD' AND (cp.is_archived IS FALSE OR cp.is_archived IS NULL)
         ORDER BY cp.client_project_id DESC`
       );
 

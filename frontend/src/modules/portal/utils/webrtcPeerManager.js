@@ -13,15 +13,31 @@ import { getSignalingServerUrl } from "./signalingUrl.js";
 let cachedDynamicIceServers = null;
 
 /**
- * Dynamically fetches ICE servers from the Azure backend API (/api/webrtc/ice-servers).
- * This ensures that even if Vercel environment variables are missing, the browser
- * automatically receives the production Metered TURN relay credentials from Azure.
+ * Dynamically fetches ICE servers from Next.js API (/api/webrtc/ice-servers)
+ * or Azure backend API (${serverUrl}/api/webrtc/ice-servers).
+ * Returns fresh Cloudflare Calls Realtime Edge TURN credentials.
  */
 export const fetchIceServers = async () => {
   if (cachedDynamicIceServers && cachedDynamicIceServers.length > 0) {
     return cachedDynamicIceServers;
   }
 
+  // 1. Try local Next.js API route first (fastest, same-origin, edge-cached)
+  try {
+    const res = await fetch("/api/webrtc/ice-servers");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.iceServers && data.iceServers.length > 0) {
+        cachedDynamicIceServers = data.iceServers;
+        console.log("[WEBRTC] Successfully fetched ICE servers from Next.js API:", data.iceServers.length, data.source);
+        return cachedDynamicIceServers;
+      }
+    }
+  } catch (err) {
+    // Next.js route not reachable, continue to backend
+  }
+
+  // 2. Try Azure backend API endpoint
   try {
     const serverUrl = getSignalingServerUrl();
     const endpoint = `${serverUrl}/api/webrtc/ice-servers`;
@@ -30,7 +46,7 @@ export const fetchIceServers = async () => {
       const data = await res.json();
       if (data.iceServers && data.iceServers.length > 0) {
         cachedDynamicIceServers = data.iceServers;
-        console.log("[WEBRTC] Successfully fetched ICE servers from Azure backend:", data.iceServers.length);
+        console.log("[WEBRTC] Successfully fetched ICE servers from Azure backend:", data.iceServers.length, data.source);
         return cachedDynamicIceServers;
       }
     }
