@@ -30,6 +30,7 @@ export default function WeatherAtmosphericCard({
   weatherData,
   project,
   onPreFillWeatherNotice,
+  isPreFilled = false,
   isLoading = false,
 }) {
   const current = weatherData?.current;
@@ -277,11 +278,24 @@ export default function WeatherAtmosphericCard({
             <button
               type="button"
               onClick={onPreFillWeatherNotice}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-rose-500/90 hover:bg-rose-600 active:scale-[0.98] text-white font-mono font-bold text-xs shadow-lg backdrop-blur-md border border-rose-400/30 transition-all cursor-pointer shrink-0"
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] font-mono font-bold text-xs shadow-lg backdrop-blur-md border transition-all cursor-pointer shrink-0 active:scale-[0.98] ${
+                isPreFilled
+                  ? "bg-emerald-600 border-emerald-400 text-white shadow-emerald-500/20"
+                  : "bg-rose-500/90 hover:bg-rose-600 text-white border-rose-400/30"
+              }`}
               title="Pre-populate the delay schedule form below with this weather alert"
             >
-              <Zap className="w-3.5 h-3.5" />
-              <span>Pre-Fill Weather Delay Notice</span>
+              {isPreFilled ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200 animate-bounce" />
+                  <span>✓ Notice Pre-Filled to Form!</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Pre-Fill Weather Delay Notice</span>
+                </>
+              )}
             </button>
           )}
         </div>

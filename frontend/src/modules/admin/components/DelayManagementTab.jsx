@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Calendar,
   AlertTriangle,
@@ -29,6 +29,8 @@ export default function DelayManagementTab({
   const [daysDelayed, setDaysDelayed] = useState("1");
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreFilledNotice, setIsPreFilledNotice] = useState(false);
+  const delayFormRef = useRef(null);
 
   // Weather Telemetry
   const [weatherData, setWeatherData] = useState(null);
@@ -162,7 +164,14 @@ export default function DelayManagementTab({
     setReason(
       `Official Weather Advisory: Site inspection and outdoor concrete pouring operations paused due to forecasted ${tomorrow?.condition || "heavy rain"} (Rain Probability: ${tomorrow?.rainProbability || "60%"}). Critical path milestone shifted by 1 day for structural safety.`
     );
-    if (showToast) showToast("Weather notice pre-filled. Review and click 'Publish Delay Advisory'.");
+    setIsPreFilledNotice(true);
+    setTimeout(() => setIsPreFilledNotice(false), 2500);
+
+    // Smooth scroll directly to the form below
+    if (delayFormRef.current) {
+      delayFormRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    if (showToast) showToast("Weather notice pre-filled into delay form below!");
   };
 
   const advisory = weatherData?.advisory;
@@ -196,6 +205,7 @@ export default function DelayManagementTab({
             weatherData={weatherData}
             project={project}
             onPreFillWeatherNotice={handlePreFillWeatherNotice}
+            isPreFilled={isPreFilledNotice}
             isLoading={isLoadingWeather}
           />
 
@@ -233,7 +243,15 @@ export default function DelayManagementTab({
             </div>
 
             {/* Log Delay Event Form */}
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs font-mono">
+            <form
+              ref={delayFormRef}
+              onSubmit={handleSubmit}
+              className={`space-y-4 text-xs font-mono rounded-[8px] transition-all duration-300 ${
+                isPreFilledNotice
+                  ? "ring-2 ring-amber-500/70 p-3 bg-amber-500/[0.04]"
+                  : ""
+              }`}
+            >
               <h4 className="text-xs font-bold uppercase text-neutral-900 dark:text-white font-mono">
                 Log Schedule Delay Event &amp; Dispatch Client Advisory
               </h4>
