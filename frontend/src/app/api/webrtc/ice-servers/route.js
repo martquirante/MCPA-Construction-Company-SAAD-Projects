@@ -59,7 +59,31 @@ export async function GET() {
     }
   }
 
-  // 2. Fallback: Google & Twilio STUN
+  // 2. Proxy to Azure backend which already holds the active Cloudflare TURN configuration
+  try {
+    const azureBackendUrl = "https://mcpa-backend-gvcjbnh7dragbtc4.japaneast-01.azurewebsites.net";
+    const azureRes = await fetch(`${azureBackendUrl}/api/webrtc/ice-servers`, {
+      cache: "no-store",
+    });
+    if (azureRes.ok) {
+      const azureData = await azureRes.json();
+      const hasTurn =
+        azureData &&
+        Array.isArray(azureData.iceServers) &&
+        azureData.iceServers.some((s) => {
+          const urls = Array.isArray(s?.urls) ? s.urls : [s?.urls];
+          return urls.some((u) => typeof u === "string" && (u.startsWith("turn:") || u.startsWith("turns:")));
+        });
+
+      if (hasTurn) {
+        return NextResponse.json(azureData);
+      }
+    }
+  } catch (azureErr) {
+    console.warn("[WEBRTC API] Failed to proxy from Azure backend:", azureErr?.message || azureErr);
+  }
+
+  // 3. Fallback: Google & Twilio STUN
   const fallbackServers = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },

@@ -12,13 +12,22 @@ import { getSignalingServerUrl } from "./signalingUrl.js";
 
 let cachedDynamicIceServers = null;
 
+const hasTurnServer = (servers) => {
+  if (!Array.isArray(servers)) return false;
+  return servers.some((s) => {
+    if (!s) return false;
+    const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+    return urls.some((u) => typeof u === "string" && (u.startsWith("turn:") || u.startsWith("turns:")));
+  });
+};
+
 /**
  * Dynamically fetches ICE servers from Next.js API (/api/webrtc/ice-servers)
  * or Azure backend API (${serverUrl}/api/webrtc/ice-servers).
  * Returns fresh Cloudflare Calls Realtime Edge TURN credentials.
  */
 export const fetchIceServers = async () => {
-  if (cachedDynamicIceServers && cachedDynamicIceServers.length > 0) {
+  if (cachedDynamicIceServers && cachedDynamicIceServers.length > 0 && hasTurnServer(cachedDynamicIceServers)) {
     return cachedDynamicIceServers;
   }
 
@@ -27,9 +36,9 @@ export const fetchIceServers = async () => {
     const res = await fetch("/api/webrtc/ice-servers");
     if (res.ok) {
       const data = await res.json();
-      if (data.iceServers && data.iceServers.length > 0) {
+      if (data.iceServers && data.iceServers.length > 0 && hasTurnServer(data.iceServers)) {
         cachedDynamicIceServers = data.iceServers;
-        console.log("[WEBRTC] Successfully fetched ICE servers from Next.js API:", data.iceServers.length, data.source);
+        console.log("[WEBRTC] Successfully fetched TURN ICE servers from Next.js API:", data.iceServers.length, data.source);
         return cachedDynamicIceServers;
       }
     }
@@ -37,16 +46,16 @@ export const fetchIceServers = async () => {
     // Next.js route not reachable, continue to backend
   }
 
-  // 2. Try Azure backend API endpoint
+  // 2. Try Azure backend API endpoint (holds live Cloudflare Calls TURN credentials)
   try {
     const serverUrl = getSignalingServerUrl();
     const endpoint = `${serverUrl}/api/webrtc/ice-servers`;
     const res = await fetch(endpoint);
     if (res.ok) {
       const data = await res.json();
-      if (data.iceServers && data.iceServers.length > 0) {
+      if (data.iceServers && data.iceServers.length > 0 && hasTurnServer(data.iceServers)) {
         cachedDynamicIceServers = data.iceServers;
-        console.log("[WEBRTC] Successfully fetched ICE servers from Azure backend:", data.iceServers.length, data.source);
+        console.log("[WEBRTC] Successfully fetched TURN ICE servers from Azure backend:", data.iceServers.length, data.source);
         return cachedDynamicIceServers;
       }
     }
@@ -719,6 +728,19 @@ export class WebRTCPeerManager {
     try {
       peer.makingOffer = true;
 
+      // Ensure fresh Cloudflare TURN servers are applied to peer before offer generation
+      try {
+        const servers = await fetchIceServers();
+        if (servers && servers.length > 0 && peer.pc && typeof peer.pc.setConfiguration === "function") {
+          peer.pc.setConfiguration({
+            iceServers: servers,
+            iceCandidatePoolSize: 10,
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+          });
+        }
+      } catch (e) {}
+
       const transceivers = typeof peer.pc.getTransceivers === "function" ? peer.pc.getTransceivers() : [];
       transceivers.forEach((t) => {
         if (!t.stopped && t.direction !== "stopped") {
@@ -815,6 +837,19 @@ export class WebRTCPeerManager {
           await peer.pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (e) {}
       }
+
+      // Ensure fresh Cloudflare TURN servers are applied to peer before answer generation
+      try {
+        const servers = await fetchIceServers();
+        if (servers && servers.length > 0 && peer.pc && typeof peer.pc.setConfiguration === "function") {
+          peer.pc.setConfiguration({
+            iceServers: servers,
+            iceCandidatePoolSize: 10,
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+          });
+        }
+      } catch (e) {}
 
       const answer = await peer.pc.createAnswer();
       const tunedAnswer = new RTCSessionDescription({
