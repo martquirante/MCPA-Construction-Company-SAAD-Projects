@@ -361,13 +361,14 @@ export class WebRTCPeerManager {
     pc.oniceconnectionstatechange = () => {
       const iceState = pc.iceConnectionState;
       console.log(`[WEBRTC MESH] ICE connection state with peer ${socketId}: ${iceState}`);
-      if (iceState === "failed") {
-        this.handleConnectionFailure(socketId);
-      } else if (iceState === "disconnected") {
-        this.scheduleIceRecovery(socketId, 2800);
-      } else if (iceState === "connected" || iceState === "completed") {
+      if (iceState === "connected" || iceState === "completed") {
         this.clearIceRecovery(socketId);
         peerObj.iceRestartCount = 0;
+        peerObj.isRestartingIce = false;
+      } else if (iceState === "failed") {
+        this.handleConnectionFailure(socketId);
+      } else if (iceState === "disconnected") {
+        this.scheduleIceRecovery(socketId, 8000);
       }
     };
 
@@ -375,13 +376,14 @@ export class WebRTCPeerManager {
     pc.onconnectionstatechange = () => {
       const state = pc.connectionState;
       console.log(`[WEBRTC MESH] Connection state with peer ${socketId}: ${state}`);
-      if (state === "failed") {
-        this.handleConnectionFailure(socketId);
-      } else if (state === "disconnected") {
-        this.scheduleIceRecovery(socketId, 2800);
-      } else if (state === "connected") {
+      if (state === "connected") {
         this.clearIceRecovery(socketId);
         peerObj.iceRestartCount = 0;
+        peerObj.isRestartingIce = false;
+      } else if (state === "failed") {
+        this.handleConnectionFailure(socketId);
+      } else if (state === "disconnected") {
+        this.scheduleIceRecovery(socketId, 8000);
       }
       this.onConnectionStateChange(state, socketId);
       this.notifyPeersChange();
@@ -397,16 +399,29 @@ export class WebRTCPeerManager {
    * @param {string} socketId 
    * @param {number} delayMs 
    */
-  scheduleIceRecovery(socketId, delayMs = 2800) {
+  scheduleIceRecovery(socketId, delayMs = 8000) {
     const peer = this.peers.get(socketId);
-    if (!peer) return;
+    if (!peer || peer.isRestartingIce) return;
     if (peer.iceRecoveryTimer) clearTimeout(peer.iceRecoveryTimer);
 
     peer.iceRecoveryTimer = setTimeout(async () => {
       peer.iceRecoveryTimer = null;
       if (!this.peers.has(socketId)) return;
       const curPc = peer.pc;
-      if (!curPc) return;
+      if (!curPc || peer.isRestartingIce) return;
+
+      // Do NOT interrupt if connection is currently in the middle of connecting/checking or already connected
+      if (
+        curPc.iceConnectionState === "checking" ||
+        curPc.connectionState === "connecting" ||
+        curPc.iceConnectionState === "connected" ||
+        curPc.connectionState === "connected"
+      ) {
+        return;
+      }
+
+      // Only the initiator triggers ICE restart to avoid simultaneous dual-offer collisions
+      if (!peer.isInitiator) return;
 
       const isBroken =
         curPc.iceConnectionState === "disconnected" ||
@@ -415,7 +430,7 @@ export class WebRTCPeerManager {
         curPc.connectionState === "failed";
 
       if (isBroken) {
-        console.warn(`[WEBRTC MESH] Peer ${socketId} connection dropped/stalled. Initiating automatic ICE restart...`);
+        console.warn(`[WEBRTC MESH] Peer ${socketId} connection dropped. Initiating automatic ICE restart...`);
         await this.restartIce(socketId);
       }
     }, delayMs);
@@ -442,6 +457,12 @@ export class WebRTCPeerManager {
     if (!peer) return;
     this.clearIceRecovery(socketId);
 
+    // Only the initiator triggers the recovery attempt to prevent dual-offer collision
+    if (!peer.isInitiator) {
+      console.log(`[WEBRTC MESH] Answerer peer ${socketId} waiting for initiator ICE restart...`);
+      return;
+    }
+
     peer.iceRestartCount = (peer.iceRestartCount || 0) + 1;
     if (peer.iceRestartCount <= 3) {
       console.warn(`[WEBRTC MESH] Connection failed with ${socketId}. Attempting ICE Restart (attempt ${peer.iceRestartCount}/3)...`);
@@ -459,11 +480,18 @@ export class WebRTCPeerManager {
    */
   async restartIce(targetSocketId) {
     const peer = this.peers.get(targetSocketId);
-    if (!peer || !peer.pc || peer.pc.signalingState === "closed") return;
+    if (!peer || !peer.pc || peer.pc.signalingState === "closed" || peer.isRestartingIce) return;
 
     try {
       peer.isRestartingIce = true;
       peer.makingOffer = true;
+
+      // Safety timeout to reset isRestartingIce flag after 12s if handshake stalls
+      setTimeout(() => {
+        if (peer && peer.isRestartingIce) {
+          peer.isRestartingIce = false;
+        }
+      }, 12000);
 
       // Ensure fresh TURN relay configuration is set
       try {
@@ -513,9 +541,9 @@ export class WebRTCPeerManager {
       });
     } catch (err) {
       console.error(`[WEBRTC MESH] Failed ICE restart for peer ${targetSocketId}:`, err);
+      peer.isRestartingIce = false;
     } finally {
       peer.makingOffer = false;
-      peer.isRestartingIce = false;
     }
   }
 
@@ -816,6 +844,8 @@ export class WebRTCPeerManager {
         return;
       }
       await peer.pc.setRemoteDescription(new RTCSessionDescription(sdpAnswer));
+      peer.isRestartingIce = false;
+      this.clearIceRecovery(peer.socketId);
 
       while (peer.pendingCandidates.length > 0) {
         const candidate = peer.pendingCandidates.shift();
