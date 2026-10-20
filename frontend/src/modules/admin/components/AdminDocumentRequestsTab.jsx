@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
 import {
   FileText,
@@ -175,33 +175,74 @@ export default function AdminDocumentRequestsTab({
         if (Array.isArray(data?.clients)) {
           setDbClients(data.clients);
         }
-        if (Array.isArray(data?.requests)) {
-          const formatted = data.requests.map((r) => ({
-            id: r.request_id || r.id,
-            requestId: r.request_id,
-            projectId: r.client_project_id,
-            title: r.title,
-            category: r.category,
-            urgency: r.urgency,
-            note: r.instructions || r.note,
-            status: r.status,
-            clientName: r.client_name,
-            clientEmail: r.client_email,
-            clientAvatar: r.client_avatar,
-            projectCode: r.project_code,
-            projectType: r.project_type,
-            requestedBy: r.requester_name || "Admin",
-            requestedAt: r.created_at,
-            file: r.file_url ? {
-              fileName: r.file_name,
-              fileSize: r.file_size_bytes,
-              fileUrl: r.file_url,
-              uploadedAt: r.uploaded_at,
-            } : null,
-          }));
-          setRequests(formatted);
-          saveDocumentRequests(formatted);
-        }
+        const formattedRequests = Array.isArray(data?.requests)
+          ? data.requests.map((r) => ({
+              id: r.request_id || r.id,
+              requestId: r.request_id,
+              projectId: r.client_project_id,
+              title: r.title,
+              category: r.category,
+              urgency: r.urgency,
+              note: r.instructions || r.note,
+              status: r.status,
+              clientName: r.client_name,
+              clientEmail: r.client_email,
+              clientAvatar: r.client_avatar,
+              projectCode: r.project_code,
+              projectType: r.project_type,
+              requestedBy: r.requester_name || "Admin",
+              requestedAt: r.created_at,
+              file: r.file_url
+                ? {
+                    fileName: r.file_name,
+                    fileSize: r.file_size_bytes,
+                    fileUrl: r.file_url,
+                    uploadedAt: r.uploaded_at,
+                  }
+                : null,
+            }))
+          : [];
+
+        const existingUrls = new Set(
+          formattedRequests.filter((r) => r.file?.fileUrl).map((r) => r.file.fileUrl)
+        );
+
+        const formattedDocs = Array.isArray(data?.documents)
+          ? data.documents
+              .filter((d) => d.file_url && !existingUrls.has(d.file_url))
+              .map((d) => ({
+                id: `doc-${d.doc_id}`,
+                docId: d.doc_id,
+                projectId: d.client_project_id,
+                title: d.file_name,
+                category: d.doc_type || "Client Uploaded Document",
+                urgency: "Uploaded File",
+                note: d.notes || "Uploaded via Client Document Vault",
+                status:
+                  d.verification_status === "Verified"
+                    ? "verified"
+                    : d.verification_status === "Rejected"
+                    ? "rejected"
+                    : "uploaded",
+                clientName: d.client_name,
+                clientEmail: d.client_email,
+                clientAvatar: d.client_avatar,
+                projectCode: d.project_code,
+                projectType: d.project_type,
+                requestedBy: d.uploader_name || "Client",
+                requestedAt: d.created_at,
+                file: {
+                  fileName: d.file_name,
+                  fileSize: d.file_size_bytes,
+                  fileUrl: d.file_url,
+                  uploadedAt: d.created_at,
+                },
+              }))
+          : [];
+
+        const combinedRequests = [...formattedRequests, ...formattedDocs];
+        setRequests(combinedRequests);
+        saveDocumentRequests(combinedRequests);
         if (Array.isArray(data?.transmittals)) {
           const formattedTxs = data.transmittals.map((t) => ({
             id: t.transmittal_id || t.id,
@@ -663,9 +704,13 @@ export default function AdminDocumentRequestsTab({
     setRequests(updated);
     saveDocumentRequests(updated);
 
-    if (req?.file?.fileUrl || req?.requestId) {
+    const docId = req?.docId || (typeof req?.id === "string" && req.id.startsWith("doc-") ? parseInt(req.id.replace("doc-", ""), 10) : null);
+    const backendReqId = req?.requestId || (typeof requestId === "number" ? requestId : null);
+    const verifyTarget = docId || backendReqId;
+
+    if (verifyTarget) {
       try {
-        await authFetch(`/api/admin/documents/${req?.requestId || requestId}/verify`, {
+        await authFetch(`/api/admin/documents/${verifyTarget}/verify`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: "Verified" }),
@@ -683,18 +728,28 @@ export default function AdminDocumentRequestsTab({
     fetchOverview();
   };
 
-  // Delete Request
+  // Delete Request or Uploaded Document
   const handleDeleteRequest = async (requestId) => {
-    if (!confirm("Are you sure you want to delete this document request?")) return;
+    if (!confirm("Are you sure you want to remove this document record?")) return;
     const req = requests.find((r) => r.id === requestId);
     const updated = requests.filter((r) => r.id !== requestId);
     setRequests(updated);
     saveDocumentRequests(updated);
 
-    const backendId = req?.requestId || (typeof requestId === "number" ? requestId : null);
-    if (backendId) {
+    const docId = req?.docId || (typeof req?.id === "string" && req.id.startsWith("doc-") ? parseInt(req.id.replace("doc-", ""), 10) : null);
+    const backendReqId = req?.requestId || (typeof requestId === "number" ? requestId : null);
+
+    if (docId) {
       try {
-        await authFetch(`/api/admin/documents/requests/${backendId}`, {
+        await authFetch(`/api/admin/documents/${docId}`, {
+          method: "DELETE",
+        });
+      } catch (err) {
+        console.warn("Backend delete document:", err);
+      }
+    } else if (backendReqId) {
+      try {
+        await authFetch(`/api/admin/documents/requests/${backendReqId}`, {
           method: "DELETE",
         });
       } catch (err) {
@@ -705,7 +760,8 @@ export default function AdminDocumentRequestsTab({
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("mcpa-document-requests-updated", { detail: { requests: updated } }));
     }
-    showToast?.("Document request has been removed.");
+    showToast?.("Document record has been removed.");
+    fetchOverview();
   };
 
   // Delete Transmittal

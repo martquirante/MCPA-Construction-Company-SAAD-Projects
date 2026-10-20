@@ -211,6 +211,14 @@ export function formatDocDate(isoDateStr) {
   }
 }
 
+export function isDummyDocumentItem(item) {
+  if (!item) return true;
+  if (LEGACY_DUMMY_IDS.has(item.id)) return true;
+  if (typeof item.id === "string" && (item.id.startsWith("mock-") || item.id.startsWith("dummy-") || item.id === "req-1" || item.id === "req-2")) return true;
+  if (item.isMock || item.isDummy) return true;
+  return false;
+}
+
 /**
  * Loads Document Requests from LocalStorage without dummy seed data
  */
@@ -222,7 +230,7 @@ export function loadDocumentRequests() {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
         // Purge any legacy dummy records that may be stuck in the browser
-        const clean = parsed.filter((item) => item && !LEGACY_DUMMY_IDS.has(item.id));
+        const clean = parsed.filter((item) => !isDummyDocumentItem(item));
         if (clean.length !== parsed.length) {
           localStorage.setItem("mcpa_document_requests", JSON.stringify(clean));
         }
@@ -243,7 +251,7 @@ export function saveDocumentRequests(requests) {
   if (typeof window === "undefined") return;
   try {
     const clean = Array.isArray(requests)
-      ? requests.filter((item) => item && !LEGACY_DUMMY_IDS.has(item.id))
+      ? requests.filter((item) => !isDummyDocumentItem(item))
       : [];
     localStorage.setItem("mcpa_document_requests", JSON.stringify(clean));
     window.dispatchEvent(
@@ -267,7 +275,7 @@ export function loadAdminTransmittals() {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
         // Purge any legacy dummy transmittal records
-        const clean = parsed.filter((item) => item && !LEGACY_DUMMY_IDS.has(item.id));
+        const clean = parsed.filter((item) => !isDummyDocumentItem(item));
         if (clean.length !== parsed.length) {
           localStorage.setItem("mcpa_admin_transmittals", JSON.stringify(clean));
         }
@@ -288,7 +296,7 @@ export function saveAdminTransmittals(transmittals) {
   if (typeof window === "undefined") return;
   try {
     const clean = Array.isArray(transmittals)
-      ? transmittals.filter((item) => item && !LEGACY_DUMMY_IDS.has(item.id))
+      ? transmittals.filter((item) => !isDummyDocumentItem(item))
       : [];
     localStorage.setItem("mcpa_admin_transmittals", JSON.stringify(clean));
     window.dispatchEvent(

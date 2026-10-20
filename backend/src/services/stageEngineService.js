@@ -710,14 +710,14 @@ class StageEngineService {
    * DOCUMENT VAULT: Admin Verification
    */
   async verifyProjectDocument({ docId, adminUserId, status, notes = null }) {
-    const res = await db.query(
+    let res = await db.query(
       `UPDATE public.project_documents 
        SET verification_status = $1, verified_by = $2, verified_at = NOW(), notes = COALESCE($3, notes)
        WHERE doc_id = $4
        RETURNING *;`,
       [status, adminUserId, notes, docId]
     );
-    const verifiedDoc = res.rows[0];
+    let verifiedDoc = res.rows[0];
     if (verifiedDoc && verifiedDoc.file_url) {
       await db.query(
         `UPDATE public.project_document_requests 
@@ -726,7 +726,32 @@ class StageEngineService {
         [status === 'Verified' ? 'verified' : status === 'Rejected' ? 'rejected' : 'uploaded', verifiedDoc.file_url]
       ).catch(() => {});
     }
+
+    // If not found by doc_id, check if docId is actually a request_id in project_document_requests
+    if (!verifiedDoc) {
+      const reqRes = await db.query(
+        `UPDATE public.project_document_requests
+         SET status = $1, updated_at = NOW()
+         WHERE request_id = $2
+         RETURNING *;`,
+        [status === 'Verified' ? 'verified' : status === 'Rejected' ? 'rejected' : 'uploaded', docId]
+      );
+      verifiedDoc = reqRes.rows[0];
+      if (verifiedDoc && verifiedDoc.file_url) {
+        await db.query(
+          `UPDATE public.project_documents
+           SET verification_status = $1, verified_by = $2, verified_at = NOW()
+           WHERE file_url = $3;`,
+          [status, adminUserId, verifiedDoc.file_url]
+        ).catch(() => {});
+      }
+    }
     return verifiedDoc;
+  }
+
+  async deleteProjectDocument(docId) {
+    await db.query(`DELETE FROM public.project_documents WHERE doc_id = $1;`, [docId]);
+    return true;
   }
 
   /**

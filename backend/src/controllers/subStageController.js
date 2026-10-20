@@ -128,6 +128,20 @@ class SubStageController {
   }
 
   /**
+   * DELETE /api/admin/documents/:docId
+   */
+  async deleteProjectDocument(req, res) {
+    try {
+      const docId = parseInt(req.params.docId, 10);
+      await stageEngineService.deleteProjectDocument(docId);
+      return res.status(200).json({ success: true, message: "Document deleted." });
+    } catch (err) {
+      console.error("[SubStageController.deleteProjectDocument] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
    * GET /api/admin/documents/overview
    */
   async getAdminDocumentsOverview(req, res) {

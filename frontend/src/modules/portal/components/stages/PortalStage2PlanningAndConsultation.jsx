@@ -254,39 +254,155 @@ export default function PortalStage2PlanningAndConsultation({
   const clientRequests = useMemo(() => {
     const email = (currentUser?.email || "").toLowerCase().trim();
     const trackingId = (activeInquiry?.trackingId || activeInquiry?.id || projectCode || "").trim();
-    
-    // First check if any document requests match this project or email
-    const matched = documentRequests.filter(
+    const pidStr = projectId ? String(projectId) : "";
+
+    // 1. Check if Admin issued specific database requests for this project
+    const realDbRequests = (documentRequests || []).filter(
       (r) =>
-        (r.client_project_id && projectId && String(r.client_project_id) === String(projectId)) ||
+        (r.client_project_id && pidStr && String(r.client_project_id) === pidStr) ||
         (email && r.clientEmail && r.clientEmail.toLowerCase() === email) ||
         (trackingId && (r.projectCode === trackingId || r.project_code === trackingId))
     );
 
-    if (matched.length > 0) return matched;
+    const usedDocIds = new Set();
+    let baseItems = [];
 
-    // Fallback: standard 4 required documents so client can upload right away
-    return STANDARD_REQUEST_DOCUMENTS.slice(0, 4).map((doc) => {
-      const uploadedDoc = documents.find(
-        (d) =>
-          d.doc_type?.toLowerCase().includes(doc.id) ||
-          d.notes?.toLowerCase().includes(doc.title.toLowerCase())
-      );
-      return {
-        id: `std-${doc.id}`,
-        title: doc.title,
-        category: doc.category,
-        urgency: doc.urgency,
-        defaultNote: doc.defaultNote,
-        note: doc.defaultNote,
-        status: uploadedDoc ? (uploadedDoc.verification_status === "Verified" ? "verified" : "uploaded") : "pending",
-        file: uploadedDoc ? {
-          fileName: uploadedDoc.file_name,
-          fileUrl: uploadedDoc.file_url,
-          fileSize: uploadedDoc.file_size_bytes,
-        } : null,
-      };
-    });
+    if (realDbRequests.length > 0) {
+      baseItems = realDbRequests.map((r) => {
+        // Find matching uploaded document if not already attached
+        const uploadedDoc = (documents || []).find(
+          (d) =>
+            !usedDocIds.has(d.doc_id) &&
+            ((r.file_url && d.file_url === r.file_url) ||
+              (d.file_name && r.title && d.file_name.toLowerCase().includes(r.title.toLowerCase())) ||
+              (d.notes && r.title && d.notes.toLowerCase().includes(r.title.toLowerCase())))
+        );
+        if (uploadedDoc) usedDocIds.add(uploadedDoc.doc_id);
+
+        const hasFile = r.file_url || uploadedDoc?.file_url;
+        const isVerified = r.status === "verified" || uploadedDoc?.verification_status === "Verified";
+
+        return {
+          id: r.request_id || r.id,
+          requestId: r.request_id,
+          docId: uploadedDoc?.doc_id,
+          title: r.title,
+          category: r.category,
+          urgency: r.urgency,
+          note: r.instructions || r.note,
+          status: isVerified ? "verified" : hasFile ? "uploaded" : "pending",
+          file: hasFile
+            ? {
+                fileName: r.file_name || uploadedDoc?.file_name || "Uploaded Document",
+                fileUrl: r.file_url || uploadedDoc?.file_url,
+                fileSize: r.file_size_bytes || uploadedDoc?.file_size_bytes,
+              }
+            : null,
+        };
+      });
+    } else {
+      // Standard 4 required documents so client can upload right away
+      baseItems = STANDARD_REQUEST_DOCUMENTS.slice(0, 4).map((doc) => {
+        const uploadedDoc = (documents || []).find((d) => {
+          if (usedDocIds.has(d.doc_id)) return false;
+          const docType = (d.doc_type || "").toLowerCase();
+          const notes = (d.notes || "").toLowerCase();
+          const fileName = (d.file_name || "").toLowerCase();
+          const docId = doc.id.toLowerCase();
+          const docTitle = doc.title.toLowerCase();
+
+          if (
+            docId === "tct" &&
+            (docType.includes("lot") ||
+              docType.includes("ownership") ||
+              notes.includes("tct") ||
+              notes.includes("title") ||
+              fileName.includes("tct") ||
+              fileName.includes("title"))
+          ) {
+            return true;
+          }
+          if (
+            docId === "tax_dec" &&
+            (docType.includes("tax") || notes.includes("tax") || fileName.includes("tax"))
+          ) {
+            return true;
+          }
+          if (
+            docId === "survey_plan" &&
+            (docType.includes("survey") || notes.includes("survey") || fileName.includes("survey") || fileName.includes("plan"))
+          ) {
+            return true;
+          }
+          if (
+            docId === "valid_id" &&
+            (docType.includes("identification") ||
+              docType.includes("id") ||
+              notes.includes("valid_id") ||
+              notes.includes("identity") ||
+              notes.includes("government") ||
+              fileName.includes("id"))
+          ) {
+            return true;
+          }
+          return docType.includes(docId) || notes.includes(docTitle);
+        });
+
+        if (uploadedDoc) {
+          usedDocIds.add(uploadedDoc.doc_id);
+        }
+
+        return {
+          id: `std-${doc.id}`,
+          docId: uploadedDoc?.doc_id,
+          title: doc.title,
+          category: doc.category,
+          urgency: doc.urgency,
+          defaultNote: doc.defaultNote,
+          note: doc.defaultNote,
+          status: uploadedDoc
+            ? uploadedDoc.verification_status === "Verified"
+              ? "verified"
+              : uploadedDoc.verification_status === "Rejected"
+              ? "rejected"
+              : "uploaded"
+            : "pending",
+          file: uploadedDoc
+            ? {
+                fileName: uploadedDoc.file_name,
+                fileUrl: uploadedDoc.file_url,
+                fileSize: uploadedDoc.file_size_bytes,
+              }
+            : null,
+        };
+      });
+    }
+
+    // 2. Any additional uploaded files in `documents` that were not assigned to the standard/requested slots
+    const additionalUploaded = (documents || [])
+      .filter((d) => !usedDocIds.has(d.doc_id))
+      .map((d) => ({
+        id: `doc-${d.doc_id}`,
+        docId: d.doc_id,
+        title: d.file_name,
+        category: d.doc_type || "Client Uploaded Document",
+        urgency: "Uploaded File",
+        defaultNote: d.notes || "Client Vault Document",
+        note: d.notes || "Client Vault Document",
+        status:
+          d.verification_status === "Verified"
+            ? "verified"
+            : d.verification_status === "Rejected"
+            ? "rejected"
+            : "uploaded",
+        file: {
+          fileName: d.file_name,
+          fileUrl: d.file_url,
+          fileSize: d.file_size_bytes,
+        },
+      }));
+
+    return [...baseItems, ...additionalUploaded];
   }, [documentRequests, documents, currentUser, activeInquiry, projectCode, projectId]);
 
   const clientTransmittals = useMemo(() => {

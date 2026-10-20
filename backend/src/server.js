@@ -404,6 +404,7 @@ app.get("/api/projects/:id/transmittals", requireAuth, (req, res) => subStageCon
 app.get("/api/projects/:id/documents", requireAuth, (req, res) => subStageController.getDocuments(req, res));
 app.post("/api/projects/:id/documents", requireAuth, (req, res) => subStageController.uploadDocument(req, res));
 app.patch("/api/admin/documents/:docId/verify", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.verifyDocument(req, res));
+app.delete("/api/admin/documents/:docId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.deleteProjectDocument(req, res));
 
 // Consultation (WebRTC Meetings & Chat)
 app.get("/api/projects/:id/meeting", requireAuth, (req, res) => subStageController.getMeetingRoom(req, res));
