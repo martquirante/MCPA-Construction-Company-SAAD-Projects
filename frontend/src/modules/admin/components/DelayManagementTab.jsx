@@ -15,6 +15,7 @@ import {
   Send,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
+import WeatherAtmosphericCard from "./WeatherAtmosphericCard";
 
 export default function DelayManagementTab({
   project = null,
@@ -137,97 +138,12 @@ export default function DelayManagementTab({
       ) : (
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* 2. REAL-TIME WEATHER INTELLIGENCE CARD (OPEN-METEO FREE API) */}
-          <div className="p-6 rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-100 dark:border-white/5">
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5">
-                  <Sun className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Real-Time Weather Intelligence (Open-Meteo API)</span>
-                </span>
-                <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mt-0.5">
-                  Local Site Weather &amp; 7-Day Engineering Outlook
-                </h3>
-                <p className="text-xs text-neutral-500 font-light font-mono">
-                  Coordinates: {weatherData?.location || project.location || "Bulacan"} • Live automated atmospheric assessment
-                </p>
-              </div>
-
-              {isAdverse && (
-                <button
-                  type="button"
-                  onClick={handlePreFillWeatherNotice}
-                  className="px-3.5 py-2 rounded-[6px] bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-500/30 font-mono font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                >
-                  <AlertTriangle className="w-4 h-4 text-rose-500" />
-                  <span>Pre-Fill Weather Delay Notice</span>
-                </button>
-              )}
-            </div>
-
-            {/* Weather Assessment Ribbon */}
-            {weatherData && (
-              <div className="space-y-4">
-                {/* Advisory Status Box */}
-                <div
-                  className={`p-4 rounded-[8px] border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                    isAdverse
-                      ? "bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300"
-                      : "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {isAdverse ? (
-                      <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                    ) : (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                    )}
-                    <div className="space-y-0.5 text-xs">
-                      <h4 className="font-bold uppercase font-mono tracking-wider">
-                        {advisory?.title}
-                      </h4>
-                      <p className="font-light leading-relaxed">
-                        {advisory?.message}
-                      </p>
-                      <p className="text-[11px] font-mono opacity-80 pt-0.5">
-                        Recommendation: {advisory?.recommendation}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-right shrink-0 font-mono text-xs">
-                    <span className="block text-[10px] uppercase opacity-75">Site Temperature</span>
-                    <span className="text-2xl font-bold">{weatherData.current?.temperature}</span>
-                    <span className="block text-[10px] opacity-75">{weatherData.current?.condition}</span>
-                  </div>
-                </div>
-
-                {/* 7-Day Forecast Strips */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 pt-1">
-                  {(weatherData.daily || []).map((day, idx) => (
-                    <div
-                      key={day.date || idx}
-                      className={`p-2.5 rounded-[6px] border text-center font-mono text-[11px] space-y-1 ${
-                        day.isAdverse
-                          ? "bg-rose-500/5 border-rose-500/20 text-rose-700 dark:text-rose-400"
-                          : "bg-neutral-50 dark:bg-neutral-900/40 border-neutral-200 dark:border-white/5 text-neutral-700 dark:text-neutral-300"
-                      }`}
-                    >
-                      <span className="block text-[10px] text-neutral-400 font-bold uppercase">
-                        {idx === 0 ? "Today" : idx === 1 ? "Tomorrow" : day.date?.slice(5)}
-                      </span>
-                      <span className="block font-bold text-xs">{day.maxTemp}</span>
-                      <span className="block text-[10px] text-neutral-500 truncate" title={day.condition}>
-                        {day.condition}
-                      </span>
-                      <div className="pt-1 border-t border-neutral-200 dark:border-white/5 text-[9.5px] text-neutral-400">
-                        Rain: {day.rainProbability}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <WeatherAtmosphericCard
+            weatherData={weatherData}
+            project={project}
+            onPreFillWeatherNotice={handlePreFillWeatherNotice}
+            isLoading={isLoadingWeather}
+          />
 
           {/* 3. CRITICAL PATH & TARGET TURNOVER CALCULATION */}
           <div className="p-6 rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-5">
