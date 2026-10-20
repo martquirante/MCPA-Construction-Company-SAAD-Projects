@@ -21,8 +21,12 @@ import {
   Maximize2,
   ZoomIn,
   ZoomOut,
+  Clock,
+  AlertCircle,
+  Trash2,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
+import { authFetch } from "@/modules/shared/authFetch";
 
 export default function BillingLedgerTab({
   project = null,
@@ -31,10 +35,12 @@ export default function BillingLedgerTab({
   expenses: initialExpenses = [],
   onSelectProject,
   onVerifyPayment,
+  onUploadProof,
   onCreateBillingTranche,
   showToast,
 }) {
   const [selectedProofUrl, setSelectedProofUrl] = useState(null);
+  const [uploadingBillId, setUploadingBillId] = useState(null);
   const [isAddTrancheOpen, setIsAddTrancheOpen] = useState(false);
   const [trancheTitle, setTrancheTitle] = useState("");
   const [trancheAmount, setTrancheAmount] = useState("");
@@ -50,7 +56,7 @@ export default function BillingLedgerTab({
     if (!project?.project_code && !project?.client_project_id) return;
     const projId = project.client_project_id || project.project_code;
     let isMounted = true;
-    fetch(`/api/projects/${encodeURIComponent(projId)}/quotation`)
+    authFetch(`/api/projects/${encodeURIComponent(projId)}/quotation`)
       .then((res) => res.json())
       .then((data) => {
         if (isMounted && data.success && data.quotation) {
@@ -101,6 +107,20 @@ export default function BillingLedgerTab({
     if (receiptFileInputRef.current) receiptFileInputRef.current.value = "";
   };
 
+  const handleRemoveItem = (indexToRemove) => {
+    setParsedItems((prev) => {
+      const updated = prev.filter((_, idx) => idx !== indexToRemove);
+      const newSum = updated.reduce((acc, it) => {
+        const lineVal = it.lineTotal || (it.unitPrice && it.quantity ? it.unitPrice * parseFloat(it.quantity) : 0);
+        return acc + (lineVal || 0);
+      }, 0);
+      if (newSum > 0) {
+        setExtractedTotal(formatCommaNumber(newSum));
+      }
+      return updated;
+    });
+  };
+
   const handleReceiptFileSelect = async (file) => {
     if (!file) return;
     if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
@@ -117,7 +137,7 @@ export default function BillingLedgerTab({
       // 1. Storage upload for permanent cloud asset
       const uploadFormData = new FormData();
       uploadFormData.append("file", file);
-      const uploadPromise = fetch("/api/upload?category=briefs", {
+      const uploadPromise = authFetch("/api/upload?category=briefs", {
         method: "POST",
         body: uploadFormData,
       }).then(async (res) => {
@@ -129,7 +149,7 @@ export default function BillingLedgerTab({
       // 2. Real AI / OCR Analysis directly on the file
       const ocrFormData = new FormData();
       ocrFormData.append("file", file);
-      const ocrPromise = fetch("/api/construction/scan-receipt", {
+      const ocrPromise = authFetch("/api/construction/scan-receipt", {
         method: "POST",
         body: ocrFormData,
       }).then(async (res) => {
@@ -182,7 +202,7 @@ export default function BillingLedgerTab({
     setIsScanningOcr(true);
     setReceiptUploadError("");
     try {
-      const res = await fetch("/api/construction/scan-receipt", {
+      const res = await authFetch("/api/construction/scan-receipt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageUrl: url }),
@@ -218,7 +238,7 @@ export default function BillingLedgerTab({
     }
     if (!project?.project_code) return;
     let isMounted = true;
-    fetch(`/api/construction/expenses/${encodeURIComponent(project.project_code)}`)
+    authFetch(`/api/construction/expenses/${encodeURIComponent(project.project_code)}`)
       .then((res) => res.json())
       .then((data) => {
         if (isMounted && data.success && data.expenses) {
@@ -257,18 +277,54 @@ export default function BillingLedgerTab({
     setter(formatted);
   };
 
-  const handleVerify = async (billId) => {
+  const handleVerify = async (billId, hasProof) => {
+    if (!hasProof) {
+      if (showToast) showToast("Cannot verify: Client proof of payment must be uploaded first.");
+      return;
+    }
     try {
       if (onVerifyPayment) {
         await onVerifyPayment(billId);
       } else {
-        const res = await fetch(`/api/construction/billing/${billId}/verify`, { method: "PATCH" });
+        const res = await authFetch(`/api/construction/billing/${billId}/verify`, { method: "PATCH" });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to verify");
       }
       if (showToast) showToast("Payment verified! Digital Official Receipt (OR) generated.");
     } catch (err) {
       if (showToast) showToast("Error: " + err.message);
+    }
+  };
+
+  const handleAdminUploadProof = async (billId, file) => {
+    if (!file) return;
+    setUploadingBillId(billId);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await authFetch("/api/upload?category=briefs", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.message || "Upload failed");
+
+      if (onUploadProof) {
+        await onUploadProof(billId, data.url);
+      } else {
+        const patchRes = await authFetch(`/api/construction/billing/${billId}/proof`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ proofUrl: data.url }),
+        });
+        const patchData = await patchRes.json();
+        if (!patchRes.ok) throw new Error(patchData.message || "Failed to attach proof");
+      }
+      if (showToast) showToast("Proof slip attached! Ready for payment verification.");
+    } catch (err) {
+      if (showToast) showToast("Error attaching slip: " + err.message);
+    } finally {
+      setUploadingBillId(null);
     }
   };
 
@@ -287,7 +343,7 @@ export default function BillingLedgerTab({
           dueDate: trancheDueDate,
         });
       } else {
-        const res = await fetch("/api/construction/billing", {
+        const res = await authFetch("/api/construction/billing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -320,7 +376,7 @@ export default function BillingLedgerTab({
 
     setIsSavingExpense(true);
     try {
-      const res = await fetch("/api/construction/expenses/ocr", {
+      const res = await authFetch("/api/construction/expenses/ocr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -454,7 +510,7 @@ export default function BillingLedgerTab({
                   Milestone Payment Schedule &amp; Receipt Ledger
                 </h3>
                 <p className="text-xs text-neutral-500 font-light">
-                  Client submits deposit slips or online payment proofs. Click &quot;Verify Payment&quot; to issue an official Digital OR.
+                  Client submits deposit slips or online payment proofs. Proof is required before clicking &quot;Verify Payment&quot; to issue an official Digital OR.
                 </p>
               </div>
               <span className="text-xs font-mono text-neutral-400">{billing.length} Invoices</span>
@@ -484,6 +540,9 @@ export default function BillingLedgerTab({
                     billing.map((item, idx) => {
                       const isPaid = (item.status || "").toLowerCase() === "paid";
                       const isUnderReview = (item.status || "").toLowerCase().includes("review");
+                      const hasProof = Boolean(item.proof_url && item.proof_url.trim() !== "");
+                      const isRowUploading = uploadingBillId === item.bill_id;
+
                       return (
                         <tr key={item.bill_id || idx} className="hover:bg-neutral-50 dark:hover:bg-white/[0.02] transition-colors">
                           <td className="py-4 px-4 font-sans font-semibold text-neutral-900 dark:text-white">
@@ -509,7 +568,7 @@ export default function BillingLedgerTab({
                             </span>
                           </td>
                           <td className="py-4 px-4">
-                            {item.proof_url ? (
+                            {hasProof ? (
                               <button
                                 type="button"
                                 onClick={() => setSelectedProofUrl(item.proof_url)}
@@ -519,7 +578,38 @@ export default function BillingLedgerTab({
                                 <span>Inspect Slip</span>
                               </button>
                             ) : (
-                              <span className="text-neutral-400 italic text-[11px]">No proof uploaded</span>
+                              <div className="flex flex-col gap-1 items-start">
+                                <span className="text-neutral-400 italic text-[11px] inline-flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3 text-amber-500/70 shrink-0" />
+                                  <span>No proof uploaded</span>
+                                </span>
+                                {!isPaid && (
+                                  <label className="inline-flex items-center gap-1 text-[11px] font-mono text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 cursor-pointer hover:underline">
+                                    {isRowUploading ? (
+                                      <>
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        <span>Uploading...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <UploadCloud className="w-3 h-3" />
+                                        <span>Attach Slip</span>
+                                      </>
+                                    )}
+                                    <input
+                                      type="file"
+                                      accept="image/*,application/pdf"
+                                      disabled={isRowUploading}
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleAdminUploadProof(item.bill_id, file);
+                                        e.target.value = "";
+                                      }}
+                                    />
+                                  </label>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="py-4 px-4">
@@ -533,14 +623,26 @@ export default function BillingLedgerTab({
                           </td>
                           <td className="py-4 px-4 text-right">
                             {!isPaid ? (
-                              <button
-                                type="button"
-                                onClick={() => handleVerify(item.bill_id)}
-                                className="px-3 py-1.5 rounded-[6px] bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-xs transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>Verify &amp; Issue OR</span>
-                              </button>
+                              hasProof ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleVerify(item.bill_id, hasProof)}
+                                  className="px-3 py-1.5 rounded-[6px] bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-xs transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Verify &amp; Issue OR</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled
+                                  title="Proof of payment is required before verification. Wait for client to upload deposit slip or click 'Attach Slip'."
+                                  className="px-3 py-1.5 rounded-[6px] bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-400 dark:text-neutral-500 font-mono font-medium text-xs cursor-not-allowed inline-flex items-center gap-1 opacity-70"
+                                >
+                                  <Clock className="w-3.5 h-3.5 text-neutral-400" />
+                                  <span>Awaiting Proof</span>
+                                </button>
+                              )
                             ) : (
                               <span className="text-emerald-600 text-xs font-bold inline-flex items-center gap-1">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -625,8 +727,8 @@ export default function BillingLedgerTab({
 
       {/* MODAL 1: ADD BILLING TRANCHE */}
       {isAddTrancheOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="w-full max-w-md max-h-[90vh] flex flex-col rounded-[14px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4 my-auto overflow-y-auto">
             <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
               <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-amber-500" />
@@ -635,7 +737,7 @@ export default function BillingLedgerTab({
               <button
                 type="button"
                 onClick={() => setIsAddTrancheOpen(false)}
-                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
+                className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white p-1 rounded-md hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -725,7 +827,7 @@ export default function BillingLedgerTab({
                 <button
                   type="button"
                   onClick={() => setIsAddTrancheOpen(false)}
-                  className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-[6px] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-white/5 transition-colors cursor-pointer font-medium text-xs"
                 >
                   Cancel
                 </button>
@@ -744,32 +846,46 @@ export default function BillingLedgerTab({
 
       {/* MODAL 2: OCR SUPPLY RECEIPT SCANNER */}
       {isOcrModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
-              <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
-                <ScanLine className="w-4 h-4 text-amber-500" />
-                <span>AI Construction Receipt Scanner (OCR)</span>
-              </h4>
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto animate-in fade-in duration-200">
+          <div className="w-full max-w-xl max-h-[92vh] flex flex-col rounded-[14px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden my-auto">
+            {/* STICKY HEADER */}
+            <div className="shrink-0 px-5 py-3.5 border-b border-neutral-100 dark:border-white/5 flex items-center justify-between bg-white dark:bg-[#12151e]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 dark:bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <ScanLine className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+                    <span>AI Construction Receipt Scanner</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold">OCR</span>
+                  </h4>
+                  <p className="text-[10.5px] font-mono text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    Reads handwritten &amp; printed official hardware receipts, invoices &amp; cash slips
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                onClick={() => setIsOcrModalOpen(false)}
-                className="text-neutral-400 hover:text-white p-1 cursor-pointer"
+                onClick={resetOcrModal}
+                className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveExpense} className="space-y-4 text-xs font-mono">
+            {/* SCROLLABLE BODY */}
+            <form onSubmit={handleSaveExpense} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-xs font-mono">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-neutral-500 font-mono text-[11px] font-bold uppercase">
+                  <label className="block text-neutral-500 dark:text-neutral-400 font-mono text-[11px] font-bold uppercase">
                     Official Hardware Receipt File *
                   </label>
                   <button
                     type="button"
                     onClick={() => setUseManualReceiptUrl(!useManualReceiptUrl)}
-                    className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-[10.5px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer font-medium"
                   >
                     {useManualReceiptUrl ? (
                       <>
@@ -793,12 +909,12 @@ export default function BillingLedgerTab({
                       value={receiptImage}
                       onChange={(e) => setReceiptImage(e.target.value)}
                       placeholder="https://.../receipt-slip.jpg"
-                      className="flex-1 px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
+                      className="flex-1 px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 focus:bg-white dark:focus:bg-[#0c0e14] font-mono text-xs transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => handleAutoScanReceipt(receiptImage)}
-                      className="px-3 py-2 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 text-neutral-800 dark:text-white font-bold cursor-pointer"
+                      className="px-3 py-2 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/15 text-neutral-800 dark:text-white font-bold cursor-pointer transition-colors"
                     >
                       Scan
                     </button>
@@ -814,9 +930,9 @@ export default function BillingLedgerTab({
                     />
 
                     {receiptImage || receiptPreview ? (
-                      <div className="relative rounded-[8px] overflow-hidden border border-amber-500/30 bg-neutral-900 p-2 space-y-2">
+                      <div className="relative rounded-[8px] overflow-hidden border border-neutral-200 dark:border-amber-500/30 bg-neutral-100/80 dark:bg-[#0c0e14] p-2 space-y-2">
                         <div
-                          className="group relative w-full h-44 rounded-[6px] overflow-hidden bg-neutral-950 flex items-center justify-center cursor-pointer border border-neutral-800"
+                          className="group relative w-full h-48 rounded-[6px] overflow-hidden bg-white dark:bg-neutral-950 flex items-center justify-center cursor-pointer border border-neutral-200 dark:border-neutral-800 shadow-2xs"
                           onClick={() => {
                             setOcrZoom(1);
                             setIsReceiptFullscreenOpen(true);
@@ -826,7 +942,7 @@ export default function BillingLedgerTab({
                           {receiptPreview?.endsWith(".pdf") ? (
                             <div className="flex flex-col items-center justify-center gap-1.5 text-neutral-400">
                               <FileText className="w-10 h-10 text-amber-500" />
-                              <span className="text-xs font-mono font-bold">PDF Receipt Document</span>
+                              <span className="text-xs font-mono font-bold text-neutral-800 dark:text-neutral-200">PDF Receipt Document</span>
                             </div>
                           ) : (
                             <img
@@ -838,17 +954,17 @@ export default function BillingLedgerTab({
 
                           {/* Fullscreen Quick-Action Badge */}
                           <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
-                            <span className="px-2.5 py-1 rounded-[6px] bg-black/80 hover:bg-black text-white text-[11px] font-mono font-semibold flex items-center gap-1.5 shadow-md border border-white/10 backdrop-blur-xs">
-                              <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                            <span className="px-2.5 py-1 rounded-[6px] bg-white/95 hover:bg-white text-neutral-800 dark:bg-black/80 dark:hover:bg-black dark:text-white text-[11px] font-mono font-semibold flex items-center gap-1.5 shadow-sm border border-neutral-200 dark:border-white/10 backdrop-blur-xs transition-colors">
+                              <Maximize2 className="w-3.5 h-3.5 text-amber-500" />
                               Fullscreen
                             </span>
                           </div>
 
                           {isUploadingReceipt && (
-                            <div className="absolute inset-0 bg-black/85 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white p-3 text-center z-20">
+                            <div className="absolute inset-0 bg-white/90 dark:bg-black/85 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-neutral-900 dark:text-white p-3 text-center z-20">
                               <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
-                              <span className="text-xs font-mono font-bold">Processing Receipt Slip...</span>
-                              <span className="text-[10.5px] font-mono text-neutral-300">Scanning products, quantities &amp; prices</span>
+                              <span className="text-xs font-mono font-bold text-neutral-900 dark:text-white">Processing Receipt Slip...</span>
+                              <span className="text-[10.5px] font-mono text-neutral-600 dark:text-neutral-300">Scanning products, quantities &amp; prices</span>
                             </div>
                           )}
                         </div>
@@ -866,7 +982,7 @@ export default function BillingLedgerTab({
                                   setOcrZoom(1);
                                   setIsReceiptFullscreenOpen(true);
                                 }}
-                                className="text-[11px] font-mono text-amber-500 hover:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
+                                className="text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
                               >
                                 <Maximize2 className="w-3 h-3" /> Fullscreen
                               </button>
@@ -899,7 +1015,7 @@ export default function BillingLedgerTab({
                           if (file) handleReceiptFileSelect(file);
                         }}
                         onClick={() => receiptFileInputRef.current?.click()}
-                        className="w-full p-6 rounded-[8px] border-2 border-dashed border-neutral-300 dark:border-white/15 hover:border-amber-500/60 dark:hover:border-amber-500/60 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors text-center group"
+                        className="w-full p-6 rounded-[8px] border-2 border-dashed border-neutral-300 dark:border-white/15 hover:border-amber-500/60 dark:hover:border-amber-500/60 bg-neutral-50/70 hover:bg-neutral-100/60 dark:bg-white/[0.02] dark:hover:bg-white/[0.04] flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors text-center group"
                       >
                         <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform">
                           <UploadCloud className="w-5 h-5" />
@@ -933,34 +1049,34 @@ export default function BillingLedgerTab({
 
               {/* Extracted Products & Itemized Summary */}
               {parsedItems && parsedItems.length > 0 && (
-                <div className="rounded-[8px] border border-amber-500/30 bg-amber-500/5 dark:bg-[#0c0e14] p-3 space-y-2">
+                <div className="rounded-[8px] border border-amber-500/30 bg-amber-50/50 dark:bg-[#0c0e14] p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      Extracted Itemized Summary ({parsedItems.length} items)
+                      <span>Extracted Itemized Summary ({parsedItems.length} items)</span>
                     </span>
                     <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
                       Total: <span className="font-bold text-neutral-900 dark:text-white">₱ {extractedTotal || "0.00"}</span>
                     </span>
                   </div>
 
-                  <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                     {parsedItems.map((item, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-[5px] bg-white dark:bg-white/[0.03] border border-neutral-200/70 dark:border-white/5 shadow-2xs"
+                        className="flex items-center justify-between text-xs py-2 px-2.5 rounded-[6px] bg-white dark:bg-[#161922] border border-neutral-200 dark:border-white/5 shadow-2xs group"
                       >
                         <div className="flex items-center gap-2 min-w-0 pr-2">
                           <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 font-bold w-4 text-center shrink-0">
                             {idx + 1}
                           </span>
-                          <span className="font-medium text-neutral-800 dark:text-neutral-200 truncate">
+                          <span className="font-medium text-neutral-900 dark:text-neutral-100 truncate">
                             {item.description}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 shrink-0 font-mono text-[11px]">
+                        <div className="flex items-center gap-2 shrink-0 font-mono text-[11px]">
                           {(item.quantity || item.qty) && (
-                            <span className="text-neutral-500">
+                            <span className="text-neutral-500 dark:text-neutral-400 text-[10.5px]">
                               {item.quantity || item.qty} {item.unit || "pc"}
                               {item.unitPrice ? ` @ ₱${formatCommaNumber(item.unitPrice)}` : ""}
                             </span>
@@ -968,6 +1084,14 @@ export default function BillingLedgerTab({
                           <span className="font-bold text-neutral-900 dark:text-white">
                             ₱{formatCommaNumber(item.lineTotal || item.amount || (item.unitPrice && item.quantity ? item.unitPrice * parseFloat(item.quantity) : 0))}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(idx)}
+                            className="p-1 rounded text-neutral-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer ml-1"
+                            title="Remove item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -977,18 +1101,18 @@ export default function BillingLedgerTab({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-neutral-500 mb-1 text-xs font-medium">Detected Hardware / Store *</label>
+                  <label className="block text-neutral-500 dark:text-neutral-400 mb-1 text-xs font-medium">Detected Hardware / Store *</label>
                   <input
                     type="text"
                     required
                     value={vendorName}
                     onChange={(e) => setVendorName(e.target.value)}
                     placeholder="e.g. New Lite Lumber or Wilcon Depot"
-                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-sans text-xs"
+                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 focus:bg-white dark:focus:bg-[#0c0e14] font-sans text-xs transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-neutral-500 mb-1 text-xs font-medium">Extracted Total (PHP ₱) *</label>
+                  <label className="block text-neutral-500 dark:text-neutral-400 mb-1 text-xs font-medium">Extracted Total (PHP ₱) *</label>
                   <div className="relative flex items-center">
                     <span className="absolute left-3 text-sm font-bold text-amber-500 select-none pointer-events-none">
                       ₱
@@ -1000,35 +1124,49 @@ export default function BillingLedgerTab({
                       value={extractedTotal}
                       onChange={(e) => handleAmountChange(e.target.value, setExtractedTotal)}
                       placeholder="0.00"
-                      className="w-full pl-8 pr-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold text-xs focus:outline-none focus:border-amber-500"
+                      className="w-full pl-8 pr-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold text-xs focus:outline-none focus:border-amber-500 focus:bg-white dark:focus:bg-[#0c0e14] transition-colors"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-neutral-500 mb-1 text-xs font-medium">OCR Verification Summary / Item Lines</label>
+                <label className="block text-neutral-500 dark:text-neutral-400 mb-1 text-xs font-medium">OCR Verification Summary / Item Lines</label>
                 <textarea
                   rows={3}
                   value={rawOcrNotes}
                   onChange={(e) => setRawOcrNotes(e.target.value)}
                   placeholder="Official receipt lines, cement bags, rebar specifications..."
-                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono text-xs leading-relaxed"
+                  className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 focus:bg-white dark:focus:bg-[#0c0e14] font-mono text-xs leading-relaxed transition-colors"
                 />
               </div>
+            </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-white/5">
+            {/* STICKY FOOTER - ALWAYS ACCESSIBLE */}
+            <div className="shrink-0 px-5 py-3.5 border-t border-neutral-100 dark:border-white/5 bg-neutral-50/90 dark:bg-[#0e1017] flex items-center justify-between gap-3">
+              <div className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
+                {extractedTotal ? (
+                  <span>
+                    Total: <strong className="text-neutral-900 dark:text-white">₱{extractedTotal}</strong>
+                    {parsedItems?.length > 0 && ` (${parsedItems.length} items)`}
+                  </span>
+                ) : (
+                  <span>Upload a hardware receipt to auto-extract</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={resetOcrModal}
-                  className="px-3 py-1.5 rounded-[6px] text-neutral-500 hover:text-white cursor-pointer text-xs"
+                  className="px-3.5 py-1.5 rounded-[6px] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-white/5 font-medium transition-colors cursor-pointer text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingExpense || isUploadingReceipt || !vendorName || !extractedTotal || !receiptImage}
-                  className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5 text-xs"
+                  className="px-4 py-2 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-all cursor-pointer shadow-xs inline-flex items-center gap-1.5 text-xs select-none"
                 >
                   {isSavingExpense ? (
                     <>
@@ -1045,10 +1183,11 @@ export default function BillingLedgerTab({
                   )}
                 </button>
               </div>
-            </form>
-          </div>
+            </div>
+          </form>
         </div>
-      )}
+      </div>
+    )}
 
       {/* FULLSCREEN RECEIPT INSPECTOR MODAL */}
       {isReceiptFullscreenOpen && (receiptPreview || receiptImage) && (

@@ -190,7 +190,28 @@ class ConstructionController {
   async verifyPayment(req, res) {
     try {
       const { billId } = req.params;
-      const { proofUrl } = req.body;
+      const { proofUrl } = req.body || {};
+
+      // 1. Check if billing entry exists
+      const checkResult = await db.query(
+        "SELECT * FROM billing_ledger WHERE bill_id = $1",
+        [parseInt(billId, 10)]
+      );
+
+      if (!checkResult.rows || checkResult.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "Billing entry not found." });
+      }
+
+      const existingBill = checkResult.rows[0];
+      const finalProofUrl = (proofUrl || existingBill.proof_url || "").trim();
+
+      // Business rule: Proof of payment must exist before payment can be verified and OR issued
+      if (!finalProofUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "Cannot verify payment: Proof of payment (deposit slip / transaction receipt) must be uploaded before issuing an Official Receipt (OR).",
+        });
+      }
 
       const orNumber = `OR-2026-${Math.floor(1000 + Math.random() * 9000)}`;
       const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -199,15 +220,11 @@ class ConstructionController {
         `UPDATE billing_ledger
          SET status = 'Paid',
              or_number = COALESCE(or_number, $1),
-             proof_url = COALESCE($2, proof_url),
+             proof_url = $2,
              paid_date = $3
          WHERE bill_id = $4 RETURNING *`,
-        [orNumber, proofUrl || null, paidDate, parseInt(billId, 10)]
+        [orNumber, finalProofUrl, paidDate, parseInt(billId, 10)]
       );
-
-      if (!result.rows || result.rows.length === 0) {
-        return res.status(404).json({ message: "Billing entry not found." });
-      }
 
       return res.json({
         success: true,
@@ -216,7 +233,7 @@ class ConstructionController {
       });
     } catch (err) {
       console.error("[ConstructionController.verifyPayment] Error:", err);
-      return res.status(500).json({ message: "Failed to verify payment: " + err.message });
+      return res.status(500).json({ success: false, message: "Failed to verify payment: " + err.message });
     }
   }
 

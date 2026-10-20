@@ -1254,12 +1254,39 @@ export default function AdminPage() {
         body: JSON.stringify({}),
       });
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to verify payment");
+      }
       if (data.success && data.entry) {
         const updated = billingLedger.map((b) => (b.bill_id === billId ? data.entry : b));
         setBillingLedger(updated);
       }
+      return data;
     } catch (e) {
       console.warn("Could not verify payment on backend:", e);
+      throw e;
+    }
+  };
+
+  const handleUploadBillingProof = async (billId, proofUrl) => {
+    try {
+      const res = await authFetch(`/api/construction/billing/${billId}/proof`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proofUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to attach proof of payment");
+      }
+      if (data.success && data.entry) {
+        const updated = billingLedger.map((b) => (b.bill_id === billId ? data.entry : b));
+        setBillingLedger(updated);
+      }
+      return data;
+    } catch (e) {
+      console.warn("Could not upload billing proof:", e);
+      throw e;
     }
   };
 
@@ -2328,6 +2355,7 @@ export default function AdminPage() {
             expenses={siteExpenses}
             onSelectProject={handleSelectSiteProject}
             onVerifyPayment={handleVerifyPayment}
+            onUploadProof={handleUploadBillingProof}
             onCreateBillingTranche={handleCreateBillingTranche}
             showToast={showToast}
           />
