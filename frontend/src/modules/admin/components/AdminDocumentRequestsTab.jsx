@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import {
   FileText,
@@ -275,7 +275,7 @@ export default function AdminDocumentRequestsTab({
   };
 
   // Fetch LGU Permits Overview across all projects
-  const fetchPermits = useCallback(async () => {
+  const fetchPermits = async () => {
     try {
       const res = await authFetch("/api/admin/permits/overview");
       if (res.ok) {
@@ -287,7 +287,7 @@ export default function AdminDocumentRequestsTab({
     } catch (e) {
       console.warn("fetchPermits error:", e);
     }
-  }, []);
+  };
 
   const handleOpenEditPermit = (p) => {
     setEditingPermit(p);
@@ -368,7 +368,7 @@ export default function AdminDocumentRequestsTab({
       window.removeEventListener("mcpa-permits-updated", handleRequestsUpdate);
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [fetchPermits]);
+  }, []);
 
   // Update default note when template changes
   useEffect(() => {
