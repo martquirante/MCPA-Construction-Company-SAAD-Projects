@@ -25,7 +25,7 @@ export default function DelayManagementTab({
   onLogDelay,
   showToast,
 }) {
-  const [category, setCategory] = useState("Weather / Monsoon Rain");
+  const [category, setCategory] = useState("");
   const [daysDelayed, setDaysDelayed] = useState("1");
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,6 +37,8 @@ export default function DelayManagementTab({
   useEffect(() => {
     if (!project?.project_code) {
       setWeatherData(null);
+      setCategory("");
+      setReason("");
       return;
     }
 
@@ -49,6 +51,22 @@ export default function DelayManagementTab({
         const data = await res.json();
         if (isMounted && data.success) {
           setWeatherData(data);
+
+          // Automated Intelligence:
+          // If adverse weather (di maganda panahon) -> Auto-select Weather category & auto-fill reason
+          // If favorable/optimal weather -> Keep category unselected & reason blank
+          const isAdverseWeather = data.advisory?.isAdverse;
+          const tomorrow = data.daily?.[1] || data.daily?.[0];
+          if (isAdverseWeather) {
+            setCategory("Weather / Monsoon Rain");
+            setDaysDelayed("1");
+            setReason(
+              `Official Weather Advisory: Site inspection and outdoor concrete pouring operations paused due to forecasted ${tomorrow?.condition || "heavy rain"} (Rain Probability: ${tomorrow?.rainProbability || "60%"}). Critical path milestone shifted by 1 day for structural safety.`
+            );
+          } else {
+            setCategory("");
+            setReason("");
+          }
         }
       } catch (err) {
         console.warn("[DelayManagementTab] Weather load error:", err);
@@ -62,9 +80,44 @@ export default function DelayManagementTab({
     };
   }, [project?.project_code]);
 
+  const handleCategoryChange = (newCat) => {
+    setCategory(newCat);
+    if (!newCat) {
+      setReason("");
+      return;
+    }
+
+    // Auto-populate relevant technical justification based on selected category
+    if (newCat === "Weather / Monsoon Rain") {
+      const tomorrow = weatherData?.daily?.[1] || weatherData?.daily?.[0];
+      setReason(
+        `Official Weather Advisory: Site inspection and outdoor concrete pouring operations paused due to forecasted ${tomorrow?.condition || "heavy rain"} (Rain Probability: ${tomorrow?.rainProbability || "60%"}). Critical path milestone shifted by 1 day for structural safety.`
+      );
+    } else if (newCat === "Material Supply Logistics") {
+      setReason(
+        "Logistics Delay: Transit delay in bulk ready-mix concrete and rebar delivery from regional supplier. Site activities rescheduled by 1 day to maintain continuous pour integrity."
+      );
+    } else if (newCat === "LGU Permitting Inspection") {
+      setReason(
+        "LGU Regulatory Inspection: Pending mandatory on-site structural inspection by the City Engineering Office prior to monolithic slab casting."
+      );
+    } else if (newCat === "Client Scope Modification") {
+      setReason(
+        "Client Design Modification: Formal revision requested by client on architectural and electrical layouts; engineering milestone shifted pending drawing sign-off."
+      );
+    } else if (newCat === "Site Geotechnical Condition") {
+      setReason(
+        "Geotechnical Soil Stabilization: High subsurface groundwater seepage discovered during deep foundation footing excavation; pumping and soil consolidation underway."
+      );
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!reason || !daysDelayed || !project) return;
+    if (!category || !reason || !daysDelayed || !project) {
+      if (showToast) showToast("Please select a delay category and verify the engineering reason.");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -92,6 +145,7 @@ export default function DelayManagementTab({
 
       if (showToast) showToast(`Logged delay of +${daysDelayed} days. Critical path revised & client notified!`);
       setReason("");
+      setCategory("");
       setDaysDelayed("1");
     } catch (err) {
       if (showToast) showToast("Error: " + err.message);
@@ -189,9 +243,11 @@ export default function DelayManagementTab({
                   <label className="block text-neutral-500 mb-1">Delay Category *</label>
                   <select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
+                    required
                     className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer"
                   >
+                    <option value="">-- Select Delay Category --</option>
                     <option value="Weather / Monsoon Rain">Severe Weather / Monsoon Rain / Typhoon</option>
                     <option value="Material Supply Logistics">Material Supply Logistics</option>
                     <option value="LGU Permitting Inspection">LGU Permitting / Municipal Inspection</option>
