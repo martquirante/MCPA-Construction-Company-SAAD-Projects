@@ -101,9 +101,8 @@ export default function PortalOnSiteWeatherCard({
       )}
 
       <div className="relative z-10 flex items-center justify-between">
-        <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-400 font-bold flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-weather-radar-ping inline-block" />
-          <span>Live Site Radar</span>
+        <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-neutral-400 font-bold">
+          Live Site Weather
         </span>
         <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 font-medium truncate max-w-[190px]">
           {weatherData?.location || location}

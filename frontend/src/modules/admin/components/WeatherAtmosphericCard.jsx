@@ -182,17 +182,7 @@ export default function WeatherAtmosphericCard({
         {/* 2. ENTERPRISE STATION TELEMETRY BAR */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-neutral-200/60 dark:border-white/[0.06]">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 text-[10px] font-mono font-bold tracking-wider uppercase text-emerald-700 dark:text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-weather-radar-ping inline-block" />
-                Live Radar Telemetry
-              </span>
-              <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500">
-                • High-Resolution ECMWF Satellite Model
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-2 pt-0.5">
+            <div className="flex items-baseline gap-2">
               <h3 className="text-lg sm:text-xl font-bold tracking-tight text-neutral-900 dark:text-white">
                 Site Atmospheric Intelligence &amp; 7-Day Outlook
               </h3>
