@@ -1079,3 +1079,57 @@ body.mcpa-map-fullscreen-active .mcpa-paper-sheet {
   animation: weatherRadarPing 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
 
+@keyframes weatherRainHeavy {
+  0% {
+    transform: translateY(-90px) skewX(-18deg);
+    opacity: 0;
+  }
+  20% { opacity: 0.9; }
+  80% { opacity: 0.9; }
+  100% {
+    transform: translateY(340px) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes weatherWindStream {
+  0% {
+    transform: translateX(-120%) scaleX(0.4);
+    opacity: 0;
+  }
+  30% { opacity: 0.75; }
+  70% { opacity: 0.75; }
+  100% {
+    transform: translateX(250%) scaleX(1.4);
+    opacity: 0;
+  }
+}
+
+@keyframes weatherSkyDrift {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  50% { transform: scale(1.04) translate(-1%, -1%); }
+}
+
+@keyframes weatherCloudDriftHorizon {
+  0% { transform: translateX(-15%); }
+  50% { transform: translateX(10%); }
+  100% { transform: translateX(-15%); }
+}
+
+.animate-weather-rain-heavy {
+  animation: weatherRainHeavy 0.75s linear infinite;
+}
+
+.animate-weather-wind-stream {
+  animation: weatherWindStream 2.4s ease-in-out infinite;
+}
+
+.animate-weather-sky-drift {
+  animation: weatherSkyDrift 30s ease-in-out infinite;
+}
+
+.animate-weather-cloud-horizon {
+  animation: weatherCloudDriftHorizon 35s ease-in-out infinite;
+}
+
+
