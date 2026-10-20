@@ -74,6 +74,26 @@ export const getIceServers = () => {
   if (turnUsername && turnPassword) {
     servers.push(
       {
+        urls: "turn:standard.relay.metered.ca:80",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turn:standard.relay.metered.ca:443",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
         urls: "turn:global.relay.metered.ca:80",
         username: turnUsername,
         credential: turnPassword,
@@ -95,25 +115,6 @@ export const getIceServers = () => {
       }
     );
   }
-
-  // 3. Fallback OpenRelay servers (bypasses carrier firewalls and strict NAT via port 443 TCP/TLS)
-  servers.push(
-    {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turns:openrelay.metered.ca:443?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    }
-  );
 
   return servers;
 };

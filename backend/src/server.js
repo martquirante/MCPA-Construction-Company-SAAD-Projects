@@ -144,7 +144,56 @@ app.get("/api/health", async (req, res) => {
 // -----------------------------------------------------------------------------
 // WEBRTC ICE SERVERS (STUN & TURN RELAY CONFIGURATION)
 // -----------------------------------------------------------------------------
-app.get("/api/webrtc/ice-servers", (req, res) => {
+let dynamicTurnCache = {
+  expiresAt: 0,
+  servers: [],
+};
+
+app.get("/api/webrtc/ice-servers", async (req, res) => {
+  const meteredApiKey = process.env.METERED_API_KEY || "";
+  const meteredAppName = process.env.METERED_APP_NAME || "";
+
+  // 1. Dynamic ephemeral TURN credentials via Metered REST API if API Key is configured
+  if (meteredApiKey && meteredAppName) {
+    const now = Date.now();
+    if (dynamicTurnCache.expiresAt > now && dynamicTurnCache.servers.length > 0) {
+      return res.json({
+        success: true,
+        iceServers: dynamicTurnCache.servers,
+        source: "metered-api-cached",
+      });
+    }
+
+    try {
+      const response = await fetch(
+        `https://${meteredAppName}.metered.live/api/v1/turn/credentials?apiKey=${meteredApiKey}`
+      );
+      if (response.ok) {
+        const meteredServers = await response.json();
+        if (Array.isArray(meteredServers) && meteredServers.length > 0) {
+          const combinedServers = [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun.cloudflare.com:3478" },
+            ...meteredServers,
+          ];
+          dynamicTurnCache = {
+            expiresAt: now + 60 * 60 * 1000, // Cache for 1 hour
+            servers: combinedServers,
+          };
+          return res.json({
+            success: true,
+            iceServers: combinedServers,
+            source: "metered-api",
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[WEBRTC] Failed to fetch dynamic Metered credentials:", err?.message || err);
+    }
+  }
+
+  // 2. Static username/password credentials configuration
   const turnUsername =
     process.env.METERED_TURN_USERNAME ||
     process.env.NEXT_PUBLIC_METERED_TURN_USERNAME ||
@@ -163,6 +212,27 @@ app.get("/api/webrtc/ice-servers", (req, res) => {
 
   if (turnUsername && turnPassword) {
     iceServers.push(
+      // Standard Free-tier & Enterprise Metered relay hosts
+      {
+        urls: "turn:standard.relay.metered.ca:80",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turn:standard.relay.metered.ca:443",
+        username: turnUsername,
+        credential: turnPassword,
+      },
+      {
+        urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+        username: turnUsername,
+        credential: turnPassword,
+      },
       {
         urls: "turn:global.relay.metered.ca:80",
         username: turnUsername,
@@ -186,28 +256,10 @@ app.get("/api/webrtc/ice-servers", (req, res) => {
     );
   }
 
-  // Fallback OpenRelay servers (bypasses carrier firewalls and strict NAT via port 443 TCP/TLS)
-  iceServers.push(
-    {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turns:openrelay.metered.ca:443?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    }
-  );
-
   return res.json({
     success: true,
     iceServers,
+    source: "static-config",
   });
 });
 
