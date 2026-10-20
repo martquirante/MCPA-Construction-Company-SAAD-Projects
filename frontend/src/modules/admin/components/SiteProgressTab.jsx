@@ -266,6 +266,7 @@ export default function SiteProgressTab({
   const [walkthroughUploadError, setWalkthroughUploadError] = useState("");
   const [showAddUrlInput, setShowAddUrlInput] = useState(false);
   const [isSavingWalkthrough, setIsSavingWalkthrough] = useState(false);
+  const [isHandingOver, setIsHandingOver] = useState(false);
   const walkthroughFileInputRef = useRef(null);
   const walkthroughXhrsRef = useRef({});
   const [boqTrades, setBoqTrades] = useState([]);
@@ -1009,6 +1010,48 @@ export default function SiteProgressTab({
     }
   };
 
+  const handleHandoverTurnover = async () => {
+    if (!project) return;
+    const projectRef = project.client_project_id || project.project_code;
+    const confirmMsg = `I-turnover na ba ang proyektong "${project.name || project.project_code}" sa kliyente at i-promote sa Stage 4: Handover & 15-Year Structural Warranty?`;
+    if (!confirm(confirmMsg)) return;
+
+    setIsHandingOver(true);
+    try {
+      const res = await authFetch(`/api/admin/projects/${encodeURIComponent(projectRef)}/advance-stage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetStage: "COMPLETED",
+          reason: "100% Construction Accomplishment & Formal Turnkey Handover",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (showToast) {
+          showToast("🎉 Matagumpay na nai-turnover ang proyekto sa Stage 4: Handover & 15-Year Structural Warranty!");
+        }
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("mcpa-project-stage-updated", {
+              detail: {
+                clientProjectId: project.client_project_id,
+                projectCode: project.project_code,
+                targetStage: "COMPLETED",
+              },
+            })
+          );
+        }
+      } else {
+        throw new Error(data.message || "Failed to advance stage to COMPLETED");
+      }
+    } catch (err) {
+      if (showToast) showToast("Error: " + err.message);
+    } finally {
+      setIsHandingOver(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* 1. STAGE 3 CUSTOMER COMBOBOX */}
@@ -1021,6 +1064,21 @@ export default function SiteProgressTab({
 
         {project && (
           <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 shrink-0">
+            <button
+              type="button"
+              disabled={isHandingOver}
+              onClick={handleHandoverTurnover}
+              className="px-3 py-2 rounded-[6px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Promote to Stage 4 (Turnover & 15-Year Warranty)"
+            >
+              {isHandingOver ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+              )}
+              <span>Turn Over (Stage 4)</span>
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -1140,6 +1198,45 @@ export default function SiteProgressTab({
                 </span>
               </div>
             </div>
+
+            {/* Stage 4 Turnover Callout Banner */}
+            {project.stage_id === "COMPLETED" || (project.status || "").toLowerCase().includes("handover") || (project.status || "").toLowerCase().includes("completed") ? (
+              <div className="p-4 rounded-[8px] bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs font-mono">
+                <div className="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />
+                  <div>
+                    <p className="font-bold uppercase tracking-wider text-[11px]">Nasa Stage 4 Na: Handover &amp; 15-Year Structural Warranty</p>
+                    <p className="text-[10.5px] text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+                      Naka-unlock na ang Project Wrapped, bago/tapos slider, digital warranty certificate, at turnover photo vault sa client portal.
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold uppercase text-[10px] shrink-0">
+                  Stage 4 Active
+                </span>
+              </div>
+            ) : (project.progress_pct >= 100) ? (
+              <div className="p-4 rounded-[8px] bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+                <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-400">
+                  <Sparkles className="w-5 h-5 shrink-0 animate-pulse text-amber-500" />
+                  <div>
+                    <p className="font-bold uppercase tracking-wider text-[11px]">100% Accomplished! Handa na para sa Formal Turnover</p>
+                    <p className="text-[10.5px] text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+                      Natapos na ang lahat ng milestone phases. Pindutin ang button upang i-turnover at buksan ang Stage 4 (Warranty &amp; Wrapped) sa client portal.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isHandingOver}
+                  onClick={handleHandoverTurnover}
+                  className="px-4 py-2 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold uppercase text-[11px] tracking-wider transition-colors cursor-pointer shrink-0 inline-flex items-center gap-1.5 shadow-xs"
+                >
+                  {isHandingOver ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  <span>Turn Over to Stage 4</span>
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {/* 3. MILESTONE PHASES LIST */}

@@ -2086,6 +2086,22 @@ class StageEngineService {
       }
     }
 
+    // 6.2 If advancing to Stage 4 (COMPLETED / Handover), update site_projects status
+    if (targetStage === "COMPLETED") {
+      try {
+        await db.query(
+          `UPDATE public.site_projects 
+           SET status = 'Completed & Handover', 
+               progress_pct = 100,
+               updated_at = NOW() 
+           WHERE client_project_id = $1 OR project_code = $2;`,
+          [resolvedProjectId, updatedProject.site_project_code || updatedProject.project_code]
+        );
+      } catch (spErr) {
+        console.warn("[stageEngineService] site_projects completed notice:", spErr.message);
+      }
+    }
+
     // 7. Record transition audit
     await db.query(
       `INSERT INTO public.stage_transitions (
