@@ -56,8 +56,9 @@ export const getIceServers = () => {
     return cachedDynamicIceServers;
   }
 
-  const turnUsername = process.env.NEXT_PUBLIC_METERED_TURN_USERNAME;
-  const turnPassword = process.env.NEXT_PUBLIC_METERED_TURN_PASSWORD;
+  // Primary Metered TURN credentials with built-in production fallback
+  const turnUsername = process.env.NEXT_PUBLIC_METERED_TURN_USERNAME || "8401188622a1b4affcd24ed";
+  const turnPassword = process.env.NEXT_PUBLIC_METERED_TURN_PASSWORD || "0OtuKMNQdY3m1XaU";
 
   const servers = [
     // 1. High-speed Public STUN servers for direct P2P NAT hole-punching
@@ -94,6 +95,25 @@ export const getIceServers = () => {
       }
     );
   }
+
+  // 3. Fallback OpenRelay servers (bypasses carrier firewalls and strict NAT via port 443 TCP/TLS)
+  servers.push(
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turns:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    }
+  );
 
   return servers;
 };
@@ -231,6 +251,9 @@ export class WebRTCPeerManager {
     const remoteStream = new MediaStream();
     const pc = new RTCPeerConnection({
       iceServers: getIceServers(),
+      iceCandidatePoolSize: 10,
+      bundlePolicy: "max-bundle",
+      rtcpMuxPolicy: "require",
     });
 
     const peerObj = {
@@ -241,6 +264,9 @@ export class WebRTCPeerManager {
       user: user || { socketId },
       isInitiator,
       makingOffer: false,
+      isRestartingIce: false,
+      iceRestartCount: 0,
+      iceRecoveryTimer: null,
       pendingCandidates: [],
     };
 
@@ -250,7 +276,12 @@ export class WebRTCPeerManager {
         .then((servers) => {
           if (pc && typeof pc.setConfiguration === "function") {
             try {
-              pc.setConfiguration({ iceServers: servers });
+              pc.setConfiguration({
+                iceServers: servers,
+                iceCandidatePoolSize: 10,
+                bundlePolicy: "max-bundle",
+                rtcpMuxPolicy: "require",
+              });
               console.log(`[WEBRTC MESH] Updated peer ${socketId} with dynamic Azure TURN servers.`);
             } catch (e) {}
           }
@@ -326,10 +357,32 @@ export class WebRTCPeerManager {
       }
     };
 
-    // 5. Connection lifecycle
+    // 5. ICE Connection Health Lifecycle (handles mobile drops & carrier NAT shifts)
+    pc.oniceconnectionstatechange = () => {
+      const iceState = pc.iceConnectionState;
+      console.log(`[WEBRTC MESH] ICE connection state with peer ${socketId}: ${iceState}`);
+      if (iceState === "failed") {
+        this.handleConnectionFailure(socketId);
+      } else if (iceState === "disconnected") {
+        this.scheduleIceRecovery(socketId, 2800);
+      } else if (iceState === "connected" || iceState === "completed") {
+        this.clearIceRecovery(socketId);
+        peerObj.iceRestartCount = 0;
+      }
+    };
+
+    // 6. Overall Peer Connection lifecycle
     pc.onconnectionstatechange = () => {
       const state = pc.connectionState;
       console.log(`[WEBRTC MESH] Connection state with peer ${socketId}: ${state}`);
+      if (state === "failed") {
+        this.handleConnectionFailure(socketId);
+      } else if (state === "disconnected") {
+        this.scheduleIceRecovery(socketId, 2800);
+      } else if (state === "connected") {
+        this.clearIceRecovery(socketId);
+        peerObj.iceRestartCount = 0;
+      }
       this.onConnectionStateChange(state, socketId);
       this.notifyPeersChange();
     };
@@ -337,6 +390,190 @@ export class WebRTCPeerManager {
     this.peers.set(socketId, peerObj);
     this.notifyPeersChange();
     return peerObj;
+  }
+
+  /**
+   * Schedules an automatic ICE restart if the peer connection remains disconnected
+   * @param {string} socketId 
+   * @param {number} delayMs 
+   */
+  scheduleIceRecovery(socketId, delayMs = 2800) {
+    const peer = this.peers.get(socketId);
+    if (!peer) return;
+    if (peer.iceRecoveryTimer) clearTimeout(peer.iceRecoveryTimer);
+
+    peer.iceRecoveryTimer = setTimeout(async () => {
+      peer.iceRecoveryTimer = null;
+      if (!this.peers.has(socketId)) return;
+      const curPc = peer.pc;
+      if (!curPc) return;
+
+      const isBroken =
+        curPc.iceConnectionState === "disconnected" ||
+        curPc.iceConnectionState === "failed" ||
+        curPc.connectionState === "disconnected" ||
+        curPc.connectionState === "failed";
+
+      if (isBroken) {
+        console.warn(`[WEBRTC MESH] Peer ${socketId} connection dropped/stalled. Initiating automatic ICE restart...`);
+        await this.restartIce(socketId);
+      }
+    }, delayMs);
+  }
+
+  /**
+   * Cancels pending ICE recovery timers when connection stabilizes
+   * @param {string} socketId 
+   */
+  clearIceRecovery(socketId) {
+    const peer = this.peers.get(socketId);
+    if (peer && peer.iceRecoveryTimer) {
+      clearTimeout(peer.iceRecoveryTimer);
+      peer.iceRecoveryTimer = null;
+    }
+  }
+
+  /**
+   * Handles peer failure by attempting an ICE restart, or falling back to full peer recreation
+   * @param {string} socketId 
+   */
+  async handleConnectionFailure(socketId) {
+    const peer = this.peers.get(socketId);
+    if (!peer) return;
+    this.clearIceRecovery(socketId);
+
+    peer.iceRestartCount = (peer.iceRestartCount || 0) + 1;
+    if (peer.iceRestartCount <= 3) {
+      console.warn(`[WEBRTC MESH] Connection failed with ${socketId}. Attempting ICE Restart (attempt ${peer.iceRestartCount}/3)...`);
+      await this.restartIce(socketId);
+    } else {
+      console.warn(`[WEBRTC MESH] Connection failed repeatedly with ${socketId}. Recreating clean peer connection...`);
+      peer.iceRestartCount = 0;
+      this.recreatePeer(socketId);
+    }
+  }
+
+  /**
+   * Triggers an ICE restart with the target peer to renegotiate candidate pairs across mobile network changes
+   * @param {string} targetSocketId 
+   */
+  async restartIce(targetSocketId) {
+    const peer = this.peers.get(targetSocketId);
+    if (!peer || !peer.pc || peer.pc.signalingState === "closed") return;
+
+    try {
+      peer.isRestartingIce = true;
+      peer.makingOffer = true;
+
+      // Ensure fresh TURN relay configuration is set
+      try {
+        const servers = await fetchIceServers();
+        if (peer.pc && typeof peer.pc.setConfiguration === "function") {
+          peer.pc.setConfiguration({
+            iceServers: servers,
+            iceCandidatePoolSize: 10,
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+          });
+        }
+      } catch (e) {}
+
+      // Re-affirm transceivers are sendrecv
+      const transceivers = typeof peer.pc.getTransceivers === "function" ? peer.pc.getTransceivers() : [];
+      transceivers.forEach((t) => {
+        if (!t.stopped && t.direction !== "stopped") {
+          t.direction = "sendrecv";
+        }
+      });
+
+      if (this.localStream) {
+        await this.attachLocalTracksToPeer(peer.pc, this.localStream, peer);
+      }
+
+      console.log(`[WEBRTC MESH] Generating ICE Restart offer for peer: ${targetSocketId}`);
+      const offer = await peer.pc.createOffer({
+        iceRestart: true,
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
+
+      const tunedOffer = new RTCSessionDescription({
+        type: offer.type,
+        sdp: optimizeOpusSdp(offer.sdp),
+      });
+
+      await peer.pc.setLocalDescription(tunedOffer);
+
+      this.socket.emit("webrtc-offer", {
+        targetSocketId,
+        roomCode: this.roomCode,
+        sdpOffer: tunedOffer,
+        sender: this.currentUser,
+        isIceRestart: true,
+      });
+    } catch (err) {
+      console.error(`[WEBRTC MESH] Failed ICE restart for peer ${targetSocketId}:`, err);
+    } finally {
+      peer.makingOffer = false;
+      peer.isRestartingIce = false;
+    }
+  }
+
+  /**
+   * Completely tears down a broken peer connection and initiates a fresh handshake
+   * @param {string} socketId 
+   */
+  recreatePeer(socketId) {
+    if (!socketId) return null;
+    const oldPeer = this.peers.get(socketId);
+    const user = oldPeer?.user || { socketId };
+
+    if (oldPeer) {
+      this.clearIceRecovery(socketId);
+      try {
+        oldPeer.pc.ontrack = null;
+        oldPeer.pc.onicecandidate = null;
+        oldPeer.pc.onconnectionstatechange = null;
+        oldPeer.pc.oniceconnectionstatechange = null;
+        oldPeer.pc.close();
+      } catch (e) {}
+      this.peers.delete(socketId);
+    }
+
+    const newPeer = this.getOrCreatePeer(socketId, user, true);
+    if (newPeer) {
+      this.createAndSendOffer(socketId, user);
+    }
+    return newPeer;
+  }
+
+  /**
+   * Resets and renegotiates all peer connections when Socket.io reconnects after a signal blackout
+   */
+  async reconnectAllPeers() {
+    console.log(`[WEBRTC MESH] Signaling reconnected. Re-negotiating all ${this.peers.size} active peers...`);
+    const peerEntries = Array.from(this.peers.entries());
+    for (const [socketId, peer] of peerEntries) {
+      try {
+        this.clearIceRecovery(socketId);
+        try {
+          peer.pc.ontrack = null;
+          peer.pc.onicecandidate = null;
+          peer.pc.onconnectionstatechange = null;
+          peer.pc.oniceconnectionstatechange = null;
+          peer.pc.close();
+        } catch (e) {}
+        this.peers.delete(socketId);
+
+        const newPeer = this.getOrCreatePeer(socketId, peer.user, true);
+        if (this.localStream) {
+          await this.attachLocalTracksToPeer(newPeer.pc, this.localStream, newPeer);
+        }
+        await this.createAndSendOffer(socketId, peer.user);
+      } catch (err) {
+        console.error(`[WEBRTC MESH] Error reconnecting peer ${socketId}:`, err);
+      }
+    }
   }
 
   /**
@@ -479,11 +716,17 @@ export class WebRTCPeerManager {
    * @param {RTCSessionDescriptionInit} sdpOffer 
    * @param {string} fromSocketId 
    * @param {object} [sender] 
+   * @param {boolean} [isIceRestart]
    */
-  async handleOfferAndSendAnswer(sdpOffer, fromSocketId, sender = null) {
+  async handleOfferAndSendAnswer(sdpOffer, fromSocketId, sender = null, isIceRestart = false) {
     if (!fromSocketId || !sdpOffer) return;
     const peer = this.getOrCreatePeer(fromSocketId, sender, false);
     if (!peer) return;
+
+    if (isIceRestart) {
+      console.log(`[WEBRTC MESH] Received ICE Restart offer from peer: ${fromSocketId}`);
+      this.clearIceRecovery(fromSocketId);
+    }
 
     if (sender && (!peer.user || !peer.user.name)) {
       peer.user = sender;
@@ -708,10 +951,12 @@ export class WebRTCPeerManager {
   removePeer(socketId) {
     if (!socketId || !this.peers.has(socketId)) return;
     const peer = this.peers.get(socketId);
+    this.clearIceRecovery(socketId);
     try {
       peer.pc.ontrack = null;
       peer.pc.onicecandidate = null;
       peer.pc.onconnectionstatechange = null;
+      peer.pc.oniceconnectionstatechange = null;
       peer.pc.close();
     } catch (e) {}
 
@@ -731,11 +976,13 @@ export class WebRTCPeerManager {
    * Terminates all active peer connections and clears mesh resources
    */
   close() {
-    for (const peer of this.peers.values()) {
+    for (const [socketId, peer] of this.peers.entries()) {
+      this.clearIceRecovery(socketId);
       try {
         peer.pc.ontrack = null;
         peer.pc.onicecandidate = null;
         peer.pc.onconnectionstatechange = null;
+        peer.pc.oniceconnectionstatechange = null;
         peer.pc.close();
       } catch (e) {}
 

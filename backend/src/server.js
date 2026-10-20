@@ -145,8 +145,14 @@ app.get("/api/health", async (req, res) => {
 // WEBRTC ICE SERVERS (STUN & TURN RELAY CONFIGURATION)
 // -----------------------------------------------------------------------------
 app.get("/api/webrtc/ice-servers", (req, res) => {
-  const turnUsername = process.env.METERED_TURN_USERNAME || process.env.NEXT_PUBLIC_METERED_TURN_USERNAME || "";
-  const turnPassword = process.env.METERED_TURN_PASSWORD || process.env.NEXT_PUBLIC_METERED_TURN_PASSWORD || "";
+  const turnUsername =
+    process.env.METERED_TURN_USERNAME ||
+    process.env.NEXT_PUBLIC_METERED_TURN_USERNAME ||
+    "";
+  const turnPassword =
+    process.env.METERED_TURN_PASSWORD ||
+    process.env.NEXT_PUBLIC_METERED_TURN_PASSWORD ||
+    "";
 
   const iceServers = [
     { urls: "stun:stun.l.google.com:19302" },
@@ -179,6 +185,25 @@ app.get("/api/webrtc/ice-servers", (req, res) => {
       }
     );
   }
+
+  // Fallback OpenRelay servers (bypasses carrier firewalls and strict NAT via port 443 TCP/TLS)
+  iceServers.push(
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turns:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    }
+  );
 
   return res.json({
     success: true,

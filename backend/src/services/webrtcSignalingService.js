@@ -138,6 +138,26 @@ class WebRTCSignalingService {
 
         socket.join(roomCode);
         socket.currentRoom = roomCode;
+
+        // Clean up any stale/ghost socket entries for the reconnecting user (e.g. from network drops before pingTimeout)
+        if (user?.id || user?.email) {
+          for (const [existingSocketId, existingData] of roomParticipants.entries()) {
+            const isSameUser =
+              (user.id && existingData?.id === user.id) ||
+              (user.email && existingData?.email === user.email);
+            if (isSameUser && existingSocketId !== socket.id) {
+              console.log(
+                `[WEBRTC] Purging stale ghost socket ${existingSocketId} for reconnecting user "${user.name || user.id}"`
+              );
+              roomParticipants.delete(existingSocketId);
+              socket.to(roomCode).emit("peer-left", {
+                socketId: existingSocketId,
+                user: existingData,
+              });
+            }
+          }
+        }
+
         const initialMediaState = {
           isMicOn: user?.mediaState?.isMicOn !== false,
           isVideoOn: user?.mediaState?.isVideoOn !== false,
@@ -176,18 +196,20 @@ class WebRTCSignalingService {
       });
 
       // 2. WebRTC Offer Relay (Peer A -> Peer B)
-      socket.on("webrtc-offer", ({ targetSocketId, roomCode, sdpOffer, sender }) => {
+      socket.on("webrtc-offer", ({ targetSocketId, roomCode, sdpOffer, sender, isIceRestart }) => {
         if (targetSocketId) {
           socket.to(targetSocketId).emit("webrtc-offer", {
             fromSocketId: socket.id,
             sdpOffer,
             sender: sender || socket.userData,
+            isIceRestart: Boolean(isIceRestart),
           });
         } else if (roomCode) {
           socket.to(roomCode).emit("webrtc-offer", {
             fromSocketId: socket.id,
             sdpOffer,
             sender: sender || socket.userData,
+            isIceRestart: Boolean(isIceRestart),
           });
         }
       });
