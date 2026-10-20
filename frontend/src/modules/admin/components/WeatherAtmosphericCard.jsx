@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   Sun,
@@ -23,8 +23,8 @@ import {
 
 /**
  * Mobile-grade Atmospheric Weather & 7-Day Engineering Outlook Card
- * Features photorealistic sky backgrounds, drifting clouds, rotating sun,
- * adaptive rain droplets, wind gusts, and glassmorphic telemetry.
+ * Dynamically adapts between Light Theme (luminous daytime skies & frosted white glass)
+ * and Dark Theme (cinematic moody dusk/storm skies & deep obsidian glass).
  */
 export default function WeatherAtmosphericCard({
   weatherData,
@@ -37,12 +37,32 @@ export default function WeatherAtmosphericCard({
   const advisory = weatherData?.advisory;
   const daily = weatherData?.daily || [];
 
-  // Determine atmospheric weather archetype and asset
+  // Reactive Dark Mode Detection
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const checkDark = () => {
+      if (typeof document !== "undefined") {
+        setIsDark(document.documentElement.classList.contains("dark"));
+      }
+    };
+    checkDark();
+
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Determine atmospheric weather archetype and background asset based on theme
   const { weatherType, bgImage, isHeavyRain, isLightRain, isWindy, isStormy } = useMemo(() => {
     if (!current) {
       return {
         weatherType: "cloudy",
-        bgImage: "/assets/weather/cloudy.jpg",
+        bgImage: isDark ? "/assets/weather/cloudy.jpg" : "/assets/weather/cloudy-day.jpg",
         isHeavyRain: false,
         isLightRain: false,
         isWindy: false,
@@ -79,20 +99,20 @@ export default function WeatherAtmosphericCard({
     const isWindy = windSpeedNum >= 10 || cond.includes("wind") || cond.includes("gust");
 
     let weatherType = "cloudy";
-    let bgImage = "/assets/weather/cloudy.jpg";
+    let bgImage = isDark ? "/assets/weather/cloudy.jpg" : "/assets/weather/cloudy-day.jpg";
 
     if (isStormy || isHeavy) {
       weatherType = "storm";
-      bgImage = "/assets/weather/rain.jpg";
+      bgImage = isDark ? "/assets/weather/rain.jpg" : "/assets/weather/rain-day.jpg";
     } else if (isLight) {
       weatherType = "rain";
-      bgImage = "/assets/weather/rain.jpg";
+      bgImage = isDark ? "/assets/weather/rain.jpg" : "/assets/weather/rain-day.jpg";
     } else if (icon === "Sun" || cond.includes("clear") || cond.includes("sunny")) {
       weatherType = "sunny";
       bgImage = "/assets/weather/sunny.jpg";
     } else {
       weatherType = "cloudy";
-      bgImage = "/assets/weather/cloudy.jpg";
+      bgImage = isDark ? "/assets/weather/cloudy.jpg" : "/assets/weather/cloudy-day.jpg";
     }
 
     return {
@@ -103,9 +123,9 @@ export default function WeatherAtmosphericCard({
       isWindy,
       isStormy,
     };
-  }, [current, daily]);
+  }, [current, daily, isDark]);
 
-  // Compute week temperature span for proportional visual temp bars (like Apple/Android Weather)
+  // Compute week temperature span for proportional visual temp bars
   const weekTempSpan = useMemo(() => {
     if (!daily.length) return { min: 20, max: 38 };
     let min = 100;
@@ -123,20 +143,20 @@ export default function WeatherAtmosphericCard({
   const renderWeatherIcon = (iconName, size = "w-6 h-6", isHero = false) => {
     switch (iconName) {
       case "CloudLightning":
-        return <CloudLightning className={`${size} text-amber-400 animate-pulse`} />;
+        return <CloudLightning className={`${size} text-amber-500 dark:text-amber-400 animate-pulse`} />;
       case "CloudRain":
-        return <CloudRain className={`${size} text-sky-400 ${isHero ? "animate-bounce" : ""}`} />;
+        return <CloudRain className={`${size} text-sky-600 dark:text-sky-400 ${isHero ? "animate-bounce" : ""}`} />;
       case "CloudDrizzle":
-        return <CloudDrizzle className={`${size} text-sky-300`} />;
+        return <CloudDrizzle className={`${size} text-sky-500 dark:text-sky-300`} />;
       case "CloudFog":
-        return <CloudFog className={`${size} text-slate-300`} />;
+        return <CloudFog className={`${size} text-slate-500 dark:text-slate-300`} />;
       case "Cloud":
-        return <Cloud className={`${size} text-slate-200 animate-weather-cloud-slow`} />;
+        return <Cloud className={`${size} text-slate-500 dark:text-slate-200 animate-weather-cloud-slow`} />;
       case "Sun":
       default:
         return (
           <Sun
-            className={`${size} text-amber-400 ${
+            className={`${size} text-amber-500 dark:text-amber-400 ${
               isHero ? "animate-weather-sun-rotate" : "animate-spin-slow"
             }`}
           />
@@ -148,29 +168,29 @@ export default function WeatherAtmosphericCard({
   const currentTempNum = current?.temperature?.replace("°C", "") || "28";
 
   return (
-    <div className="relative overflow-hidden rounded-[20px] bg-neutral-950 text-white shadow-xl border border-white/10 transition-all select-none">
-      {/* 1. PHOTOREALISTIC SKY IMAGE BACKDROP WITH CONTINUOUS SKY DRIFT */}
+    <div className="relative overflow-hidden rounded-[20px] bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white shadow-md dark:shadow-xl border border-neutral-200/80 dark:border-white/10 transition-colors duration-300 select-none">
+      {/* 1. PHOTOREALISTIC SKY IMAGE BACKDROP WITH CONTINUOUS DRIFT */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
         <Image
           src={bgImage}
-          alt="Sky Atmosphere"
+          alt="Atmospheric Sky"
           fill
           priority
           sizes="(max-width: 1200px) 100vw, 1200px"
-          className="object-cover object-center animate-weather-sky-drift scale-105"
+          className="object-cover object-center animate-weather-sky-drift scale-105 opacity-90 dark:opacity-100 transition-opacity duration-500"
         />
 
-        {/* Cinematic Vignette Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/30 pointer-events-none" />
+        {/* Adaptive Ambient Vignette Overlay: Light vs Dark Theme */}
+        <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/50 to-white/20 dark:from-black/85 dark:via-black/45 dark:to-black/30 pointer-events-none transition-colors duration-300" />
 
         {/* 2. DYNAMIC WEATHER EFFECTS (CLOUDS, SUN, RAIN, WIND, LIGHTNING) */}
 
         {/* Sunny: Breathing Solar Flare & Corona Rays */}
         {weatherType === "sunny" && (
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute -top-16 -right-16 w-96 h-96 rounded-full bg-gradient-to-br from-amber-400/35 via-orange-300/15 to-transparent blur-3xl animate-weather-sun-pulse" />
-            <div className="absolute top-2 right-12 w-64 h-64 rounded-full border border-amber-300/30 animate-weather-sun-rotate opacity-75" />
-            <div className="absolute top-6 right-16 w-56 h-56 rounded-full border border-dashed border-amber-200/40 animate-weather-sun-rays opacity-50" />
+            <div className="absolute -top-16 -right-16 w-96 h-96 rounded-full bg-gradient-to-br from-amber-400/30 via-orange-300/10 to-transparent blur-3xl animate-weather-sun-pulse" />
+            <div className="absolute top-2 right-12 w-64 h-64 rounded-full border border-amber-400/30 dark:border-amber-300/30 animate-weather-sun-rotate opacity-75" />
+            <div className="absolute top-6 right-16 w-56 h-56 rounded-full border border-dashed border-amber-400/40 dark:border-amber-200/40 animate-weather-sun-rays opacity-50" />
           </div>
         )}
 
@@ -178,14 +198,14 @@ export default function WeatherAtmosphericCard({
         {(weatherType === "cloudy" || weatherType === "storm") && (
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             {/* Slow distant cloud layer */}
-            <div className="absolute top-4 left-0 w-[140%] opacity-40 animate-weather-cloud-horizon">
-              <svg width="600" height="180" viewBox="0 0 600 180" fill="currentColor" className="text-slate-300/60 blur-xs">
+            <div className="absolute top-4 left-0 w-[140%] opacity-30 dark:opacity-40 animate-weather-cloud-horizon">
+              <svg width="600" height="180" viewBox="0 0 600 180" fill="currentColor" className="text-slate-400/50 dark:text-slate-300/60 blur-xs">
                 <path d="M60 140 A50 50 0 0 1 120 70 A80 80 0 0 1 270 60 A60 60 0 0 1 360 90 A50 50 0 0 1 410 140 Z M380 150 A40 40 0 0 1 440 95 A65 65 0 0 1 540 90 A45 45 0 0 1 590 150 Z" />
               </svg>
             </div>
             {/* Faster foreground cloud layer */}
-            <div className="absolute top-16 right-[-10%] w-[120%] opacity-30 animate-weather-cloud-fast">
-              <svg width="500" height="150" viewBox="0 0 500 150" fill="currentColor" className="text-slate-400/50">
+            <div className="absolute top-16 right-[-10%] w-[120%] opacity-25 dark:opacity-30 animate-weather-cloud-fast">
+              <svg width="500" height="150" viewBox="0 0 500 150" fill="currentColor" className="text-slate-500/40 dark:text-slate-400/50">
                 <path d="M50 120 A40 40 0 0 1 100 65 A65 65 0 0 1 220 55 A50 50 0 0 1 290 80 A40 40 0 0 1 330 120 Z" />
               </svg>
             </div>
@@ -201,7 +221,7 @@ export default function WeatherAtmosphericCard({
                 {[4, 11, 18, 26, 33, 41, 48, 55, 62, 69, 76, 83, 90, 97].map((pos, i) => (
                   <span
                     key={`heavy-${i}`}
-                    className="inline-block w-[1.5px] h-14 bg-gradient-to-b from-sky-200 via-sky-400 to-transparent rounded-full animate-weather-rain-heavy"
+                    className="inline-block w-[1.5px] h-14 bg-gradient-to-b from-sky-400 via-sky-500 to-transparent dark:from-sky-200 dark:via-sky-400 dark:to-transparent rounded-full animate-weather-rain-heavy"
                     style={{
                       left: `${pos}%`,
                       position: "absolute",
@@ -213,11 +233,11 @@ export default function WeatherAtmosphericCard({
               </div>
             ) : (
               /* Light Drizzle: Slower gentle raindrops */
-              <div className="absolute inset-0 flex justify-around opacity-50">
+              <div className="absolute inset-0 flex justify-around opacity-60">
                 {[8, 22, 38, 52, 68, 82, 94].map((pos, i) => (
                   <span
                     key={`light-${i}`}
-                    className="inline-block w-[1px] h-10 bg-gradient-to-b from-sky-300 to-transparent rounded-full animate-weather-rain"
+                    className="inline-block w-[1px] h-10 bg-gradient-to-b from-sky-400 to-transparent dark:from-sky-300 dark:to-transparent rounded-full animate-weather-rain"
                     style={{
                       left: `${pos}%`,
                       position: "absolute",
@@ -237,7 +257,7 @@ export default function WeatherAtmosphericCard({
             {[20, 45, 75].map((top, idx) => (
               <div
                 key={`wind-${idx}`}
-                className="absolute h-[1px] w-48 bg-gradient-to-r from-transparent via-white/35 to-transparent rounded-full animate-weather-wind-stream"
+                className="absolute h-[1px] w-48 bg-gradient-to-r from-transparent via-neutral-500/30 dark:via-white/35 to-transparent rounded-full animate-weather-wind-stream"
                 style={{
                   top: `${top}%`,
                   left: "-20%",
@@ -250,22 +270,22 @@ export default function WeatherAtmosphericCard({
 
         {/* Storm: Lightning Flash Ambient Illumination */}
         {isStormy && (
-          <div className="absolute inset-0 bg-white/20 animate-weather-lightning pointer-events-none" />
+          <div className="absolute inset-0 bg-white/30 animate-weather-lightning pointer-events-none" />
         )}
       </div>
 
-      {/* 3. HERO CONTENT CONTAINER (Matching Phone Weather App Architecture) */}
+      {/* 3. HERO CONTENT CONTAINER (Adaptive Light / Dark Mode) */}
       <div className="relative z-10 p-6 sm:p-8 space-y-6">
         {/* Top Header: Location, Project, and Action Button */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-display">
+              <MapPin className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white font-display">
                 {weatherData?.location || project?.location || "San Jose Del Monte, Bulacan"}
               </h2>
             </div>
-            <p className="text-xs font-mono text-neutral-300/80 pl-6">
+            <p className="text-xs font-mono text-neutral-600 dark:text-neutral-300/80 pl-6">
               {project?.title ? `${project.title} • ` : ""}
               {weatherData?.coordinates
                 ? `${weatherData.coordinates.lat.toFixed(4)}° N, ${weatherData.coordinates.lon.toFixed(4)}° E`
@@ -278,16 +298,16 @@ export default function WeatherAtmosphericCard({
             <button
               type="button"
               onClick={onPreFillWeatherNotice}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] font-mono font-bold text-xs shadow-lg backdrop-blur-md border transition-all cursor-pointer shrink-0 active:scale-[0.98] ${
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] font-mono font-bold text-xs shadow-md backdrop-blur-md border transition-all cursor-pointer shrink-0 active:scale-[0.98] ${
                 isPreFilled
-                  ? "bg-emerald-600 border-emerald-400 text-white shadow-emerald-500/20"
-                  : "bg-rose-500/90 hover:bg-rose-600 text-white border-rose-400/30"
+                  ? "bg-emerald-600 border-emerald-500 text-white shadow-emerald-500/20"
+                  : "bg-rose-600 hover:bg-rose-700 text-white border-rose-500/30"
               }`}
               title="Pre-populate the delay schedule form below with this weather alert"
             >
               {isPreFilled ? (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200 animate-bounce" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-100 animate-bounce" />
                   <span>✓ Notice Pre-Filled to Form!</span>
                 </>
               ) : (
@@ -300,31 +320,31 @@ export default function WeatherAtmosphericCard({
           )}
         </div>
 
-        {/* Hero Temperature Cluster (Like Phone Screenshot) */}
+        {/* Hero Temperature Cluster (Adaptive Typography) */}
         <div className="py-2">
           <div className="flex items-baseline gap-1">
-            <span className="text-7xl sm:text-8xl font-light tracking-tighter text-white font-display">
+            <span className="text-7xl sm:text-8xl font-light tracking-tighter text-neutral-900 dark:text-white font-display">
               {currentTempNum}
             </span>
-            <span className="text-4xl sm:text-5xl font-extralight text-white/80 font-mono">
+            <span className="text-4xl sm:text-5xl font-extralight text-neutral-500 dark:text-white/80 font-mono">
               °
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-base sm:text-lg font-medium text-neutral-200 mt-1 flex-wrap">
+          <div className="flex items-center gap-3 text-base sm:text-lg font-medium text-neutral-800 dark:text-neutral-200 mt-1 flex-wrap">
             <span>{current?.condition || "Partly Cloudy"}</span>
-            <span className="text-white/60">•</span>
-            <span className="font-mono text-sm sm:text-base text-neutral-300">
+            <span className="text-neutral-400 dark:text-white/60">•</span>
+            <span className="font-mono text-sm sm:text-base text-neutral-600 dark:text-neutral-300">
               {daily[0]?.maxTemp || "35°"} / {daily[0]?.minTemp || "25°"}
             </span>
             {isWindy && (
-              <span className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300">
+              <span className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-teal-500/15 dark:bg-teal-500/20 border border-teal-500/30 dark:border-teal-400/30 text-teal-700 dark:text-teal-300">
                 <Wind className="w-3 h-3" />
                 {current?.windSpeed || "11 km/h"}
               </span>
             )}
             {isHeavyRain && (
-              <span className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-rose-500/25 border border-rose-400/40 text-rose-300 font-bold">
+              <span className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-rose-500/15 dark:bg-rose-500/25 border border-rose-500/30 dark:border-rose-400/40 text-rose-700 dark:text-rose-300 font-bold">
                 <Droplets className="w-3 h-3" />
                 Heavy Precipitation
               </span>
@@ -332,35 +352,41 @@ export default function WeatherAtmosphericCard({
           </div>
         </div>
 
-        {/* 4. FROSTED GLASS ENGINEERING ADVISORY (If Adverse or Optimal) */}
+        {/* 4. FROSTED GLASS ENGINEERING ADVISORY (Light vs Dark Mode) */}
         {advisory && (
           <div
             className={`p-4 rounded-[14px] backdrop-blur-md border transition-all ${
               isAdverse
-                ? "bg-rose-950/40 border-rose-500/40 text-rose-100"
-                : "bg-emerald-950/30 border-emerald-500/30 text-emerald-100"
+                ? "bg-rose-50/90 dark:bg-rose-950/40 border-rose-300/80 dark:border-rose-500/40 text-rose-950 dark:text-rose-100 shadow-xs"
+                : "bg-emerald-50/90 dark:bg-emerald-950/30 border-emerald-300/80 dark:border-emerald-500/30 text-emerald-950 dark:text-emerald-100 shadow-xs"
             }`}
           >
             <div className="flex items-start gap-3">
               <div
                 className={`p-2 rounded-[8px] shrink-0 mt-0.5 ${
-                  isAdverse ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"
+                  isAdverse
+                    ? "bg-rose-500/20 text-rose-700 dark:text-rose-400"
+                    : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                 }`}
               >
                 {isAdverse ? <ShieldAlert className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
               </div>
               <div className="space-y-1 text-xs">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                    isAdverse ? "bg-rose-500/25 text-rose-300" : "bg-emerald-500/25 text-emerald-300"
-                  }`}>
+                  <span
+                    className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                      isAdverse
+                        ? "bg-rose-500/20 text-rose-800 dark:text-rose-300"
+                        : "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300"
+                    }`}
+                  >
                     {advisory.level || (isAdverse ? "SAFETY WARNING" : "OPTIMAL WINDOW")}
                   </span>
                   <h4 className="font-bold font-mono tracking-wide">{advisory.title}</h4>
                 </div>
-                <p className="text-neutral-200 leading-relaxed font-sans">{advisory.message}</p>
-                <p className="text-[11px] font-mono text-neutral-300 pt-0.5">
-                  <span className="font-bold text-white">Engineering Action: </span>
+                <p className="text-neutral-700 dark:text-neutral-200 leading-relaxed font-sans">{advisory.message}</p>
+                <p className="text-[11px] font-mono text-neutral-600 dark:text-neutral-300 pt-0.5">
+                  <span className="font-bold text-neutral-900 dark:text-white">Engineering Action: </span>
                   {advisory.recommendation}
                 </p>
               </div>
@@ -368,14 +394,14 @@ export default function WeatherAtmosphericCard({
           </div>
         )}
 
-        {/* 5. FROSTED GLASS 7-DAY FORECAST CONTAINER (Exactly like Phone Weather App) */}
-        <div className="p-5 rounded-[16px] bg-black/45 backdrop-blur-md border border-white/10 space-y-4 shadow-2xl">
-          <div className="flex items-center justify-between text-xs font-mono text-neutral-300 pb-2 border-b border-white/10">
-            <span className="flex items-center gap-2 font-bold uppercase tracking-wider text-white">
-              <Calendar className="w-3.5 h-3.5 text-amber-400" />
+        {/* 5. FROSTED GLASS 7-DAY FORECAST CONTAINER (Adaptive Light / Dark Glass) */}
+        <div className="p-5 rounded-[16px] bg-white/75 dark:bg-black/45 backdrop-blur-md border border-neutral-200/80 dark:border-white/10 space-y-4 shadow-sm dark:shadow-2xl transition-colors">
+          <div className="flex items-center justify-between text-xs font-mono text-neutral-600 dark:text-neutral-300 pb-2 border-b border-neutral-200/70 dark:border-white/10">
+            <span className="flex items-center gap-2 font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+              <Calendar className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
               7-Day Atmospheric Forecast
             </span>
-            <span className="text-[11px] text-neutral-400">
+            <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
               Min / Max Temperature &amp; Rain Risk
             </span>
           </div>
@@ -399,7 +425,7 @@ export default function WeatherAtmosphericCard({
                 }
               }
 
-              // Compute proportional temperature bar position (like phone weather slider)
+              // Compute proportional temperature bar position
               const span = weekTempSpan.max - weekTempSpan.min || 1;
               const leftPercent = Math.max(0, Math.min(100, ((minNum - weekTempSpan.min) / span) * 100));
               const rightPercent = Math.max(0, Math.min(100, ((weekTempSpan.max - maxNum) / span) * 100));
@@ -409,17 +435,19 @@ export default function WeatherAtmosphericCard({
                   key={day.date || idx}
                   className={`p-3 rounded-[12px] border transition-all text-center flex flex-col justify-between ${
                     day.isAdverse
-                      ? "bg-rose-500/10 border-rose-500/30 hover:border-rose-400/50"
+                      ? "bg-rose-50/80 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-950 dark:text-rose-200 hover:border-rose-300 dark:hover:border-rose-400/50"
                       : isToday
-                      ? "bg-white/15 border-white/25 shadow-md"
-                      : "bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/[0.08]"
+                      ? "bg-amber-50/90 dark:bg-white/15 border-amber-300/80 dark:border-white/25 shadow-xs"
+                      : "bg-white/80 dark:bg-white/5 border-neutral-200/80 dark:border-white/10 text-neutral-800 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-white dark:hover:bg-white/[0.08]"
                   }`}
                 >
                   {/* Day Header */}
                   <div>
-                    <span className={`block text-[11px] font-mono font-bold uppercase truncate ${
-                      isToday ? "text-amber-400" : "text-neutral-300"
-                    }`}>
+                    <span
+                      className={`block text-[11px] font-mono font-bold uppercase truncate ${
+                        isToday ? "text-amber-600 dark:text-amber-400" : "text-neutral-600 dark:text-neutral-300"
+                      }`}
+                    >
                       {dayLabel}
                     </span>
 
@@ -428,20 +456,20 @@ export default function WeatherAtmosphericCard({
                       {renderWeatherIcon(day.icon, "w-6 h-6")}
                     </div>
 
-                    <span className="block text-[10.5px] font-mono text-neutral-200 truncate" title={day.condition}>
+                    <span className="block text-[10.5px] font-mono text-neutral-700 dark:text-neutral-200 truncate" title={day.condition}>
                       {day.condition}
                     </span>
                   </div>
 
                   {/* Temperature Slider & Rain Probability */}
-                  <div className="mt-3 pt-2 border-t border-white/10 space-y-2">
-                    <div className="flex items-center justify-between text-[11px] font-mono text-neutral-300">
+                  <div className="mt-3 pt-2 border-t border-neutral-200/70 dark:border-white/10 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-neutral-600 dark:text-neutral-300">
                       <span>{minNum}°</span>
-                      <span className="font-bold text-white">{maxNum}°</span>
+                      <span className="font-bold text-neutral-900 dark:text-white">{maxNum}°</span>
                     </div>
 
                     {/* Proportional visual range bar */}
-                    <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden relative">
+                    <div className="w-full h-1.5 bg-neutral-200 dark:bg-white/20 rounded-full overflow-hidden relative">
                       <div
                         className="absolute top-0 bottom-0 rounded-full bg-gradient-to-r from-teal-400 via-amber-400 to-rose-400"
                         style={{
@@ -453,8 +481,16 @@ export default function WeatherAtmosphericCard({
 
                     {/* Rain Probability Pill */}
                     <div className="flex items-center justify-center gap-1 text-[10px] font-mono">
-                      <Droplets className={`w-3 h-3 ${rainPercent >= 50 ? "text-rose-400" : "text-sky-300"}`} />
-                      <span className={`font-semibold ${rainPercent >= 50 ? "text-rose-300" : "text-neutral-300"}`}>
+                      <Droplets
+                        className={`w-3 h-3 ${rainPercent >= 50 ? "text-rose-500 dark:text-rose-400" : "text-sky-500 dark:text-sky-300"}`}
+                      />
+                      <span
+                        className={`font-semibold ${
+                          rainPercent >= 50
+                            ? "text-rose-600 dark:text-rose-300"
+                            : "text-neutral-600 dark:text-neutral-300"
+                        }`}
+                      >
                         {day.rainProbability}
                       </span>
                     </div>
@@ -465,38 +501,38 @@ export default function WeatherAtmosphericCard({
           </div>
         </div>
 
-        {/* 6. METEOROLOGICAL TELEMETRY STRIP (Wind, Soil Saturation, Humidity) */}
+        {/* 6. METEOROLOGICAL TELEMETRY STRIP (Adaptive Light / Dark Glass) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-          <div className="p-3 rounded-[12px] bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-between">
+          <div className="p-3 rounded-[12px] bg-white/80 dark:bg-black/40 backdrop-blur-md border border-neutral-200/80 dark:border-white/10 flex items-center justify-between shadow-xs">
             <div>
-              <span className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400">Wind Velocity</span>
-              <span className="text-base font-bold font-mono text-white">{current?.windSpeed || "5.5 km/h"}</span>
+              <span className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Wind Velocity</span>
+              <span className="text-base font-bold font-mono text-neutral-900 dark:text-white">{current?.windSpeed || "5.5 km/h"}</span>
             </div>
-            <Wind className="w-4 h-4 text-teal-400 shrink-0" />
+            <Wind className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
           </div>
 
-          <div className="p-3 rounded-[12px] bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-between">
+          <div className="p-3 rounded-[12px] bg-white/80 dark:bg-black/40 backdrop-blur-md border border-neutral-200/80 dark:border-white/10 flex items-center justify-between shadow-xs">
             <div>
-              <span className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400">Precip Risk</span>
-              <span className="text-base font-bold font-mono text-white">{daily[0]?.rainProbability || "65%"}</span>
+              <span className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Precip Risk</span>
+              <span className="text-base font-bold font-mono text-neutral-900 dark:text-white">{daily[0]?.rainProbability || "65%"}</span>
             </div>
-            <Droplets className="w-4 h-4 text-sky-400 shrink-0" />
+            <Droplets className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
           </div>
 
-          <div className="p-3 rounded-[12px] bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-between">
+          <div className="p-3 rounded-[12px] bg-white/80 dark:bg-black/40 backdrop-blur-md border border-neutral-200/80 dark:border-white/10 flex items-center justify-between shadow-xs">
             <div>
-              <span className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400">Expected Rain</span>
-              <span className="text-base font-bold font-mono text-white">{daily[0]?.rainSum || "0.8 mm"}</span>
+              <span className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Expected Rain</span>
+              <span className="text-base font-bold font-mono text-neutral-900 dark:text-white">{daily[0]?.rainSum || "0.8 mm"}</span>
             </div>
-            <CloudRain className="w-4 h-4 text-sky-300 shrink-0" />
+            <CloudRain className="w-4 h-4 text-sky-600 dark:text-sky-300 shrink-0" />
           </div>
 
-          <div className="p-3 rounded-[12px] bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-between">
+          <div className="p-3 rounded-[12px] bg-white/80 dark:bg-black/40 backdrop-blur-md border border-neutral-200/80 dark:border-white/10 flex items-center justify-between shadow-xs">
             <div>
-              <span className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400">Humidity</span>
-              <span className="text-base font-bold font-mono text-white">{current?.humidity || "73%"}</span>
+              <span className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Humidity</span>
+              <span className="text-base font-bold font-mono text-neutral-900 dark:text-white">{current?.humidity || "73%"}</span>
             </div>
-            <Gauge className="w-4 h-4 text-amber-400 shrink-0" />
+            <Gauge className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
           </div>
         </div>
       </div>
