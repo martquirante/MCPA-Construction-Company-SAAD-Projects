@@ -1238,11 +1238,30 @@ export default function AdminPage() {
         body: JSON.stringify(photoData),
       });
       const data = await res.json();
-      if (data.success && data.log) {
-        setSitePhotos([data.log, ...sitePhotos]);
+      if (data.success) {
+        if (Array.isArray(data.logs) && data.logs.length > 0) {
+          setSitePhotos((prev) => [...data.logs, ...prev]);
+        } else if (data.log) {
+          setSitePhotos((prev) => [data.log, ...prev]);
+        }
       }
     } catch (e) {
       console.warn("Could not add photo to backend:", e);
+    }
+  };
+
+  const handleDeletePhoto = async (logId) => {
+    try {
+      const res = await authFetch(`/api/construction/photos/${logId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSitePhotos((prev) => prev.filter((p) => p.log_id !== logId));
+        showToast?.("Site update record deleted.");
+      }
+    } catch (e) {
+      console.warn("Could not delete photo from backend:", e);
     }
   };
 
@@ -2326,6 +2345,7 @@ export default function AdminPage() {
             onDeleteMilestone={handleDeleteMilestone}
             onUpdateVirtualTour={handleUpdateVirtualTour}
             onAddPhoto={handleAddPhoto}
+            onDeletePhoto={handleDeletePhoto}
             showToast={showToast}
           />
         )}

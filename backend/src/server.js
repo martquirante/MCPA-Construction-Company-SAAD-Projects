@@ -483,6 +483,7 @@ app.patch("/api/construction/milestones/:milestoneId", requireAuth, requireRole(
 app.delete("/api/construction/milestones/:milestoneId", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.deleteMilestone(req, res));
 app.post("/api/construction/virtual-tour", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.updateVirtualTour(req, res));
 app.post("/api/construction/photos", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.addPhotoLog(req, res));
+app.delete("/api/construction/photos/:logId", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.deletePhotoLog(req, res));
 app.post("/api/construction/billing", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.createBillingTranche(req, res));
 app.patch("/api/construction/billing/:billId/verify", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.verifyPayment(req, res));
 app.patch("/api/construction/billing/:billId/proof", optionalAuth, (req, res) => constructionController.uploadPaymentProof(req, res));

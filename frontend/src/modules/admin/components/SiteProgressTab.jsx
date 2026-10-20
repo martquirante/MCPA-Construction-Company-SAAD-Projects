@@ -25,8 +25,9 @@ import {
   UserCheck,
   User,
   AlertCircle,
-  FileVideo,
   CheckCircle,
+  Play,
+  Eye,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
 import { authFetch } from "@/modules/shared/authFetch";
@@ -118,6 +119,7 @@ export default function SiteProgressTab({
   onDeleteMilestone,
   onUpdateVirtualTour,
   onAddPhoto,
+  onDeletePhoto,
   showToast,
 }) {
   // Modal states
@@ -420,13 +422,14 @@ export default function SiteProgressTab({
   const [photoTitle, setPhotoTitle] = useState("");
   const [photoCaption, setPhotoCaption] = useState("");
   const [photoInspector, setPhotoInspector] = useState(getInitialInspector);
-  const [photoUrl, setPhotoUrl] = useState("");
-  const [is360, setIs360] = useState(false);
-  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const [photoPreview, setPhotoPreview] = useState("");
-  const [photoUploadError, setPhotoUploadError] = useState("");
+  const [mediaItems, setMediaItems] = useState([]); // [{ id, file, previewUrl, url, mediaType, name, size, isUploading, uploadProgress, is360, error }]
   const [useManualPhotoUrl, setUseManualPhotoUrl] = useState(false);
+  const [manualMediaUrl, setManualMediaUrl] = useState("");
+  const [manualMediaType, setManualMediaType] = useState("image");
+  const [photoUploadError, setPhotoUploadError] = useState("");
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [previewModalItem, setPreviewModalItem] = useState(null);
+  const [isDeletingPhotoId, setIsDeletingPhotoId] = useState(null);
   const photoFileInputRef = useRef(null);
 
   // Sync photoInspector when project or currentUser changes
@@ -453,47 +456,166 @@ export default function SiteProgressTab({
     setIsAddPhotoOpen(false);
     setPhotoTitle("");
     setPhotoCaption("");
-    setPhotoUrl("");
-    setPhotoPreview("");
+    setMediaItems([]);
     setPhotoUploadError("");
     setUseManualPhotoUrl(false);
-    setIsUploadingPhoto(false);
+    setManualMediaUrl("");
     setIsInspectorDropdownOpen(false);
     setIsCustomInspector(false);
     if (photoFileInputRef.current) photoFileInputRef.current.value = "";
   };
 
-  const handlePhotoFileSelect = async (file) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setPhotoUploadError("Please select a valid image file (PNG, JPG, WebP).");
-      return;
-    }
-    setPhotoUploadError("");
-    const localUrl = URL.createObjectURL(file);
-    setPhotoPreview(localUrl);
-    setIsUploadingPhoto(true);
+  const uploadMediaItem = (item) => {
+    if (!item.file) return;
+    const formData = new FormData();
+    formData.append("file", item.file);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/upload?category=portfolio", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) {
-        throw new Error(data.message || "Upload failed");
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+        setMediaItems((prev) =>
+          prev.map((it) => (it.id === item.id ? { ...it, uploadProgress: pct } : it))
+        );
       }
-      setPhotoUrl(data.url);
-      if (showToast) showToast("Photo uploaded to Azure Blob Storage & mirrored to Supabase + Neon!");
-    } catch (err) {
-      console.error("Photo upload error:", err);
-      setPhotoUploadError(err.message || "Upload failed. Please verify connection.");
-      if (showToast) showToast("Upload error: " + err.message);
-    } finally {
-      setIsUploadingPhoto(false);
+    });
+
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (data && data.url) {
+            setMediaItems((prev) =>
+              prev.map((it) =>
+                it.id === item.id
+                  ? { ...it, url: data.url, isUploading: false, uploadProgress: 100 }
+                  : it
+              )
+            );
+          } else {
+            throw new Error(data.message || "Upload failed");
+          }
+        } catch (e) {
+          setMediaItems((prev) =>
+            prev.map((it) =>
+              it.id === item.id
+                ? { ...it, isUploading: false, error: e.message || "Upload error" }
+                : it
+            )
+          );
+        }
+      } else {
+        setMediaItems((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? { ...it, isUploading: false, error: "Upload failed" }
+              : it
+          )
+        );
+      }
+    });
+
+    xhr.addEventListener("error", () => {
+      setMediaItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id
+            ? { ...it, isUploading: false, error: "Network error during upload" }
+            : it
+        )
+      );
+    });
+
+    xhr.open("POST", "/api/upload?category=portfolio");
+    xhr.send(formData);
+  };
+
+  const handleMediaFilesSelect = (files) => {
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files);
+    const newItems = [];
+    const MAX_IMG_SIZE = 10 * 1024 * 1024; // 10MB limit strictly for images
+    let hasOversizedImage = false;
+
+    for (const file of fileList) {
+      const isVid = file.type.startsWith("video/") || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+      const isImg = file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
+
+      if (!isVid && !isImg) {
+        if (showToast) showToast(`"${file.name}" is not a supported image or video.`);
+        continue;
+      }
+
+      // Strict 10MB limit for images ONLY - videos have NO limit
+      if (isImg && file.size > MAX_IMG_SIZE) {
+        hasOversizedImage = true;
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        const err = `Larawan "${file.name}" (${sizeMB}MB) ay lumampas sa 10MB limit. Hanggang 10MB lamang po ang mga larawan.`;
+        setPhotoUploadError(err);
+        if (showToast) showToast(err);
+        continue;
+      }
+
+      const id = `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const localPreview = URL.createObjectURL(file);
+      const itemObj = {
+        id,
+        file,
+        previewUrl: localPreview,
+        url: "",
+        mediaType: isVid ? "video" : "image",
+        name: file.name,
+        size: file.size,
+        isUploading: true,
+        uploadProgress: 0,
+        is360: false,
+        error: null,
+      };
+      newItems.push(itemObj);
     }
+
+    if (!hasOversizedImage) {
+      setPhotoUploadError("");
+    }
+
+    if (newItems.length === 0) return;
+
+    setMediaItems((prev) => [...prev, ...newItems]);
+    newItems.forEach((item) => uploadMediaItem(item));
+  };
+
+  const handleAddManualUrl = () => {
+    if (!manualMediaUrl || !manualMediaUrl.trim()) return;
+    const url = manualMediaUrl.trim();
+    const isVid = manualMediaType === "video" || /\.(mp4|mov|webm|avi|mkv)$/i.test(url);
+    const id = `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setMediaItems((prev) => [
+      ...prev,
+      {
+        id,
+        file: null,
+        previewUrl: url,
+        url,
+        mediaType: isVid ? "video" : "image",
+        name: url.split("/").pop() || "Direct URL",
+        size: 0,
+        isUploading: false,
+        uploadProgress: 100,
+        is360: false,
+        error: null,
+      },
+    ]);
+    setManualMediaUrl("");
+  };
+
+  const handleRemoveMediaItem = (id) => {
+    setMediaItems((prev) => prev.filter((it) => it.id !== id));
+  };
+
+  const handleToggle360 = (id) => {
+    setMediaItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, is360: !it.is360 } : it))
+    );
   };
 
   // Handlers
@@ -674,42 +796,78 @@ export default function SiteProgressTab({
 
   const handleSavePhotoLog = async (e) => {
     e.preventDefault();
-    if (!photoTitle || !photoUrl || !project) return;
+    if (!photoTitle || !project) return;
+
+    const readyItems = mediaItems.filter((it) => it.url && !it.error);
+    if (readyItems.length === 0) {
+      setPhotoUploadError("Please attach at least one uploaded photo or video before publishing.");
+      return;
+    }
+
+    const stillUploading = mediaItems.some((it) => it.isUploading);
+    if (stillUploading) {
+      setPhotoUploadError("Please wait for all media files to finish uploading before publishing.");
+      return;
+    }
 
     setIsSavingPhoto(true);
+    setPhotoUploadError("");
     try {
       const fullTitle = `[${logType}] ${photoTitle}`;
+      const payload = {
+        projectCode: project.project_code,
+        title: fullTitle,
+        caption: photoCaption,
+        inspector: photoInspector,
+        imageUrl: readyItems[0].url,
+        mediaItems: readyItems.map((it) => ({
+          url: it.url,
+          mediaType: it.mediaType,
+          is360: !!it.is360,
+        })),
+        is360: readyItems.some((it) => it.is360),
+      };
+
       if (onAddPhoto) {
-        await onAddPhoto({
-          projectCode: project.project_code,
-          title: fullTitle,
-          caption: photoCaption,
-          inspector: photoInspector,
-          imageUrl: photoUrl,
-          is360,
-        });
+        await onAddPhoto(payload);
       } else {
         const res = await fetch("/api/construction/photos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectCode: project.project_code,
-            title: fullTitle,
-            caption: photoCaption,
-            inspector: photoInspector,
-            imageUrl: photoUrl,
-            is360,
-          }),
+          body: JSON.stringify(payload),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to add photo");
+        if (!res.ok) throw new Error(data.message || "Failed to add media log");
       }
-      if (showToast) showToast(`${logType} update published to client portal!`);
+
+      if (showToast) {
+        showToast(`🎉 ${readyItems.length} media item(s) published to client portal!`);
+      }
       resetPhotoForm();
     } catch (err) {
       if (showToast) showToast("Error: " + err.message);
+      setPhotoUploadError(err.message || "Failed to publish media update.");
     } finally {
       setIsSavingPhoto(false);
+    }
+  };
+
+  const handleDeletePhotoClick = async (logId, title) => {
+    if (!confirm(`Are you sure you want to delete this media log?\n"${title || "Site Progress Log"}"`)) return;
+    setIsDeletingPhotoId(logId);
+    try {
+      if (onDeletePhoto) {
+        await onDeletePhoto(logId);
+      } else {
+        const res = await fetch(`/api/construction/photos/${logId}`, { method: "DELETE" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to delete");
+      }
+      if (showToast) showToast("Media log deleted successfully.");
+    } catch (err) {
+      if (showToast) showToast("Error deleting media: " + err.message);
+    } finally {
+      setIsDeletingPhotoId(null);
     }
   };
 
@@ -962,6 +1120,181 @@ export default function SiteProgressTab({
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 4. SITE PROGRESS & INSPECTION GALLERY (PHOTOS & VIDEOS) */}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white uppercase tracking-tight font-mono flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-amber-500" />
+                  <span>Site Progress &amp; Media Gallery</span>
+                </h3>
+                <p className="text-xs text-neutral-500 font-light">
+                  Inspection photos and videos published to the client portal. Clients can stream and inspect them directly.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-neutral-400">
+                  {photos.length} {photos.length === 1 ? "Record" : "Records"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsAddPhotoOpen(true)}
+                  className="px-3 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Post Media Update</span>
+                </button>
+              </div>
+            </div>
+
+            {photos.length === 0 ? (
+              <div className="p-8 text-center rounded-[8px] bg-neutral-50 dark:bg-neutral-900/30 border border-dashed border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-400 space-y-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+                  <Camera className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-bold text-neutral-800 dark:text-neutral-200">
+                    No site photos or videos posted yet for {project.project_code}.
+                  </p>
+                  <p className="text-[11px] text-neutral-500 mt-0.5">
+                    Upload multiple photos (max 10MB each) or videos (unlimited size) to show live construction progress to the client.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddPhotoOpen(true)}
+                  className="px-3.5 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Post Site Photos &amp; Videos</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {photos.map((p, idx) => {
+                  const isVideo =
+                    p.media_type === "video" ||
+                    /\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i.test(p.image_url || "");
+                  return (
+                    <div
+                      key={p.log_id || idx}
+                      className="group rounded-[10px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] overflow-hidden shadow-xs hover:border-amber-500/50 transition-all flex flex-col"
+                    >
+                      {/* Media Thumbnail Container */}
+                      <div
+                        onClick={() => setPreviewModalItem(p)}
+                        className="relative aspect-video bg-neutral-950 overflow-hidden cursor-pointer"
+                      >
+                        {isVideo ? (
+                          <>
+                            <video
+                              src={p.image_url}
+                              preload="metadata"
+                              muted
+                              playsInline
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-black/35 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                              <div className="w-11 h-11 rounded-full bg-amber-500/90 text-neutral-950 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <Play className="w-5 h-5 fill-neutral-950 ml-0.5" />
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <img
+                              src={p.image_url}
+                              alt={p.title || "Site Progress"}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
+                          </>
+                        )}
+
+                        {/* Top Badges */}
+                        <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10">
+                          {isVideo ? (
+                            <span className="px-2 py-0.5 rounded bg-amber-500/90 text-neutral-950 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                              <Film className="w-3 h-3" />
+                              <span>Video</span>
+                            </span>
+                          ) : p.is_360 ? (
+                            <span className="px-2 py-0.5 rounded bg-cyan-500/90 text-neutral-950 font-mono text-[10px] font-bold uppercase tracking-wider shadow-xs">
+                              360° Photo
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-black/70 text-white font-mono text-[10px] font-semibold uppercase tracking-wider backdrop-blur-xs">
+                              Photo
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Delete Button */}
+                        <div className="absolute top-2 right-2 z-10">
+                          <button
+                            type="button"
+                            disabled={isDeletingPhotoId === p.log_id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletePhotoClick(p.log_id, p.title);
+                            }}
+                            className="p-1.5 rounded-full bg-black/60 hover:bg-rose-500 text-white transition-colors cursor-pointer disabled:opacity-40"
+                            title="Delete Media Record"
+                          >
+                            {isDeletingPhotoId === p.log_id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Date overlay bottom right */}
+                        {p.log_date && (
+                          <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-xs text-[9.5px] font-mono text-neutral-300 z-10">
+                            {p.log_date}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info Body */}
+                      <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
+                        <div className="space-y-1">
+                          <h4
+                            onClick={() => setPreviewModalItem(p)}
+                            className="text-xs font-bold text-neutral-900 dark:text-white line-clamp-1 cursor-pointer hover:text-amber-500 transition-colors"
+                            title={p.title}
+                          >
+                            {p.title}
+                          </h4>
+                          {p.caption && (
+                            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed">
+                              {p.caption}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-[10px] font-mono text-neutral-400">
+                          <span className="truncate">By {p.inspector || "Field Engineer"}</span>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewModalItem(p)}
+                            className="text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1 cursor-pointer font-semibold"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Preview</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1425,25 +1758,30 @@ export default function SiteProgressTab({
         </div>
       )}
 
-      {/* MODAL 4: POST DAILY / WEEKLY PROGRESS UPDATE */}
+      {/* MODAL 4: POST SITE PROGRESS & GALLERY UPDATE (MULTIPLE PHOTOS & VIDEOS) */}
       {isAddPhotoOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-3">
-              <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
-                <Camera className="w-4 h-4 text-amber-500" />
-                <span>Post Site Progress &amp; Gallery Update</span>
-              </h4>
+              <div>
+                <h4 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-amber-500" />
+                  <span>Post Site Progress &amp; Gallery Update</span>
+                </h4>
+                <p className="text-[10.5px] text-neutral-400 font-mono mt-0.5">
+                  Upload multiple photos (max 10MB) &amp; videos (unlimited size) for the client portal.
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setIsAddPhotoOpen(false)}
+                onClick={resetPhotoForm}
                 className="text-neutral-400 hover:text-white p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSavePhotoLog} className="space-y-3.5 text-xs font-mono">
+            <form onSubmit={handleSavePhotoLog} className="space-y-4 text-xs font-mono">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-neutral-500 mb-1">Update Frequency *</label>
@@ -1587,10 +1925,11 @@ export default function SiteProgressTab({
                 />
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
+              {/* MEDIA ATTACHMENTS (PHOTOS & VIDEOS) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
                   <label className="block text-neutral-500 font-mono text-[11px] font-bold uppercase">
-                    Site Progress Photo File *
+                    Site Progress Media Files *
                   </label>
                   <button
                     type="button"
@@ -1600,105 +1939,212 @@ export default function SiteProgressTab({
                     {useManualPhotoUrl ? (
                       <>
                         <UploadCloud className="w-3 h-3" />
-                        <span>Switch to File Upload</span>
+                        <span>Switch to Multi-File Upload</span>
                       </>
                     ) : (
                       <>
                         <LinkIcon className="w-3 h-3" />
-                        <span>Or Paste Direct URL</span>
+                        <span>Or Add Direct URL</span>
                       </>
                     )}
                   </button>
                 </div>
 
                 {useManualPhotoUrl ? (
-                  <input
-                    type="url"
-                    required
-                    value={photoUrl}
-                    onChange={(e) => setPhotoUrl(e.target.value)}
-                    placeholder="https://.../site-inspection.jpg"
-                    className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
-                  />
+                  <div className="p-3 rounded-[8px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={manualMediaType}
+                        onChange={(e) => setManualMediaType(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-[5px] bg-white dark:bg-[#151922] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white text-xs cursor-pointer"
+                      >
+                        <option value="image">Photo (Image)</option>
+                        <option value="video">Site Video</option>
+                      </select>
+                      <input
+                        type="url"
+                        value={manualMediaUrl}
+                        onChange={(e) => setManualMediaUrl(e.target.value)}
+                        placeholder="https://.../site-photo.jpg or video.mp4"
+                        className="flex-1 px-3 py-1.5 rounded-[5px] bg-white dark:bg-[#151922] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddManualUrl}
+                        disabled={!manualMediaUrl.trim()}
+                        className="px-3 py-1.5 rounded-[5px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs cursor-pointer shrink-0"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-neutral-400">
+                      Paste a direct link to an image or MP4/WebM video, then click &quot;+ Add&quot;.
+                    </p>
+                  </div>
                 ) : (
                   <div>
+                    {/* Hidden multi-file input */}
                     <input
                       ref={photoFileInputRef}
                       type="file"
-                      accept="image/*"
-                      onChange={(e) => handlePhotoFileSelect(e.target.files?.[0])}
+                      multiple
+                      accept="image/*,video/*"
+                      onChange={(e) => handleMediaFilesSelect(e.target.files)}
                       className="hidden"
                     />
 
-                    {photoUrl || photoPreview ? (
-                      <div className="relative rounded-[8px] overflow-hidden border border-amber-500/30 bg-neutral-900 p-2 space-y-2">
-                        <div className="relative w-full h-44 rounded-[6px] overflow-hidden bg-neutral-950 flex items-center justify-center">
-                          <img
-                            src={photoPreview || photoUrl}
-                            alt="Site Preview"
-                            className="w-full h-full object-cover"
-                          />
-                          {isUploadingPhoto && (
-                            <div className="absolute inset-0 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white p-3 text-center">
-                              <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
-                              <span className="text-xs font-mono font-bold">Uploading to Azure Blob Storage...</span>
-                              <span className="text-[10px] font-mono text-neutral-300">Mirroring to Supabase &amp; Neon S3 Standby</span>
-                            </div>
-                          )}
-                        </div>
+                    {/* Drag & drop upload area */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (e.dataTransfer.files?.length > 0) {
+                          handleMediaFilesSelect(e.dataTransfer.files);
+                        }
+                      }}
+                      onClick={() => photoFileInputRef.current?.click()}
+                      className="w-full p-6 rounded-[8px] border-2 border-dashed border-neutral-300 dark:border-white/15 hover:border-amber-500/60 dark:hover:border-amber-500/60 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors text-center group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <UploadCloud className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                          Click to select or drag &amp; drop multiple photos &amp; videos
+                        </p>
+                        <p className="text-[10.5px] text-neutral-400 font-mono mt-0.5">
+                          <span className="text-amber-600 dark:text-amber-400 font-semibold">Photos:</span> Max 10MB each (PNG, JPG, WebP) •{" "}
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Videos:</span> No size limit (MP4, WebM, MOV)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                        {!isUploadingPhoto && (
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1">
-                            <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                              <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                              <span>Azure Blob (Primary) • Supabase • Neon Mirror</span>
+                {/* Upload Error Alert */}
+                {photoUploadError && (
+                  <div className="p-2.5 rounded-[6px] bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                    <span className="leading-relaxed">{photoUploadError}</span>
+                  </div>
+                )}
+
+                {/* Queued Media Items List */}
+                {mediaItems.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400">
+                      <span>
+                        Attached Media ({mediaItems.filter((i) => i.url && !i.error).length}/{mediaItems.length} Ready):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => photoFileInputRef.current?.click()}
+                        className="text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add More Files</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-1">
+                      {mediaItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="relative rounded-[8px] bg-neutral-900 border border-neutral-200 dark:border-white/10 p-2 overflow-hidden flex flex-col justify-between space-y-2"
+                        >
+                          <div className="relative aspect-video rounded-[6px] overflow-hidden bg-neutral-950 flex items-center justify-center">
+                            {item.mediaType === "video" ? (
+                              <video
+                                src={item.previewUrl || item.url}
+                                preload="metadata"
+                                muted
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <img
+                                src={item.previewUrl || item.url}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+
+                            {/* Type Badge */}
+                            <span
+                              className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider ${
+                                item.mediaType === "video"
+                                  ? "bg-amber-500 text-neutral-950"
+                                  : "bg-black/70 text-white"
+                              }`}
+                            >
+                              {item.mediaType === "video" ? "Video" : "Photo"}
                             </span>
+
+                            {/* Remove Button */}
                             <button
                               type="button"
-                              onClick={() => {
-                                setPhotoUrl("");
-                                setPhotoPreview("");
-                                if (photoFileInputRef.current) photoFileInputRef.current.value = "";
-                              }}
-                              className="text-[11px] font-mono text-rose-500 hover:underline cursor-pointer self-end sm:self-auto"
+                              onClick={() => handleRemoveMediaItem(item.id)}
+                              className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/70 hover:bg-rose-500 text-white transition-colors cursor-pointer"
+                              title="Remove File"
                             >
-                              Change File
+                              <X className="w-3 h-3" />
                             </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const file = e.dataTransfer.files?.[0];
-                          if (file) handlePhotoFileSelect(file);
-                        }}
-                        onClick={() => photoFileInputRef.current?.click()}
-                        className="w-full p-6 rounded-[8px] border-2 border-dashed border-neutral-300 dark:border-white/15 hover:border-amber-500/60 dark:hover:border-amber-500/60 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors text-center group"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform">
-                          <UploadCloud className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
-                            Click to upload or drag &amp; drop site photo
-                          </p>
-                          <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
-                            PNG, JPG, WebP
-                          </p>
-                        </div>
-                      </div>
-                    )}
 
-                    {photoUploadError && (
-                      <p className="text-[11px] font-mono text-rose-500 mt-1.5">{photoUploadError}</p>
-                    )}
+                            {/* Upload Spinner Overlay */}
+                            {item.isUploading && (
+                              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-1.5 text-white p-2 text-center">
+                                <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+                                <span className="text-[10px] font-mono font-bold">
+                                  Uploading {item.uploadProgress}%
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-[10px] font-mono">
+                              <span className="truncate text-white max-w-[120px]" title={item.name}>
+                                {item.name}
+                              </span>
+                              {item.size > 0 && (
+                                <span className="text-neutral-400 shrink-0">
+                                  {(item.size / (1024 * 1024)).toFixed(1)} MB
+                                </span>
+                              )}
+                            </div>
+
+                            {/* 360 Toggle for images */}
+                            {item.mediaType === "image" && (
+                              <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-neutral-300">
+                                <input
+                                  type="checkbox"
+                                  checked={!!item.is360}
+                                  onChange={() => handleToggle360(item.id)}
+                                  className="rounded border-neutral-600 text-amber-500 focus:ring-0 cursor-pointer"
+                                />
+                                <span>360° Panorama Photo</span>
+                              </label>
+                            )}
+
+                            {/* Status indicator */}
+                            {item.url && !item.isUploading && !item.error && (
+                              <span className="inline-flex items-center gap-1 text-[9.5px] font-mono text-emerald-400">
+                                <Check className="w-3 h-3 text-emerald-400" />
+                                <span>Uploaded &amp; Mirrored</span>
+                              </span>
+                            )}
+                            {item.error && (
+                              <span className="text-[9.5px] font-mono text-rose-400 truncate block">
+                                {item.error}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1724,7 +2170,12 @@ export default function SiteProgressTab({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingPhoto || isUploadingPhoto || !photoUrl || !photoTitle}
+                  disabled={
+                    isSavingPhoto ||
+                    mediaItems.some((it) => it.isUploading) ||
+                    mediaItems.filter((it) => it.url && !it.error).length === 0 ||
+                    !photoTitle
+                  }
                   className="px-4 py-1.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
                 >
                   {isSavingPhoto ? (
@@ -1732,17 +2183,80 @@ export default function SiteProgressTab({
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>Posting...</span>
                     </>
-                  ) : isUploadingPhoto ? (
+                  ) : mediaItems.some((it) => it.isUploading) ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Uploading File...</span>
+                      <span>Uploading Files...</span>
                     </>
                   ) : (
-                    <span>Publish to Client</span>
+                    <span>
+                      Publish {mediaItems.filter((it) => it.url && !it.error).length}{" "}
+                      {mediaItems.filter((it) => it.url && !it.error).length === 1 ? "Item" : "Items"} to Client
+                    </span>
                   )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX MODAL: FULL PREVIEW FOR PHOTOS & VIDEOS */}
+      {previewModalItem && (
+        <div
+          onClick={() => setPreviewModalItem(null)}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-4xl w-full bg-neutral-900 border border-white/10 rounded-[12px] overflow-hidden shadow-2xl flex flex-col max-h-[92vh]"
+          >
+            {/* Lightbox Header */}
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-neutral-950/60">
+              <div className="min-w-0 pr-4">
+                <h4 className="text-sm font-bold text-white truncate font-mono">
+                  {previewModalItem.title || "Site Progress Media"}
+                </h4>
+                <p className="text-[11px] text-neutral-400 font-mono mt-0.5">
+                  Inspector: {previewModalItem.inspector || "Field Engineer"} • {previewModalItem.log_date || "Live"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewModalItem(null)}
+                className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Lightbox Media Player */}
+            <div className="flex-1 bg-black flex items-center justify-center p-2 min-h-[300px] max-h-[68vh] overflow-hidden">
+              {previewModalItem.media_type === "video" ||
+              /\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i.test(previewModalItem.image_url || "") ? (
+                <video
+                  src={previewModalItem.image_url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="max-w-full max-h-[65vh] rounded-[6px]"
+                />
+              ) : (
+                <img
+                  src={previewModalItem.image_url}
+                  alt={previewModalItem.title}
+                  className="max-w-full max-h-[65vh] object-contain rounded-[6px]"
+                />
+              )}
+            </div>
+
+            {/* Lightbox Footer Notes */}
+            {previewModalItem.caption && (
+              <div className="p-3.5 border-t border-white/10 bg-neutral-950/80 text-xs text-neutral-300">
+                <span className="font-bold text-amber-500 font-mono text-[11px] block mb-0.5">FIELD NOTES:</span>
+                <p className="font-sans leading-relaxed">{previewModalItem.caption}</p>
+              </div>
+            )}
           </div>
         </div>
       )}

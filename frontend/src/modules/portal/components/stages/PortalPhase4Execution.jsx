@@ -23,6 +23,8 @@ import {
   Building,
   ArrowRight,
   User,
+  Play,
+  Film,
 } from "lucide-react";
 import { authFetch } from "@/modules/shared/authFetch";
 
@@ -541,51 +543,103 @@ export default function PortalPhase4Execution({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {photoLogs.map((p) => (
-              <div
-                key={p.log_id}
-                onClick={() => setActivePhotoModal(p)}
-                className="group relative rounded-[6px] overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-950 aspect-4/3 cursor-pointer shadow-sm hover:shadow-lg transition-all"
-              >
-                <img
-                  src={p.image_url}
-                  alt={p.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3 text-white">
-                  <div className="text-xs font-mono font-bold truncate">{p.title}</div>
-                  <div className="flex justify-between items-center text-[10px] font-mono text-neutral-300 mt-0.5">
-                    <span>{p.log_date || "Inspected"}</span>
-                    {p.is_360 && <span className="text-amber-400 font-bold">360° VR</span>}
+            {photoLogs.map((p) => {
+              const isVideo = p.media_type === "video" || Boolean(p.image_url?.match(/\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i));
+              return (
+                <div
+                  key={p.log_id}
+                  onClick={() => setActivePhotoModal(p)}
+                  className="group relative rounded-[8px] overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-950 aspect-4/3 cursor-pointer shadow-sm hover:shadow-lg transition-all"
+                >
+                  {isVideo ? (
+                    <div className="relative w-full h-full bg-black flex items-center justify-center">
+                      <video
+                        src={p.image_url}
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        preload="metadata"
+                        muted
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-10 h-10 rounded-full bg-amber-500/90 text-neutral-950 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                          <Play className="w-5 h-5 fill-neutral-950 ml-0.5" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={p.image_url}
+                      alt={p.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex flex-col justify-end p-3 text-white pointer-events-none">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      {isVideo ? (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-500/80 text-white uppercase tracking-wider flex items-center gap-1">
+                          <Film className="w-2.5 h-2.5" />
+                          <span>Video</span>
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/80 text-neutral-950 uppercase tracking-wider flex items-center gap-1">
+                          <Camera className="w-2.5 h-2.5" />
+                          <span>Photo</span>
+                        </span>
+                      )}
+                      {p.is_360 && <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-blue-500/80 text-white uppercase tracking-wider">360° VR</span>}
+                    </div>
+                    <div className="text-xs font-mono font-bold truncate">{p.title}</div>
+                    <div className="flex justify-between items-center text-[10px] font-mono text-neutral-300 mt-0.5">
+                      <span>{p.log_date || "Inspected"}</span>
+                      <span className="text-neutral-400 truncate max-w-[120px]">{p.inspector || "MCPA Field QC"}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Photo Preview Lightbox Modal */}
+      {/* Photo / Video Preview Lightbox Modal */}
       {activePhotoModal && (
         <div
           onClick={() => setActivePhotoModal(null)}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in"
         >
-          <div className="relative max-w-4xl max-h-[90vh] p-2 bg-neutral-900 rounded-[8px] border border-neutral-800 overflow-hidden">
-            <img
-              src={activePhotoModal.image_url}
-              alt={activePhotoModal.title}
-              className="max-h-[75vh] w-auto mx-auto object-contain rounded-[4px]"
-            />
-            <div className="p-3 text-white flex justify-between items-center text-xs font-mono">
-              <div>
-                <div className="font-bold">{activePhotoModal.title}</div>
-                <div className="text-neutral-400 text-[10px]">{activePhotoModal.caption || activePhotoModal.inspector}</div>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-4xl w-full p-3 bg-neutral-900 rounded-[10px] border border-neutral-800 overflow-hidden shadow-2xl space-y-3"
+          >
+            {activePhotoModal.media_type === "video" || Boolean(activePhotoModal.image_url?.match(/\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i)) ? (
+              <div className="w-full max-h-[75vh] bg-black rounded-[6px] overflow-hidden flex items-center justify-center">
+                <video
+                  src={activePhotoModal.image_url}
+                  controls
+                  autoPlay
+                  className="max-h-[75vh] w-full object-contain rounded-[4px]"
+                />
+              </div>
+            ) : (
+              <img
+                src={activePhotoModal.image_url}
+                alt={activePhotoModal.title}
+                className="max-h-[75vh] w-auto mx-auto object-contain rounded-[4px]"
+              />
+            )}
+            <div className="p-2 text-white flex justify-between items-center text-xs font-mono border-t border-white/10">
+              <div className="space-y-0.5">
+                <div className="font-bold text-sm text-amber-400">{activePhotoModal.title}</div>
+                <div className="text-neutral-400 text-[11px] font-sans">
+                  {activePhotoModal.caption || "No additional field notes."}
+                </div>
+                <div className="text-[10px] text-neutral-500">
+                  Inspected by: {activePhotoModal.inspector || "MCPA Field QC"} • {activePhotoModal.log_date}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setActivePhotoModal(null)}
-                className="px-3 py-1 rounded-[3px] bg-white/10 hover:bg-white/20 text-white font-mono text-xs cursor-pointer"
+                className="px-3 py-1.5 rounded-[4px] bg-white/10 hover:bg-white/20 text-white font-mono text-xs cursor-pointer transition-colors"
               >
                 Close ✕
               </button>

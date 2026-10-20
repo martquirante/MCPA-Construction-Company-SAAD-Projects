@@ -157,32 +157,75 @@ class ConstructionController {
     }
   }
 
-  // 3. ADD PHOTO LOG / 360 TOUR
+  // 3. ADD PHOTO LOG / MULTI-MEDIA PROGRESS UPDATE
   async addPhotoLog(req, res) {
     try {
-      const { projectCode, title, caption, inspector, imageUrl, logDate, is360 } = req.body;
-      if (!projectCode || !title || !imageUrl) {
-        return res.status(400).json({ message: "projectCode, title, and imageUrl are required." });
+      const { projectCode, title, caption, inspector, imageUrl, logDate, is360, mediaType, mediaItems } = req.body;
+      if (!projectCode || !title) {
+        return res.status(400).json({ message: "projectCode and title are required." });
       }
 
+      const resolvedLogDate = logDate || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const resolvedInspector = inspector || "Field Engineer";
+      const resolvedCaption = caption || "";
+
+      // Support multi-media array if supplied
+      if (Array.isArray(mediaItems) && mediaItems.length > 0) {
+        const insertedLogs = [];
+        for (const item of mediaItems) {
+          const itemUrl = typeof item === "string" ? item : item.url || item.imageUrl;
+          if (!itemUrl) continue;
+          const itemMediaType = item.mediaType || (itemUrl.match(/\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i) ? "video" : "image");
+          const itemIs360 = Boolean(item.is360);
+
+          const r = await db.query(
+            `INSERT INTO site_photo_logs (project_code, title, caption, inspector, image_url, log_date, is_360, media_type)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [projectCode, title, resolvedCaption, resolvedInspector, itemUrl, resolvedLogDate, itemIs360, itemMediaType]
+          );
+          if (r.rows[0]) insertedLogs.push(r.rows[0]);
+        }
+        return res.status(201).json({ success: true, logs: insertedLogs, log: insertedLogs[0], message: `${insertedLogs.length} media logs registered.` });
+      }
+
+      // Single item fallback
+      if (!imageUrl) {
+        return res.status(400).json({ message: "imageUrl or mediaItems is required." });
+      }
+
+      const resolvedMediaType = mediaType || (imageUrl.match(/\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i) ? "video" : "image");
+
       const result = await db.query(
-        `INSERT INTO site_photo_logs (project_code, title, caption, inspector, image_url, log_date, is_360)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        `INSERT INTO site_photo_logs (project_code, title, caption, inspector, image_url, log_date, is_360, media_type)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
         [
           projectCode,
           title,
-          caption || "",
-          inspector || "Field Engineer",
+          resolvedCaption,
+          resolvedInspector,
           imageUrl,
-          logDate || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          resolvedLogDate,
           Boolean(is360),
+          resolvedMediaType,
         ]
       );
 
-      return res.status(201).json({ success: true, log: result.rows[0], message: "Photo log registered." });
+      return res.status(201).json({ success: true, log: result.rows[0], logs: [result.rows[0]], message: "Photo log registered." });
     } catch (err) {
       console.error("[ConstructionController.addPhotoLog] Error:", err);
       return res.status(500).json({ message: "Failed to add photo log: " + err.message });
+    }
+  }
+
+  // DELETE PHOTO / VIDEO LOG
+  async deletePhotoLog(req, res) {
+    try {
+      const { logId } = req.params;
+      await db.query("DELETE FROM site_photo_logs WHERE log_id = $1", [parseInt(logId, 10)]);
+      return res.json({ success: true, message: "Photo log deleted." });
+    } catch (err) {
+      console.error("[ConstructionController.deletePhotoLog] Error:", err);
+      return res.status(500).json({ message: "Failed to delete photo log: " + err.message });
     }
   }
 
