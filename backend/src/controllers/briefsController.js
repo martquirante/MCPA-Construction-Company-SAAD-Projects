@@ -151,24 +151,26 @@ class BriefsController {
         req.body.id ||
         `MCPA-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
       const normalizedEmail = clientEmail.trim().toLowerCase();
+      const parsedUserId = userId ? parseInt(userId, 10) : (req.user?.user_id || req.user?.userId || null);
 
-      // 1. Single Active Inquiry Policy: Max 1 active inquiry per client unless is_multi_project_approved
+      // 1. Single Active Inquiry Policy: Max 1 active inquiry per client account ID unless is_multi_project_approved
       const userRes = await db.query(
-        "SELECT user_id, is_multi_project_approved FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
-        [normalizedEmail]
+        "SELECT user_id, is_multi_project_approved FROM users WHERE (user_id = $1 AND $1 > 0) OR LOWER(email) = LOWER($2) LIMIT 1",
+        [parsedUserId || 0, normalizedEmail]
       );
       const isMultiApproved = Boolean(userRes.rows?.[0]?.is_multi_project_approved);
+      const matchedUserId = userRes.rows?.[0]?.user_id || parsedUserId || 0;
 
       if (!isMultiApproved) {
-        // Check active brief
+        // Check active brief by user_id OR client_email
         const activeCheck = await db.query(
           `SELECT brief_id, submission_id, project_type, status, location, created_at 
            FROM client_briefs 
-           WHERE LOWER(client_email) = LOWER($1) 
+           WHERE ((user_id = $1 AND $1 > 0) OR LOWER(client_email) = LOWER($2)) 
              AND (status NOT ILIKE '%reject%' AND status NOT ILIKE '%decline%' AND status NOT ILIKE '%discontinue%' AND status NOT ILIKE '%withdrawn%' AND status NOT ILIKE '%complet%')
            ORDER BY brief_id DESC 
            LIMIT 1`,
-          [normalizedEmail]
+          [matchedUserId, normalizedEmail]
         );
         if (activeCheck.rows && activeCheck.rows.length > 0) {
           const existing = activeCheck.rows[0];
@@ -189,14 +191,14 @@ class BriefsController {
           });
         }
 
-        // Check active project
+        // Check active project by user_id OR brief_id
         const projectCheck = await db.query(
           `SELECT client_project_id, project_code, project_title, project_type, target_location, stage_id, created_at 
            FROM client_projects 
-           WHERE (user_id = $1 OR brief_id IN (SELECT brief_id FROM client_briefs WHERE LOWER(client_email) = LOWER($2)))
+           WHERE ((user_id = $1 AND $1 > 0) OR brief_id IN (SELECT brief_id FROM client_briefs WHERE LOWER(client_email) = LOWER($2)))
              AND is_archived = FALSE AND stage_id != 'COMPLETED'
            ORDER BY client_project_id DESC LIMIT 1`,
-          [userRes.rows?.[0]?.user_id || 0, normalizedEmail]
+          [matchedUserId, normalizedEmail]
         );
         if (projectCheck.rows && projectCheck.rows.length > 0) {
           const existingProj = projectCheck.rows[0];
@@ -1210,29 +1212,33 @@ class BriefsController {
   async checkActiveInquiry(req, res) {
     try {
       const email = req.query.email || req.user?.email || req.headers["x-client-email"];
-      if (!email || !email.trim()) {
+      const rawUserId = req.query.userId || req.query.user_id || req.user?.user_id || req.user?.userId;
+      const parsedUserId = rawUserId ? parseInt(rawUserId, 10) : null;
+
+      if ((!email || !email.trim()) && !parsedUserId) {
         return res.json({ hasActiveInquiry: false });
       }
 
-      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedEmail = (email || "").trim().toLowerCase();
       const userRes = await db.query(
-        "SELECT user_id, is_multi_project_approved FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
-        [normalizedEmail]
+        "SELECT user_id, is_multi_project_approved FROM users WHERE (user_id = $1 AND $1 > 0) OR LOWER(email) = LOWER($2) LIMIT 1",
+        [parsedUserId || 0, normalizedEmail]
       );
       const isMultiApproved = Boolean(userRes.rows?.[0]?.is_multi_project_approved);
+      const matchedUserId = userRes.rows?.[0]?.user_id || parsedUserId || 0;
 
       if (isMultiApproved) {
         return res.json({ hasActiveInquiry: false, isMultiApproved: true });
       }
 
-      // 1. Check active project
+      // 1. Check active project by user_id OR brief_id
       const projectRes = await db.query(
         `SELECT client_project_id, project_code, project_title, project_type, target_location, stage_id, created_at 
          FROM client_projects 
-         WHERE (user_id = $1 OR brief_id IN (SELECT brief_id FROM client_briefs WHERE LOWER(client_email) = LOWER($2)))
+         WHERE ((user_id = $1 AND $1 > 0) OR brief_id IN (SELECT brief_id FROM client_briefs WHERE LOWER(client_email) = LOWER($2)))
            AND is_archived = FALSE AND stage_id != 'COMPLETED'
          ORDER BY client_project_id DESC LIMIT 1`,
-        [userRes.rows?.[0]?.user_id || 0, normalizedEmail]
+        [matchedUserId, normalizedEmail]
       );
 
       if (projectRes.rows && projectRes.rows.length > 0) {
@@ -1251,15 +1257,15 @@ class BriefsController {
         });
       }
 
-      // 2. Check active brief
+      // 2. Check active brief by user_id OR client_email
       const briefRes = await db.query(
         `SELECT brief_id, submission_id, project_type, status, location, created_at 
          FROM client_briefs 
-         WHERE LOWER(client_email) = LOWER($1) 
+         WHERE ((user_id = $1 AND $1 > 0) OR LOWER(client_email) = LOWER($2)) 
            AND (status NOT ILIKE '%reject%' AND status NOT ILIKE '%decline%' AND status NOT ILIKE '%discontinue%' AND status NOT ILIKE '%withdrawn%' AND status NOT ILIKE '%complet%')
          ORDER BY brief_id DESC 
          LIMIT 1`,
-        [normalizedEmail]
+        [matchedUserId, normalizedEmail]
       );
 
       if (briefRes.rows && briefRes.rows.length > 0) {

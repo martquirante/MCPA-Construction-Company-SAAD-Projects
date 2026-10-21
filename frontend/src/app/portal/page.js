@@ -1476,7 +1476,7 @@ function ClientPortalContent() {
                   actionButton={
                     <button
                       type="button"
-                      onClick={() => setIsInquiryModalOpen(true)}
+                      onClick={handleStartInquiryClick}
                       className="px-5 py-2.5 rounded-[10px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer shadow-xs inline-flex items-center gap-2"
                     >
                       <Plus className="w-4 h-4 stroke-[2.5]" />

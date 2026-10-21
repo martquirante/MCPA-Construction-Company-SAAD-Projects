@@ -108,7 +108,8 @@ function BookingPageContent() {
     let isMounted = true;
     setIsCheckingPolicy(true);
 
-    verifyClientActiveInquiry(currentUser.email)
+    const clientUid = currentUser.userId || currentUser.id || currentUser.user_id || null;
+    verifyClientActiveInquiry(currentUser.email, clientUid)
       .then((res) => {
         if (!isMounted) return;
         if (res?.hasActiveInquiry && res?.activeInquiry) {

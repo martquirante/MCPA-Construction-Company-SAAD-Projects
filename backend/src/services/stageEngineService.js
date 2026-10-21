@@ -1998,12 +1998,7 @@ class StageEngineService {
             }
 
             if (uid) {
-              // Administrator is explicitly advancing/authorizing this brief -> grant multi-project permission and bypass anti-spam
-              await db.query(
-                "UPDATE public.users SET is_multi_project_approved = TRUE WHERE user_id = $1;",
-                [uid]
-              ).catch(() => {});
-
+              // Administrator is explicitly advancing/authorizing this brief
               project = await this.createInquiryProject({
                 userId: uid,
                 projectTitle: `${b.project_type || "Residential"} Project (${b.client_name || "Client"})`,

@@ -3,7 +3,7 @@
  * Validates Google and Facebook OAuth tokens cryptographically on the server side.
  */
 
-class SocialAuthService {
+const socialAuthService = {
   /**
    * Verify Google OAuth Token (supports both ID Token and Access Token)
    * @param {string} token - Google ID Token or Access Token
@@ -14,7 +14,7 @@ class SocialAuthService {
 
     // 1. Try Google Tokeninfo endpoint (Standard for GIS credential ID token)
     try {
-      const tokenInfoUrl = `https://oauth2.gocdogleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`;
+      const tokenInfoUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(token);
       const res = await fetch(tokenInfoUrl);
       if (res.ok) {
         const payload = await res.json();
@@ -51,7 +51,7 @@ class SocialAuthService {
     try {
       const userInfoUrl = "https://www.googleapis.com/oauth2/v3/userinfo";
       const userRes = await fetch(userInfoUrl, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: "Bearer " + token },
       });
       if (userRes.ok) {
         const payload = await userRes.json();
@@ -78,7 +78,7 @@ class SocialAuthService {
     }
 
     throw new Error("Unable to verify Google authentication token. Please sign in again.");
-  }
+  },
 
   /**
    * Verify Facebook OAuth Access Token via Meta Graph API
@@ -88,9 +88,7 @@ class SocialAuthService {
   async verifyFacebookToken(accessToken) {
     if (!accessToken) throw new Error("Facebook access token is required for verification.");
 
-    const graphUrl = `https://graph.facebook.com/me?fields=id,name,first_name,last_name,email,picture.type(large)&access_token=${encodeURIComponent(
-      accessToken
-    )}`;
+    const graphUrl = "https://graph.facebook.com/me?fields=id,name,first_name,last_name,email,picture.type(large)&access_token=" + encodeURIComponent(accessToken);
 
     const res = await fetch(graphUrl);
     if (!res.ok) {
@@ -120,12 +118,12 @@ class SocialAuthService {
       provider: "facebook",
       emailVerified: Boolean(email),
     };
-  }
+  },
 
   /**
    * Universal token resolver for any supported social provider
-   * @param {'google' | 'facebook'} provider
-   * @param {string} token
+   * @param {string} provider - 'google' or 'facebook'
+   * @param {string} token - OAuth token
    */
   async verifyToken(provider, token) {
     const normalized = (provider || "").toLowerCase().trim();
@@ -136,7 +134,7 @@ class SocialAuthService {
       return this.verifyFacebookToken(token);
     }
     throw new Error(`Unsupported social authentication provider: '${provider}'.`);
-  }
-}
+  },
+};
 
-module.exports = new SocialAuthService();
+module.exports = socialAuthService;

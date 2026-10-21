@@ -78,10 +78,13 @@ export function evaluateSingleInquiryPolicy({
 /**
  * Asynchronously checks backend if an email address already has an active inquiry
  */
-export async function verifyClientActiveInquiry(email) {
-  if (!email || !email.trim()) return { hasActiveInquiry: false };
+export async function verifyClientActiveInquiry(email, userId = null) {
+  if (!email && !userId) return { hasActiveInquiry: false };
   try {
-    const res = await authFetch(`/api/client/active-inquiry-check?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+    const params = new URLSearchParams();
+    if (email && email.trim()) params.append("email", email.trim().toLowerCase());
+    if (userId) params.append("userId", String(userId));
+    const res = await authFetch(`/api/client/active-inquiry-check?${params.toString()}`);
     const data = await res.json();
     return data;
   } catch (err) {
