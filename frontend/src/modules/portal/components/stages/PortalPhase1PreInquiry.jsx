@@ -296,6 +296,48 @@ export default function PortalPhase1PreInquiry({
     });
   }, [inquiries]);
 
+  // Check if inquiry schedule/meeting is officially confirmed by admin
+  const isInquiryConfirmed = useMemo(() => {
+    if (!activeInquiry) return false;
+
+    if (activeInquiry.isApproved === true || activeInquiry.is_approved === true) {
+      return true;
+    }
+
+    const rawStatus = String(activeInquiry.status || "").trim().toLowerCase();
+    const rawAvailability = String(
+      activeInquiry.availability_status || activeInquiry.availabilityStatus || ""
+    ).trim().toLowerCase();
+
+    // If availability is explicitly confirmed
+    if (
+      rawAvailability === "confirmed" ||
+      rawAvailability === "attendance confirmed"
+    ) {
+      return true;
+    }
+
+    // Explicit pending / unconfirmed statuses
+    if (
+      rawStatus.includes("pending") ||
+      rawStatus.includes("under review") ||
+      rawStatus.includes("needs info") ||
+      rawAvailability.includes("pending")
+    ) {
+      return false;
+    }
+
+    // Confirmed statuses
+    return (
+      rawStatus === "meeting scheduled" ||
+      rawStatus === "approved / accepted" ||
+      rawStatus === "approved" ||
+      rawStatus.includes("scheduled") ||
+      rawStatus.includes("confirmed") ||
+      rawStatus === "for quotation"
+    );
+  }, [activeInquiry]);
+
   const activeRoomCode = useMemo(() => {
     if (!activeInquiry) return null;
     return extractRoomCode(activeInquiry);
@@ -727,35 +769,15 @@ export default function PortalPhase1PreInquiry({
               </p>
             </div>
 
-            <span className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-mono text-xs font-bold uppercase shrink-0">
-              {activeInquiry.status || "Pending Initial Review"}
+            <span
+              className={`px-3.5 py-1.5 rounded-full border font-mono text-xs font-bold uppercase shrink-0 ${
+                isInquiryConfirmed
+                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                  : "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300"
+              }`}
+            >
+              {activeInquiry.status || (isInquiryConfirmed ? "Meeting Scheduled" : "Pending Initial Review")}
             </span>
-          </div>
-
-          {/* Stepper Timeline */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 font-mono text-xs">
-            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
-              <div className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400">Step 1</div>
-              <div className="font-bold flex items-center gap-1.5 mt-0.5">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Brief Submitted</span>
-              </div>
-            </div>
-            <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-200">
-              <div className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400">Step 2 (Active)</div>
-              <div className="font-bold flex items-center gap-1.5 mt-0.5">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Engineering Evaluation</span>
-              </div>
-            </div>
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-neutral-500">
-              <div className="text-[10px] uppercase font-bold">Step 3</div>
-              <div className="font-bold mt-0.5">Initial Consultation</div>
-            </div>
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-neutral-500">
-              <div className="text-[10px] uppercase font-bold">Step 4</div>
-              <div className="font-bold mt-0.5">Stage 2 Architectural Unlock</div>
-            </div>
           </div>
 
           {/* Grid: Inquiry Parameters & Consultation Meeting Hub */}
@@ -802,73 +824,135 @@ export default function PortalPhase1PreInquiry({
               )}
             </div>
 
-            {/* Right Column: Initial Consultation Meeting Hub (6 cols) */}
-            <div className="lg:col-span-6 p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#11131a] text-neutral-900 dark:text-white border border-neutral-200 dark:border-amber-500/30 flex flex-col justify-between space-y-4 shadow-sm transition-colors">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5">
-                    <Video className="w-3.5 h-3.5" />
-                    <span>{activeInquiry.venue_type ? "Initial Consultation Hub" : "Initial Video Consultation Hub"}</span>
-                  </span>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                    Meeting Room Code:
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400 tracking-tight break-all">
-                      {activeRoomCode || "mcpa-arch-2026"}
+            {/* Right Column: Initial Consultation Hub (Only unlocked once confirmed) */}
+            {isInquiryConfirmed ? (
+              <div className="lg:col-span-6 p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#11131a] text-neutral-900 dark:text-white border border-neutral-200 dark:border-amber-500/30 flex flex-col justify-between space-y-4 shadow-sm transition-colors">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5">
+                      <Video className="w-3.5 h-3.5" />
+                      <span>{activeInquiry.venue_type ? "Initial Consultation Hub" : "Initial Video Consultation Hub"}</span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyMeetingLink(activeRoomCode || "mcpa-arch-2026")}
-                      className="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-white/10 text-neutral-500 hover:text-neutral-900 dark:text-white/60 dark:hover:text-white transition-colors cursor-pointer"
-                      title="Copy meeting link"
-                    >
-                      {hasCopiedRoomLink ? (
-                        <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="text-xs text-neutral-600 dark:text-neutral-300 space-y-2 pt-2 border-t border-neutral-100 dark:border-white/5">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <span>
-                      Schedule: <strong className="text-neutral-900 dark:text-white">{activeInquiry.meeting_date || activeInquiry.meetingDate || "Pending Scheduling"}</strong> (
-                      {activeInquiry.meeting_time || activeInquiry.meetingTime || "10:00 AM PHT"})
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                      Confirmed
                     </span>
                   </div>
-                  {activeInquiry.venue_details && (
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+
+                  <div className="space-y-1">
+                    <div className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Meeting Room Code:
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400 tracking-tight break-all">
+                        {activeRoomCode || "mcpa-arch-2026"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyMeetingLink(activeRoomCode || "mcpa-arch-2026")}
+                        className="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-white/10 text-neutral-500 hover:text-neutral-900 dark:text-white/60 dark:hover:text-white transition-colors cursor-pointer"
+                        title="Copy meeting link"
+                      >
+                        {hasCopiedRoomLink ? (
+                          <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-neutral-600 dark:text-neutral-300 space-y-2 pt-2 border-t border-neutral-100 dark:border-white/5">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                       <span>
-                        Venue: <strong className="text-neutral-900 dark:text-white">{activeInquiry.venue_type ? `${activeInquiry.venue_type} — ` : ""}{activeInquiry.venue_details}</strong>
+                        Schedule: <strong className="text-neutral-900 dark:text-white">{activeInquiry.meeting_date || activeInquiry.meetingDate || "Pending Scheduling"}</strong> (
+                        {activeInquiry.meeting_time || activeInquiry.meetingTime || "10:00 AM PHT"})
                       </span>
                     </div>
-                  )}
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 pt-0.5 leading-relaxed">
-                    Meet directly with Lead Engineer Raymart Quirante to discuss lot boundaries, preliminary design, and budget range.
-                  </p>
+                    {activeInquiry.venue_details && (
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <span>
+                          Venue: <strong className="text-neutral-900 dark:text-white">{activeInquiry.venue_type ? `${activeInquiry.venue_type} — ` : ""}{activeInquiry.venue_details}</strong>
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 pt-0.5 leading-relaxed">
+                      Meet directly with Lead Engineer Raymart Quirante to discuss lot boundaries, preliminary design, and budget range.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action: Join Video Call */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveCallRoomCode(activeRoomCode || "mcpa-arch-2026")}
+                    className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-amber-500/20 active:scale-98"
+                  >
+                    <Video className="w-4 h-4" />
+                    <span>Enter Video Consultation Room</span>
+                  </button>
                 </div>
               </div>
+            ) : (
+              <div className="lg:col-span-6 p-5 sm:p-6 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] text-neutral-900 dark:text-white border border-neutral-200 dark:border-white/10 flex flex-col justify-between space-y-4 shadow-xs">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Consultation Schedule</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                      Pending Confirmation
+                    </span>
+                  </div>
 
-              {/* Action: Join Video Call */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveCallRoomCode(activeRoomCode || "mcpa-arch-2026")}
-                  className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-amber-500/20 active:scale-98"
-                >
-                  <Video className="w-4 h-4" />
-                  <span>Enter Video Consultation Room</span>
-                </button>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold font-mono text-neutral-900 dark:text-white">
+                      Engineering Evaluation in Progress
+                    </h3>
+                    <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                      Our engineering and architectural team is reviewing your project parameters and checking engineer availability.
+                    </p>
+                  </div>
+
+                  {(activeInquiry.meeting_date || activeInquiry.meetingDate) && (
+                    <div className="text-xs text-neutral-600 dark:text-neutral-300 space-y-2 pt-2 border-t border-neutral-200 dark:border-white/5">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>
+                          Requested Schedule:{" "}
+                          <strong className="text-neutral-900 dark:text-white">
+                            {activeInquiry.meeting_date || activeInquiry.meetingDate}
+                          </strong>{" "}
+                          {activeInquiry.meeting_time || activeInquiry.meetingTime ? `(${activeInquiry.meeting_time || activeInquiry.meetingTime})` : ""}
+                        </span>
+                      </div>
+                      {activeInquiry.venue_details && (
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                          <span>
+                            Preferred Venue:{" "}
+                            <strong className="text-neutral-900 dark:text-white">
+                              {activeInquiry.venue_type ? `${activeInquiry.venue_type} — ` : ""}
+                              {activeInquiry.venue_details}
+                            </strong>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-200/90 leading-relaxed flex items-start gap-2.5">
+                  <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <span>
+                    Your consultation room code and video access link will be activated here once your schedule is confirmed by MCPA Engineering.
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Strict 1 Active Inquiry Lock Notice */}
