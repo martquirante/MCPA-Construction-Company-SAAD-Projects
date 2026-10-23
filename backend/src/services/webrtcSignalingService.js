@@ -79,21 +79,29 @@ class WebRTCSignalingService {
       console.log(`[WEBRTC SIGNALING] Socket connected: ${socket.id}`);
 
       // 1. Client or Admin joins a consultation room
-      // 1a. Pre-join query for room participant count, capacity & 5-minute post-call expiration check
+      // 1a. Pre-join query for room participant count, capacity & 5-minute post-call status
       socket.on("check-room-capacity", ({ roomCode }) => {
         if (!roomCode) return;
         const currentCount = this.rooms.has(roomCode) ? this.rooms.get(roomCode).size : 0;
         const maxCapacity = 8;
         const expiry = this.getRoomExpiryInfo(roomCode);
+
+        // If previous call concluded > 5m ago and room is empty, auto-clear stale expiry so room is ready for a new session
+        if (expiry.isExpired && currentCount === 0) {
+          this.roomMeta.delete(roomCode);
+        }
+
+        const freshExpiry = this.getRoomExpiryInfo(roomCode);
         socket.emit("room-capacity-status", {
           roomCode,
           currentCount,
           maxCapacity,
           isFull: currentCount >= maxCapacity,
-          isExpired: expiry.isExpired,
-          endedAt: expiry.endedAt,
-          expiresAt: expiry.expiresAt,
-          remainingMs: expiry.remainingMs,
+          isExpired: false, // Room is always reopenable for the next consultation round
+          hasConcludedGracePeriod: Boolean(freshExpiry.endedAt && !freshExpiry.isExpired),
+          endedAt: freshExpiry.endedAt,
+          expiresAt: freshExpiry.expiresAt,
+          remainingMs: freshExpiry.remainingMs,
         });
       });
 
@@ -101,25 +109,20 @@ class WebRTCSignalingService {
       socket.on("join-room", ({ roomCode, user = {}, role = "client" }) => {
         if (!roomCode) return;
 
+        // Auto-reopen room for new consultation session if previous session ended
         const expiry = this.getRoomExpiryInfo(roomCode);
         if (expiry.isExpired) {
-          console.warn(
-            `[WEBRTC] Room ${roomCode} expired 5 minutes after call ended. Rejecting socket ${socket.id}`
+          console.log(
+            `[WEBRTC] Room "${roomCode}" previous call concluded. Reopening fresh session for "${user.name || role}".`
           );
-          socket.emit("room-expired", {
-            roomCode,
-            endedAt: expiry.endedAt,
-            expiresAt: expiry.expiresAt,
-            message: "This consultation room has expired (5 minutes after the call ended).",
-          });
-          return;
+          this.roomMeta.delete(roomCode);
         }
 
         if (!this.rooms.has(roomCode)) {
           this.rooms.set(roomCode, new Map());
         }
 
-        // Room is active again (joined within 5-minute grace window or fresh start)
+        // Room is active again (joined within grace window or fresh start)
         this.roomMeta.set(roomCode, { endedAt: null, expiresAt: null });
 
         const roomParticipants = this.rooms.get(roomCode);

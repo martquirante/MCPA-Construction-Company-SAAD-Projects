@@ -449,10 +449,6 @@ export default function MeetPreJoinLobby({
 
   const handleJoinSubmit = (e) => {
     e.preventDefault();
-    if (isRoomExpired) {
-      setFormError("This consultation room has expired (5 minutes after the call ended). Please create or request a new room link.");
-      return;
-    }
     if (isRoomFull) {
       setFormError("This consultation room is currently at maximum capacity (8/8 participants).");
       return;
@@ -462,6 +458,9 @@ export default function MeetPreJoinLobby({
       setFormError("Please enter your name before joining.");
       return;
     }
+
+    clearRoomConcluded(normalizedCode);
+    setIsRoomExpired(false);
 
     const finalRole = selectedRole === "Other"
       ? (customRoleText.trim() || (affiliation === "mcpa" ? "MCPA Team Member" : "Guest"))
@@ -791,23 +790,23 @@ export default function MeetPreJoinLobby({
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={!displayName.trim() || isRoomFull || isRoomExpired}
+                  disabled={!displayName.trim() || isRoomFull}
                   className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 ${
-                    displayName.trim() && !isRoomFull && !isRoomExpired
+                    displayName.trim() && !isRoomFull
                       ? "bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-lg shadow-amber-500/25 cursor-pointer active:scale-[0.98]"
                       : "bg-neutral-800/80 text-neutral-400 border border-neutral-700/60 cursor-not-allowed opacity-80"
                   }`}
                 >
                   <span>
-                    {isRoomExpired
-                      ? "Room Expired"
-                      : isRoomFull
-                        ? "Room Full (8/8)"
+                    {isRoomFull
+                      ? "Room Full (8/8)"
+                      : isRoomExpired
+                        ? "Start New Consultation Session"
                         : "Join Consultation"}
                   </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                {!displayName.trim() && !isRoomFull && !isRoomExpired && (
+                {!displayName.trim() && !isRoomFull && (
                   <p className="mt-2 text-[11px] text-amber-400/90 font-mono text-center flex items-center justify-center gap-1.5 animate-pulse">
                     <span>✍️</span> Enter your full name above to enable Join
                   </p>

@@ -105,39 +105,34 @@ export default function MeetClientController({ roomCode }) {
           </div>
 
           <h2 className="text-xl font-bold text-white tracking-tight">
-            {isExpired ? "Consultation Room Expired" : "Consultation Concluded"}
+            {isExpired ? "Consultation Session Concluded" : "Consultation Concluded"}
           </h2>
           <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
             {isExpired
-              ? `Room ${normalizedCode} expired 5 minutes after the call ended. Please generate or request a new room link for your next session.`
+              ? `The previous consultation session in room ${normalizedCode} has concluded. You can start a new consultation session below or view meeting history in your portal.`
               : "Thank you for participating in the MCPA engineering & architectural review. Your consultation record has been logged."}
           </p>
 
           {!isExpired && remainingSec > 0 && (
             <div className="mt-4 py-2 px-3 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] font-mono text-amber-300 flex items-center justify-center gap-2">
               <Clock className="w-3.5 h-3.5 text-amber-400" />
-              <span>Room expires in {countdownLabel}</span>
+              <span>Grace rejoin window: {countdownLabel}</span>
             </div>
           )}
 
           <div className="mt-6 flex flex-col gap-2.5">
             <button
               type="button"
-              disabled={isExpired}
               onClick={() => {
-                if (isExpired) return;
+                clearRoomConcluded(normalizedCode);
                 setCallEnded(false);
               }}
-              className={`w-full py-2.5 px-4 rounded font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 ${
-                isExpired
-                  ? "bg-neutral-800 text-neutral-500 border border-white/10 cursor-not-allowed"
-                  : "bg-amber-500 hover:bg-amber-400 text-black"
-              }`}
+              className="w-full py-2.5 px-4 rounded font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black cursor-pointer shadow-md active:scale-[0.98]"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>
                 {isExpired
-                  ? "Room Expired (5m Limit Reached)"
+                  ? "Start New Consultation Session"
                   : `Rejoin Meeting (${countdownLabel})`}
               </span>
             </button>
