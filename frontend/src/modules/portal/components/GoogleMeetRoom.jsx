@@ -106,7 +106,15 @@ function RemotePeerAudio({ stream, streamVersion = 0, sinkId = null, audioOutput
 
       if (!gainNodeRef.current) {
         gainNodeRef.current = ctx.createGain();
-        gainNodeRef.current.connect(ctx.destination);
+        // Limiter keeps boosted speaker audio clean (no clipping/distortion)
+        const limiter = ctx.createDynamicsCompressor();
+        limiter.threshold.value = -8;
+        limiter.knee.value = 6;
+        limiter.ratio.value = 12;
+        limiter.attack.value = 0.003;
+        limiter.release.value = 0.25;
+        gainNodeRef.current.connect(limiter);
+        limiter.connect(ctx.destination);
       }
 
       // Reconnect source if stream changed
@@ -125,8 +133,8 @@ function RemotePeerAudio({ stream, streamVersion = 0, sinkId = null, audioOutput
       } else if (audioOutputMode === "headset") {
         gainNodeRef.current.gain.setValueAtTime(0.95, now);
       } else {
-        // Loudspeaker mode: Rich boosted sound directly from phone stereo speakers
-        gainNodeRef.current.gain.setValueAtTime(1.15, now);
+        // Loudspeaker mode: boosted (Android call-volume stream is quiet), limited above
+        gainNodeRef.current.gain.setValueAtTime(2.2, now);
       }
     } catch (err) {
       console.warn("[REMOTE AUDIO] Web Audio bridge:", err);
@@ -1185,9 +1193,17 @@ export default function GoogleMeetRoom({
     });
 
     // Existing participants in room
-    socket.on("room-joined", ({ participants }) => {
+    socket.on("room-joined", ({ participants: rawParticipants }) => {
       clearRoomConcluded(canonicalRoomCode);
-      if (participants && participants.length > 0) {
+      // Drop ourselves / our own stale sessions (network switch rejoins) so no ghost tiles appear
+      const participants = (rawParticipants || []).filter((p) => {
+        const sid = p?.socketId;
+        const sess = p?.clientSessionId || p?.user?.clientSessionId;
+        if (sid && sid === socket.id) return false;
+        if (sess && sess === clientSessionIdRef.current) return false;
+        return true;
+      });
+      if (participants.length > 0) {
         console.log("[WEBRTC MESH] Existing peers in room:", participants);
         hasRemoteEverJoinedRef.current = true;
         setIsCallAnswered(true);
@@ -1226,6 +1242,9 @@ export default function GoogleMeetRoom({
 
     // New participant joins
     socket.on("user-joined", ({ socketId, user }) => {
+      if (socketId === socket.id || (user?.clientSessionId && user.clientSessionId === clientSessionIdRef.current)) {
+        return;
+      }
       console.log("[WEBRTC MESH] User joined:", user?.name, socketId);
       hasRemoteEverJoinedRef.current = true;
       setIsCallAnswered(true);

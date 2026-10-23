@@ -197,7 +197,11 @@ class WebRTCSignalingService {
           mediaState: initialMediaState,
         };
 
-        const existingParticipants = Array.from(roomParticipants.values());
+        // Never return the joining socket itself as an "existing peer" (same-socket rejoin on network events)
+        const alreadyInRoom = roomParticipants.has(socket.id);
+        const existingParticipants = Array.from(roomParticipants.values()).filter(
+          (p) => p?.socketId !== socket.id
+        );
 
         // Save current participant
         roomParticipants.set(socket.id, socket.userData);
@@ -213,11 +217,13 @@ class WebRTCSignalingService {
           participants: existingParticipants,
         });
 
-        // Notify other participants that a new peer joined
-        socket.to(roomCode).emit("user-joined", {
-          socketId: socket.id,
-          user: socket.userData,
-        });
+        // Notify other participants that a new peer joined (skip for idempotent same-socket rejoin)
+        if (!alreadyInRoom) {
+          socket.to(roomCode).emit("user-joined", {
+            socketId: socket.id,
+            user: socket.userData,
+          });
+        }
       });
 
       // 2. WebRTC Offer Relay (Peer A -> Peer B)
