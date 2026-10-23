@@ -242,13 +242,25 @@ export class WebRTCPeerManager {
    * Helper to notify callers of any changes in active peers list
    */
   notifyPeersChange() {
-    const list = Array.from(this.peers.values()).map((p) => ({
-      socketId: p.socketId,
-      stream: p.remoteStream,
-      streamVersion: p.streamVersion || 0,
-      user: p.user,
-      connectionState: p.pc?.connectionState || "new",
-    }));
+    const list = Array.from(this.peers.values()).map((p) => {
+      const pcState = p.pc?.connectionState || "new";
+      const iceState = p.pc?.iceConnectionState || "new";
+      const isReconnecting =
+        iceState === "disconnected" ||
+        iceState === "failed" ||
+        pcState === "disconnected" ||
+        pcState === "failed";
+
+      return {
+        socketId: p.socketId,
+        stream: p.remoteStream,
+        streamVersion: p.streamVersion || 0,
+        user: p.user,
+        connectionState: isReconnecting ? "disconnected" : pcState,
+        iceConnectionState: iceState,
+        isReconnecting,
+      };
+    });
 
     if (typeof this.onPeersChange === "function") {
       this.onPeersChange(list);
@@ -400,6 +412,7 @@ export class WebRTCPeerManager {
       } else if (iceState === "disconnected") {
         this.scheduleIceRecovery(socketId, 8000);
       }
+      this.notifyPeersChange();
     };
 
     // 6. Overall Peer Connection lifecycle

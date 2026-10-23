@@ -33,6 +33,10 @@ import {
   Headphones,
   ChevronUp,
   Camera,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { WebRTCPeerManager } from "@/modules/portal/utils/webrtcPeerManager";
@@ -387,6 +391,25 @@ function ParticipantVideoCard({
         </div>
       )}
 
+      {/* Reconnecting / Signal Lost Overlay */}
+      {participant.isReconnecting && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-3 bg-black/75 backdrop-blur-[2px] transition-all text-center">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1c1d24]/95 border border-amber-500/40 text-amber-300 text-[11px] sm:text-xs font-medium shadow-xl">
+            <WifiOff className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
+            <span className="truncate max-w-[170px] sm:max-w-[220px]">
+              {isLocal
+                ? "Reconnecting..."
+                : `${participant.name ? participant.name.split(" ")[0] : "Participant"} lost signal`}
+            </span>
+          </div>
+          {!isMiniStrip && (
+            <p className="text-[10px] sm:text-[11px] text-white/60 mt-1.5 font-normal tracking-wide">
+              {isLocal ? "Checking connection..." : "Reconnecting to meeting..."}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Top-Right Indicator: Audio Mute (NO CLUNKY PILL, JUST CLEAN RED ICON) */}
       {!participant.isMicOn && (
         <div className="absolute top-2.5 right-2.5 z-10 p-1.5 rounded-full bg-rose-600/90 text-white shadow-md">
@@ -410,8 +433,15 @@ function ParticipantVideoCard({
           {isLocal && <span className="text-white/60 text-[11px] font-normal font-mono">(You)</span>}
         </div>
         {!isMiniStrip && (
-          <div className="text-white/75 text-[10px] sm:text-[11px] font-normal tracking-wide truncate max-w-[200px] sm:max-w-[280px]">
-            {roleLabel} · {affiliationLabel}
+          <div className="text-[10px] sm:text-[11px] font-normal tracking-wide truncate max-w-[200px] sm:max-w-[280px]">
+            {participant.isReconnecting ? (
+              <span className="text-amber-400 font-medium inline-flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block" />
+                Signal lost · Reconnecting
+              </span>
+            ) : (
+              <span className="text-white/75">{roleLabel} · {affiliationLabel}</span>
+            )}
           </div>
         )}
       </div>
@@ -868,11 +898,147 @@ export default function GoogleMeetRoom({
     setMounted(true);
   }, []);
 
+  // Real-time In-Call Network & Connectivity State
+  const [isNetworkOnline, setIsNetworkOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
+  const [isSocketConnected, setIsSocketConnected] = useState(true);
+  const [showNetworkBanner, setShowNetworkBanner] = useState(false);
+  const [isNetworkRestored, setIsNetworkRestored] = useState(false);
+  const [isRetryingNetwork, setIsRetryingNetwork] = useState(false);
+  const [inRoomToast, setInRoomToast] = useState(null); // { id, message, type: 'info' | 'warn' | 'success' }
+  const inRoomToastTimerRef = useRef(null);
+  const prevPeerConnectionStatesRef = useRef(new Map()); // socketId -> isReconnecting (boolean)
+
   // Stable references for callbacks to prevent signaling socket teardown loops
   const showToastRef = useRef(showToast);
   useEffect(() => {
     showToastRef.current = showToast;
   }, [showToast]);
+
+  // In-room toast helper (bubbles to parent showToast & triggers in-meeting pill)
+  const triggerInRoomToast = useCallback((message, type = "info") => {
+    showToastRef.current?.(message);
+    if (inRoomToastTimerRef.current) {
+      clearTimeout(inRoomToastTimerRef.current);
+    }
+    setInRoomToast({ id: Date.now(), message, type });
+    inRoomToastTimerRef.current = setTimeout(() => {
+      setInRoomToast(null);
+    }, 4000);
+  }, []);
+
+  // Browser Network Online/Offline Detection
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleOffline = () => {
+      console.warn("[NETWORK] Browser detected offline event.");
+      setIsNetworkOnline(false);
+      setIsNetworkRestored(false);
+      setShowNetworkBanner(true);
+    };
+
+    const handleOnline = () => {
+      console.log("[NETWORK] Browser detected online event. Attempting reconnect...");
+      setIsNetworkOnline(true);
+      setIsNetworkRestored(true);
+      setShowNetworkBanner(true);
+
+      if (socketRef.current && !socketRef.current.connected) {
+        socketRef.current.connect();
+      }
+      if (peerManagerRef.current) {
+        peerManagerRef.current.reconnectAllPeers().catch(() => {});
+      }
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setIsNetworkOnline(false);
+      setShowNetworkBanner(true);
+    }
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
+
+  // 3.5s auto-dismiss timer for restored notification
+  useEffect(() => {
+    if (showNetworkBanner && isNetworkRestored) {
+      const timer = setTimeout(() => {
+        setShowNetworkBanner(false);
+        setIsNetworkRestored(false);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [showNetworkBanner, isNetworkRestored]);
+
+  // Manual Reconnect handler
+  const handleManualReconnect = useCallback(async () => {
+    setIsRetryingNetwork(true);
+    try {
+      if (typeof fetch !== "undefined") {
+        try {
+          await fetch("/api/webrtc/ice-servers", { method: "HEAD", cache: "no-store" });
+        } catch (e) {}
+      }
+      const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+      setIsNetworkOnline(online);
+
+      if (socketRef.current && !socketRef.current.connected) {
+        socketRef.current.connect();
+      }
+
+      if (peerManagerRef.current) {
+        await peerManagerRef.current.reconnectAllPeers();
+      }
+
+      if (online) {
+        setIsNetworkRestored(true);
+        setShowNetworkBanner(true);
+      }
+    } catch (err) {
+      console.warn("[NETWORK] Manual retry failed:", err);
+    } finally {
+      setTimeout(() => setIsRetryingNetwork(false), 700);
+    }
+  }, []);
+
+  // Monitor remote peers' reconnection transitions and notify call
+  useEffect(() => {
+    const prevMap = prevPeerConnectionStatesRef.current;
+    peers.forEach((peer) => {
+      const sid = peer.socketId;
+      const name = peer.user?.name || "Participant";
+      const wasReconnecting = prevMap.get(sid);
+      const isNowReconnecting = Boolean(peer.isReconnecting);
+
+      if (wasReconnecting === undefined) {
+        prevMap.set(sid, isNowReconnecting);
+        return;
+      }
+
+      if (!wasReconnecting && isNowReconnecting) {
+        prevMap.set(sid, true);
+        triggerInRoomToast(`${name} lost connection · Reconnecting...`, "warn");
+      } else if (wasReconnecting && !isNowReconnecting) {
+        prevMap.set(sid, false);
+        triggerInRoomToast(`${name} reconnected.`, "success");
+      }
+    });
+
+    const currentPeerIds = new Set(peers.map((p) => p.socketId));
+    for (const sid of prevMap.keys()) {
+      if (!currentPeerIds.has(sid)) {
+        prevMap.delete(sid);
+      }
+    }
+  }, [peers, triggerInRoomToast]);
 
   const onLeaveRef = useRef(onLeave);
   useEffect(() => {
@@ -1263,7 +1429,7 @@ export default function GoogleMeetRoom({
       },
       onPeerLeft: (socketId, user) => {
         const name = user?.name || "A participant";
-        showToastRef.current?.(`${name} left the meeting.`);
+        triggerInRoomToast(`${name} left the meeting.`);
         if (playLeaveChimeRef.current) {
           playLeaveChimeRef.current();
         }
@@ -1293,6 +1459,11 @@ export default function GoogleMeetRoom({
     socket.on("connect", () => {
       console.log(`[WEBRTC MESH] Connected with socket ID: ${socket.id} (Reconnection: ${hasConnectedOnce})`);
       setLocalSocketId(socket.id || "local");
+      setIsSocketConnected(true);
+      if (hasConnectedOnce) {
+        setIsNetworkRestored(true);
+        setShowNetworkBanner(true);
+      }
       if (hasConnectedOnce && peerManagerRef.current) {
         // Automatic recovery on socket reconnection after signal blackout
         peerManagerRef.current.reconnectAllPeers().catch(() => {});
@@ -1301,8 +1472,25 @@ export default function GoogleMeetRoom({
       joinRoom();
     });
 
+    socket.on("disconnect", (reason) => {
+      console.warn(`[WEBRTC MESH] Socket disconnected: ${reason}`);
+      setIsSocketConnected(false);
+      if (reason !== "io client disconnect") {
+        setIsNetworkRestored(false);
+        setShowNetworkBanner(true);
+      }
+    });
+
+    socket.on("connect_error", (error) => {
+      console.warn(`[WEBRTC MESH] Socket connect error:`, error?.message);
+      setIsSocketConnected(false);
+      setIsNetworkRestored(false);
+      setShowNetworkBanner(true);
+    });
+
     if (socket.connected) {
       setLocalSocketId(socket.id || "local");
+      setIsSocketConnected(true);
       hasConnectedOnce = true;
       joinRoom();
     }
@@ -1386,7 +1574,7 @@ export default function GoogleMeetRoom({
         ringbackToneRef.current.stop();
         ringbackToneRef.current = null;
       }
-      showToastRef.current?.(`${user?.name || "Participant"} joined the call.`);
+      triggerInRoomToast(`${user?.name || "Participant"} joined the call.`);
       if (socketId) {
         if (user?.mediaState) {
           setPeerMediaStates((prev) => ({
@@ -1456,7 +1644,7 @@ export default function GoogleMeetRoom({
         },
       }));
       if (raised) {
-        showToastRef.current?.(`✋ ${from || "Participant"} raised hand`);
+        triggerInRoomToast(`✋ ${from || "Participant"} raised hand`);
       }
     });
 
@@ -1489,7 +1677,7 @@ export default function GoogleMeetRoom({
         return next;
       });
       const name = user?.name || "A participant";
-      showToastRef.current?.(`${name} left the room.`);
+      triggerInRoomToast(`${name} left the room.`);
       if (playLeaveChimeRef.current) {
         playLeaveChimeRef.current();
       }
@@ -2125,6 +2313,8 @@ export default function GoogleMeetRoom({
 
   // Collect all participants list (Local + Remote)
   const allParticipants = useMemo(() => {
+    const localIsReconnecting = !isNetworkOnline || !isSocketConnected;
+
     const list = [
       {
         id: "local",
@@ -2139,6 +2329,7 @@ export default function GoogleMeetRoom({
         isMicOn,
         isHandRaised,
         avatarUrl: userAvatar,
+        isReconnecting: localIsReconnecting,
       },
     ];
 
@@ -2157,11 +2348,28 @@ export default function GoogleMeetRoom({
         isMicOn: state.isMicOn !== false,
         isHandRaised: Boolean(state.isHandRaised),
         avatarUrl: peer.user?.avatarUrl,
+        isReconnecting: Boolean(peer.isReconnecting),
+        connectionState: peer.connectionState,
       });
     });
 
     return list;
-  }, [localSocketId, displayName, userRole, affiliation, localStream, localStreamVersion, isVideoOn, isMicOn, isHandRaised, userAvatar, peers, peerMediaStates]);
+  }, [
+    localSocketId,
+    displayName,
+    userRole,
+    affiliation,
+    localStream,
+    localStreamVersion,
+    isVideoOn,
+    isMicOn,
+    isHandRaised,
+    userAvatar,
+    isNetworkOnline,
+    isSocketConnected,
+    peers,
+    peerMediaStates,
+  ]);
 
   // Check if someone is actively sharing their screen
   const activeScreenShare = useMemo(() => {
@@ -2724,6 +2932,94 @@ export default function GoogleMeetRoom({
           </aside>
         )}
       </main>
+
+      {/* IN-ROOM CALL NOTIFICATIONS (PEER JOIN, LEAVE, DISCONNECT, SIGNAL RECOVERY) */}
+      {inRoomToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[calc(100%-2rem)] sm:w-auto pointer-events-none animate-in fade-in slide-in-from-top-2 duration-200"
+        >
+          <div
+            className={`px-3.5 py-2 rounded-full backdrop-blur-md shadow-2xl flex items-center justify-center gap-2 text-xs font-medium border ${
+              inRoomToast.type === "warn"
+                ? "bg-[#181920]/95 border-amber-500/40 text-amber-200"
+                : inRoomToast.type === "success"
+                ? "bg-[#0e1a14]/95 border-emerald-500/40 text-emerald-200"
+                : "bg-[#181920]/95 border-white/15 text-white"
+            }`}
+          >
+            {inRoomToast.type === "warn" && <WifiOff className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+            {inRoomToast.type === "success" && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+            <span>{inRoomToast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* 3. IN-CALL BOTTOM NETWORK STATUS BANNER (HUMAN-DESIGNED, ENTERPRISE GRADE) */}
+      {showNetworkBanner && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 z-40 max-w-md w-[calc(100%-1.5rem)] sm:w-auto pointer-events-auto animate-in fade-in slide-in-from-bottom-2 duration-200"
+        >
+          {isNetworkRestored ? (
+            // Connection Restored Notification Banner
+            <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#0e1a14]/95 backdrop-blur-md border border-emerald-500/30 text-emerald-200 shadow-2xl text-xs font-medium">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="flex-1 pr-1">
+                <span className="font-semibold text-white">Back online</span>
+                <span className="text-emerald-300/80 ml-1.5">· Reconnected to meeting</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNetworkBanner(false)}
+                className="p-1 rounded-full text-emerald-400/60 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                aria-label="Dismiss banner"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            // Offline / Disconnected Bottom Banner
+            <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-[#16171d]/95 backdrop-blur-md border border-amber-500/35 text-white shadow-2xl text-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <WifiOff className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-[12px] leading-tight">
+                    Connection lost
+                  </div>
+                  <div className="text-[11px] text-neutral-400 truncate">
+                    Reconnecting to call... Others cannot hear you yet.
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleManualReconnect}
+                  disabled={isRetryingNetwork}
+                  className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 active:scale-95 disabled:opacity-50 text-white text-[11px] font-medium transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border border-white/5"
+                >
+                  <RefreshCw className={`w-3 h-3 text-amber-400 ${isRetryingNetwork ? "animate-spin" : ""}`} />
+                  <span>{isRetryingNetwork ? "Checking..." : "Retry"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowNetworkBanner(false)}
+                  className="p-1 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  aria-label="Dismiss banner"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 4. BOTTOM CONTROLS DOCK (MOBILE FIRST, ERGONOMIC TOUCH TARGETS) */}
       <footer className="h-auto min-h-[64px] sm:h-20 px-3 sm:px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,12px))] flex items-center justify-center sm:justify-between z-30 shrink-0 bg-[#0e0f14]/95 backdrop-blur-md border-t border-white/[0.06]">
