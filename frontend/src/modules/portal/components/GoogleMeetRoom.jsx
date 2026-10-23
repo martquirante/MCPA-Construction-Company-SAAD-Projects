@@ -31,6 +31,8 @@ import {
   Volume2,
   Smartphone,
   Headphones,
+  ChevronUp,
+  Camera,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { WebRTCPeerManager } from "@/modules/portal/utils/webrtcPeerManager";
@@ -70,195 +72,152 @@ const FALLBACK_AUDIO_CONSTRAINTS = {
 };
 
 /**
- * Audio playback element for an individual remote peer.
- * Uses Web Audio API (AudioContext) with GainNode and DynamicsCompressorNode
- * to guarantee:
- * 1. Routing to Android/mobile Loudspeaker (STREAM_MUSIC) rather than whisper-quiet Earpiece (STREAM_VOICE_CALL).
- * 2. 2.8x volume boost for Loudspeaker mode so phone volume is loud and room-filling.
- * 3. Studio-grade dynamics compression to prevent any clipping, crackle, or distortion.
- * 4. Responds dynamically to Speaker vs Earpiece vs Headset mode switches.
- * 5. Fallback to native HTML5 audio element if Web Audio API is unavailable.
+ * High-fidelity Audio playback engine for an individual remote peer.
+ * Uses a dual-path pipeline:
+ * 1. Web Audio API connected to AudioContext.destination which Android Chromium routes
+ *    directly through STREAM_MUSIC (Phone Loudspeaker / Media channel at full volume).
+ * 2. An unmuted <video playsInline> fallback element to keep Chrome's media pipeline engaged.
+ * When in "earpiece" mode, Web Audio is muted and audio routes gently (volume 0.25) to the ear receiver.
  */
 function RemotePeerAudio({ stream, streamVersion = 0, sinkId = null, audioOutputMode = "speaker" }) {
-  const audioRef = useRef(null);
+  const mediaRef = useRef(null);
   const audioCtxRef = useRef(null);
-  const sourceNodeRef = useRef(null);
   const gainNodeRef = useRef(null);
-  const compressorRef = useRef(null);
-  const isWebAudioActiveRef = useRef(false);
+  const sourceNodeRef = useRef(null);
 
-  // Helper to calculate target gain based on output mode
-  const getTargetGain = (mode) => {
-    if (mode === "earpiece") return 0.35; // Gentle volume for holding directly against ear
-    if (mode === "headset") return 1.0;   // 1:1 true volume for earphones/headphones
-    return 2.8;                          // Boosted 2.8x amplification for crystal-clear loud phone speaker
-  };
-
-  // Setup Web Audio pipeline for the incoming stream
+  // Web Audio API routing for guaranteed mobile loudspeaker output
   useEffect(() => {
-    const audioEl = audioRef.current;
     if (!stream) return;
+    const audioTracks = stream.getAudioTracks().filter((t) => t.readyState === "live");
+    if (audioTracks.length === 0) return;
 
-    // Attach stream to <audio> element as primary anchor for browser media engine
-    if (audioEl && audioEl.srcObject !== stream) {
-      audioEl.srcObject = stream;
-    }
-
-    // Try setting up Web Audio API routing & amplification
     try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass) {
-        // Clean up previous context if any
-        if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
-          try {
-            audioCtxRef.current.close();
-          } catch (e) {}
-        }
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtxClass) return;
 
-        const audioCtx = new AudioContextClass({ latencyHint: "interactive" });
-        audioCtxRef.current = audioCtx;
-
-        if (sinkId && typeof audioCtx.setSinkId === "function") {
-          audioCtx.setSinkId(sinkId).catch(() => {});
-        }
-
-        const audioTracks = stream.getAudioTracks();
-        if (audioTracks.length > 0) {
-          const source = audioCtx.createMediaStreamSource(stream);
-          sourceNodeRef.current = source;
-
-          // Studio-grade compressor to prevent clipping when volume is boosted
-          const compressor = audioCtx.createDynamicsCompressor();
-          compressor.threshold.setValueAtTime(-24, audioCtx.currentTime);
-          compressor.knee.setValueAtTime(30, audioCtx.currentTime);
-          compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
-          compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
-          compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
-          compressorRef.current = compressor;
-
-          // Gain node for loudspeaker amplification
-          const gainNode = audioCtx.createGain();
-          const initialGain = getTargetGain(audioOutputMode);
-          gainNode.gain.setValueAtTime(initialGain, audioCtx.currentTime);
-          gainNodeRef.current = gainNode;
-
-          // Connect pipeline: Stream -> Compressor -> Gain -> Output Destination (Loudspeaker)
-          source.connect(compressor);
-          compressor.connect(gainNode);
-          gainNode.connect(audioCtx.destination);
-
-          isWebAudioActiveRef.current = true;
-
-          // Mute the underlying <audio> element so audio doesn't double/echo
-          if (audioEl) {
-            audioEl.muted = true;
-          }
-        }
+      if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+        audioCtxRef.current = new AudioCtxClass({ latencyHint: "interactive" });
       }
-    } catch (err) {
-      console.warn("[WEBRTC AUDIO] Web Audio API setup notice, falling back to HTML5 audio:", err);
-      isWebAudioActiveRef.current = false;
-      if (audioEl) {
-        audioEl.muted = false;
-        audioEl.volume = audioOutputMode === "earpiece" ? 0.3 : 1.0;
+      const ctx = audioCtxRef.current;
+
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
       }
-    }
 
-    // Attempt to start <audio> element playback (keeps WebRTC pipeline active)
-    if (audioEl) {
-      if (sinkId && typeof audioEl.setSinkId === "function") {
-        audioEl.setSinkId(sinkId).catch(() => {});
+      if (!gainNodeRef.current) {
+        gainNodeRef.current = ctx.createGain();
+        gainNodeRef.current.connect(ctx.destination);
       }
-      const playPromise = audioEl.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {});
-      }
-    }
 
-    // Resume AudioContext if suspended by mobile autoplay policy
-    const resumeAudio = () => {
-      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
-        audioCtxRef.current.resume().catch(() => {});
-      }
-      if (audioEl && audioEl.paused && audioEl.srcObject) {
-        audioEl.play().catch(() => {});
-      }
-    };
-
-    resumeAudio();
-
-    // Event listeners to revive audio on mobile touch / click / visibility change
-    window.addEventListener("click", resumeAudio);
-    window.addEventListener("touchstart", resumeAudio);
-    window.addEventListener("touchend", resumeAudio);
-
-    return () => {
-      window.removeEventListener("click", resumeAudio);
-      window.removeEventListener("touchstart", resumeAudio);
-      window.removeEventListener("touchend", resumeAudio);
-
+      // Reconnect source if stream changed
       if (sourceNodeRef.current) {
         try {
           sourceNodeRef.current.disconnect();
         } catch (e) {}
       }
-      if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
-        try {
-          audioCtxRef.current.close();
-        } catch (e) {}
+      sourceNodeRef.current = ctx.createMediaStreamSource(stream);
+      sourceNodeRef.current.connect(gainNodeRef.current);
+
+      const now = ctx.currentTime;
+      if (audioOutputMode === "earpiece") {
+        // Silence loudspeaker Web Audio so it only comes out of the earpiece
+        gainNodeRef.current.gain.setValueAtTime(0.0, now);
+      } else if (audioOutputMode === "headset") {
+        gainNodeRef.current.gain.setValueAtTime(0.95, now);
+      } else {
+        // Loudspeaker mode: Rich boosted sound directly from phone stereo speakers
+        gainNodeRef.current.gain.setValueAtTime(1.15, now);
       }
-      isWebAudioActiveRef.current = false;
-    };
-  }, [stream, streamVersion, sinkId]);
+    } catch (err) {
+      console.warn("[REMOTE AUDIO] Web Audio bridge:", err);
+    }
+  }, [stream, streamVersion, audioOutputMode]);
 
-  // Dynamically respond to audioOutputMode switching (Speaker vs Earpiece vs Headset)
+  // Media Element connection
   useEffect(() => {
-    const targetGain = getTargetGain(audioOutputMode);
+    const mediaEl = mediaRef.current;
+    if (!mediaEl || !stream) return;
 
-    if (gainNodeRef.current && audioCtxRef.current && audioCtxRef.current.state !== "closed") {
-      try {
-        gainNodeRef.current.gain.setTargetAtTime(targetGain, audioCtxRef.current.currentTime, 0.05);
-      } catch (e) {}
+    if (mediaEl.srcObject !== stream) {
+      mediaEl.srcObject = stream;
     }
 
-    const audioEl = audioRef.current;
-    if (audioEl && !isWebAudioActiveRef.current) {
-      audioEl.volume = audioOutputMode === "earpiece" ? 0.28 : 1.0;
+    if (audioOutputMode === "earpiece") {
+      mediaEl.muted = false;
+      mediaEl.volume = 0.25;
+    } else if (audioOutputMode === "headset") {
+      mediaEl.muted = false;
+      mediaEl.volume = 0.85;
+    } else {
+      mediaEl.muted = false;
+      mediaEl.volume = 0.95;
     }
-  }, [audioOutputMode]);
 
-  // Keep alive on visibility changes and network stalls
+    // Set hardware sinkId if supported
+    if (sinkId && typeof mediaEl.setSinkId === "function") {
+      mediaEl.setSinkId(sinkId).catch(() => {});
+    }
+
+    const playPromise = mediaEl.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {});
+    }
+  }, [stream, streamVersion, sinkId, audioOutputMode]);
+
+  // Keep alive on user touch, click, visibility change
   useEffect(() => {
-    const audioEl = audioRef.current;
-    if (!audioEl) return;
-
     const resumeAudio = () => {
       if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
         audioCtxRef.current.resume().catch(() => {});
       }
-      if (audioEl.srcObject && audioEl.paused) {
-        audioEl.play().catch(() => {});
+      const mediaEl = mediaRef.current;
+      if (mediaEl && mediaEl.srcObject && mediaEl.paused) {
+        mediaEl.play().catch(() => {});
       }
     };
 
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        resumeAudio();
-      }
-    };
-
-    audioEl.addEventListener("stalled", resumeAudio);
-    audioEl.addEventListener("pause", resumeAudio);
-    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("click", resumeAudio);
+    window.addEventListener("touchstart", resumeAudio);
+    window.addEventListener("touchend", resumeAudio);
+    document.addEventListener("visibilitychange", resumeAudio);
 
     return () => {
-      audioEl.removeEventListener("stalled", resumeAudio);
-      audioEl.removeEventListener("pause", resumeAudio);
-      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("click", resumeAudio);
+      window.removeEventListener("touchstart", resumeAudio);
+      window.removeEventListener("touchend", resumeAudio);
+      document.removeEventListener("visibilitychange", resumeAudio);
+      if (sourceNodeRef.current) {
+        try {
+          sourceNodeRef.current.disconnect();
+        } catch (e) {}
+      }
+      if (gainNodeRef.current) {
+        try {
+          gainNodeRef.current.disconnect();
+        } catch (e) {}
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+        audioCtxRef.current.close().catch(() => {});
+      }
     };
   }, []);
 
-  return <audio ref={audioRef} autoPlay playsInline />;
+  return (
+    <video
+      ref={mediaRef}
+      autoPlay
+      playsInline
+      style={{
+        position: "fixed",
+        top: -9999,
+        left: -9999,
+        width: 1,
+        height: 1,
+        opacity: 0,
+        pointerEvents: "none",
+      }}
+    />
+  );
 }
 
 /**
@@ -568,6 +527,88 @@ export default function GoogleMeetRoom({
     }
     return "speaker";
   });
+
+  // Quick-switcher Popover States (Google Meet style)
+  const [isMicMenuOpen, setIsMicMenuOpen] = useState(false);
+  const [isCameraMenuOpen, setIsCameraMenuOpen] = useState(false);
+  const [isAudioOutputMenuOpen, setIsAudioOutputMenuOpen] = useState(false);
+
+  // Enumerated hardware devices
+  const [videoDevices, setVideoDevices] = useState([]);
+  const [audioInputDevices, setAudioInputDevices] = useState([]);
+  const [audioOutputDevices, setAudioOutputDevices] = useState([]);
+
+  // Mobile detection
+  const isMobile = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (window.innerWidth < 768 && "ontouchstart" in window)
+    );
+  }, []);
+
+  // Physical accessory detection (Headphones / Bluetooth earbuds / AirPods)
+  const detectedHeadset = useMemo(() => {
+    const all = [...audioInputDevices, ...audioOutputDevices];
+    return (
+      all.find((d) =>
+        /(headset|headphone|earphone|airpod|earbud|bud|bluetooth|hands-free|wireless)/i.test(
+          d.label || ""
+        )
+      ) || null
+    );
+  }, [audioInputDevices, audioOutputDevices]);
+
+  // Real-time device refresh & hardware listeners
+  const refreshDevices = useCallback(async () => {
+    if (!navigator?.mediaDevices?.enumerateDevices) return;
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      setVideoDevices(devs.filter((d) => d.kind === "videoinput"));
+      setAudioInputDevices(devs.filter((d) => d.kind === "audioinput"));
+      setAudioOutputDevices(devs.filter((d) => d.kind === "audiooutput"));
+    } catch (e) {
+      console.warn("Device enumeration notice:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshDevices();
+    if (navigator?.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener("devicechange", refreshDevices);
+      return () => {
+        navigator.mediaDevices.removeEventListener("devicechange", refreshDevices);
+      };
+    }
+  }, [refreshDevices]);
+
+  // If headset mode was selected but headset was unplugged/disconnected, auto-revert to loudspeaker
+  useEffect(() => {
+    if (!detectedHeadset && audioOutputMode === "headset") {
+      const timer = setTimeout(() => {
+        setAudioOutputMode("speaker");
+        try {
+          localStorage.setItem("mcpa_audio_output_mode", "speaker");
+        } catch (e) {}
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [detectedHeadset, audioOutputMode]);
+
+  // Close quick popovers on click outside
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest("[data-meet-popover]")) {
+        setIsMicMenuOpen(false);
+        setIsCameraMenuOpen(false);
+        setIsAudioOutputMenuOpen(false);
+      }
+    };
+    if (isMicMenuOpen || isCameraMenuOpen || isAudioOutputMenuOpen) {
+      window.addEventListener("click", handleOutsideClick);
+      return () => window.removeEventListener("click", handleOutsideClick);
+    }
+  }, [isMicMenuOpen, isCameraMenuOpen, isAudioOutputMenuOpen]);
 
   // Resolve user identity & affiliation
   const effectiveUser = userProfile || currentUser || {};
@@ -1691,13 +1732,18 @@ export default function GoogleMeetRoom({
   };
 
   const cycleAudioOutputMode = () => {
-    const nextMode =
-      audioOutputMode === "speaker"
-        ? "earpiece"
-        : audioOutputMode === "earpiece"
-        ? "headset"
-        : "speaker";
-    handleSelectAudioOutputMode(nextMode);
+    if (detectedHeadset) {
+      const nextMode =
+        audioOutputMode === "speaker"
+          ? "earpiece"
+          : audioOutputMode === "earpiece"
+          ? "headset"
+          : "speaker";
+      handleSelectAudioOutputMode(nextMode);
+    } else {
+      const nextMode = audioOutputMode === "speaker" ? "earpiece" : "speaker";
+      handleSelectAudioOutputMode(nextMode);
+    }
   };
 
   // Toggle Screen Sharing with Mobile Support & Informative Device Guidance
@@ -1888,8 +1934,8 @@ export default function GoogleMeetRoom({
   };
 
   // Send Reaction
-  const triggerReaction = (emoji) => {
-    const id = Date.now() + Math.random();
+  const triggerReaction = useCallback((emoji) => {
+    const id = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     setFloatingReactions((prev) => [...prev, { id, emoji, left: Math.random() * 60 + 20 }]);
     setTimeout(() => {
       setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
@@ -1902,7 +1948,7 @@ export default function GoogleMeetRoom({
         emoji,
       });
     }
-  };
+  }, [canonicalRoomCode]);
 
   // Send Chat Message
   const handleSendMessage = (e) => {
@@ -2073,40 +2119,129 @@ export default function GoogleMeetRoom({
               </button>
             )}
 
-            {/* Quick Audio Output Toggle (Speaker / Earpiece / Headset) */}
-            <button
-              type="button"
-              onClick={cycleAudioOutputMode}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-medium transition-all cursor-pointer border ${
-                audioOutputMode === "earpiece"
-                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                  : audioOutputMode === "headset"
-                  ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
-                  : "bg-white/[0.08] hover:bg-white/[0.14] text-white/80 hover:text-white border-white/10"
-              }`}
-              title={`Audio output mode: ${
-                audioOutputMode === "earpiece"
-                  ? "Phone Earpiece (Tenga / Mahina)"
-                  : audioOutputMode === "headset"
-                  ? "Headset"
-                  : "Loudspeaker (Malakas)"
-              }. Click to switch.`}
-            >
-              {audioOutputMode === "earpiece" ? (
-                <Smartphone className="w-3.5 h-3.5 text-amber-400" />
-              ) : audioOutputMode === "headset" ? (
-                <Headphones className="w-3.5 h-3.5 text-sky-400" />
-              ) : (
-                <Volume2 className="w-3.5 h-3.5 text-white/70" />
+            {/* Quick Audio Output Toggle & Selector (Google Meet Style) */}
+            <div className="relative" data-meet-popover>
+              <button
+                type="button"
+                onClick={() => setIsAudioOutputMenuOpen((v) => !v)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-sans font-medium transition-all cursor-pointer border ${
+                  audioOutputMode === "earpiece"
+                    ? "bg-amber-500/15 text-amber-300 border-amber-500/40"
+                    : audioOutputMode === "headset"
+                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
+                    : "bg-white/[0.08] hover:bg-white/[0.14] text-white/90 hover:text-white border-white/10"
+                }`}
+                title="Select Audio Output Device (Loudspeaker / Phone / Headset)"
+              >
+                {audioOutputMode === "earpiece" ? (
+                  <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+                ) : audioOutputMode === "headset" ? (
+                  <Headphones className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <Volume2 className="w-3.5 h-3.5 text-blue-400" />
+                )}
+                <span className="capitalize text-[11px]">
+                  {audioOutputMode === "earpiece"
+                    ? "Phone"
+                    : audioOutputMode === "headset"
+                    ? "Headset"
+                    : "Speaker"}
+                </span>
+                <ChevronUp className={`w-3 h-3 text-neutral-400 transition-transform ${isAudioOutputMenuOpen ? "" : "rotate-180"}`} />
+              </button>
+
+              {/* Mobile Audio Output Popover */}
+              {isAudioOutputMenuOpen && (
+                <div
+                  className="absolute top-full right-0 mt-2 w-64 rounded-2xl bg-[#202124] border border-[#3c4043] shadow-2xl p-2 text-white z-50 animate-in fade-in zoom-in-95 duration-150 font-sans"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="text-[10px] font-medium text-neutral-400 px-3 py-1.5 uppercase tracking-wider">
+                    Audio Output Route
+                  </div>
+                  <div className="space-y-1">
+                    {/* Speakerphone */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSelectAudioOutputMode("speaker");
+                        setIsAudioOutputMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                        audioOutputMode === "speaker"
+                          ? "bg-blue-500/15 text-blue-300 font-medium"
+                          : "text-neutral-200 hover:bg-white/[0.08]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Volume2 className="w-4 h-4 text-blue-400 shrink-0" />
+                        <div>
+                          <div className="font-medium text-xs">Speaker</div>
+                          <div className="text-[10px] text-neutral-400">Loudspeaker (Hands-free)</div>
+                        </div>
+                      </div>
+                      {audioOutputMode === "speaker" && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
+                    </button>
+
+                    {/* Phone Earpiece */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSelectAudioOutputMode("earpiece");
+                        setIsAudioOutputMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                        audioOutputMode === "earpiece"
+                          ? "bg-blue-500/15 text-blue-300 font-medium"
+                          : "text-neutral-200 hover:bg-white/[0.08]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Smartphone className="w-4 h-4 text-sky-400 shrink-0" />
+                        <div>
+                          <div className="font-medium text-xs">Phone</div>
+                          <div className="text-[10px] text-neutral-400">Ear receiver (Sa tenga)</div>
+                        </div>
+                      </div>
+                      {audioOutputMode === "earpiece" && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
+                    </button>
+
+                    {/* Headset / Bluetooth (Only enabled if physically detected) */}
+                    {detectedHeadset ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleSelectAudioOutputMode("headset");
+                          setIsAudioOutputMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                          audioOutputMode === "headset"
+                            ? "bg-blue-500/15 text-blue-300 font-medium"
+                            : "text-neutral-200 hover:bg-white/[0.08]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 truncate">
+                          <Headphones className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <div className="truncate">
+                            <div className="font-medium text-xs truncate">Headset / BT</div>
+                            <div className="text-[10px] text-neutral-400 truncate">{detectedHeadset.label || "Connected Earphones"}</div>
+                          </div>
+                        </div>
+                        {audioOutputMode === "headset" && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
+                      </button>
+                    ) : (
+                      <div className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs opacity-40 text-neutral-400 cursor-not-allowed">
+                        <Headphones className="w-4 h-4 text-neutral-500 shrink-0" />
+                        <div>
+                          <div className="text-xs">Headset / BT</div>
+                          <div className="text-[10px]">No accessory connected</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
-              <span className="hidden sm:inline capitalize">
-                {audioOutputMode === "earpiece"
-                  ? "Earpiece"
-                  : audioOutputMode === "headset"
-                  ? "Headset"
-                  : "Speaker"}
-              </span>
-            </button>
+            </div>
 
             {/* Audio & Video Device Settings Modal Trigger */}
             <button
@@ -2370,7 +2505,7 @@ export default function GoogleMeetRoom({
                     </div>
                   ) : (
                     messages.map((msg) => {
-                      const isMe = msg.senderSocketId === socketRef.current?.id || msg.sender === displayName;
+                      const isMe = msg.senderSocketId === localSocketId || msg.sender === displayName;
                       return (
                         <div key={msg.id} className={`flex flex-col space-y-1 ${isMe ? "items-end" : "items-start"}`}>
                           <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-400">
@@ -2602,29 +2737,277 @@ export default function GoogleMeetRoom({
             </div>
           </div>
 
-          {/* Center: Controls */}
+          {/* Center: Controls (Google Meet Style Split Controls) */}
           <div className="flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={toggleAudio}
-              className={`p-3 rounded-full transition-all cursor-pointer ${
-                isMicOn ? "bg-white/10 hover:bg-white/15 text-white" : "bg-rose-600 text-white shadow-md"
-              }`}
-              title={isMicOn ? "Turn off mic" : "Turn on mic"}
-            >
-              {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-            </button>
+            {/* 1. MIC SPLIT CAPSULE WITH QUICK DEVICE POPOVER */}
+            <div className="relative" data-meet-popover>
+              <div className="flex items-center rounded-full bg-white/10 hover:bg-white/15 transition-all p-0.5">
+                <button
+                  type="button"
+                  onClick={toggleAudio}
+                  className={`p-3 rounded-full transition-all cursor-pointer ${
+                    isMicOn ? "text-white" : "bg-rose-600 text-white shadow-md"
+                  }`}
+                  title={isMicOn ? "Turn off mic" : "Turn on mic"}
+                >
+                  {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMicMenuOpen((v) => !v);
+                    setIsCameraMenuOpen(false);
+                  }}
+                  className="pr-2.5 pl-1 py-3 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+                  title="Microphone & Speaker options"
+                >
+                  <ChevronUp className={`w-3.5 h-3.5 transition-transform ${isMicMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+              </div>
 
-            <button
-              type="button"
-              onClick={toggleVideo}
-              className={`p-3 rounded-full transition-all cursor-pointer ${
-                isVideoOn ? "bg-white/10 hover:bg-white/15 text-white" : "bg-rose-600 text-white shadow-md"
-              }`}
-              title={isVideoOn ? "Turn off camera" : "Turn on camera"}
-            >
-              {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-            </button>
+              {/* QUICK AUDIO DEVICE POPOVER (Google Meet Style) */}
+              {isMicMenuOpen && (
+                <div
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-80 rounded-2xl bg-[#202124] border border-[#3c4043] shadow-2xl p-2 text-white z-50 animate-in fade-in zoom-in-95 duration-150 font-sans"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* MICROPHONE LIST */}
+                  <div className="text-[11px] font-medium text-neutral-400 px-3 py-1.5 uppercase tracking-wider">
+                    Microphone
+                  </div>
+                  <div className="space-y-0.5 max-h-36 overflow-y-auto">
+                    {audioInputDevices.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-neutral-400">Default Microphone</div>
+                    ) : (
+                      audioInputDevices.map((dev, idx) => {
+                        const isSelected = selectedMicId === dev.deviceId || (!selectedMicId && idx === 0);
+                        return (
+                          <button
+                            key={dev.deviceId || idx}
+                            type="button"
+                            onClick={() => {
+                              handleSelectMic(dev.deviceId);
+                              setIsMicMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                              isSelected ? "bg-white/10 text-white font-medium" : "text-neutral-300 hover:bg-white/[0.06] hover:text-white"
+                            }`}
+                          >
+                            <span className="truncate pr-2">{dev.label || `Microphone ${idx + 1}`}</span>
+                            {isSelected && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div className="my-2 border-t border-white/[0.08]" />
+
+                  {/* SPEAKERS / AUDIO OUTPUT */}
+                  <div className="text-[11px] font-medium text-neutral-400 px-3 py-1.5 uppercase tracking-wider">
+                    Speakers / Output
+                  </div>
+                  <div className="space-y-0.5">
+                    {/* Mobile Routing (Speaker vs Phone Earpiece vs Headset) */}
+                    {isMobile ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSelectAudioOutputMode("speaker");
+                            setIsMicMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                            audioOutputMode === "speaker" ? "bg-blue-500/15 text-blue-300 font-medium" : "text-neutral-300 hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Volume2 className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Speaker (Loudspeaker)</span>
+                          </div>
+                          {audioOutputMode === "speaker" && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSelectAudioOutputMode("earpiece");
+                            setIsMicMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                            audioOutputMode === "earpiece" ? "bg-blue-500/15 text-blue-300 font-medium" : "text-neutral-300 hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="w-3.5 h-3.5 text-sky-400" />
+                            <span>Phone (Ear receiver)</span>
+                          </div>
+                          {audioOutputMode === "earpiece" && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
+                        </button>
+
+                        {/* Headset option: ONLY enabled if headset is physically detected! */}
+                        {detectedHeadset ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleSelectAudioOutputMode("headset");
+                              setIsMicMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                              audioOutputMode === "headset" ? "bg-blue-500/15 text-blue-300 font-medium" : "text-neutral-300 hover:bg-white/[0.06]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <Headphones className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span className="truncate">{detectedHeadset.label || "Headset / Bluetooth"}</span>
+                            </div>
+                            {audioOutputMode === "headset" && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
+                          </button>
+                        ) : null}
+                      </>
+                    ) : (
+                      // Desktop Speakers List
+                      audioOutputDevices.length > 0 ? (
+                        audioOutputDevices.map((dev, idx) => {
+                          const isSelected = selectedAudioOutputId === dev.deviceId || (!selectedAudioOutputId && idx === 0);
+                          return (
+                            <button
+                              key={dev.deviceId || idx}
+                              type="button"
+                              onClick={() => {
+                                handleSelectAudioOutput(dev.deviceId);
+                                setIsMicMenuOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                                isSelected ? "bg-white/10 text-white font-medium" : "text-neutral-300 hover:bg-white/[0.06] hover:text-white"
+                              }`}
+                            >
+                              <span className="truncate pr-2">{dev.label || `Speaker ${idx + 1}`}</span>
+                              {isSelected && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="px-3 py-2 text-xs text-neutral-400">Default System Output</div>
+                      )
+                    )}
+                  </div>
+
+                  <div className="my-2 border-t border-white/[0.08]" />
+
+                  {/* Audio Settings Shortcut */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMicMenuOpen(false);
+                      setIsDeviceSettingsOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-neutral-300 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-neutral-400" />
+                    <span>Audio settings</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 2. CAMERA SPLIT CAPSULE WITH QUICK DEVICE POPOVER */}
+            <div className="relative" data-meet-popover>
+              <div className="flex items-center rounded-full bg-white/10 hover:bg-white/15 transition-all p-0.5">
+                <button
+                  type="button"
+                  onClick={toggleVideo}
+                  className={`p-3 rounded-full transition-all cursor-pointer ${
+                    isVideoOn ? "text-white" : "bg-rose-600 text-white shadow-md"
+                  }`}
+                  title={isVideoOn ? "Turn off camera" : "Turn on camera"}
+                >
+                  {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCameraMenuOpen((v) => !v);
+                    setIsMicMenuOpen(false);
+                  }}
+                  className="pr-2.5 pl-1 py-3 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+                  title="Camera options"
+                >
+                  <ChevronUp className={`w-3.5 h-3.5 transition-transform ${isCameraMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+              </div>
+
+              {/* QUICK CAMERA DEVICE POPOVER (Google Meet Style) */}
+              {isCameraMenuOpen && (
+                <div
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 rounded-2xl bg-[#202124] border border-[#3c4043] shadow-2xl p-2 text-white z-50 animate-in fade-in zoom-in-95 duration-150 font-sans"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="text-[11px] font-medium text-neutral-400 px-3 py-1.5 uppercase tracking-wider">
+                    Camera
+                  </div>
+                  <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                    {videoDevices.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-neutral-400">Default Camera</div>
+                    ) : (
+                      videoDevices.map((dev, idx) => {
+                        const isSelected = selectedCameraId === dev.deviceId || (!selectedCameraId && idx === 0);
+                        return (
+                          <button
+                            key={dev.deviceId || idx}
+                            type="button"
+                            onClick={() => {
+                              handleSelectCamera(dev.deviceId);
+                              setIsCameraMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                              isSelected ? "bg-white/10 text-white font-medium" : "text-neutral-300 hover:bg-white/[0.06] hover:text-white"
+                            }`}
+                          >
+                            <span className="truncate pr-2">{dev.label || `Camera ${idx + 1}`}</span>
+                            {isSelected && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {isMobile && (
+                    <>
+                      <div className="my-2 border-t border-white/[0.08]" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          flipCamera();
+                          setIsCameraMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-neutral-200 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
+                      >
+                        <SwitchCamera className="w-3.5 h-3.5 text-neutral-400" />
+                        <span>Flip front / rear camera</span>
+                      </button>
+                    </>
+                  )}
+
+                  <div className="my-2 border-t border-white/[0.08]" />
+
+                  {/* Video Settings Shortcut */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCameraMenuOpen(false);
+                      setIsDeviceSettingsOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-neutral-300 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-neutral-400" />
+                    <span>Video settings</span>
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Audio & Video Device Settings */}
             <button
@@ -2769,21 +3152,21 @@ export default function GoogleMeetRoom({
         <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl bg-[#14151e] border border-amber-500/30 text-white shadow-2xl p-6 space-y-4"
+            className="w-full max-w-md rounded-3xl bg-[#202124] border border-[#3c4043] text-white shadow-2xl p-6 space-y-5 font-sans"
           >
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-base font-bold font-mono uppercase text-white">
-                  Consultation Completed
+                <h3 className="text-base font-medium text-white">
+                  Consultation completed
                 </h3>
-                <p className="text-xs text-neutral-400 mt-0.5">
-                  Duration: {formatMeetingDuration(callDurationSeconds)} · How was the session?
+                <p className="text-xs text-neutral-400 mt-1">
+                  Duration: {formatMeetingDuration(callDurationSeconds)} · How was your session experience?
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsLeaveRatingModalOpen(false)}
-                className="p-1 rounded-lg text-neutral-400 hover:text-white"
+                className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2801,10 +3184,10 @@ export default function GoogleMeetRoom({
                     onMouseEnter={() => setLeaveHoverRating(star)}
                     onMouseLeave={() => setLeaveHoverRating(0)}
                     onClick={() => setLeaveRating(star)}
-                    className="p-1.5 transition-transform hover:scale-120 cursor-pointer"
+                    className="p-1.5 transition-transform hover:scale-110 cursor-pointer"
                   >
                     <Star
-                      className={`w-7 h-7 ${
+                      className={`w-7 h-7 transition-colors ${
                         isFilled ? "text-amber-400 fill-amber-400" : "text-neutral-600"
                       }`}
                     />
@@ -2818,7 +3201,7 @@ export default function GoogleMeetRoom({
               value={leaveNote}
               onChange={(e) => setLeaveNote(e.target.value)}
               placeholder="Add key notes or feedback for this consultation (optional)..."
-              className="w-full px-3 py-2.5 rounded-xl bg-white/[0.05] border border-white/10 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500/50 resize-none font-sans"
+              className="w-full px-3.5 py-3 rounded-2xl bg-[#28292c] border border-[#3c4043] focus:border-blue-400 focus:outline-none text-xs text-neutral-100 placeholder-neutral-500 resize-none font-sans transition-colors"
             />
 
             <div className="space-y-2 pt-1">
@@ -2828,7 +3211,7 @@ export default function GoogleMeetRoom({
                   setIsLeaveRatingModalOpen(false);
                   performActualLeave(leaveRating, leaveNote);
                 }}
-                className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                className="w-full py-2.5 rounded-full bg-white hover:bg-neutral-200 text-neutral-950 font-medium text-xs transition-all cursor-pointer shadow-md active:scale-95"
               >
                 Submit &amp; Exit Call
               </button>
@@ -2840,7 +3223,7 @@ export default function GoogleMeetRoom({
                 }}
                 className="w-full text-center text-xs text-neutral-400 hover:text-white transition-colors cursor-pointer py-1"
               >
-                Skip Rating &amp; Exit
+                Skip rating &amp; exit
               </button>
             </div>
           </div>
