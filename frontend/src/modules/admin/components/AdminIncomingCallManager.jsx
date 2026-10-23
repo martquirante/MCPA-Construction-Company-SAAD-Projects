@@ -265,28 +265,21 @@ export default function AdminIncomingCallManager({
 
       {/* FULL-STAGE INCOMING CALL ALERT DISPATCH MODAL (HIGH PRIORITY) */}
       {incomingCall && (
-        <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg rounded-3xl bg-neutral-900 border border-amber-500/40 p-6 sm:p-8 shadow-[0_24px_70px_rgba(245,158,11,0.25)] text-white overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Top Light Rail */}
-            <div className="absolute top-0 inset-x-0 h-1 bg-linear-to-r from-amber-500 via-emerald-400 to-amber-500" />
-
-            {/* Pulsing Acoustic Glow Ring */}
-            <div className="absolute -top-16 -right-16 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
-            <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
-
-            {/* Header: Sonar Ping & Timer */}
-            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-neutral-950/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-2xl bg-white/95 dark:bg-[#12141a]/95 text-neutral-900 dark:text-white border border-neutral-200/90 dark:border-neutral-800 p-6 sm:p-7 shadow-[0_24px_70px_rgba(0,0,0,0.2)] dark:shadow-[0_24px_70px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-200 backdrop-blur-xl">
+            {/* Header: Status & Timer */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-neutral-100 dark:border-neutral-800/80">
               <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-70" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
                 </span>
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400">
+                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                   Incoming Instant Consultation
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 font-mono text-xs font-bold">
-                <Clock className="w-3.5 h-3.5 animate-spin" />
+              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 font-mono text-xs font-semibold tabular-nums">
+                <Clock className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
                 <span>
                   {Math.floor(secondsRemaining / 60)}:{(secondsRemaining % 60).toString().padStart(2, "0")}
                 </span>
@@ -294,56 +287,61 @@ export default function AdminIncomingCallManager({
             </div>
 
             {/* Caller Info */}
-            <div className="py-6 flex flex-col items-center text-center space-y-3">
-              {/* Animated Avatar / Customer Profile Photo */}
+            <div className="py-5 flex flex-col items-center text-center space-y-3">
+              {/* Customer Profile Photo / Avatar */}
               <div className="relative">
-                <div className="w-24 h-24 rounded-full bg-linear-to-br from-amber-500 via-amber-400 to-emerald-500 p-1 shadow-2xl flex items-center justify-center animate-bounce">
-                  <div className="w-full h-full rounded-full bg-neutral-950 flex items-center justify-center text-3xl font-bold font-mono text-amber-400 overflow-hidden ring-2 ring-white/10">
-                    {incomingCall.clientAvatar ? (
-                      <img
-                        src={incomingCall.clientAvatar}
-                        alt={incomingCall.clientName || "Customer"}
-                        className="w-full h-full object-cover rounded-full"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                    ) : (
-                      <span>{(incomingCall.clientName || "C").charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
+                <div className="w-20 h-20 rounded-full overflow-hidden ring-3 ring-neutral-200 dark:ring-neutral-700 shadow-md bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                  {incomingCall.clientAvatar ? (
+                    <img
+                      src={incomingCall.clientAvatar}
+                      alt={incomingCall.clientName || "Customer"}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <span className="text-2xl font-bold text-neutral-700 dark:text-neutral-200">
+                      {(incomingCall.clientName || "C").charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </div>
-                <div className="absolute -bottom-1 -right-1 p-2 rounded-full bg-emerald-500 text-neutral-950 shadow-lg ring-2 ring-neutral-900">
-                  <PhoneCall className="w-4 h-4 animate-pulse" />
+                <div className="absolute -bottom-0.5 -right-0.5 p-1.5 rounded-full bg-emerald-600 text-white shadow-sm ring-2 ring-white dark:ring-[#12141a]">
+                  <PhoneCall className="w-3.5 h-3.5" />
                 </div>
               </div>
 
               <div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[11px] font-mono text-amber-300 font-bold mb-1">
-                  <span>Customer Calling</span>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/40 text-[11px] font-medium text-emerald-800 dark:text-emerald-300 mb-1">
+                  <span>Client Calling Portal</span>
                 </div>
-                <h3 className="text-2xl font-black font-mono text-white tracking-tight">
+                <h3 className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
                   {incomingCall.clientName || "Valued Client"}
                 </h3>
                 {(incomingCall.clientEmail || incomingCall.clientPhone) && (
-                  <p className="text-xs font-mono text-neutral-400 mt-0.5">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                     {incomingCall.clientEmail} {incomingCall.clientPhone ? `· ${incomingCall.clientPhone}` : ""}
                   </p>
                 )}
-                <p className="text-xs font-sans text-neutral-300 mt-1">
-                  Project: <strong className="text-white font-semibold">{incomingCall.projectTitle || "Architectural Project Consultation"}</strong>
-                </p>
-                <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-mono text-amber-400">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Code: <span className="text-white font-bold">{incomingCall.projectCode || "MCPA-2026"}</span></span>
-                  <span className="text-white/20">|</span>
-                  <span>Room: {incomingCall.roomCode}</span>
+                
+                {/* Project Context Box */}
+                <div className="mt-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200/70 dark:border-neutral-800/80 text-left max-w-sm mx-auto">
+                  <div className="text-[10px] uppercase tracking-wider font-medium text-neutral-500 dark:text-neutral-400 mb-0.5">
+                    Consultation Project
+                  </div>
+                  <div className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                    {incomingCall.projectTitle || "Architectural Project Consultation"}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500 dark:text-neutral-400 pt-1 mt-1 border-t border-neutral-200/60 dark:border-neutral-700/60">
+                    <span>Code: <strong className="text-neutral-700 dark:text-neutral-200">{incomingCall.projectCode || "MCPA-2026"}</strong></span>
+                    <span>Room: {incomingCall.roomCode}</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 pt-1">
-                <Volume2 className="w-4 h-4 animate-pulse" />
-                <span>Ringtone active &amp; ringing</span>
+              <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>Ringtone ringing on system</span>
               </div>
             </div>
 
@@ -352,17 +350,17 @@ export default function AdminIncomingCallManager({
               <button
                 type="button"
                 onClick={handleDecline}
-                className="py-3 px-4 rounded-xl bg-white/10 hover:bg-rose-500/20 text-neutral-300 hover:text-rose-400 border border-white/10 hover:border-rose-500/40 text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="py-2.5 px-4 rounded-xl bg-neutral-100 hover:bg-rose-50 text-neutral-700 hover:text-rose-600 dark:bg-neutral-800 dark:hover:bg-rose-950/30 dark:text-neutral-300 dark:hover:text-rose-400 border border-neutral-200/80 hover:border-rose-200 dark:border-neutral-700 dark:hover:border-rose-900/40 text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
               >
-                <PhoneOff className="w-4 h-4" />
+                <PhoneOff className="w-3.5 h-3.5" />
                 <span>Decline</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleAnswer(incomingCall)}
-                className="py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-xs font-mono font-black uppercase tracking-wider shadow-lg shadow-emerald-500/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer animate-pulse"
+                className="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold tracking-wide transition-all shadow-sm shadow-emerald-600/25 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
               >
-                <PhoneCall className="w-4 h-4" />
+                <PhoneCall className="w-3.5 h-3.5" />
                 <span>Answer Call</span>
               </button>
             </div>

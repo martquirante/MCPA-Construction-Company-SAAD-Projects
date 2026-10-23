@@ -94,6 +94,86 @@ function ClientAvatar({ client, size = "md", className = "" }) {
   );
 }
 
+function StaffAvatar({ staff }) {
+  const name = staff?.full_name || staff?.name || "Admin";
+  const initials = name.replace(/^Engr\.\s*/i, "").split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  return staff?.avatar_url ? (
+    <img src={staff.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover border border-amber-500/30" />
+  ) : (
+    <span className="w-6 h-6 rounded-full bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-neutral-300 text-[9px] font-bold inline-flex items-center justify-center">
+      {initials || "AD"}
+    </span>
+  );
+}
+
+function processSignatureImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxWidth = 1200;
+        const maxHeight = 500;
+        const scale = Math.min(
+          1,
+          maxWidth / image.naturalWidth,
+          maxHeight / image.naturalHeight
+        );
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < pixels.data.length; i += 4) {
+          const brightness = (pixels.data[i] + pixels.data[i + 1] + pixels.data[i + 2]) / 3;
+          if (brightness > 220) {
+            pixels.data[i + 3] = 0;
+          } else {
+            pixels.data[i] = 0;
+            pixels.data[i + 1] = 0;
+            pixels.data[i + 2] = 0;
+            pixels.data[i + 3] = Math.min(255, Math.max(0, (220 - brightness) * 3));
+          }
+        }
+        ctx.putImageData(pixels, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      image.onerror = () => reject(new Error("Could not read signature image."));
+      image.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error("Could not load signature image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function readJsonResponse(response) {
+  const responseText = await response.text();
+  if (!responseText.trim()) {
+    return {
+      success: false,
+      message: `Request failed with status ${response.status}.`,
+    };
+  }
+
+  try {
+    return JSON.parse(responseText);
+  } catch {
+    console.error("Expected JSON response but received:", {
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      body: responseText.slice(0, 500),
+    });
+    return {
+      success: false,
+      message:
+        response.status >= 500
+          ? "The server could not process the signature. Please try again with a smaller, clearer signature image."
+          : "The server returned an invalid response. Please try again.",
+    };
+  }
+}
+
 // Live ticking countdown timer component for an individual target date
 function LiveCountdownTicker({ targetDate, isCompleted = false, compact = false }) {
   const [timeLeft, setTimeLeft] = useState({
@@ -381,7 +461,26 @@ export default function AdminGroundbreakingTab({
   const adminSigCanvasRef = useRef(null);
   const [isAdminDrawing, setIsAdminDrawing] = useState(false);
   const [hasAdminDrawnSig, setHasAdminDrawnSig] = useState(false);
-  const [adminSigColor, setAdminSigColor] = useState("#0f172a");
+  const [uploadedSignatureData, setUploadedSignatureData] = useState("");
+  const [adminAccounts, setAdminAccounts] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    authFetch("/api/admin/accounts")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !Array.isArray(data?.accounts)) return;
+        const staff = data.accounts.filter((account) =>
+          ["admin", "super_admin", "engineer"].includes(account.role) ||
+          (account.full_name || "").toLowerCase().includes("engr")
+        );
+        setAdminAccounts(staff);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Admin Canvas drawing handlers with resolution scaling
   const getAdminCanvasCoords = (e, canvas) => {
@@ -416,7 +515,7 @@ export default function AdminGroundbreakingTab({
     ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = adminSigColor || "#0f172a";
+    ctx.strokeStyle = "#000000";
     ctx.lineTo(x, y);
     ctx.stroke();
   };
@@ -429,6 +528,29 @@ export default function AdminGroundbreakingTab({
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasAdminDrawnSig(false);
+    setUploadedSignatureData("");
+  };
+
+  const handleSignatureUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast?.("Please upload an image file for the signature.", "error");
+      return;
+    }
+    try {
+      const processedSignature = await processSignatureImage(file);
+      const canvas = adminSigCanvasRef.current;
+      if (canvas) {
+        canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+      }
+      setUploadedSignatureData(processedSignature);
+      setHasAdminDrawnSig(true);
+    } catch (error) {
+      showToast?.(error.message, "error");
+    } finally {
+      event.target.value = "";
+    }
   };
 
   // Advance to Stage 3 State
@@ -443,7 +565,7 @@ export default function AdminGroundbreakingTab({
       setIsRefreshing(true);
       const res = await authFetch("/api/admin/groundbreaking/overview");
       if (res.ok) {
-        const data = await res.json();
+        const data = await readJsonResponse(res);
         if (data.success && Array.isArray(data.projects)) {
           setProjects(data.projects);
         }
@@ -599,8 +721,8 @@ export default function AdminGroundbreakingTab({
       return;
     }
 
-    let signatureValue = contractorSignatureData?.trim();
-    if (adminSigCanvasRef.current && hasAdminDrawnSig) {
+    let signatureValue = uploadedSignatureData || contractorSignatureData?.trim();
+    if (!uploadedSignatureData && adminSigCanvasRef.current && hasAdminDrawnSig) {
       signatureValue = adminSigCanvasRef.current.toDataURL("image/png");
     } else if (!signatureValue && !hasAdminDrawnSig) {
       signatureValue = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><text x="10" y="50" font-family="serif" font-style="italic" font-size="28" font-weight="bold" fill="%230f172a">${encodeURIComponent(contractorSignerName || "Engr. Raymart Quirante")}</text></svg>`;
@@ -620,7 +742,7 @@ export default function AdminGroundbreakingTab({
           signatureData: signatureValue,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (res.ok && data.success && data.contract) {
         setContractData(data.contract);
         setIsAdminSignModalOpen(false);
@@ -2203,12 +2325,36 @@ export default function AdminGroundbreakingTab({
                   <label className="block text-[10px] font-mono uppercase text-neutral-500 font-bold mb-1">
                     Signer Name
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={contractorSignerName}
-                    onChange={(e) => setContractorSignerName(e.target.value)}
+                    onChange={(e) => {
+                      const selected = adminAccounts.find(
+                        (account) => (account.full_name || account.name) === e.target.value
+                      );
+                      setContractorSignerName(e.target.value);
+                      if (selected?.designation || selected?.job_title) {
+                        setContractorTitle(selected.designation || selected.job_title);
+                      }
+                    }}
                     className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-neutral-300 dark:border-white/10 bg-white dark:bg-black/30 text-neutral-900 dark:text-white"
-                  />
+                  >
+                    {[...adminAccounts, {
+                      full_name: currentUser?.fullName || currentUser?.name || "Engr. Raymart Quirante",
+                      avatar_url: currentUser?.avatar_url || currentUser?.avatarUrl,
+                    }]
+                      .filter((account, index, accounts) =>
+                        accounts.findIndex((candidate) => (candidate.full_name || candidate.name) === (account.full_name || account.name)) === index
+                      )
+                      .map((account) => (
+                        <option key={account.user_id || account.full_name} value={account.full_name || account.name}>
+                          {account.full_name || account.name}
+                        </option>
+                      ))}
+                  </select>
+                  <div className="mt-1 flex items-center gap-1.5 text-[10px] text-neutral-500">
+                    <StaffAvatar staff={adminAccounts.find((account) => (account.full_name || account.name) === contractorSignerName) || currentUser} />
+                    <span>Select an authorized admin or engineer.</span>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[10px] font-mono uppercase text-neutral-500 font-bold mb-1">
@@ -2218,34 +2364,15 @@ export default function AdminGroundbreakingTab({
                     type="text"
                     value={contractorTitle}
                     onChange={(e) => setContractorTitle(e.target.value)}
+                    placeholder="Enter signer designation or title"
                     className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-neutral-300 dark:border-white/10 bg-white dark:bg-black/30 text-neutral-900 dark:text-white"
                   />
+                  <p className="mt-1 text-[10px] text-neutral-500">Optional — enter the signer&apos;s role or designation.</p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs pt-1">
-                <span className="font-mono text-neutral-500 text-[11px]">Ink Tone:</span>
-                <div className="flex items-center gap-1.5">
-                  {[
-                    { label: "Executive Black", value: "#0f172a", bg: "bg-slate-900" },
-                    { label: "Legal Blue", value: "#1e3a8a", bg: "bg-blue-900" },
-                    { label: "Contract Amber", value: "#d97706", bg: "bg-amber-600" },
-                  ].map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => setAdminSigColor(c.value)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                        adminSigColor === c.value
-                          ? "bg-neutral-200 dark:bg-white/20 text-neutral-900 dark:text-white ring-1 ring-amber-500"
-                          : "text-neutral-500 hover:text-neutral-700"
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${c.bg} inline-block`} />
-                      <span>{c.label}</span>
-                    </button>
-                  ))}
-                </div>
+              <div className="rounded-lg border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/[0.03] p-2.5 text-[10px] text-neutral-600 dark:text-neutral-400">
+                Signature ink is fixed to black. For uploaded signatures, use black ballpen on clean white paper so the background can be removed automatically.
               </div>
 
               <div className="border border-neutral-300 dark:border-neutral-700 rounded-xl bg-white overflow-hidden shadow-inner relative">
@@ -2262,6 +2389,13 @@ export default function AdminGroundbreakingTab({
                   onTouchEnd={stopAdminDrawing}
                   className="w-full h-44 cursor-crosshair touch-none"
                 />
+                {uploadedSignatureData && (
+                  <img
+                    src={uploadedSignatureData}
+                    alt="Uploaded signature preview"
+                    className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                  />
+                )}
                 <div className="pointer-events-none absolute bottom-4 left-6 right-6 border-b border-dashed border-neutral-300 flex justify-between items-end pb-1">
                   <span className="text-[10px] font-mono text-neutral-400">× Sign above this line</span>
                   <span className="text-[9px] font-mono text-neutral-400">M.C.P.A. Official Seal</span>
@@ -2277,6 +2411,15 @@ export default function AdminGroundbreakingTab({
               >
                 Clear Canvas
               </button>
+              <label className="px-3 py-1.5 rounded-[6px] text-xs font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 cursor-pointer">
+                Upload Signature
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleSignatureUpload}
+                  className="sr-only"
+                />
+              </label>
 
               <div className="flex items-center gap-2">
                 <button

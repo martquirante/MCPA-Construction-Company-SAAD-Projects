@@ -363,7 +363,11 @@ app.post("/api/auth/facebook", authLimiter, (req, res) => {
   return authController.socialLogin(req, res);
 });
 app.post("/api/auth/verify-face", (req, res) => authController.verifyFace(req, res));
-app.get("/api/admin/accounts", requireAuth, requireRole("admin", "super_admin"), (req, res) => authController.getAccounts(req, res));
+app.get("/api/admin/accounts", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => authController.getAccounts(req, res));
+app.post("/api/admin/invite-staff", requireAuth, requireRole("admin", "super_admin"), (req, res) => authController.inviteStaff(req, res));
+app.post("/api/admin/resend-invite", requireAuth, requireRole("admin", "super_admin"), (req, res) => authController.resendStaffInvite(req, res));
+app.get("/api/admin/verify-invite", (req, res) => authController.verifyInviteToken(req, res));
+app.post("/api/admin/complete-setup-password", authLimiter, (req, res) => authController.completeSetupPassword(req, res));
 app.get("/api/client/inquiries", optionalAuth, (req, res) => authController.getClientInquiries(req, res));
 app.post("/api/auth/send-reset-otp", otpLimiter, (req, res) => authController.sendResetOtp(req, res));
 app.post("/api/auth/verify-reset-otp", otpLimiter, (req, res) => authController.verifyResetOtp(req, res));
@@ -394,16 +398,16 @@ app.post("/api/users/me/request-multi-project", requireAuth, (req, res) => subSt
 app.post("/api/projects/:id/reset-rejected", requireAuth, (req, res) => subStageController.resetRejected(req, res));
 
 // Document Vault & Transmittals
-app.get("/api/admin/documents/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminDocumentsOverview(req, res));
-app.post("/api/admin/documents/requests", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.createDocumentRequest(req, res));
-app.delete("/api/admin/documents/requests/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.deleteDocumentRequest(req, res));
-app.post("/api/admin/documents/transmittals", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.createTransmittal(req, res));
-app.delete("/api/admin/documents/transmittals/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.deleteTransmittal(req, res));
+app.get("/api/admin/documents/overview", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.getAdminDocumentsOverview(req, res));
+app.post("/api/admin/documents/requests", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.createDocumentRequest(req, res));
+app.delete("/api/admin/documents/requests/:id", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.deleteDocumentRequest(req, res));
+app.post("/api/admin/documents/transmittals", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.createTransmittal(req, res));
+app.delete("/api/admin/documents/transmittals/:id", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.deleteTransmittal(req, res));
 app.get("/api/projects/:id/document-requests", requireAuth, (req, res) => subStageController.getProjectDocumentRequests(req, res));
 app.get("/api/projects/:id/transmittals", requireAuth, (req, res) => subStageController.getProjectTransmittals(req, res));
 app.get("/api/projects/:id/documents", requireAuth, (req, res) => subStageController.getDocuments(req, res));
 app.post("/api/projects/:id/documents", requireAuth, (req, res) => subStageController.uploadDocument(req, res));
-app.patch("/api/admin/documents/:docId/verify", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.verifyDocument(req, res));
+app.patch("/api/admin/documents/:docId/verify", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.verifyDocument(req, res));
 app.delete("/api/admin/documents/:docId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.deleteProjectDocument(req, res));
 
 // Consultation (WebRTC Meetings & Chat)
@@ -412,31 +416,31 @@ app.get("/api/projects/:id/messages", requireAuth, (req, res) => subStageControl
 app.post("/api/projects/:id/messages", requireAuth, (req, res) => subStageController.sendMessage(req, res));
 
 // Pre-Construction & Planning (Blueprints, Permits, Groundbreaking, Contracts)
-app.get("/api/admin/blueprints/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminBlueprintsOverview(req, res));
+app.get("/api/admin/blueprints/overview", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.getAdminBlueprintsOverview(req, res));
 app.get("/api/projects/:id/blueprints", requireAuth, (req, res) => subStageController.getBlueprints(req, res));
-app.post("/api/projects/:id/blueprints", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.createBlueprint(req, res));
-app.patch("/api/projects/:id/blueprints/:blueprintId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updateBlueprint(req, res));
-app.delete("/api/projects/:id/blueprints/:blueprintId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.deleteBlueprint(req, res));
+app.post("/api/projects/:id/blueprints", requireAuth, requireRole("admin", "super_admin", "architect"), (req, res) => subStageController.createBlueprint(req, res));
+app.patch("/api/projects/:id/blueprints/:blueprintId", requireAuth, requireRole("admin", "super_admin", "architect"), (req, res) => subStageController.updateBlueprint(req, res));
+app.delete("/api/projects/:id/blueprints/:blueprintId", requireAuth, requireRole("admin", "super_admin", "architect"), (req, res) => subStageController.deleteBlueprint(req, res));
 app.post("/api/projects/:id/blueprints/:blueprintId/pins", requireAuth, (req, res) => subStageController.saveBlueprintPins(req, res));
-app.patch("/api/admin/blueprints/:blueprintId/pins/:pinId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updateBlueprintPinStatus(req, res));
+app.patch("/api/admin/blueprints/:blueprintId/pins/:pinId", requireAuth, requireRole("admin", "super_admin", "architect"), (req, res) => subStageController.updateBlueprintPinStatus(req, res));
 app.get("/api/projects/:id/permits", requireAuth, (req, res) => subStageController.getPermits(req, res));
-app.get("/api/admin/permits/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminPermitsOverview(req, res));
-app.post("/api/admin/permits/apply-template", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.applyPermitsTemplate(req, res));
-app.post("/api/admin/permits", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.createPermit(req, res));
-app.patch("/api/admin/permits/:permitId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updatePermit(req, res));
+app.get("/api/admin/permits/overview", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.getAdminPermitsOverview(req, res));
+app.post("/api/admin/permits/apply-template", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.applyPermitsTemplate(req, res));
+app.post("/api/admin/permits", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.createPermit(req, res));
+app.patch("/api/admin/permits/:permitId", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => subStageController.updatePermit(req, res));
 app.delete("/api/admin/permits/:permitId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.deletePermit(req, res));
-app.get("/api/admin/groundbreaking/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminGroundbreakingOverview(req, res));
+app.get("/api/admin/groundbreaking/overview", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => subStageController.getAdminGroundbreakingOverview(req, res));
 app.get("/api/projects/:id/groundbreaking", optionalAuth, (req, res) => subStageController.getGroundbreaking(req, res));
-app.post("/api/projects/:id/groundbreaking", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.scheduleGroundbreaking(req, res));
+app.post("/api/projects/:id/groundbreaking", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => subStageController.scheduleGroundbreaking(req, res));
 app.get("/api/projects/:id/contract", requireAuth, (req, res) => subStageController.getContract(req, res));
 app.post("/api/contracts/:id/sign", requireAuth, (req, res) => subStageController.signContract(req, res));
 
 // Budget & Quotation Engine (Phase 2 Consultation & Client Portal)
 app.get("/api/projects/:id/quotation", optionalAuth, (req, res) => quotationController.getQuotationByProject(req, res));
 app.post("/api/projects/:id/quotation/request", optionalAuth, (req, res) => quotationController.requestQuotation(req, res));
-app.get("/api/admin/quotations/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => quotationController.getAdminQuotationsOverview(req, res));
-app.post("/api/admin/quotations", requireAuth, requireRole("admin", "super_admin"), (req, res) => quotationController.saveAdminQuotation(req, res));
-app.put("/api/admin/quotations/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => quotationController.saveAdminQuotation(req, res));
+app.get("/api/admin/quotations/overview", requireAuth, requireRole("admin", "super_admin", "architect"), (req, res) => quotationController.getAdminQuotationsOverview(req, res));
+app.post("/api/admin/quotations", requireAuth, requireRole("admin", "super_admin", "architect"), (req, res) => quotationController.saveAdminQuotation(req, res));
+app.put("/api/admin/quotations/:id", requireAuth, requireRole("admin", "super_admin", "architect"), (req, res) => quotationController.saveAdminQuotation(req, res));
 app.get("/api/projects/:id/quotation/pdf", (req, res) => quotationController.downloadQuotationPdf(req, res));
 app.get("/api/quotations/:id/pdf", (req, res) => quotationController.downloadQuotationPdf(req, res));
 
@@ -481,20 +485,20 @@ app.delete("/api/meetings/history/:sessionId", requireAuth, requireRole("admin",
 app.get("/api/construction/stage3-projects", optionalAuth, (req, res) => constructionController.getStage3Projects(req, res));
 app.get("/api/construction/project", optionalAuth, (req, res) => constructionController.getProject(req, res));
 app.get("/api/construction/projects/:code", optionalAuth, (req, res) => constructionController.getProject(req, res));
-app.post("/api/construction/milestones", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.createMilestone(req, res));
-app.patch("/api/construction/milestones/:milestoneId", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.updateMilestone(req, res));
-app.delete("/api/construction/milestones/:milestoneId", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.deleteMilestone(req, res));
-app.post("/api/construction/virtual-tour", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.updateVirtualTour(req, res));
-app.post("/api/construction/photos", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.addPhotoLog(req, res));
-app.delete("/api/construction/photos/:logId", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.deletePhotoLog(req, res));
+app.post("/api/construction/milestones", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.createMilestone(req, res));
+app.patch("/api/construction/milestones/:milestoneId", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.updateMilestone(req, res));
+app.delete("/api/construction/milestones/:milestoneId", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.deleteMilestone(req, res));
+app.post("/api/construction/virtual-tour", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.updateVirtualTour(req, res));
+app.post("/api/construction/photos", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.addPhotoLog(req, res));
+app.delete("/api/construction/photos/:logId", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.deletePhotoLog(req, res));
 app.post("/api/construction/billing", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.createBillingTranche(req, res));
 app.patch("/api/construction/billing/:billId/verify", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.verifyPayment(req, res));
 app.patch("/api/construction/billing/:billId/proof", optionalAuth, (req, res) => constructionController.uploadPaymentProof(req, res));
 app.post("/api/construction/billing/:billId/proof", optionalAuth, (req, res) => constructionController.uploadPaymentProof(req, res));
 app.get("/api/construction/expenses/:code", optionalAuth, (req, res) => constructionController.getProjectExpenses(req, res));
-app.post("/api/construction/delays", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.logDelay(req, res));
+app.post("/api/construction/delays", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.logDelay(req, res));
 app.post("/api/construction/warranty", optionalAuth, (req, res) => constructionController.submitWarrantyTicket(req, res));
-app.patch("/api/construction/warranty/:ticketId", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.updateWarrantyStatus(req, res));
+app.patch("/api/construction/warranty/:ticketId", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.updateWarrantyStatus(req, res));
 app.post("/api/construction/expenses/ocr", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.logOcrExpense(req, res));
 
 // OCR RECEIPT AUTO-SCAN & PARSING ROUTE

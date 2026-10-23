@@ -665,7 +665,7 @@ export default function AdminSettingsModal({
                       required
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Raymart Quirante"
+                      placeholder="Enter your full name"
                       className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500"
                     />
                   </div>
@@ -679,7 +679,7 @@ export default function AdminSettingsModal({
                       type="text"
                       value={occupation}
                       onChange={(e) => setOccupation(e.target.value)}
-                      placeholder="e.g. Lead Project Engineer & Super Admin"
+                      placeholder="Enter your job title or role"
                       className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500"
                     />
                   </div>

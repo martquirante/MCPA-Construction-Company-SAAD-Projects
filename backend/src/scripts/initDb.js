@@ -357,7 +357,6 @@ async function initializeDatabase() {
     console.log("[OK] Table 'meeting_history_logs' verified/created.");
 
     const defaultAdmins = [
-      { email: "admin@mcpa.com", pass: "mcpa2026", name: "MCPA Lead Administrator" },
       { email: "dbprojectmartquirante@gmail.com", pass: "mcpa2026", name: "Engr. Raymart Quirante (MCPA Admin)" },
     ];
 

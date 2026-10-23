@@ -14,6 +14,7 @@ const {
   getInquiryStatusUpdateTemplate,
   getEmailVerificationLinkTemplate,
   getMeetingAttendanceReminderTemplate,
+  getAdminInviteLinkTemplate,
 } = require("../templates/emails");
 
 // Official business emails that must NOT receive automated system notifications in dev/staging.
@@ -1054,6 +1055,137 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
     console.log("=".repeat(66) + "\n");
 
     return { delivered, verificationUrl };
+  }
+
+  /**
+   * Dispatches architectural admin/staff invitation link email.
+   * Features:
+   * - Adaptive Light & Dark mode support with prefers-color-scheme
+   * - Single-use secure token with 48h expiration
+   * - Role-specific badges (Admin, Project Architect, Site Engineer)
+   * @param {object} params
+   * @param {string} params.email Recipient email address
+   * @param {string} params.recipientName Recipient's full name
+   * @param {string} params.role 'admin' | 'architect' | 'engineer'
+   * @param {string} [params.occupation] Title/Designation (e.g. Lead Project Architect)
+   * @param {string} params.inviteToken 64-char crypto hex token
+   * @param {object} [options] Optional overrides
+   */
+  async sendAdminInviteEmail({ email, recipientName = "Colleague", role = "admin", occupation = "", inviteToken }, options = {}) {
+    const frontendUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.NODE_ENV === "production" ? "https://mcpa.ph" : "http://localhost:3000")
+    ).replace(/\/+$/, "");
+
+    const setupUrl = `${frontendUrl}/admin/setup-password?token=${encodeURIComponent(inviteToken)}&email=${encodeURIComponent(email)}`;
+    const subject = options.subject || "Welcome to MCPA: Set Up Your Account Password";
+
+    const htmlContent = getAdminInviteLinkTemplate({
+      setupUrl,
+      recipientName,
+      recipientEmail: email,
+      role,
+      occupation,
+      subject,
+    });
+
+    const plainText = `MCPA CONSTRUCTION & SUPPLY
+ADMINISTRATIVE & OPERATIONS ROSTER • ACCOUNT ACTIVATION
+
+WELCOME TO THE MCPA TEAM
+
+Hello ${recipientName},
+
+You have been invited to join MCPA Construction and Supply as ${occupation || role}.
+Please complete your account activation by setting up your password using the secure link below:
+
+${setupUrl}
+
+(Note: This single-use activation link expires in 48 hours.)
+
+If you did not expect this invitation, please contact your MCPA Systems Administrator.
+
+CONTACT & SITE OFFICE:
+Address: 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
+Phone / Viber: (0949) 775 8239
+Official Email: mcpa.construction@gmail.com
+
+Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
+
+    const safeRecipient = this.resolveSafeRecipient(email, "Staff Invitation Link");
+    if (!safeRecipient) {
+      console.log(`[EmailService] Staff invitation delivery bypassed for protected email ${email}`);
+      return { delivered: false, setupUrl };
+    }
+    let toEmail = safeRecipient;
+    const safeReplyTo = this.resolveSafeReplyTo(options.replyTo);
+
+    let delivered = false;
+
+    // 1. Try Primary Gmail / SMTP
+    if (this.transporter && this.primaryProvider === "gmail") {
+      try {
+        await this.transporter.sendMail({
+          from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
+          replyTo: safeReplyTo,
+          to: toEmail,
+          subject,
+          text: plainText,
+          html: htmlContent,
+          headers: {
+            "X-Mailer": "MCPA Dispatch Engine",
+            "X-Entity-Ref-ID": `mcpa-invite-${Date.now()}`,
+            "X-Auto-Response-Suppress": "OOF, AutoReply",
+          },
+        });
+        delivered = true;
+        console.log(`\x1b[32m[EmailService] Primary Gmail SMTP Staff Invite Email delivered to ${toEmail}\x1b[0m`);
+      } catch (err) {
+        console.warn(`\x1b[33m[EmailService] Primary Gmail SMTP failed (${err.message}). Trying Resend API...\x1b[0m`);
+      }
+    }
+
+    // 2. Try Resend API (Failover)
+    if (!delivered && this.resendApiKey) {
+      delivered = await this.sendViaResend(toEmail, subject, htmlContent, { replyTo: safeReplyTo });
+    }
+
+    // 3. Fallback to Transporter if primary was not gmail
+    if (!delivered && this.transporter) {
+      try {
+        await this.transporter.sendMail({
+          from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
+          replyTo: safeReplyTo,
+          to: toEmail,
+          subject,
+          text: plainText,
+          html: htmlContent,
+          headers: {
+            "X-Mailer": "MCPA Dispatch Engine",
+            "X-Entity-Ref-ID": `mcpa-invite-${Date.now()}`,
+            "X-Auto-Response-Suppress": "OOF, AutoReply",
+          },
+        });
+        delivered = true;
+        console.log(`\x1b[32m[EmailService] Fallback SMTP Staff Invite Email delivered to ${toEmail}\x1b[0m`);
+      } catch (smtpErr) {
+        console.warn("[EmailService] Final SMTP staff invite fallback failed:", smtpErr.message);
+      }
+    }
+
+    // High-visibility local terminal logger (Dev & Test Mode)
+    console.log("\n" + "=".repeat(66));
+    console.log("  MCPA DEV MODE — STAFF ACCOUNT INVITATION LINK DISPATCHED");
+    console.log(`  To:           ${toEmail}`);
+    console.log(`  Name:         ${recipientName}`);
+    console.log(`  Role:         ${role}`);
+    console.log(`  Setup URL:    ${setupUrl}`);
+    console.log(`  Expires:      48 Hours`);
+    console.log(`  Delivered:    ${delivered ? "Delivered to Mailbox" : "Dev Console Mode"}`);
+    console.log("=".repeat(66) + "\n");
+
+    return { delivered, setupUrl };
   }
 }
 

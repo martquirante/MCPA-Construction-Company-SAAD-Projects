@@ -14,6 +14,7 @@ import {
   Maximize2,
   X,
   UploadCloud,
+  ChevronLeft,
   ChevronRight,
   HardHat,
   Sparkles,
@@ -28,10 +29,13 @@ import {
   CheckCircle,
   Play,
   Eye,
+  EyeOff,
   FileVideo,
+  Lock,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
 import { authFetch } from "@/modules/shared/authFetch";
+import { verifyAdminPassword } from "../utils/adminAuth";
 
 export function resolveAdminAvatar(user) {
   if (!user) return null;
@@ -71,7 +75,7 @@ export function resolveAdminAvatar(user) {
   return null;
 }
 
-function AdminAvatarPfp({ user, name, size = "w-6 h-6", text = "text-[10px]" }) {
+export function AdminAvatarPfp({ user, name, size = "w-6 h-6", text = "text-[10px]" }) {
   const avatarUrl = resolveAdminAvatar(user);
   const [hasFailed, setHasFailed] = useState(false);
   const displayName = name || user?.full_name || user?.fullName || user?.name || "Admin";
@@ -104,6 +108,208 @@ function AdminAvatarPfp({ user, name, size = "w-6 h-6", text = "text-[10px]" }) 
   return (
     <div className={`${size} rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 font-mono font-bold text-amber-600 dark:text-amber-400 ${text} shadow-xs`}>
       {initials}
+    </div>
+  );
+}
+
+function MediaGroupCard({
+  group,
+  onOpenPreview,
+  onDelete,
+  isDeleting,
+}) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const items = group.items || [];
+  const safeIdx = Math.min(Math.max(0, activeIdx), Math.max(0, items.length - 1));
+  const currentItem = items[safeIdx] || items[0] || {};
+
+  const isVideo =
+    currentItem.media_type === "video" ||
+    /\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i.test(currentItem.image_url || "");
+
+  const handlePrev = (e) => {
+    e.stopPropagation();
+    setActiveIdx((prev) => (prev - 1 + items.length) % items.length);
+  };
+
+  const handleNext = (e) => {
+    e.stopPropagation();
+    setActiveIdx((prev) => (prev + 1) % items.length);
+  };
+
+  return (
+    <div className="group rounded-[10px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] overflow-hidden shadow-xs hover:border-amber-500/50 transition-all flex flex-col">
+      {/* Media Thumbnail Container with Showcase Switcher */}
+      <div
+        onClick={() => onOpenPreview(currentItem, items, safeIdx, group)}
+        className="relative aspect-video bg-neutral-950 overflow-hidden cursor-pointer select-none"
+      >
+        {isVideo ? (
+          <>
+            <video
+              key={currentItem.image_url}
+              src={currentItem.image_url}
+              preload="metadata"
+              muted
+              playsInline
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+            <div className="absolute inset-0 bg-black/35 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
+              <div className="w-11 h-11 rounded-full bg-amber-500/90 text-neutral-950 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                <Play className="w-5 h-5 fill-neutral-950 ml-0.5" />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <img
+              key={currentItem.image_url}
+              src={currentItem.image_url}
+              alt={group.title || "Site Progress"}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
+          </>
+        )}
+
+        {/* Top Badges (Left) */}
+        <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10 pointer-events-none">
+          {items.length > 1 ? (
+            <span className="px-2 py-0.5 rounded bg-black/75 backdrop-blur-xs text-white font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs border border-white/10">
+              <Camera className="w-3 h-3 text-amber-400" />
+              <span>
+                {safeIdx + 1} / {items.length} {isVideo ? "Video" : "Photos"}
+              </span>
+            </span>
+          ) : isVideo ? (
+            <span className="px-2 py-0.5 rounded bg-amber-500/90 text-neutral-950 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
+              <Film className="w-3 h-3" />
+              <span>Video</span>
+            </span>
+          ) : currentItem.is_360 ? (
+            <span className="px-2 py-0.5 rounded bg-cyan-500/90 text-neutral-950 font-mono text-[10px] font-bold uppercase tracking-wider shadow-xs">
+              360° Photo
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded bg-black/70 text-white font-mono text-[10px] font-semibold uppercase tracking-wider backdrop-blur-xs">
+              Photo
+            </span>
+          )}
+        </div>
+
+        {/* Delete Button (Right) */}
+        <div className="absolute top-2 right-2 z-10">
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(group.allLogIds, group.title, items.length);
+            }}
+            className="p-1.5 rounded-full bg-black/60 hover:bg-rose-500 text-white transition-colors cursor-pointer disabled:opacity-40 shadow-sm"
+            title={items.length > 1 ? `Delete all ${items.length} items in this update` : "Delete media record"}
+          >
+            {isDeleting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5" />
+            )}
+          </button>
+        </div>
+
+        {/* Carousel Chevrons (< and >) - visible on hover/touch */}
+        {items.length > 1 && (
+          <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 z-20 flex items-center justify-between pointer-events-none opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            <button
+              type="button"
+              onClick={handlePrev}
+              title="Previous photo"
+              aria-label="Previous photo"
+              className="w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 flex items-center justify-center pointer-events-auto transition-all cursor-pointer shadow-md hover:scale-110 active:scale-95"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNext}
+              title="Next photo"
+              aria-label="Next photo"
+              className="w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 flex items-center justify-center pointer-events-auto transition-all cursor-pointer shadow-md hover:scale-110 active:scale-95"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Carousel Indicator Dots & Date */}
+        {items.length > 1 ? (
+          <div className="absolute bottom-2 inset-x-2 z-10 flex items-center justify-between pointer-events-none">
+            {/* Dots */}
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs pointer-events-auto border border-white/10">
+              {items.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveIdx(i);
+                  }}
+                  aria-label={`Photo ${i + 1}`}
+                  className={`transition-all cursor-pointer rounded-full ${
+                    i === safeIdx
+                      ? "w-3.5 h-1.5 bg-amber-400"
+                      : "w-1.5 h-1.5 bg-white/50 hover:bg-white/90"
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Date Tag */}
+            {group.log_date && (
+              <span className="px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-xs text-[9.5px] font-mono text-neutral-300">
+                {group.log_date}
+              </span>
+            )}
+          </div>
+        ) : (
+          group.log_date && (
+            <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-xs text-[9.5px] font-mono text-neutral-300 z-10">
+              {group.log_date}
+            </div>
+          )
+        )}
+      </div>
+
+      {/* Info Body */}
+      <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
+        <div className="space-y-1">
+          <h4
+            onClick={() => onOpenPreview(currentItem, items, safeIdx, group)}
+            className="text-xs font-bold text-neutral-900 dark:text-white line-clamp-1 cursor-pointer hover:text-amber-500 transition-colors"
+            title={group.title}
+          >
+            {group.title}
+          </h4>
+          {group.caption && (
+            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed">
+              {group.caption}
+            </p>
+          )}
+        </div>
+
+        <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-[10px] font-mono text-neutral-400">
+          <span className="truncate">By {group.inspector || "Field Engineer"}</span>
+          <button
+            type="button"
+            onClick={() => onOpenPreview(currentItem, items, safeIdx, group)}
+            className="text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1 cursor-pointer font-semibold"
+          >
+            <Eye className="w-3 h-3" />
+            <span>Preview {items.length > 1 ? `(${items.length})` : ""}</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -549,7 +755,112 @@ export default function SiteProgressTab({
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
   const [previewModalItem, setPreviewModalItem] = useState(null);
   const [isDeletingPhotoId, setIsDeletingPhotoId] = useState(null);
+  const [photoDeleteTarget, setPhotoDeleteTarget] = useState(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deletePasswordError, setDeletePasswordError] = useState("");
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [isVerifyingDeletePassword, setIsVerifyingDeletePassword] = useState(false);
   const photoFileInputRef = useRef(null);
+
+  // Group photos belonging to the same post into a single card with showcase carousel
+  const groupedMediaUpdates = useMemo(() => {
+    if (!Array.isArray(photos) || photos.length === 0) return [];
+
+    const map = new Map();
+    const orderedKeys = [];
+
+    photos.forEach((p, idx) => {
+      const titleKey = (p.title || "").trim();
+      const captionKey = (p.caption || "").trim();
+      const inspectorKey = (p.inspector || "").trim();
+      const dateKey = (p.log_date || "").trim();
+
+      const hasMeta = Boolean(titleKey || captionKey || inspectorKey || dateKey);
+      const groupKey = hasMeta
+        ? `${titleKey}___${captionKey}___${inspectorKey}___${dateKey}`
+        : `item_${p.log_id || idx}`;
+
+      if (!map.has(groupKey)) {
+        map.set(groupKey, {
+          groupKey,
+          title: p.title || "Site Progress",
+          caption: p.caption || "",
+          inspector: p.inspector || "Field Engineer",
+          log_date: p.log_date || "",
+          items: [],
+          allLogIds: [],
+        });
+        orderedKeys.push(groupKey);
+      }
+
+      const group = map.get(groupKey);
+      group.items.push(p);
+      if (p.log_id) {
+        group.allLogIds.push(p.log_id);
+      }
+    });
+
+    return orderedKeys.map((key) => map.get(key));
+  }, [photos]);
+
+  const handleOpenPreview = (item, items, index, group) => {
+    const list = Array.isArray(items) && items.length > 0 ? items : [item];
+    const safeIdx = Math.min(Math.max(0, index ?? 0), list.length - 1);
+    setPreviewModalItem({
+      ...item,
+      items: list,
+      currentIndex: safeIdx,
+      groupTitle: group?.title || item.title,
+      groupCaption: group?.caption || item.caption,
+      groupInspector: group?.inspector || item.inspector,
+      groupDate: group?.log_date || item.log_date,
+    });
+  };
+
+  const modalItems = useMemo(() => {
+    if (!previewModalItem) return [];
+    if (Array.isArray(previewModalItem.items) && previewModalItem.items.length > 0) {
+      return previewModalItem.items;
+    }
+    return [previewModalItem];
+  }, [previewModalItem]);
+
+  const currentModalIndex = Math.min(
+    Math.max(0, previewModalItem?.currentIndex ?? 0),
+    Math.max(0, modalItems.length - 1)
+  );
+  const currentModalItem = modalItems[currentModalIndex] || previewModalItem;
+
+  const handleModalPrev = useCallback(() => {
+    if (!previewModalItem || modalItems.length <= 1) return;
+    const nextIdx = (currentModalIndex - 1 + modalItems.length) % modalItems.length;
+    setPreviewModalItem((prev) => ({
+      ...prev,
+      ...modalItems[nextIdx],
+      currentIndex: nextIdx,
+    }));
+  }, [previewModalItem, modalItems, currentModalIndex]);
+
+  const handleModalNext = useCallback(() => {
+    if (!previewModalItem || modalItems.length <= 1) return;
+    const nextIdx = (currentModalIndex + 1) % modalItems.length;
+    setPreviewModalItem((prev) => ({
+      ...prev,
+      ...modalItems[nextIdx],
+      currentIndex: nextIdx,
+    }));
+  }, [previewModalItem, modalItems, currentModalIndex]);
+
+  useEffect(() => {
+    if (!previewModalItem) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") setPreviewModalItem(null);
+      if (e.key === "ArrowLeft") handleModalPrev();
+      if (e.key === "ArrowRight") handleModalNext();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewModalItem, handleModalPrev, handleModalNext]);
 
   // Sync photoInspector when project or currentUser changes
   useEffect(() => {
@@ -991,22 +1302,64 @@ export default function SiteProgressTab({
     }
   };
 
-  const handleDeletePhotoClick = async (logId, title) => {
-    if (!confirm(`Are you sure you want to delete this media log?\n"${title || "Site Progress Log"}"`)) return;
-    setIsDeletingPhotoId(logId);
+  const handleDeletePhotoClick = async (logIds, title, count = 1) => {
+    setPhotoDeleteTarget({
+      logIds: Array.isArray(logIds) ? logIds : [logIds],
+      title: title || "Site Progress Log",
+      count,
+    });
+    setDeletePassword("");
+    setDeletePasswordError("");
+    setShowDeletePassword(false);
+  };
+
+  const closePhotoDeleteModal = () => {
+    setPhotoDeleteTarget(null);
+    setDeletePassword("");
+    setDeletePasswordError("");
+    setShowDeletePassword(false);
+  };
+
+  const handleConfirmPhotoDelete = async () => {
+    if (!photoDeleteTarget) return;
+    if (!deletePassword.trim()) {
+      setDeletePasswordError("Please enter the admin password or PIN to authorize deletion.");
+      return;
+    }
+
+    setIsVerifyingDeletePassword(true);
+    setDeletePasswordError("");
+    const idList = photoDeleteTarget.logIds;
+    const deleteKey = idList.join(",");
+
     try {
+      const isValid = await verifyAdminPassword(deletePassword);
+      if (!isValid) {
+        setDeletePasswordError("Incorrect admin password. Please enter a valid admin credential.");
+        return;
+      }
+
+      setIsDeletingPhotoId(deleteKey);
       if (onDeletePhoto) {
-        await onDeletePhoto(logId);
+        await onDeletePhoto(deleteKey);
       } else {
-        const res = await fetch(`/api/construction/photos/${logId}`, { method: "DELETE" });
+        const res = await fetch(`/api/construction/photos/${deleteKey}`, { method: "DELETE" });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to delete");
       }
-      if (showToast) showToast("Media log deleted successfully.");
+      if (showToast) {
+        showToast(
+          photoDeleteTarget.count > 1
+            ? `All ${photoDeleteTarget.count} media items deleted successfully.`
+            : "Media log deleted successfully."
+        );
+      }
+      closePhotoDeleteModal();
     } catch (err) {
       if (showToast) showToast("Error deleting media: " + err.message);
     } finally {
       setIsDeletingPhotoId(null);
+      setIsVerifyingDeletePassword(false);
     }
   };
 
@@ -1379,7 +1732,8 @@ export default function SiteProgressTab({
 
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono text-neutral-400">
-                  {photos.length} {photos.length === 1 ? "Record" : "Records"}
+                  {groupedMediaUpdates.length} {groupedMediaUpdates.length === 1 ? "Update" : "Updates"}
+                  {photos.length > groupedMediaUpdates.length && ` (${photos.length} Media Files)`}
                 </span>
                 <button
                   type="button"
@@ -1392,7 +1746,7 @@ export default function SiteProgressTab({
               </div>
             </div>
 
-            {photos.length === 0 ? (
+            {groupedMediaUpdates.length === 0 ? (
               <div className="p-8 text-center rounded-[8px] bg-neutral-50 dark:bg-neutral-900/30 border border-dashed border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-400 space-y-3">
                 <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
                   <Camera className="w-5 h-5" />
@@ -1416,123 +1770,18 @@ export default function SiteProgressTab({
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {photos.map((p, idx) => {
-                  const isVideo =
-                    p.media_type === "video" ||
-                    /\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i.test(p.image_url || "");
+                {groupedMediaUpdates.map((group) => {
+                  const isDeleting =
+                    isDeletingPhotoId === group.allLogIds.join(",") ||
+                    group.allLogIds.some((id) => isDeletingPhotoId === id || isDeletingPhotoId === String(id));
                   return (
-                    <div
-                      key={p.log_id || idx}
-                      className="group rounded-[10px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] overflow-hidden shadow-xs hover:border-amber-500/50 transition-all flex flex-col"
-                    >
-                      {/* Media Thumbnail Container */}
-                      <div
-                        onClick={() => setPreviewModalItem(p)}
-                        className="relative aspect-video bg-neutral-950 overflow-hidden cursor-pointer"
-                      >
-                        {isVideo ? (
-                          <>
-                            <video
-                              src={p.image_url}
-                              preload="metadata"
-                              muted
-                              playsInline
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute inset-0 bg-black/35 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                              <div className="w-11 h-11 rounded-full bg-amber-500/90 text-neutral-950 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                                <Play className="w-5 h-5 fill-neutral-950 ml-0.5" />
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <img
-                              src={p.image_url}
-                              alt={p.title || "Site Progress"}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              loading="lazy"
-                            />
-                            <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
-                          </>
-                        )}
-
-                        {/* Top Badges */}
-                        <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10">
-                          {isVideo ? (
-                            <span className="px-2 py-0.5 rounded bg-amber-500/90 text-neutral-950 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                              <Film className="w-3 h-3" />
-                              <span>Video</span>
-                            </span>
-                          ) : p.is_360 ? (
-                            <span className="px-2 py-0.5 rounded bg-cyan-500/90 text-neutral-950 font-mono text-[10px] font-bold uppercase tracking-wider shadow-xs">
-                              360° Photo
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded bg-black/70 text-white font-mono text-[10px] font-semibold uppercase tracking-wider backdrop-blur-xs">
-                              Photo
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Delete Button */}
-                        <div className="absolute top-2 right-2 z-10">
-                          <button
-                            type="button"
-                            disabled={isDeletingPhotoId === p.log_id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeletePhotoClick(p.log_id, p.title);
-                            }}
-                            className="p-1.5 rounded-full bg-black/60 hover:bg-rose-500 text-white transition-colors cursor-pointer disabled:opacity-40"
-                            title="Delete Media Record"
-                          >
-                            {isDeletingPhotoId === p.log_id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Date overlay bottom right */}
-                        {p.log_date && (
-                          <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-xs text-[9.5px] font-mono text-neutral-300 z-10">
-                            {p.log_date}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Info Body */}
-                      <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
-                        <div className="space-y-1">
-                          <h4
-                            onClick={() => setPreviewModalItem(p)}
-                            className="text-xs font-bold text-neutral-900 dark:text-white line-clamp-1 cursor-pointer hover:text-amber-500 transition-colors"
-                            title={p.title}
-                          >
-                            {p.title}
-                          </h4>
-                          {p.caption && (
-                            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed">
-                              {p.caption}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="pt-2 border-t border-neutral-100 dark:border-white/5 flex items-center justify-between text-[10px] font-mono text-neutral-400">
-                          <span className="truncate">By {p.inspector || "Field Engineer"}</span>
-                          <button
-                            type="button"
-                            onClick={() => setPreviewModalItem(p)}
-                            className="text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1 cursor-pointer font-semibold"
-                          >
-                            <Eye className="w-3 h-3" />
-                            <span>Preview</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <MediaGroupCard
+                      key={group.groupKey}
+                      group={group}
+                      onOpenPreview={handleOpenPreview}
+                      onDelete={handleDeletePhotoClick}
+                      isDeleting={isDeleting}
+                    />
                   );
                 })}
               </div>
@@ -2151,7 +2400,7 @@ export default function SiteProgressTab({
                       type="text"
                       value={photoInspector}
                       onChange={(e) => setPhotoInspector(e.target.value)}
-                      placeholder="e.g. Engr. Santos / QC Inspector"
+                      placeholder="Enter supervisor or inspector title / name"
                       className="w-full px-3 py-2 rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
                     />
                   ) : (
@@ -2537,11 +2786,131 @@ export default function SiteProgressTab({
         </div>
       )}
 
+      {/* MODAL: CONFIRM MEDIA DELETE + ADMIN PASSWORD AUTHORIZATION */}
+      {photoDeleteTarget && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closePhotoDeleteModal();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-media-title"
+            className="w-full max-w-md rounded-[12px] bg-white dark:bg-[#12151e] border border-neutral-200 dark:border-white/10 shadow-2xl p-5 sm:p-6 space-y-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h4 id="delete-media-title" className="text-sm font-bold text-neutral-900 dark:text-white">
+                  {photoDeleteTarget.count > 1 ? "Delete entire media update?" : "Delete media record?"}
+                </h4>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
+                  {photoDeleteTarget.count > 1
+                    ? `This will permanently remove all ${photoDeleteTarget.count} photos/videos in this update.`
+                    : "This will permanently remove this media record from the client portal."}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-[8px] bg-neutral-50 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-neutral-400">Selected update</p>
+              <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 truncate mt-1">
+                {photoDeleteTarget.title}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="media-delete-password"
+                className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300"
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-500" />
+                Admin password required
+              </label>
+              <div className="relative">
+                <input
+                  id="media-delete-password"
+                  type={showDeletePassword ? "text" : "password"}
+                  value={deletePassword}
+                  onChange={(e) => {
+                    setDeletePassword(e.target.value);
+                    if (deletePasswordError) setDeletePasswordError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleConfirmPhotoDelete();
+                    }
+                  }}
+                  placeholder="Enter admin password"
+                  autoFocus
+                  disabled={isVerifyingDeletePassword}
+                  className={`w-full rounded-[6px] bg-neutral-50 dark:bg-[#0c0e14] border px-3 py-2.5 pr-10 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none transition-colors ${
+                    deletePasswordError
+                      ? "border-rose-500 focus:ring-1 focus:ring-rose-500"
+                      : "border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDeletePassword((visible) => !visible)}
+                  disabled={isVerifyingDeletePassword}
+                  aria-label={showDeletePassword ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-0 px-3 text-neutral-400 hover:text-neutral-700 dark:hover:text-white disabled:opacity-40 cursor-pointer"
+                >
+                  {showDeletePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {deletePasswordError && (
+                <p className="flex items-start gap-1.5 text-[11px] text-rose-500 font-medium" role="alert">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{deletePasswordError}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-white/5">
+              <button
+                type="button"
+                onClick={closePhotoDeleteModal}
+                disabled={isVerifyingDeletePassword}
+                className="px-3.5 py-2 rounded-[6px] text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/10 disabled:opacity-40 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPhotoDelete}
+                disabled={isVerifyingDeletePassword}
+                className="px-3.5 py-2 rounded-[6px] bg-rose-500 hover:bg-rose-400 disabled:opacity-50 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {isVerifyingDeletePassword ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Confirm delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LIGHTBOX MODAL: FULL PREVIEW FOR PHOTOS & VIDEOS */}
       {previewModalItem && (
         <div
           onClick={() => setPreviewModalItem(null)}
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -2550,11 +2919,18 @@ export default function SiteProgressTab({
             {/* Lightbox Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/10 bg-neutral-950/60">
               <div className="min-w-0 pr-4">
-                <h4 className="text-sm font-bold text-white truncate font-mono">
-                  {previewModalItem.title || "Site Progress Media"}
-                </h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-white truncate font-mono">
+                    {previewModalItem.groupTitle || previewModalItem.title || "Site Progress Media"}
+                  </h4>
+                  {modalItems.length > 1 && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 font-mono text-[10px] font-bold shrink-0">
+                      {currentModalIndex + 1} / {modalItems.length}
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-neutral-400 font-mono mt-0.5">
-                  Inspector: {previewModalItem.inspector || "Field Engineer"} • {previewModalItem.log_date || "Live"}
+                  Inspector: {previewModalItem.groupInspector || previewModalItem.inspector || "Field Engineer"} • {previewModalItem.groupDate || previewModalItem.log_date || "Live"}
                 </p>
               </div>
               <button
@@ -2566,12 +2942,13 @@ export default function SiteProgressTab({
               </button>
             </div>
 
-            {/* Lightbox Media Player */}
-            <div className="flex-1 bg-black flex items-center justify-center p-2 min-h-[300px] max-h-[68vh] overflow-hidden">
-              {previewModalItem.media_type === "video" ||
-              /\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i.test(previewModalItem.image_url || "") ? (
+            {/* Lightbox Media Player with Carousel Controls */}
+            <div className="relative flex-1 bg-black flex items-center justify-center p-2 min-h-[320px] max-h-[68vh] overflow-hidden select-none">
+              {currentModalItem?.media_type === "video" ||
+              /\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i.test(currentModalItem?.image_url || "") ? (
                 <video
-                  src={previewModalItem.image_url}
+                  key={currentModalItem?.image_url}
+                  src={currentModalItem?.image_url}
                   controls
                   autoPlay
                   playsInline
@@ -2579,18 +2956,70 @@ export default function SiteProgressTab({
                 />
               ) : (
                 <img
-                  src={previewModalItem.image_url}
-                  alt={previewModalItem.title}
+                  key={currentModalItem?.image_url}
+                  src={currentModalItem?.image_url}
+                  alt={currentModalItem?.title || previewModalItem.title}
                   className="max-w-full max-h-[65vh] object-contain rounded-[6px]"
                 />
+              )}
+
+              {/* Lightbox Prev/Next Chevrons */}
+              {modalItems.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleModalPrev}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/70 hover:bg-black/95 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer shadow-xl hover:scale-110 active:scale-95 z-30"
+                    title="Previous Photo (Left Arrow)"
+                    aria-label="Previous Photo"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleModalNext}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/70 hover:bg-black/95 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer shadow-xl hover:scale-110 active:scale-95 z-30"
+                    title="Next Photo (Right Arrow)"
+                    aria-label="Next Photo"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+
+                  {/* Dot Indicators */}
+                  <div className="absolute bottom-3 inset-x-0 flex items-center justify-center gap-1.5 z-20 pointer-events-none">
+                    <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-black/70 backdrop-blur-xs border border-white/15 pointer-events-auto shadow-md">
+                      {modalItems.map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setPreviewModalItem((prev) => ({
+                              ...prev,
+                              ...modalItems[i],
+                              currentIndex: i,
+                            }));
+                          }}
+                          aria-label={`Photo ${i + 1}`}
+                          className={`transition-all cursor-pointer rounded-full ${
+                            i === currentModalIndex
+                              ? "w-4 h-1.5 bg-amber-400"
+                              : "w-1.5 h-1.5 bg-white/40 hover:bg-white/90"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
 
             {/* Lightbox Footer Notes */}
-            {previewModalItem.caption && (
+            {(previewModalItem.groupCaption || previewModalItem.caption) && (
               <div className="p-3.5 border-t border-white/10 bg-neutral-950/80 text-xs text-neutral-300">
                 <span className="font-bold text-amber-500 font-mono text-[11px] block mb-0.5">FIELD NOTES:</span>
-                <p className="font-sans leading-relaxed">{previewModalItem.caption}</p>
+                <p className="font-sans leading-relaxed">
+                  {previewModalItem.groupCaption || previewModalItem.caption}
+                </p>
               </div>
             )}
           </div>

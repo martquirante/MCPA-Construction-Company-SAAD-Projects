@@ -1104,10 +1104,19 @@ class AuthController {
 
   /**
    * GET /api/admin/accounts
-   * Returns list of all accounts for the Admin Accounts Management panel
+   * Returns list of all accounts for the Admin Accounts Management panel.
+   * Supports ?type=all | client | staff query parameter.
    */
   async getAccounts(req, res) {
     try {
+      const { type } = req.query || {};
+      let roleFilterClause = "WHERE u.role IN ('client', 'admin', 'architect', 'engineer')";
+      if (type === "client" || type === "clients") {
+        roleFilterClause = "WHERE u.role = 'client'";
+      } else if (type === "staff") {
+        roleFilterClause = "WHERE u.role IN ('admin', 'architect', 'engineer')";
+      }
+
       let result;
       try {
         result = await db.query(`
@@ -1141,6 +1150,9 @@ class AuthController {
             u.ph_rep_relationship,
             u.ph_rep_phone,
             u.created_at,
+            COALESCE(u.account_status, 'active') AS account_status,
+            u.invite_expires_at,
+            (u.invite_token IS NOT NULL) AS has_pending_invite,
             COALESCE(u.is_multi_project_approved, false) AS is_multi_project_approved,
             u.multi_project_requested_at,
             u.multi_project_request_note,
@@ -1151,14 +1163,24 @@ class AuthController {
             FROM client_briefs 
             GROUP BY LOWER(client_email)
           ) b_count ON LOWER(u.email) = b_count.email
-          WHERE u.role = 'client'
+          ${roleFilterClause}
           ORDER BY u.user_id DESC
         `);
       } catch (colErr) {
-        console.warn("[AuthController.getAccounts] Column query notice, falling back to resilient SELECT *:", colErr.message);
+        console.warn("[AuthController.getAccounts] Column query notice, falling back to resilient query:", colErr.message);
         result = await db.query(`
           SELECT 
-            u.*,
+            u.user_id,
+            u.email,
+            u.full_name,
+            u.role,
+            u.phone_number,
+            u.avatar_url,
+            u.occupation,
+            u.created_at,
+            COALESCE(u.account_status, 'active') AS account_status,
+            u.invite_expires_at,
+            (u.invite_token IS NOT NULL) AS has_pending_invite,
             COALESCE(b_count.total_inquiries, 0) AS total_inquiries
           FROM users u
           LEFT JOIN (
@@ -1166,7 +1188,7 @@ class AuthController {
             FROM client_briefs 
             GROUP BY LOWER(client_email)
           ) b_count ON LOWER(u.email) = b_count.email
-          WHERE u.role = 'client'
+          ${roleFilterClause}
           ORDER BY u.user_id DESC
         `);
       }
@@ -1178,6 +1200,337 @@ class AuthController {
     } catch (err) {
       console.error("[AuthController.getAccounts] Error:", err);
       return res.status(500).json({ message: "Failed to retrieve accounts: " + err.message });
+    }
+  }
+
+  /**
+   * POST /api/admin/invite-staff
+   * Creates a pending staff member (Admin, Architect, Engineer) and sends activation email link.
+   * Zero-Knowledge: Inviting admin never enters or sees the staff member's password.
+   */
+  async inviteStaff(req, res) {
+    try {
+      const { email, fullName, role, occupation, phone } = req.body;
+
+      if (!email || !fullName || !role) {
+        return res.status(400).json({ success: false, message: "Email, Full Name, and Role are required." });
+      }
+
+      const cleanEmail = String(email).trim().toLowerCase();
+      const cleanName = String(fullName).trim();
+      const cleanRole = String(role).trim().toLowerCase();
+      const cleanOccupation = occupation ? String(occupation).trim() : "";
+      const cleanPhone = phone ? String(phone).trim() : "";
+
+      // Strict role enforcement: ONLY admin, architect, engineer. NO super_admin.
+      const ALLOWED_STAFF_ROLES = ["admin", "architect", "engineer"];
+      if (!ALLOWED_STAFF_ROLES.includes(cleanRole)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid staff role. Allowed roles are: Admin, Project Architect, Site Engineer.",
+        });
+      }
+
+      // Check if email already registered
+      const existingUser = await db.query(
+        "SELECT user_id, email, full_name, role, account_status, invite_token, invite_expires_at FROM users WHERE LOWER(email) = $1",
+        [cleanEmail]
+      );
+
+      // Secure cryptographic 64-char hex invite token
+      const inviteToken = crypto.randomBytes(32).toString("hex");
+      const inviteExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+      let staffAccount;
+
+      if (existingUser.rows.length > 0) {
+        const existing = existingUser.rows[0];
+        // If already active with password, cannot reinvite through this endpoint
+        if (existing.account_status === "active") {
+          return res.status(409).json({
+            success: false,
+            message: `An active account with ${cleanEmail} already exists (${existing.role}). If they forgot their password, use the reset password flow.`,
+          });
+        }
+
+        // If pending, refresh the invite token and role/occupation
+        const updateRes = await db.query(
+          `UPDATE users
+           SET 
+             full_name = $1,
+             role = $2,
+             occupation = $3,
+             phone_number = $4,
+             invite_token = $5,
+             invite_expires_at = $6,
+             account_status = 'pending',
+             updated_at = NOW()
+           WHERE user_id = $7
+           RETURNING user_id, email, full_name, role, occupation, phone_number, account_status, invite_expires_at, created_at`,
+          [cleanName, cleanRole, cleanOccupation, cleanPhone, inviteToken, inviteExpiresAt, existing.user_id]
+        );
+        staffAccount = updateRes.rows[0];
+      } else {
+        // Create new user with pending status and random dummy hash
+        const dummyPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+
+        const insertRes = await db.query(
+          `INSERT INTO users (
+             email,
+             full_name,
+             role,
+             occupation,
+             phone_number,
+             password_hash,
+             account_status,
+             invite_token,
+             invite_expires_at,
+             auth_provider,
+             created_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, 'email', NOW())
+           RETURNING user_id, email, full_name, role, occupation, phone_number, account_status, invite_expires_at, created_at`,
+          [cleanEmail, cleanName, cleanRole, cleanOccupation, cleanPhone, dummyPasswordHash, inviteToken, inviteExpiresAt]
+        );
+        staffAccount = insertRes.rows[0];
+      }
+
+      // Dispatch adaptive HTML invitation email
+      let emailResult = { delivered: false };
+      try {
+        emailResult = await emailService.sendAdminInviteEmail({
+          email: cleanEmail,
+          recipientName: cleanName,
+          role: cleanRole,
+          occupation: cleanOccupation,
+          inviteToken,
+        });
+      } catch (mailErr) {
+        console.warn("[AuthController.inviteStaff] Email delivery notice:", mailErr.message);
+      }
+
+      // Realtime broadcast to keep other connected admins in sync
+      try {
+        const realtimeService = require("../services/realtimeService");
+        realtimeService.broadcast("ACCOUNT_UPDATED", {
+          account: {
+            ...staffAccount,
+            has_pending_invite: true,
+            total_inquiries: 0,
+          },
+          message: `Staff invitation sent to ${cleanName} (${cleanRole})`,
+        });
+      } catch (rtErr) {
+        console.warn("[AuthController.inviteStaff] Realtime notice:", rtErr.message);
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: `Invitation successfully sent to ${cleanEmail}. The recipient has 48 hours to activate their account.`,
+        account: {
+          ...staffAccount,
+          has_pending_invite: true,
+          total_inquiries: 0,
+        },
+        delivered: emailResult.delivered,
+      });
+    } catch (err) {
+      console.error("[AuthController.inviteStaff] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to dispatch staff invitation: " + err.message });
+    }
+  }
+
+  /**
+   * POST /api/admin/resend-invite
+   * Refreshes the token and resends the invitation email.
+   */
+  async resendStaffInvite(req, res) {
+    try {
+      const { userId, email } = req.body;
+      if (!userId && !email) {
+        return res.status(400).json({ success: false, message: "User ID or Email is required." });
+      }
+
+      const userRes = await db.query(
+        "SELECT user_id, email, full_name, role, occupation, account_status FROM users WHERE user_id = $1 OR LOWER(email) = $2",
+        [userId || -1, email ? String(email).trim().toLowerCase() : ""]
+      );
+
+      if (userRes.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "Staff account not found." });
+      }
+
+      const user = userRes.rows[0];
+      const ALLOWED_STAFF_ROLES = ["admin", "architect", "engineer"];
+      if (!ALLOWED_STAFF_ROLES.includes(user.role)) {
+        return res.status(400).json({ success: false, message: "Only staff accounts can be invited via this flow." });
+      }
+
+      const inviteToken = crypto.randomBytes(32).toString("hex");
+      const inviteExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+      await db.query(
+        `UPDATE users
+         SET invite_token = $1, invite_expires_at = $2, account_status = 'pending', updated_at = NOW()
+         WHERE user_id = $3`,
+        [inviteToken, inviteExpiresAt, user.user_id]
+      );
+
+      await emailService.sendAdminInviteEmail({
+        email: user.email,
+        recipientName: user.full_name,
+        role: user.role,
+        occupation: user.occupation,
+        inviteToken,
+      });
+
+      return res.json({
+        success: true,
+        message: `A fresh invitation link has been dispatched to ${user.email}.`,
+      });
+    } catch (err) {
+      console.error("[AuthController.resendStaffInvite] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to resend invitation: " + err.message });
+    }
+  }
+
+  /**
+   * GET /api/admin/verify-invite
+   * Validates invite token on the password setup page.
+   */
+  async verifyInviteToken(req, res) {
+    try {
+      const { token } = req.query;
+      if (!token || typeof token !== "string" || token.length < 32) {
+        return res.status(400).json({
+          success: false,
+          valid: false,
+          message: "Invalid or malformed activation token.",
+        });
+      }
+
+      const userRes = await db.query(
+        `SELECT user_id, email, full_name, role, occupation, invite_expires_at, account_status 
+         FROM users 
+         WHERE invite_token = $1`,
+        [token.trim()]
+      );
+
+      if (userRes.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          valid: false,
+          message: "This activation link is invalid or has already been used.",
+        });
+      }
+
+      const user = userRes.rows[0];
+      const now = new Date();
+      const expiresAt = new Date(user.invite_expires_at);
+
+      if (expiresAt < now) {
+        return res.status(410).json({
+          success: false,
+          valid: false,
+          expired: true,
+          message: "This activation link has expired (48-hour limit). Please ask an Administrator to resend your invite.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        valid: true,
+        user: {
+          email: user.email,
+          fullName: user.full_name,
+          role: user.role,
+          occupation: user.occupation,
+        },
+      });
+    } catch (err) {
+      console.error("[AuthController.verifyInviteToken] Error:", err);
+      return res.status(500).json({ success: false, valid: false, message: "Server error verifying token." });
+    }
+  }
+
+  /**
+   * POST /api/admin/complete-setup-password
+   * Sets the staff member's password and activates their account.
+   */
+  async completeSetupPassword(req, res) {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({ success: false, message: "Token and new password are required." });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ success: false, message: "Password must be at least 8 characters long." });
+      }
+
+      const userRes = await db.query(
+        `SELECT user_id, email, full_name, role, occupation, invite_expires_at 
+         FROM users 
+         WHERE invite_token = $1`,
+        [String(token).trim()]
+      );
+
+      if (userRes.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Invalid or expired activation link. It may have already been used.",
+        });
+      }
+
+      const user = userRes.rows[0];
+      if (new Date(user.invite_expires_at) < new Date()) {
+        return res.status(410).json({
+          success: false,
+          message: "This activation link has expired. Please ask an Administrator to send you a new one.",
+        });
+      }
+
+      // Hash password securely with bcrypt
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      // Activate user account and invalidate token
+      const updateRes = await db.query(
+        `UPDATE users
+         SET 
+           password_hash = $1,
+           account_status = 'active',
+           invite_token = NULL,
+           invite_expires_at = NULL,
+           updated_at = NOW()
+         WHERE user_id = $2
+         RETURNING user_id, email, full_name, role, occupation, account_status`,
+        [passwordHash, user.user_id]
+      );
+
+      const activatedUser = updateRes.rows[0];
+
+      // Broadcast update to Admin dashboard
+      try {
+        const realtimeService = require("../services/realtimeService");
+        realtimeService.broadcast("ACCOUNT_UPDATED", {
+          account: {
+            ...activatedUser,
+            has_pending_invite: false,
+          },
+          message: `Staff account activated: ${activatedUser.full_name} (${activatedUser.role})`,
+        });
+      } catch (rtErr) {
+        console.warn("[AuthController.completeSetupPassword] Realtime notice:", rtErr.message);
+      }
+
+      return res.json({
+        success: true,
+        message: "Your password has been securely established and your MCPA account is now active.",
+        user: activatedUser,
+      });
+    } catch (err) {
+      console.error("[AuthController.completeSetupPassword] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to set up password: " + err.message });
     }
   }
 

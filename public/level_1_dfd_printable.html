@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Level 1 DFD - BuildSync / MCPA Architectural System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'neutral',
+      flowchart: {
+        curve: 'monotoneY',
+        useMaxWidth: true,
+        htmlLabels: true
+      }
+    });
+  </script>
+  <style>
+    :root {
+      --bg-canvas: #f8fafc;
+      --bg-surface: #ffffff;
+      --border-main: #cbd5e1;
+      --border-dark: #0f172a;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --accent: #d97706;
+      --accent-dark: #b45309;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      line-height: 1.5;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-main);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      padding: 40px;
+      border-radius: 4px;
+    }
+
+    /* Architectural Header / Title Block */
+    .title-block {
+      border: 2px solid var(--border-dark);
+      padding: 16px 20px;
+      margin-bottom: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fafafa;
+    }
+
+    .title-block h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      color: var(--text-main);
+    }
+
+    .title-block .meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: right;
+      line-height: 1.4;
+    }
+
+    .btn-bar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .btn {
+      background: #0f172a;
+      color: #ffffff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.15s;
+    }
+
+    .btn:hover {
+      background: #334155;
+    }
+
+    h2 {
+      font-size: 17px;
+      font-weight: 700;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 8px;
+      margin: 32px 0 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h3 {
+      font-size: 14px;
+      font-weight: 700;
+      margin: 20px 0 8px;
+      color: #1e293b;
+    }
+
+    p, li {
+      font-size: 13px;
+      color: #334155;
+    }
+
+    ul {
+      margin-left: 20px;
+      margin-bottom: 12px;
+    }
+
+    .diagram-container {
+      background: #ffffff;
+      border: 1px solid var(--border-main);
+      padding: 24px 16px;
+      margin: 20px 0;
+      border-radius: 4px;
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+
+    .process-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #0f172a;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      border-radius: 2px;
+    }
+
+    .process-card h4 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #0f172a;
+    }
+
+    .flow-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      background: #e2e8f0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #0f172a;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 12px;
+    }
+
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f1f5f9;
+      font-weight: 700;
+      color: #0f172a;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .badge-ok {
+      background: #ecfdf5;
+      color: #065f46;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #a7f3d0;
+      font-size: 11px;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .container {
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .btn-bar {
+        display: none !important;
+      }
+      .diagram-container {
+        border: 1px solid #94a3b8;
+        page-break-inside: avoid;
+      }
+      .process-card {
+        page-break-inside: avoid;
+      }
+      table {
+        page-break-inside: auto;
+      }
+      tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="btn-bar">
+      <button class="btn" onclick="window.print()">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+          <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
+        </svg>
+        Save as PDF / Print Document
+      </button>
+    </div>
+
+    <div class="title-block">
+      <div>
+        <h1>System Analysis & Design (SAAD) Documentation</h1>
+        <p style="font-size: 13px; font-weight: 600; color: #475569; margin-top: 4px;">
+          Level 1 Data Flow Diagram (DFD) Decomposition
+        </p>
+      </div>
+      <div class="meta">
+        <div><strong>PROJECT:</strong> BuildSync / MCPA Platform</div>
+        <div><strong>REFERENCE:</strong> Level 0 DFD Expansion</div>
+        <div><strong>STANDARD:</strong> Gane & Sarson / SAAD</div>
+      </div>
+    </div>
+
+    <h2>1. Level 1 Data Flow Diagram (Visual Topology)</h2>
+    <p>
+      Ang diagram na ito ay nagde-decompose sa <strong>0.0 BuildSync: A Web-Based Construction Tracking and Client Management System</strong>
+      papunta sa anim (6) na proseso at anim (6) na internal data stores na may 100% balancing sa Context Diagram.
+    </p>
+
+    <div class="diagram-container">
+      <pre class="mermaid">
+flowchart TB
+    %% Entities
+    CLIENT["Client"]
+    STAFF["Staff"]
+    ADMIN["Administrator"]
+
+    %% Processes
+    P1["1.0 User Authentication &<br/>Account Management"]
+    P2["2.0 Project Inquiry &<br/>Site Feasibility Management"]
+    P3["3.0 Consultation &<br/>Meeting Scheduling"]
+    P4["4.0 Design Blueprint, BOQ &<br/>Quotation Management"]
+    P5["5.0 Construction Tracking &<br/>LGU Compliance Management"]
+    P6["6.0 Project Showcase &<br/>Portfolio Management"]
+
+    %% Data Stores
+    D1[("D1: User Accounts Store")]
+    D2[("D2: Inquiries & Site Data Store")]
+    D3[("D3: Consultation Schedules Store")]
+    D4[("D4: Blueprints & Quotations Store")]
+    D5[("D5: Construction Progress Store")]
+    D6[("D6: Project Showcase Store")]
+
+    %% Flows: Client
+    CLIENT -->|"Account Reg Details, Email Code, Login"| P1
+    P1 -->|"Account Reg, Verification & Auth Status"| CLIENT
+    CLIENT -->|"Inquiry Details, Site Details, Budget"| P2
+    P2 -->|"Inquiry Submission Status, Feasibility Report"| CLIENT
+    CLIENT -->|"Consultation Booking Details"| P3
+    P3 -->|"Booking Confirmation and Schedule"| CLIENT
+    P4 -->|"Preliminary Cost Estimation"| CLIENT
+
+    %% Flows: Staff
+    STAFF -->|"Staff Login Credentials"| P1
+    P1 -->|"Staff Authentication Status"| STAFF
+    STAFF -->|"Budget, Quantity Takeoff & Blueprints"| P4
+    P4 -->|"Design Schematics, Itemized BOQ, Cost Estimates"| STAFF
+    STAFF -->|"Project Data, LGU Clearances, Site Logs"| P5
+    P5 -->|"Submission Status, LGU View, Project Info"| STAFF
+
+    %% Flows: Administrator
+    ADMIN -->|"Admin Login & Account Management"| P1
+    P1 -->|"Admin Auth Status, Client Account Info"| ADMIN
+    ADMIN -->|"Inquiry Review & Status Update"| P2
+    P2 -->|"Updated Inquiry Pipeline Data"| ADMIN
+    ADMIN -->|"Meeting and Consultation Details"| P3
+    P3 -->|"Consultation Schedule Confirmation"| ADMIN
+    ADMIN -->|"Budget and Quotation Data"| P4
+    P4 -->|"Budget and Quotation Records"| ADMIN
+    ADMIN -->|"Permit Management & Site Progress Updates"| P5
+    P5 -->|"LGU Compliance Records, Updated Site Logs"| ADMIN
+    ADMIN -->|"Project Showcase Management Data"| P6
+    P6 -->|"Project Showcase Information"| ADMIN
+
+    %% Data Store Connections
+    P1 <--> D1
+    P2 <--> D2
+    P3 <--> D3
+    P4 <--> D4
+    P5 <--> D5
+    P6 <--> D6
+      </pre>
+    </div>
+
+    <h2>2. Decomposed Sub-Processes (Level 1 Breakdown)</h2>
+
+    <div class="process-card">
+      <h4>Process 1.0: User Authentication & Account Management</h4>
+      <p>Nangangasiwa sa pagpaparehistro, pag-verify ng email OTP codes, face liveness KYC, at access credentials para sa Client, Staff, at Administrator.</p>
+      <ul>
+        <li><strong>Inputs:</strong> Client Registration Details, Email Verification Code, Login Credentials (Client, Staff, Administrator), Client Account Management Data.</li>
+        <li><strong>Outputs:</strong> Account Registration Status, Verification Status, Authentication Status, Client Account Information.</li>
+        <li><strong>Data Store:</strong> <span class="flow-tag">D1: User Accounts Store</span> (<code>users</code>, <code>otp_codes</code>).</li>
+      </ul>
+    </div>
+
+    <div class="process-card">
+      <h4>Process 2.0: Project Inquiry & Site Feasibility Processing</h4>
+      <p>Nagpoproseso ng client inquiries, Philippine geographic location data, GPS theodolite site survey coordinates, at architect feasibility assessments.</p>
+      <ul>
+        <li><strong>Inputs:</strong> Project Inquiry Details, Project Site Details, Project Requirements and Budget, Inquiry Review and Status Update.</li>
+        <li><strong>Outputs:</strong> Inquiry Submission Status, Site Feasibility Report, Updated Inquiry Pipeline Data.</li>
+        <li><strong>Data Store:</strong> <span class="flow-tag">D2: Inquiries & Site Data Store</span> (<code>client_briefs</code>).</li>
+      </ul>
+    </div>
+
+    <div class="process-card">
+      <h4>Process 3.0: Consultation & Meeting Scheduling</h4>
+      <p>Namamahala sa pagtatakda ng mga pulong sa pagitan ng kliyente at lead architect (Face-to-Face sa opisina/site o native WebRTC video room consultation).</p>
+      <ul>
+        <li><strong>Inputs:</strong> Consultation Booking Details (Client), Meeting & Consultation Details (Admin).</li>
+        <li><strong>Outputs:</strong> Booking Confirmation and Schedule (Client), Consultation Schedule Confirmation (Admin).</li>
+        <li><strong>Data Store:</strong> <span class="flow-tag">D3: Consultation Schedules Store</span> (<code>client_briefs</code>, <code>meeting_history</code>).</li>
+      </ul>
+    </div>
+
+    <div class="process-card">
+      <h4>Process 4.0: Design Blueprint, Costing & Quotation Management</h4>
+      <p>Humahawak sa pagbuo ng itemized Bill of Quantities (BOQ), material takeoff calculations, preliminary cost estimates, at CAD blueprint sets.</p>
+      <ul>
+        <li><strong>Inputs:</strong> Budget & Quotation Data (Staff/Admin), Material & Quantity Takeoff Data (Staff), Blueprint & Technical Plan Updates (Staff).</li>
+        <li><strong>Outputs:</strong> Preliminary Cost Estimation (Client), Interactive Design Schematics (Staff), Itemized BOQ Draft (Staff), Cost Estimates & Quotation Records (Staff/Admin).</li>
+        <li><strong>Data Store:</strong> <span class="flow-tag">D4: Blueprints & Quotations Store</span> (<code>quotations</code>, <code>cloud_blueprints</code>).</li>
+      </ul>
+    </div>
+
+    <div class="process-card">
+      <h4>Process 5.0: Construction Tracking, Site Progress & Compliance Management</h4>
+      <p>Nagpapatakbo sa Phase 4 site mobilization, photo/video progress logs, weather telemetry, delay tracking, at LGU permit/clearance compliance.</p>
+      <ul>
+        <li><strong>Inputs:</strong> Project Management Data (Staff), LGU Clearance Submissions (Staff), Site Photos & Progress Logs (Staff), Document & Permit Management Data (Admin), Project & Site Progress Updates (Admin).</li>
+        <li><strong>Outputs:</strong> Submission Confirmation & Status (Staff), LGU Compliance Status View (Staff), Project Information & Status (Staff), LGU Compliance Records (Admin), Updated Site Logs & Progress Reports (Admin).</li>
+        <li><strong>Data Store:</strong> <span class="flow-tag">D5: Construction Tracking & Compliance Store</span> (<code>site_projects</code>, <code>site_milestones</code>, <code>site_photo_logs</code>, <code>delay_events</code>).</li>
+      </ul>
+    </div>
+
+    <div class="process-card">
+      <h4>Process 6.0: Project Showcase & Public Catalog Management</h4>
+      <p>Nangangasiwa sa pag-publish at pag-curate ng mga natapos na architectural projects sa public showcase/portfolio.</p>
+      <ul>
+        <li><strong>Inputs:</strong> Project Showcase Management Data (Admin).</li>
+        <li><strong>Outputs:</strong> Project Showcase Information (Admin).</li>
+        <li><strong>Data Store:</strong> <span class="flow-tag">D6: Project Showcase Store</span> (<code>projects</code>).</li>
+      </ul>
+    </div>
+
+    <h2>3. Data Balancing Verification Matrix (Level 0 vs Level 1)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Data Flow Description</th>
+          <th>Level 0 Context Boundary</th>
+          <th>Level 1 Decomposed Origin / Dest</th>
+          <th>Balancing Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Account Registration Details</td>
+          <td>Client &rarr; 0.0</td>
+          <td>Client &rarr; Process 1.0</td>
+          <td><span class="badge-ok">&check; BALANCED</span></td>
+        </tr>
+        <tr>
+          <td>Email Verification Code</td>
+          <td>Client &rarr; 0.0</td>
+          <td>Client &rarr; Process 1.0</td>
+          <td><span class="badge-ok">&check; BALANCED</span></td>
+        </tr>
+        <tr>
+          <td>Login Credentials (Client/Staff/Admin)</td>
+          <td>Entity &rarr; 0.0</td>
+          <td>Entity &rarr; Process 1.0</td>
+          <td><span class="badge-ok">&check; BALANCED</span></td>
+        </tr>
+        <tr>
+          <td>Project Inquiry Details & Site Details</td>
+          <td>Client &rarr; 0.0</td>
+          <td>Client &rarr; Process 2.0</td>
+          <td><span class="badge-ok">&check; BALANCED</span></td>
+        </tr>
+        <tr>
+          <td>Site Feasibility Report</td>
+          <td>0.0 &rarr; Client</td>
+          <td>Process 2.0 &rarr; Client</td>
+          <td><span class="badge-ok">&check; BALANCED</span></td>
+        </tr>
+        <tr>
+          <td>Preliminary Cost Estimation</td>
+          <td>0.0 &rarr; Client</td>
+          <td>Process 4.0 &rarr; Client</td>
+          <td><span class="badge-ok">&check; BALANCED</span></td>
+        </tr>
+        <tr>
+          <td>Consultation Booking Details & Schedule</td>
+          <td>Client &harr; 0.0</td>
+          <td>Client &harr; Process 3.0</td>
+          <td><span class="badge-ok">&check; BALANCED</span></td>
+        </tr>
+        <tr>
+          <td>Blueprints, BOQ & Takeoff Data</td>
+          <td>Staff &harr; 0.0</td>
+          <td>Staff &harr; Process 4.0</td>
+          <td><span class="badge-ok">&check; BALANCED</span></td>
+        </tr>
+        <tr>
+          <td>Site Progress Logs, Photos & LGU Clearances</td>
+          <td>Staff/Admin &harr; 0.0</td>
+          <td>Staff/Admin &harr; Process 5.0</td>
+          <td><span class="badge-ok">&check; BALANCED</span></td>
+        </tr>
+        <tr>
+          <td>Project Showcase Management</td>
+          <td>Admin &harr; 0.0</td>
+          <td>Admin &harr; Process 6.0</td>
+          <td><span class="badge-ok">&check; BALANCED</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top: 40px; border-top: 1px solid #cbd5e1; padding-top: 16px; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: #64748b; display: flex; justify-content: space-between;">
+      <span>DOCUMENT REF: SAAD-DFD-LVL1-2026</span>
+      <span>MCPA ARCHITECTURAL SYSTEM SPECIFICATION</span>
+    </div>
+  </div>
+
+</body>
+</html>

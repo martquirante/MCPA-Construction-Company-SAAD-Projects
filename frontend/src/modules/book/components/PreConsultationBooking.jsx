@@ -690,7 +690,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                           required
                           value={clientName}
                           onChange={(e) => setClientName(e.target.value)}
-                          placeholder="Enter your full name (ex. Roberto Cruz)"
+                          placeholder="Enter your full name"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
                       </div>
@@ -704,7 +704,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                           required
                           value={clientEmail}
                           onChange={(e) => setClientEmail(e.target.value)}
-                          placeholder="Enter your email address (ex. client@gmail.com)"
+                          placeholder="Enter your email address"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
                       </div>
@@ -718,7 +718,7 @@ export default function PreConsultationBooking({ selectedStyle, currentUser }) {
                           required
                           value={clientPhone}
                           onChange={(e) => setClientPhone(e.target.value)}
-                          placeholder="Enter your contact number (ex. 0917 123 4567)"
+                          placeholder="Enter your contact number"
                           className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
                         />
                       </div>

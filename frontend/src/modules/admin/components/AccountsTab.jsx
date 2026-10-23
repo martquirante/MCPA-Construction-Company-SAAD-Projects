@@ -2496,7 +2496,11 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
   return (
     <div
       onClick={() => onClick(acc)}
-      className={`client-directory-card group ${isNewFlash ? "card-live-flash" : ""}`}
+      className={`p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#11141c] border transition-all duration-200 cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] flex flex-col justify-between group hover:-translate-y-0.5 select-none ${
+        isNewFlash
+          ? "border-amber-500 ring-2 ring-amber-500/30"
+          : "border-neutral-200/90 dark:border-white/[0.08] hover:border-amber-500/40"
+      }`}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -2508,21 +2512,21 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
     >
       {/* Top Header Row */}
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {/* Avatar (Photo or Monogram) */}
-          <div className="client-avatar-frame">
+          <div className="relative w-11 h-11 shrink-0">
             {hasPhoto ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={acc.avatar_url}
                 alt={acc.full_name || acc.email}
-                className="client-avatar-img"
+                className="w-11 h-11 rounded-xl object-cover border border-neutral-200/80 dark:border-white/10 shadow-xs"
                 referrerPolicy="no-referrer"
                 crossOrigin="anonymous"
               />
             ) : (
               <div
-                className="client-avatar-monogram"
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-xs"
                 style={{
                   background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`,
                 }}
@@ -2531,19 +2535,19 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
               </div>
             )}
             {acc.kyc_photo_url ? (
-              <span className="client-avatar-verified-dot" title="Official Biometric Face KYC Verified">
-                <CheckIcon className="w-2 h-2 text-white stroke-[3]" />
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#11141c] flex items-center justify-center shadow-xs" title="Official Biometric Face KYC Verified">
+                <CheckIcon className="w-2.5 h-2.5 text-white stroke-[3]" />
               </span>
             ) : hasPhoto ? (
-              <span className="client-avatar-verified-dot" title="Identity Verified">
-                <CheckIcon className="w-2 h-2 text-white stroke-[3]" />
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#11141c] flex items-center justify-center shadow-xs" title="Identity Verified">
+                <CheckIcon className="w-2.5 h-2.5 text-white stroke-[3]" />
               </span>
             ) : null}
           </div>
 
           {/* Name & Email */}
           <div className="min-w-0">
-            <h3 className="client-card-name group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+            <h3 className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-amber-500 transition-colors font-sans truncate">
               {acc.full_name || "Client"}
             </h3>
             <a
@@ -2552,7 +2556,7 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               title="Click to compose email directly in Gmail"
-              className="client-card-email hover:text-amber-500 hover:underline transition-colors inline-flex items-center gap-1 group/mail cursor-pointer"
+              className="text-xs text-neutral-500 dark:text-neutral-400 font-sans truncate hover:text-amber-500 transition-colors inline-flex items-center gap-1 group/mail cursor-pointer max-w-full"
             >
               <span className="truncate">{acc.email}</span>
               <ExternalLinkIcon className="w-2.5 h-2.5 opacity-0 group-hover/mail:opacity-100 transition-opacity shrink-0 text-amber-500" />
@@ -2563,41 +2567,45 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
         {/* Classification Badges */}
         <div className="flex flex-col items-end gap-1 shrink-0">
           {isNewFlash && (
-            <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-neutral-950 font-bold text-[9px] uppercase font-mono animate-bounce tracking-wider shadow-sm flex items-center gap-1">
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-neutral-950 font-bold text-[9px] uppercase tracking-wider shadow-xs flex items-center gap-1 animate-pulse">
               <span className="w-1.5 h-1.5 rounded-full bg-neutral-950"></span>
               <span>LIVE NEW</span>
             </span>
           )}
-          <span className={`client-card-pill ${isOfw ? "ofw" : "local"}`}>
+          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
+            isOfw 
+              ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/25" 
+              : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25"
+          }`}>
             {isOfw ? <PlaneIcon className="w-2.5 h-2.5" /> : <MapPinIcon className="w-2.5 h-2.5" />}
             <span>{isOfw ? "OFW" : "Local"}</span>
           </span>
           {acc.multi_project_requested_at && !acc.is_multi_project_approved && (
-            <span className="client-card-pill bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold" title="Client submitted request for concurrent project access">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] font-bold" title="Client submitted request for concurrent project access">
               <SparklesIcon className="w-2.5 h-2.5 text-amber-500 animate-pulse shrink-0" />
               <span>Multi-Proj Req</span>
             </span>
           )}
           {acc.is_multi_project_approved && (
-            <span className="client-card-pill bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-semibold" title="Authorized for multiple concurrent projects">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold" title="Authorized for multiple concurrent projects">
               <CheckIcon className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
               <span>Multi-Proj Approved</span>
             </span>
           )}
           {(acc.auth_provider || "").toLowerCase() === "google" && (
-            <span className="client-card-pill google-pill" title="Verified Google Account">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-white/[0.05] text-neutral-600 dark:text-neutral-300 border border-neutral-200/80 dark:border-white/10 text-[10px] font-medium" title="Verified Google Account">
               <GoogleIcon className="w-2.5 h-2.5 shrink-0" />
               <span>Google</span>
             </span>
           )}
           {(acc.auth_provider || "").toLowerCase() === "facebook" && (
-            <span className="client-card-pill facebook-pill" title="Verified Facebook Account">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[10px] font-medium" title="Verified Facebook Account">
               <FacebookIcon className="w-2.5 h-2.5 shrink-0" />
               <span>Facebook</span>
             </span>
           )}
           {acc.auth_provider && !["google", "facebook", "local"].includes(acc.auth_provider.toLowerCase()) && (
-            <span className="client-card-pill oauth">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-white/[0.05] text-neutral-600 dark:text-neutral-300 border border-neutral-200/80 dark:border-white/10 text-[10px] font-medium">
               <BadgeCheckIcon className="w-2.5 h-2.5" />
               <span>{acc.auth_provider}</span>
             </span>
@@ -2605,12 +2613,12 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
         </div>
       </div>
 
-      <div className="client-card-divider" />
+      <div className="h-px bg-neutral-100 dark:bg-white/[0.05] my-3.5" />
 
       {/* Meta Specifications */}
-      <div className="space-y-1.5 text-xs text-neutral-600 dark:text-neutral-400">
+      <div className="space-y-2 text-xs text-neutral-600 dark:text-neutral-400 font-sans">
         {/* Occupation */}
-        <div className="client-meta-line">
+        <div className="flex items-center gap-2 min-w-0">
           <BuildingIcon className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
           <span className="truncate">
             {acc.occupation || "Not declared"}
@@ -2618,7 +2626,7 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
         </div>
 
         {/* Location */}
-        <div className="client-meta-line">
+        <div className="flex items-center gap-2 min-w-0">
           <MapPinIcon className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
           {acc.location_address ? (
             <a
@@ -2639,19 +2647,19 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
         </div>
 
         {/* Phone */}
-        <div className="client-meta-line">
+        <div className="flex items-center gap-2 min-w-0">
           <PhoneIcon className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
           {acc.phone_number ? (
             <a
               href={`tel:${acc.phone_number.replace(/\s+/g, "")}`}
               onClick={(e) => e.stopPropagation()}
               title="Click to call mobile number"
-              className="font-mono text-[11px] truncate hover:text-amber-500 hover:underline cursor-pointer transition-colors"
+              className="text-xs truncate hover:text-amber-500 hover:underline cursor-pointer transition-colors"
             >
               {acc.phone_number}
             </a>
           ) : (
-            <span className="font-mono text-[11px] truncate">
+            <span className="text-xs truncate text-neutral-400">
               No contact recorded
             </span>
           )}
@@ -2662,7 +2670,7 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               title="Open in WhatsApp / Viber"
-              className="mini-viber-pill hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer"
+              className="ml-auto px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer shrink-0"
             >
               Viber/WA
             </a>
@@ -2671,12 +2679,12 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
       </div>
 
       {/* Card Footer Action Bar */}
-      <div className="client-card-footer">
-        <span className="client-inquiries-counter">
+      <div className="pt-3 mt-3 border-t border-neutral-100 dark:border-white/[0.05] flex items-center justify-between text-xs font-sans">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-white/[0.04] text-neutral-600 dark:text-neutral-400 text-xs font-medium">
           <ClipboardListIcon className="w-3.5 h-3.5 text-amber-500" />
           <span>{inquiries > 0 ? `${inquiries} Inquiry Brief${inquiries > 1 ? "s" : ""}` : "0 Briefs"}</span>
         </span>
-        <span className="client-cta-link">
+        <span className="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400 group-hover:text-amber-500 transition-colors">
           <span>View Dossier</span>
           <ExternalLinkIcon className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
         </span>
@@ -2686,17 +2694,422 @@ function AccountCard({ acc, onClick, isNewFlash = false }) {
 }
 
 // ─── KPI Metric Card ──────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, active, onClick, borderClass, valueClass }) {
+function KpiCard({ label, value, sub, active, onClick, icon: Icon, tone = "all" }) {
+  const toneMap = {
+    all: {
+      iconBg: "text-amber-600 dark:text-amber-400",
+      activeRing: "border-amber-500/60 ring-1 ring-amber-500/20",
+    },
+    local: {
+      iconBg: "text-amber-600 dark:text-amber-400",
+      activeRing: "border-amber-500/60 ring-1 ring-amber-500/20",
+    },
+    ofw: {
+      iconBg: "text-blue-600 dark:text-blue-400",
+      activeRing: "border-blue-500/60 ring-1 ring-blue-500/20",
+    },
+    inquiries: {
+      iconBg: "text-emerald-600 dark:text-emerald-400",
+      activeRing: "border-emerald-500/60 ring-1 ring-emerald-500/20",
+    },
+  };
+
+  const style = toneMap[tone] || toneMap.all;
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`kpi-summary-box ${active ? "active " + borderClass : ""}`}
+      className={`p-4 sm:p-5 rounded-xl bg-white dark:bg-[#11141c] border transition-all duration-200 text-left select-none flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:-translate-y-0.5 cursor-pointer group ${
+        active
+          ? `${style.activeRing} bg-amber-500/[0.02] dark:bg-amber-500/[0.04]`
+          : "border-neutral-200/90 dark:border-white/[0.08] hover:border-amber-500/40"
+      }`}
     >
-      <span className="kpi-label">{label}</span>
-      <span className={`kpi-value ${valueClass}`}>{value}</span>
-      <span className="kpi-sub">{sub}</span>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-sans">
+          {label}
+        </span>
+        {Icon && (
+          <div className={`flex items-center justify-center ${style.iconBg} shrink-0`}>
+            <Icon className="w-4 h-4" />
+          </div>
+        )}
+      </div>
+      <div className="text-2xl sm:text-3xl font-extrabold font-sans tracking-tight text-neutral-900 dark:text-white tabular-nums">
+        {value}
+      </div>
+      <div className="pt-2 mt-2 border-t border-neutral-100 dark:border-white/[0.04] text-[11px] text-neutral-400 flex items-center justify-between font-sans">
+        <span>{sub}</span>
+        {active && (
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+        )}
+      </div>
     </button>
+  );
+}
+
+// ─── Staff Account Card Component ─────────────────────────────────────────────
+function StaffCard({ staff, onResend, isResending }) {
+  const role = (staff.role || "admin").toLowerCase();
+  const isPending = staff.account_status === "pending" || staff.has_pending_invite;
+  const initials = getInitials(staff.full_name || staff.email);
+  const colors = getAvatarGradient(staff.full_name || staff.email);
+
+  const roleMeta = {
+    admin: {
+      label: "Administrator",
+      pill: "text-amber-700 dark:text-amber-400 border-amber-500/30",
+      icon: ShieldCheckIcon,
+    },
+    architect: {
+      label: "Project Architect",
+      pill: "text-violet-700 dark:text-violet-400 border-violet-500/30",
+      icon: BuildingIcon,
+    },
+    engineer: {
+      label: "Site Engineer",
+      pill: "text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+      icon: SparklesIcon,
+    },
+  }[role] || {
+    label: "Staff Member",
+    pill: "text-neutral-700 dark:text-neutral-400 border-neutral-500/30",
+    icon: ShieldCheckIcon,
+  };
+
+  const RoleIcon = roleMeta.icon;
+
+  return (
+    <div className="rounded-2xl p-5 bg-white dark:bg-[#11141c] border border-neutral-200/90 dark:border-white/[0.08] hover:border-amber-500/50 dark:hover:border-amber-500/40 transition-all duration-200 shadow-xs hover:shadow-md flex flex-col justify-between group">
+      <div>
+        {/* Top Badges */}
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold ${roleMeta.pill}`}>
+            <RoleIcon className="w-3.5 h-3.5" />
+            <span>{roleMeta.label}</span>
+          </span>
+
+          {isPending ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+              <span>Pending Setup</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Active Staff</span>
+            </span>
+          )}
+        </div>
+
+        {/* Profile Details */}
+        <div className="flex items-start gap-3.5 mb-4">
+          {staff.avatar_url && staff.avatar_url.trim().length > 5 ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={staff.avatar_url}
+              alt={staff.full_name}
+              className="w-12 h-12 rounded-xl object-cover border border-neutral-200/80 dark:border-white/10 shrink-0"
+            />
+          ) : (
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-sm shadow-xs shrink-0"
+              style={{ background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})` }}
+            >
+              {initials}
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <h3 className="font-bold text-sm text-neutral-900 dark:text-white truncate">
+              {staff.full_name || "Unnamed Staff Member"}
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
+              {staff.occupation || roleMeta.label}
+            </p>
+          </div>
+        </div>
+
+        {/* Contact info list */}
+        <div className="space-y-2 py-3 border-y border-neutral-100 dark:border-white/[0.04] text-xs">
+          <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-300">
+            <MailIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+            <a
+              href={`mailto:${staff.email}`}
+              className="truncate hover:text-amber-500 transition-colors"
+              title={staff.email}
+            >
+              {staff.email}
+            </a>
+          </div>
+
+          {staff.phone_number ? (
+            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-300">
+              <PhoneIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+              <a
+                href={`tel:${staff.phone_number.replace(/\s+/g, "")}`}
+                className="hover:text-amber-500 transition-colors"
+              >
+                {staff.phone_number}
+              </a>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-neutral-400 dark:text-neutral-500 text-[11px]">
+              <PhoneIcon className="w-3.5 h-3.5 opacity-50 shrink-0" />
+              <span>No telephone recorded</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Footer Details & Resend Button */}
+      <div className="mt-4 pt-3 flex items-center justify-between gap-2 text-[11px] text-neutral-400 dark:text-neutral-500">
+        <div>
+          <span>{isPending ? "Invited:" : "Joined:"} </span>
+          <span className="font-medium text-neutral-600 dark:text-neutral-400">
+            {formatDate(staff.created_at)}
+          </span>
+        </div>
+
+        {isPending && (
+          <button
+            type="button"
+            onClick={() => onResend(staff)}
+            disabled={isResending}
+            className="px-2.5 py-1.5 rounded-lg text-amber-700 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 font-bold transition-all text-[11px] cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+            title="Send a fresh 48-hour password setup link"
+          >
+            <RefreshCwIcon className={`w-3 h-3 ${isResending ? "animate-spin" : ""}`} />
+            <span>{isResending ? "Sending…" : "Resend Invite"}</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Staff Invitation Modal Component ─────────────────────────────────────────
+function InviteStaffModal({ isOpen, onClose, onSuccess }) {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("admin"); // strictly 'admin' | 'architect' | 'engineer'
+  const [occupation, setOccupation] = useState("");
+  const [phone, setPhone] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+
+    if (!fullName.trim() || !email.trim()) {
+      setErrorMsg("Full name and email address are required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await authFetch("/api/admin/invite-staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          role,
+          occupation: occupation.trim(),
+          phone: phone.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onSuccess(data);
+        onClose();
+      } else {
+        setErrorMsg(data.message || "Failed to dispatch staff invitation.");
+      }
+    } catch (err) {
+      setErrorMsg("Network error communicating with the staff induction service.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-lg bg-white dark:bg-[#11141c] border border-neutral-200/90 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+        {/* Close Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-5 right-5 p-1.5 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
+        >
+          <CloseIcon className="w-5 h-5" />
+        </button>
+
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-500">
+              <UserPlusIcon className="w-5 h-5" />
+            </span>
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              Staff Induction Workflow
+            </span>
+          </div>
+          <h2 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans">
+            Invite Staff Account
+          </h2>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+            Dispatch a secure one-time activation link to onboard an internal company team member.
+          </p>
+        </div>
+
+        {errorMsg && (
+          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs font-sans">
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Role Selector: Admin vs Architect vs Engineer (NO SUPER ADMIN) */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+              Operational Role <span className="text-amber-500">*</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: "admin", label: "Admin", sub: "Full system authority", icon: ShieldCheckIcon, activeBorder: "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+                { id: "architect", label: "Architect", sub: "Design & floor plans", icon: BuildingIcon, activeBorder: "border-violet-500 bg-violet-500/10 text-violet-700 dark:text-violet-400" },
+                { id: "engineer", label: "Site Engr", sub: "Milestones & site logs", icon: SparklesIcon, activeBorder: "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+              ].map((r) => {
+                const Icon = r.icon;
+                const isSelected = role === r.id;
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setRole(r.id)}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      isSelected
+                        ? r.activeBorder + " shadow-xs font-bold"
+                        : "border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 bg-neutral-50/50 dark:bg-white/[0.02] text-neutral-600 dark:text-neutral-400"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 mb-2 shrink-0" />
+                    <div>
+                      <div className="text-xs">{r.label}</div>
+                      <div className="text-[10px] text-neutral-400 font-normal leading-tight mt-0.5">{r.sub}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Full Name */}
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+              Full Name <span className="text-amber-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Enter staff member's full name"
+              required
+              className="w-full px-3.5 py-2 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/90 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 text-xs font-sans focus:outline-none focus:border-amber-500 transition-all"
+            />
+          </div>
+
+          {/* Email Address */}
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+              Corporate / Personal Email <span className="text-amber-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter official staff email address"
+              required
+              className="w-full px-3.5 py-2 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/90 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 text-xs font-sans focus:outline-none focus:border-amber-500 transition-all"
+            />
+          </div>
+
+          {/* Designation / Title & Phone */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                Designation / Title
+              </label>
+              <input
+                type="text"
+                value={occupation}
+                onChange={(e) => setOccupation(e.target.value)}
+                placeholder="Enter position or title"
+                className="w-full px-3.5 py-2 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/90 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 text-xs font-sans focus:outline-none focus:border-amber-500 transition-all"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                Contact Number
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Enter contact number"
+                className="w-full px-3.5 py-2 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/90 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 text-xs font-sans focus:outline-none focus:border-amber-500 transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Zero-Knowledge Security Notice */}
+          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-neutral-700 dark:text-neutral-300 text-xs space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400">
+              <ShieldCheckIcon className="w-3.5 h-3.5" />
+              <span>Zero-Password Disclosure Protocol</span>
+            </div>
+            <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-normal">
+              You do not need to create or know their password. A cryptographic activation link (valid for 48 hours) will be dispatched directly to their inbox so they can establish their own password privately.
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="pt-2 flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-4 py-2 rounded-xl border border-neutral-300 dark:border-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-semibold hover:border-neutral-400 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" />
+                  <span>Dispatching Invitation…</span>
+                </>
+              ) : (
+                <>
+                  <MailIcon className="w-3.5 h-3.5" />
+                  <span>Send Activation Invitation</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -2705,6 +3118,12 @@ export default function AccountsTab({ clientBriefs = [] }) {
   const [accounts, setAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const [activeDirectory, setActiveDirectory] = useState("clients"); // "clients" | "staff"
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [staffRoleFilter, setStaffRoleFilter] = useState("all"); // "all" | "admin" | "architect" | "engineer" | "pending"
+  const [staffSearchQuery, setStaffSearchQuery] = useState("");
+  const [resendingStaffId, setResendingStaffId] = useState(null);
+  const [staffToast, setStaffToast] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [viewMode, setViewMode] = useState("grid"); // "grid" | "table"
@@ -2896,7 +3315,85 @@ export default function AccountsTab({ clientBriefs = [] }) {
     };
   }, []);
 
-  const filteredAccounts = accounts.filter((acc) => {
+  const clientsList = useMemo(
+    () => accounts.filter((a) => (a.role || "client").toLowerCase() === "client"),
+    [accounts]
+  );
+
+  const staffList = useMemo(
+    () =>
+      accounts.filter((a) =>
+        ["admin", "architect", "engineer"].includes((a.role || "").toLowerCase())
+      ),
+    [accounts]
+  );
+
+  const totalStaffCount = staffList.length;
+  const adminCount = staffList.filter((s) => (s.role || "").toLowerCase() === "admin").length;
+  const architectCount = staffList.filter((s) => (s.role || "").toLowerCase() === "architect").length;
+  const engineerCount = staffList.filter((s) => (s.role || "").toLowerCase() === "engineer").length;
+  const pendingStaffCount = staffList.filter(
+    (s) => s.account_status === "pending" || s.has_pending_invite
+  ).length;
+
+  const filteredStaff = staffList.filter((staff) => {
+    const q = staffSearchQuery.toLowerCase().trim();
+    if (q) {
+      const match =
+        (staff.full_name || "").toLowerCase().includes(q) ||
+        (staff.email || "").toLowerCase().includes(q) ||
+        (staff.phone_number || "").toLowerCase().includes(q) ||
+        (staff.occupation || "").toLowerCase().includes(q) ||
+        (staff.role || "").toLowerCase().includes(q);
+      if (!match) return false;
+    }
+
+    if (staffRoleFilter === "admin") return (staff.role || "").toLowerCase() === "admin";
+    if (staffRoleFilter === "architect") return (staff.role || "").toLowerCase() === "architect";
+    if (staffRoleFilter === "engineer") return (staff.role || "").toLowerCase() === "engineer";
+    if (staffRoleFilter === "pending")
+      return staff.account_status === "pending" || staff.has_pending_invite;
+    return true;
+  });
+
+  const handleResendInvite = async (staff) => {
+    try {
+      setResendingStaffId(staff.user_id);
+      const res = await authFetch("/api/admin/resend-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: staff.user_id, email: staff.email }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setStaffToast({
+          type: "success",
+          title: "Invitation Re-Dispatched",
+          message: `A fresh 48-hour password setup link has been emailed to ${staff.email}.`,
+        });
+        setTimeout(() => setStaffToast(null), 5000);
+        fetchAccounts(true);
+      } else {
+        setStaffToast({
+          type: "error",
+          title: "Failed to Resend",
+          message: data.message || "Could not re-dispatch invitation email.",
+        });
+        setTimeout(() => setStaffToast(null), 5000);
+      }
+    } catch (err) {
+      setStaffToast({
+        type: "error",
+        title: "Connection Error",
+        message: "Failed to communicate with the dispatch server.",
+      });
+      setTimeout(() => setStaffToast(null), 5000);
+    } finally {
+      setResendingStaffId(null);
+    }
+  };
+
+  const filteredAccounts = clientsList.filter((acc) => {
     const q = searchQuery.toLowerCase().trim();
     if (q) {
       const match =
@@ -2915,40 +3412,74 @@ export default function AccountsTab({ clientBriefs = [] }) {
     return true;
   });
 
-  const totalCount = accounts.length;
-  const localCount = accounts.filter((a) => (a.client_type || "").toLowerCase() === "local").length;
-  const ofwCount = accounts.filter((a) => (a.client_type || "").toLowerCase() === "ofw").length;
-  const withInquiriesCount = accounts.filter((a) => parseInt(a.total_inquiries || "0", 10) > 0).length;
+  const totalCount = clientsList.length;
+  const localCount = clientsList.filter((a) => (a.client_type || "").toLowerCase() === "local").length;
+  const ofwCount = clientsList.filter((a) => (a.client_type || "").toLowerCase() === "ofw").length;
+  const withInquiriesCount = clientsList.filter((a) => parseInt(a.total_inquiries || "0", 10) > 0).length;
 
   return (
     <>
       <style>{PAGE_STYLES}</style>
 
       <div className="space-y-6">
-        {/* ── Page Header ──────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.14em] text-amber-600 dark:text-amber-400 font-bold mb-1">
-              <IdCardIcon className="w-3 h-3" />
-              <span>Client Registry</span>
-              <span className="opacity-40">•</span>
-              <span>Accounts Directory</span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
-              Client Accounts Directory
-            </h2>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono mt-0.5">
-              Verified customer identities, biometric KYC records, contact channels &amp; project specifications.
-            </p>
+        {/* ── Top Level Directory Switcher (Clients vs Admin & Staff) ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-1.5 rounded-2xl bg-neutral-100/90 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/[0.08]">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setActiveDirectory("clients")}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeDirectory === "clients"
+                  ? "text-neutral-900 dark:text-white border-b-2 border-amber-500"
+                  : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+              }`}
+            >
+              <UsersIcon className="w-3.5 h-3.5 text-amber-500" />
+              <span>Clients Directory</span>
+              <span className="px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-white/10 text-[10px] font-mono text-neutral-600 dark:text-neutral-300">
+                {clientsList.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveDirectory("staff")}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeDirectory === "staff"
+                  ? "text-neutral-900 dark:text-white border-b-2 border-amber-500"
+                  : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+              }`}
+            >
+              <ShieldCheckIcon className="w-3.5 h-3.5 text-amber-500" />
+              <span>Admin &amp; Staff Roster</span>
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-mono font-bold">
+                {staffList.length}
+              </span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
+            {activeDirectory === "staff" && (
+              <button
+                type="button"
+                onClick={() => setIsInviteModalOpen(true)}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <UserPlusIcon className="w-4 h-4" />
+                <span>+ Invite Staff Account</span>
+              </button>
+            )}
+
             {/* Grid / Table toggle */}
-            <div className="view-toggle-group">
+            <div className="inline-flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setViewMode("grid")}
-                className={`view-toggle-btn ${viewMode === "grid" ? "active" : ""}`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === "grid"
+                    ? "text-neutral-900 dark:text-white border-b-2 border-amber-500"
+                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                }`}
                 title="Card Grid View"
               >
                 <LayoutGridIcon className="w-3.5 h-3.5" />
@@ -2957,7 +3488,11 @@ export default function AccountsTab({ clientBriefs = [] }) {
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
-                className={`view-toggle-btn ${viewMode === "table" ? "active" : ""}`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === "table"
+                    ? "text-neutral-900 dark:text-white border-b-2 border-amber-500"
+                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                }`}
                 title="Table List View"
               >
                 <ListIcon className="w-3.5 h-3.5" />
@@ -2968,7 +3503,7 @@ export default function AccountsTab({ clientBriefs = [] }) {
             <button
               type="button"
               onClick={() => fetchAccounts(false)}
-              className="px-3.5 py-2 rounded-[4px] border border-neutral-300 dark:border-white/10 hover:border-amber-500 text-xs font-mono font-semibold text-neutral-700 dark:text-neutral-300 transition-colors flex items-center gap-1.5 cursor-pointer bg-white dark:bg-transparent"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <RefreshCwIcon className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-amber-500" : ""}`} />
               <span>Refresh</span>
@@ -2976,11 +3511,33 @@ export default function AccountsTab({ clientBriefs = [] }) {
           </div>
         </div>
 
+        {/* ── SECTION 1: CLIENTS DIRECTORY VIEW ── */}
+        {activeDirectory === "clients" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Page Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-neutral-200/80 dark:border-white/[0.06]">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans">
+                    Client Accounts Directory
+                  </h1>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-amber-500/25 text-amber-700 dark:text-amber-400 text-[11px] font-semibold">
+                    <IdCardIcon className="w-3.5 h-3.5" />
+                    Verified KYC Registry
+                  </span>
+                </div>
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-sans mt-1">
+              Verified customer identities, biometric KYC records, contact channels &amp; project specifications.
+            </p>
+          </div>
+
+        </div>
+
         {/* ── Authentication / Connection Notice ────────────────────────── */}
         {fetchError && (
-          <div className="p-3.5 rounded-[6px] bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-sans flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-2">
-              <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-500 text-neutral-950 px-2 py-0.5 rounded font-mono">
+              <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-500 text-neutral-950 px-2 py-0.5 rounded-full">
                 Session Notice
               </span>
               <span>{fetchError}</span>
@@ -2996,7 +3553,7 @@ export default function AccountsTab({ clientBriefs = [] }) {
                 sessionStorage.removeItem("mcpa_admin_user");
                 window.location.reload();
               }}
-              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold transition-all text-center cursor-pointer text-xs shrink-0"
+              className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold transition-all text-center cursor-pointer text-xs shrink-0"
             >
               Log In Again
             </button>
@@ -3004,13 +3561,13 @@ export default function AccountsTab({ clientBriefs = [] }) {
         )}
 
         {/* ── KPI Cards (clickable filters) ─────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
           <KpiCard
             label="Total Clients"
             value={totalCount}
             sub="Registered Users"
-            valueClass="text-neutral-900 dark:text-white"
-            borderClass="border-amber-500"
+            tone="all"
+            icon={UsersIcon}
             onClick={() => setFilterType("all")}
             active={filterType === "all"}
           />
@@ -3018,8 +3575,8 @@ export default function AccountsTab({ clientBriefs = [] }) {
             label="Local Residents"
             value={localCount}
             sub="Bulacan &amp; NCR"
-            valueClass="text-amber-600 dark:text-amber-400"
-            borderClass="border-amber-500"
+            tone="local"
+            icon={MapPinIcon}
             onClick={() => setFilterType("local")}
             active={filterType === "local"}
           />
@@ -3027,8 +3584,8 @@ export default function AccountsTab({ clientBriefs = [] }) {
             label="OFW Clients"
             value={ofwCount}
             sub="Overseas Workers"
-            valueClass="text-blue-600 dark:text-blue-400"
-            borderClass="border-blue-500"
+            tone="ofw"
+            icon={PlaneIcon}
             onClick={() => setFilterType("ofw")}
             active={filterType === "ofw"}
           />
@@ -3036,27 +3593,27 @@ export default function AccountsTab({ clientBriefs = [] }) {
             label="With Inquiries"
             value={withInquiriesCount}
             sub="Active Briefs"
-            valueClass="text-emerald-600 dark:text-emerald-400"
-            borderClass="border-emerald-500"
+            tone="inquiries"
+            icon={ClipboardListIcon}
             onClick={() => setFilterType("inquiries")}
             active={filterType === "inquiries"}
           />
         </div>
 
         {/* ── Search & Filter bar ───────────────────────────────────────── */}
-        <div className="p-3.5 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-[#11141c] border border-neutral-200/80 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
           <div className="relative flex-1 max-w-md">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by client name, email, phone, occupation, or location…"
-              className="w-full pl-9 pr-4 py-2 rounded-[4px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-300 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 text-xs focus:outline-none focus:border-amber-500 transition-colors"
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 text-xs font-sans focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
             />
             <SearchIcon className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono">
+          <div className="flex flex-wrap items-center gap-1.5">
             {[
               { id: "all", label: "All Accounts" },
               { id: "local", label: "Local Clients" },
@@ -3067,10 +3624,10 @@ export default function AccountsTab({ clientBriefs = [] }) {
                 key={f.id}
                 type="button"
                 onClick={() => setFilterType(f.id)}
-                className={`px-3 py-1.5 rounded-[4px] text-[11px] font-mono transition-all cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                   filterType === f.id
-                    ? "bg-amber-500 text-neutral-950 font-bold shadow-sm"
-                    : "bg-neutral-100 dark:bg-white/[0.04] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                    ? "text-amber-600 dark:text-amber-400 font-bold border-b-2 border-amber-500"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
                 }`}
               >
                 {f.label}
@@ -3127,21 +3684,21 @@ export default function AccountsTab({ clientBriefs = [] }) {
           </div>
         ) : (
           /* Structured Table View */
-          <div className="rounded-[8px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 overflow-hidden shadow-sm">
+          <div className="rounded-2xl bg-white dark:bg-[#11141c] border border-neutral-200/90 dark:border-white/[0.08] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.03),0_6px_16px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)]">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono">
-                <thead className="bg-neutral-50 dark:bg-white/[0.02] border-b border-neutral-200 dark:border-white/5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              <table className="w-full text-left text-xs font-sans">
+                <thead className="bg-neutral-50/80 dark:bg-white/[0.02] border-b border-neutral-200/80 dark:border-white/[0.06] text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                   <tr>
-                    <th className="py-3 px-4">Client Identity &amp; KYC</th>
-                    <th className="py-3 px-4">Profession / Company</th>
-                    <th className="py-3 px-4">Contact &amp; Telephony</th>
-                    <th className="py-3 px-4">Location / Territory</th>
-                    <th className="py-3 px-4">Project Target</th>
-                    <th className="py-3 px-4">Briefs</th>
-                    <th className="py-3 px-4">Registered</th>
+                    <th className="py-3.5 px-4">Client Identity &amp; KYC</th>
+                    <th className="py-3.5 px-4">Profession / Company</th>
+                    <th className="py-3.5 px-4">Contact &amp; Telephony</th>
+                    <th className="py-3.5 px-4">Location / Territory</th>
+                    <th className="py-3.5 px-4">Project Target</th>
+                    <th className="py-3.5 px-4">Briefs</th>
+                    <th className="py-3.5 px-4">Registered</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-200 dark:divide-white/5 text-neutral-700 dark:text-neutral-300">
+                <tbody className="divide-y divide-neutral-100 dark:divide-white/[0.04] text-neutral-700 dark:text-neutral-300">
                   {filteredAccounts.map((acc) => {
                     const isOfw = (acc.client_type || "").toLowerCase() === "ofw";
                     const inquiries = parseInt(acc.total_inquiries || "0", 10);
@@ -3159,32 +3716,32 @@ export default function AccountsTab({ clientBriefs = [] }) {
                         }`}
                         onClick={() => setSelectedAccount(acc)}
                       >
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2.5">
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
                             <div className="relative shrink-0">
                               {hasPhoto ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={acc.avatar_url}
                                   alt={acc.full_name}
-                                  className="w-8 h-8 rounded-[4px] object-cover border border-neutral-300 dark:border-neutral-700"
+                                  className="w-9 h-9 rounded-lg object-cover border border-neutral-200/80 dark:border-white/10 shadow-xs"
                                   referrerPolicy="no-referrer"
                                   crossOrigin="anonymous"
                                 />
                               ) : (
                                 <div
-                                  className="w-8 h-8 rounded-[4px] font-bold text-[11px] flex items-center justify-center text-white"
+                                  className="w-9 h-9 rounded-lg font-bold text-xs flex items-center justify-center text-white shadow-xs"
                                   style={{ background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})` }}
                                 >
                                   {initials}
                                 </div>
                               )}
                               {acc.kyc_photo_url ? (
-                                <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border border-white dark:border-neutral-900 flex items-center justify-center" title="Biometric KYC Verified">
+                                <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#11141c] flex items-center justify-center" title="Biometric KYC Verified">
                                   <CheckIcon className="w-2 h-2 text-white stroke-[3]" />
                                 </span>
                               ) : hasPhoto ? (
-                                <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-blue-500 border border-white dark:border-neutral-900 flex items-center justify-center" title="Identity Active">
+                                <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#11141c] flex items-center justify-center" title="Identity Active">
                                   <CheckIcon className="w-2 h-2 text-white stroke-[3]" />
                                 </span>
                               ) : null}
@@ -3192,12 +3749,12 @@ export default function AccountsTab({ clientBriefs = [] }) {
                             <div>
                               <div className="flex items-center gap-1.5">
                                 {isCardFlash && (
-                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-neutral-950 font-bold text-[9px] uppercase font-mono animate-bounce tracking-wider shadow-sm flex items-center gap-1">
+                                  <span className="px-1.5 py-0.5 rounded-full bg-emerald-500 text-neutral-950 font-bold text-[9px] uppercase tracking-wider shadow-xs flex items-center gap-1 animate-pulse">
                                     <span className="w-1.5 h-1.5 rounded-full bg-neutral-950"></span>
                                     <span>LIVE NEW</span>
                                   </span>
                                 )}
-                                <span className="font-bold text-neutral-900 dark:text-white block font-sans text-[13px]">
+                                <span className="font-bold text-neutral-900 dark:text-white block font-sans text-xs">
                                   {acc.full_name || "Client"}
                                 </span>
                                 {(acc.auth_provider || "").toLowerCase() === "google" && (
@@ -3207,12 +3764,12 @@ export default function AccountsTab({ clientBriefs = [] }) {
                                   <span title="Verified Facebook Account"><FacebookIcon className="w-3 h-3 shrink-0" /></span>
                                 )}
                                 {acc.multi_project_requested_at && !acc.is_multi_project_approved && (
-                                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[9px] font-mono font-bold uppercase" title="Multi-project approval requested">
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[9px] font-bold uppercase" title="Multi-project approval requested">
                                     Req
                                   </span>
                                 )}
                                 {acc.is_multi_project_approved && (
-                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-mono font-bold uppercase" title="Multi-project access unlocked">
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-semibold uppercase" title="Multi-project access unlocked">
                                     Multi
                                   </span>
                                 )}
@@ -3231,12 +3788,12 @@ export default function AccountsTab({ clientBriefs = [] }) {
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3.5 px-4">
                           <span className="block text-neutral-900 dark:text-white font-medium truncate max-w-[150px]">
                             {acc.occupation || "—"}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3.5 px-4">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {acc.phone_number ? (
                               <a
@@ -3248,7 +3805,7 @@ export default function AccountsTab({ clientBriefs = [] }) {
                                 {acc.phone_number}
                               </a>
                             ) : (
-                              <span>—</span>
+                              <span className="text-neutral-400">—</span>
                             )}
                             {acc.has_viber_whatsapp && acc.phone_number && (
                               <a
@@ -3257,14 +3814,14 @@ export default function AccountsTab({ clientBriefs = [] }) {
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 title="Open WhatsApp chat"
-                                className="sidebar-viber-pill hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer"
+                                className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer"
                               >
                                 Viber/WA
                               </a>
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3.5 px-4">
                           <div className="flex items-center gap-1.5">
                             {isOfw ? (
                               <PlaneIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
@@ -3289,23 +3846,23 @@ export default function AccountsTab({ clientBriefs = [] }) {
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3.5 px-4">
                           <span className="truncate max-w-[140px] block text-neutral-700 dark:text-neutral-300">
                             {acc.target_project_type || "—"}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3.5 px-4">
                           <span
-                            className={`px-2 py-0.5 rounded-[3px] text-[10px] font-bold ${
+                            className={`whitespace-nowrap text-[11px] font-semibold ${
                               inquiries > 0
-                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                ? "text-amber-700 dark:text-amber-400"
                                 : "text-neutral-400"
                             }`}
                           >
                             {inquiries} Brief{inquiries !== 1 ? "s" : ""}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-neutral-500 text-[11px]">
+                        <td className="py-3.5 px-4 text-neutral-500 text-[11px]">
                           {formatDate(acc.created_at)}
                         </td>
                       </tr>
@@ -3317,6 +3874,306 @@ export default function AccountsTab({ clientBriefs = [] }) {
           </div>
         )}
       </div>
+    )}
+
+        {/* ── SECTION 2: ADMIN & STAFF ROSTER VIEW ──────────────────────── */}
+        {activeDirectory === "staff" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Page Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-neutral-200/80 dark:border-white/[0.06]">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans">
+                    Administrative &amp; Operations Roster
+                  </h1>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-400 text-[11px] font-semibold">
+                    <ShieldCheckIcon className="w-3.5 h-3.5" />
+                    Internal Clearance
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-sans mt-1">
+                  Authorized MCPA administrators, project architects, and site engineers.
+                </p>
+              </div>
+
+            </div>
+
+            {/* Staff KPI Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+              <KpiCard
+                label="Total Staff"
+                value={totalStaffCount}
+                sub="Company Team"
+                tone="all"
+                icon={UsersIcon}
+                onClick={() => setStaffRoleFilter("all")}
+                active={staffRoleFilter === "all"}
+              />
+              <KpiCard
+                label="Administrators"
+                value={adminCount}
+                sub="System Clearance"
+                tone="local"
+                icon={ShieldCheckIcon}
+                onClick={() => setStaffRoleFilter("admin")}
+                active={staffRoleFilter === "admin"}
+              />
+              <KpiCard
+                label="Project Architects"
+                value={architectCount}
+                sub="Design & Plans"
+                tone="ofw"
+                icon={BuildingIcon}
+                onClick={() => setStaffRoleFilter("architect")}
+                active={staffRoleFilter === "architect"}
+              />
+              <KpiCard
+                label="Site Engineers"
+                value={engineerCount}
+                sub="Site Logs & Ops"
+                tone="inquiries"
+                icon={SparklesIcon}
+                onClick={() => setStaffRoleFilter("engineer")}
+                active={staffRoleFilter === "engineer"}
+              />
+            </div>
+
+            {/* Staff Search & Filter Bar */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-[#11141c] border border-neutral-200/80 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+              <div className="relative flex-1 max-w-md">
+                <input
+                  type="text"
+                  value={staffSearchQuery}
+                  onChange={(e) => setStaffSearchQuery(e.target.value)}
+                  placeholder="Search staff by name, email, role, or title…"
+                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 text-xs font-sans focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
+                />
+                <SearchIcon className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { id: "all", label: `All (${totalStaffCount})` },
+                  { id: "admin", label: `Admins (${adminCount})` },
+                  { id: "architect", label: `Architects (${architectCount})` },
+                  { id: "engineer", label: `Site Engineers (${engineerCount})` },
+                  { id: "pending", label: `Pending Setup (${pendingStaffCount})` },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setStaffRoleFilter(f.id)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                      staffRoleFilter === f.id
+                        ? "text-amber-600 dark:text-amber-400 font-bold border-b-2 border-amber-500"
+                        : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Staff Content View */}
+            {isLoading ? (
+              <div className="accounts-state-box">
+                <div className="accounts-spinner" />
+                <p>Loading company staff roster…</p>
+              </div>
+            ) : filteredStaff.length === 0 ? (
+              staffSearchQuery.trim() || staffRoleFilter !== "all" ? (
+                <AdminEmptyState
+                  iconSrc="https://cdn.lordicon.com/msoeawqm.json"
+                  badgeText="Filter Active"
+                  title="No Matching Staff Accounts"
+                  description={`No staff accounts match "${staffSearchQuery || staffRoleFilter}". Try clearing your filters.`}
+                  actionButton={
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStaffSearchQuery("");
+                        setStaffRoleFilter("all");
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/15 text-neutral-800 dark:text-neutral-200 font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      Clear Filters
+                    </button>
+                  }
+                />
+              ) : (
+                <AdminEmptyState
+                  iconSrc="https://cdn.lordicon.com/dxjqoygy.json"
+                  badgeText="Staff Directory"
+                  title="No Staff Accounts Found"
+                  description="Click the button below to invite your first Administrator, Project Architect, or Site Engineer."
+                  actionButton={
+                    <button
+                      type="button"
+                      onClick={() => setIsInviteModalOpen(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-all shadow-xs cursor-pointer"
+                    >
+                      <UserPlusIcon className="w-4 h-4" />
+                      <span>+ Invite Staff Account</span>
+                    </button>
+                  }
+                />
+              )
+            ) : viewMode === "grid" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredStaff.map((staff) => (
+                  <StaffCard
+                    key={staff.user_id}
+                    staff={staff}
+                    onResend={handleResendInvite}
+                    isResending={resendingStaffId === staff.user_id}
+                  />
+                ))}
+              </div>
+            ) : (
+              /* Staff Table View */
+              <div className="rounded-2xl bg-white dark:bg-[#11141c] border border-neutral-200/90 dark:border-white/[0.08] overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-sans">
+                    <thead className="bg-neutral-50/80 dark:bg-white/[0.02] border-b border-neutral-200/80 dark:border-white/[0.06] text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                      <tr>
+                        <th className="py-3.5 px-4">Staff Member &amp; Role</th>
+                        <th className="py-3.5 px-4">Title / Designation</th>
+                        <th className="py-3.5 px-4">Contact Details</th>
+                        <th className="py-3.5 px-4">Status</th>
+                        <th className="py-3.5 px-4">Inducted / Invited</th>
+                        <th className="py-3.5 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100 dark:divide-white/[0.04] text-neutral-700 dark:text-neutral-300">
+                      {filteredStaff.map((staff) => {
+                        const role = (staff.role || "admin").toLowerCase();
+                        const isPending = staff.account_status === "pending" || staff.has_pending_invite;
+                        const initials = getInitials(staff.full_name || staff.email);
+                        const colors = getAvatarGradient(staff.full_name || staff.email);
+
+                        const roleMeta = {
+                          admin: {
+                            label: "Admin",
+                            pill: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
+                            icon: ShieldCheckIcon,
+                          },
+                          architect: {
+                            label: "Architect",
+                            pill: "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30",
+                            icon: BuildingIcon,
+                          },
+                          engineer: {
+                            label: "Site Engr",
+                            pill: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+                            icon: SparklesIcon,
+                          },
+                        }[role] || {
+                          label: "Staff",
+                          pill: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400 border-neutral-500/30",
+                          icon: ShieldCheckIcon,
+                        };
+                        const RoleIcon = roleMeta.icon;
+
+                        return (
+                          <tr key={staff.user_id} className="hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors">
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-3">
+                                {staff.avatar_url && staff.avatar_url.trim().length > 5 ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={staff.avatar_url}
+                                    alt={staff.full_name}
+                                    className="w-9 h-9 rounded-xl object-cover border border-neutral-200/80 dark:border-white/10 shrink-0"
+                                  />
+                                ) : (
+                                  <div
+                                    className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white text-xs shadow-xs shrink-0"
+                                    style={{ background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})` }}
+                                  >
+                                    {initials}
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                                    <span>{staff.full_name || "Unnamed"}</span>
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold ${roleMeta.pill}`}>
+                                      <RoleIcon className="w-3 h-3" />
+                                      <span>{roleMeta.label}</span>
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-neutral-400">{staff.email}</div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="text-neutral-800 dark:text-neutral-200 font-medium">
+                                {staff.occupation || roleMeta.label}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <div className="space-y-0.5 text-[11px]">
+                                <div>
+                                  <a href={`mailto:${staff.email}`} className="text-neutral-600 dark:text-neutral-300 hover:text-amber-500">
+                                    {staff.email}
+                                  </a>
+                                </div>
+                                {staff.phone_number && (
+                                  <div>
+                                    <a href={`tel:${staff.phone_number}`} className="text-neutral-500 hover:text-amber-500">
+                                      {staff.phone_number}
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              {isPending ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] font-semibold">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                                  <span>Pending Activation</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  <span>Active</span>
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-neutral-500 text-[11px]">
+                              {formatDate(staff.created_at)}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right">
+                              {isPending ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleResendInvite(staff)}
+                                  disabled={resendingStaffId === staff.user_id}
+                                  className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500 hover:text-neutral-950 text-amber-700 dark:text-amber-400 font-bold transition-all text-[11px] cursor-pointer inline-flex items-center gap-1 border border-amber-500/25 disabled:opacity-50"
+                                >
+                                  <RefreshCwIcon className={`w-3 h-3 ${resendingStaffId === staff.user_id ? "animate-spin" : ""}`} />
+                                  <span>Resend</span>
+                                </button>
+                              ) : (
+                                <span className="text-[11px] text-neutral-400">Ready</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ── Client Dossier Modal Overlay ─────────────────────────────── */}
       {selectedAccount && (
@@ -3325,6 +4182,61 @@ export default function AccountsTab({ clientBriefs = [] }) {
           clientBriefs={clientBriefs}
           onClose={() => setSelectedAccount(null)}
         />
+      )}
+
+      {/* ── Staff Induction Modal Overlay ────────────────────────────── */}
+      <InviteStaffModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onSuccess={(data) => {
+          setStaffToast({
+            type: "success",
+            title: "Staff Invitation Dispatched",
+            message: data.message || "Invitation email dispatched with 48h password activation link.",
+          });
+          setTimeout(() => setStaffToast(null), 6000);
+          fetchAccounts(true);
+        }}
+      />
+
+      {/* ── Floating Staff Toast Notification ────────────────────────── */}
+      {staffToast && (
+        <aside
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 p-3.5 pr-4 rounded-xl text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300 max-w-sm pointer-events-auto border ${
+            staffToast.type === "error"
+              ? "bg-rose-950/95 border-rose-500/50"
+              : "bg-neutral-950/95 dark:bg-[#10131c]/95 border-amber-500/50"
+          }`}
+        >
+          <div
+            className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+              staffToast.type === "error"
+                ? "bg-rose-500/20 text-rose-400"
+                : "bg-amber-500/20 text-amber-400"
+            }`}
+          >
+            {staffToast.type === "error" ? (
+              <CloseIcon className="w-4 h-4" />
+            ) : (
+              <CheckIcon className="w-4 h-4" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1 text-xs">
+            <div className="font-bold text-neutral-100">{staffToast.title}</div>
+            <div className="text-neutral-400 text-[11px] mt-0.5 leading-snug">
+              {staffToast.message}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStaffToast(null)}
+            className="text-neutral-400 hover:text-white p-1 rounded-md text-xs cursor-pointer ml-1"
+          >
+            ✕
+          </button>
+        </aside>
       )}
 
       {/* ── Floating Real-time Toast Notification (Live Registrations) ─── */}
@@ -3383,10 +4295,10 @@ const PAGE_STYLES = `
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-family: monospace;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: inherit;
   font-weight: 600;
   color: #6b7280;
   cursor: pointer;
@@ -3400,7 +4312,7 @@ const PAGE_STYLES = `
 .view-toggle-btn.active {
   background: #ffffff;
   color: #111827;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 .dark .view-toggle-btn.active {
   background: rgba(255, 255, 255, 0.12);
@@ -3410,13 +4322,13 @@ const PAGE_STYLES = `
 .kpi-summary-box {
   background: #ffffff;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 14px 16px;
+  border-radius: 12px;
+  padding: 16px 18px;
   text-align: left;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   transition: all 0.18s ease;
 }
 .dark .kpi-summary-box {
@@ -3427,7 +4339,7 @@ const PAGE_STYLES = `
   border-color: #d97706;
 }
 .kpi-summary-box.active {
-  border-width: 2px;
+  border-width: 1px;
   border-color: #d97706;
   background: rgba(217, 119, 6, 0.04);
 }
@@ -3435,10 +4347,10 @@ const PAGE_STYLES = `
   background: rgba(217, 119, 6, 0.08);
 }
 .kpi-label {
-  font-size: 10px;
-  font-family: monospace;
+  font-size: 11px;
+  font-family: inherit;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   color: #6b7280;
   font-weight: 600;
 }
@@ -3446,21 +4358,21 @@ const PAGE_STYLES = `
   color: #9ca3af;
 }
 .kpi-value {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   line-height: 1.1;
   font-feature-settings: "tnum";
 }
 .kpi-sub {
-  font-size: 10px;
-  font-family: monospace;
+  font-size: 11px;
+  font-family: inherit;
   color: #9ca3af;
 }
 
 .accounts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  gap: 20px;
 }
 
 .client-directory-card {

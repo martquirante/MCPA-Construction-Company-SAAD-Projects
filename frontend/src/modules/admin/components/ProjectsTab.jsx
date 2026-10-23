@@ -184,40 +184,45 @@ export default function ProjectsTab({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
+      {/* Executive Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-neutral-200/80 dark:border-white/[0.06]">
         <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
-              <FolderKanbanIcon className="w-6 h-6 text-amber-500" />
-              Projects Management ({isLoading && rawProjects.length === 0 ? "..." : `${filteredProjects.length}${filteredProjects.length !== rawProjects.length ? ` of ${rawProjects.length}` : ""}`})
-            </h2>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight font-sans">
+              Projects Showcase &amp; Portfolio
+            </h1>
+            <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-400 text-[11px] font-semibold">
+              {isLoading && rawProjects.length === 0 ? "..." : `${rawProjects.length} Portfolio Projects`}
+            </span>
           </div>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-            Pick up to 6 projects to showcase on the Home Page. The /projects page displays your complete portfolio.
+          <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
+            Curate featured architecture and construction projects displayed on the client-facing website and public portfolio.
           </p>
         </div>
         <button
+          type="button"
           onClick={handleOpenCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-[4px] transition-colors shadow-sm cursor-pointer self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl transition-all shadow-xs hover:shadow-md hover:shadow-amber-500/15 cursor-pointer self-start sm:self-auto"
         >
           <PlusIcon className="w-4 h-4" />
-          Add Project
+          <span>Add Project</span>
         </button>
       </div>
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-        {/* Category Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {/* Category Filter Chips */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           {categories.map((cat) => (
             <button
               key={cat}
+              type="button"
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-[4px] text-xs font-mono uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                 selectedCategory === cat
-                  ? "bg-amber-500 text-neutral-950 font-bold shadow-sm"
-                  : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200 dark:border-white/10"
+                  ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
+                  : "bg-white dark:bg-[#11141c] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-neutral-200/90 dark:border-white/10"
               }`}
             >
               {cat}
@@ -226,7 +231,7 @@ export default function ProjectsTab({
         </div>
 
         {/* Search Input */}
-        <div className="relative min-w-[220px] sm:min-w-[260px]">
+        <div className="relative min-w-[240px] sm:min-w-[280px]">
           <SearchIcon className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
@@ -236,10 +241,11 @@ export default function ProjectsTab({
               if (e.key === "Escape") setSearchQuery("");
             }}
             placeholder="Search projects..."
-            className="w-full pl-8.5 pr-8 py-1.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors"
+            className="w-full pl-8.5 pr-8 py-2 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/90 dark:border-white/10 text-xs font-sans text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery("")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors cursor-pointer"
               aria-label="Clear search"
@@ -251,7 +257,7 @@ export default function ProjectsTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {isLoading && rawProjects.length === 0 ? (
           Array.from({ length: 6 }).map((_, idx) => (
             <ProjectCardSkeleton key={`proj-skel-${idx}`} />
@@ -271,18 +277,20 @@ export default function ProjectsTab({
                 actionButton={
                   otherCategoryMatches.length > 0 ? (
                     <button
+                      type="button"
                       onClick={() => setSelectedCategory("All")}
-                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-mono font-bold rounded-[4px] transition-colors cursor-pointer shadow-sm"
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs"
                     >
                       Show All Categories ({otherCategoryMatches.length})
                     </button>
                   ) : (
                     <button
+                      type="button"
                       onClick={() => {
                         setSearchQuery("");
                         setSelectedCategory("All");
                       }}
-                      className="px-4 py-2 bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold rounded-[4px] transition-colors cursor-pointer"
+                      className="px-4 py-2 bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
                     >
                       Clear Filters
                     </button>
@@ -297,8 +305,9 @@ export default function ProjectsTab({
                 description='No projects in the database yet. Click "Add Project" to create your first portfolio entry.'
                 actionButton={
                   <button
+                    type="button"
                     onClick={handleOpenCreate}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-[4px] transition-colors shadow-sm cursor-pointer"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-colors shadow-xs cursor-pointer"
                   >
                     <PlusIcon className="w-4 h-4" />
                     Add First Project
@@ -313,133 +322,144 @@ export default function ProjectsTab({
             return (
               <div
                 key={projectKey}
-                className="group bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-white/[0.08] rounded-[6px] overflow-hidden shadow-xs hover:border-amber-500/40 transition-colors flex flex-col animate-in fade-in duration-300"
+                className="group bg-white dark:bg-[#11141c] border border-neutral-200/90 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:border-amber-500/40 transition-all duration-200 hover:-translate-y-0.5 flex flex-col"
               >
-              <div
-                className="h-44 w-full bg-neutral-200 dark:bg-neutral-800 cursor-pointer relative overflow-hidden"
-                onClick={() => handleOpenEdit(project)}
-              >
-                {project.images?.[0] ? (
-                  <SafeImage
-                    src={project.images[0]}
-                    alt={project.name || "Project Cover"}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    className="object-cover object-center transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-neutral-400">
-                    <CameraIcon className="w-6 h-6 opacity-40" />
-                  </div>
-                )}
-                <div className="relative z-10 p-3 flex justify-between items-start pointer-events-none *:pointer-events-auto">
-                  <div className="flex flex-col gap-1.5">
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggleVisibility(project, e)}
-                      title="Click to toggle website visibility"
-                      className={`px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md border cursor-pointer transition-colors ${
-                        project.isWebVisible !== false
-                          ? "bg-emerald-500/20 text-emerald-100 border-emerald-500/30"
-                          : "bg-rose-500/20 text-rose-100 border-rose-500/30"
-                      }`}
-                    >
-                      {project.isWebVisible !== false ? "LIVE ON CLIENT WEB" : "HIDDEN"}
-                    </button>
-                    {project.isWebVisible !== false && (
+                {/* Project Image Banner */}
+                <div
+                  className="h-48 sm:h-52 w-full bg-neutral-200 dark:bg-neutral-800 cursor-pointer relative overflow-hidden"
+                  onClick={() => handleOpenEdit(project)}
+                >
+                  {project.images?.[0] ? (
+                    <SafeImage
+                      src={project.images[0]}
+                      alt={project.name || "Project Cover"}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-neutral-400">
+                      <CameraIcon className="w-6 h-6 opacity-40" />
+                    </div>
+                  )}
+
+                  {/* Gradient Vignette Overlays for Crisp Badge Legibility */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40 pointer-events-none" />
+
+                  {/* Top Overlay Badges */}
+                  <div className="relative z-10 p-3 flex justify-between items-start pointer-events-none *:pointer-events-auto">
+                    <div className="flex flex-col gap-1.5">
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onToggleFeatured) {
-                            onToggleFeatured(project.id);
-                          }
-                        }}
-                        title={project.featuredOnHome ? "Featured on Home Page (Click to unfeature)" : "Feature on Home Page (Max 6)"}
-                        className={`px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm backdrop-blur-md border cursor-pointer transition-colors flex items-center gap-1 ${
-                          project.featuredOnHome
-                            ? "bg-amber-500 text-neutral-950 border-amber-400 font-extrabold shadow-sm"
-                            : "bg-black/60 text-white/80 border-white/10 hover:text-white hover:bg-black/80"
+                        onClick={(e) => handleToggleVisibility(project, e)}
+                        title="Click to toggle website visibility"
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider shadow-sm backdrop-blur-md border cursor-pointer transition-colors ${
+                          project.isWebVisible !== false
+                            ? "bg-emerald-500/20 text-emerald-200 border-emerald-500/30"
+                            : "bg-rose-500/20 text-rose-200 border-rose-500/30"
                         }`}
                       >
-                        <span>{project.featuredOnHome ? "★" : "☆"}</span>
-                        <span>{project.featuredOnHome ? "ON HOME (MAX 6)" : "ADD TO HOME"}</span>
+                        {project.isWebVisible !== false ? "LIVE ON CLIENT WEB" : "HIDDEN"}
                       </button>
-                    )}
-                    {project.status && project.status !== "completed" && (
-                      <span className="px-2 py-0.5 rounded-[4px] text-[9px] font-mono font-bold uppercase tracking-wider bg-amber-500/90 text-neutral-950 backdrop-blur-md shadow-sm w-fit">
-                        {project.status === "in_progress" ? "In Progress" : "Planning Phase"}
-                      </span>
-                    )}
+                      {project.isWebVisible !== false && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onToggleFeatured) {
+                              onToggleFeatured(project.id);
+                            }
+                          }}
+                          title={project.featuredOnHome ? "Featured on Home Page (Click to unfeature)" : "Feature on Home Page (Max 6)"}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider shadow-sm backdrop-blur-md border cursor-pointer transition-all flex items-center gap-1 ${
+                            project.featuredOnHome
+                              ? "bg-amber-500 text-neutral-950 border-amber-400 font-extrabold shadow-sm"
+                              : "bg-black/60 text-white/90 border-white/15 hover:text-white hover:bg-black/80"
+                          }`}
+                        >
+                          <span>{project.featuredOnHome ? "★" : "☆"}</span>
+                          <span>{project.featuredOnHome ? "ON HOME (MAX 6)" : "ADD TO HOME"}</span>
+                        </button>
+                      )}
+                      {project.status && project.status !== "completed" && (
+                        <span className="text-amber-700 dark:text-amber-400 text-[9px] font-semibold uppercase tracking-wider w-fit">
+                          {project.status === "in_progress" ? "In Progress" : "Planning Phase"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1.5">
+                      {project.category && (
+                        <span className="text-neutral-600 dark:text-neutral-300 text-[10px] font-semibold uppercase tracking-wider">
+                          {project.category}
+                        </span>
+                      )}
+                      {project.images && project.images.length > 1 && (
+                        <span className="px-2 py-0.5 bg-black/50 backdrop-blur-md text-[10px] font-sans text-white/90 rounded-full border border-white/15 inline-flex items-center gap-1">
+                          <CameraIcon className="w-3 h-3 text-white/80" />
+                          <span>{project.images.length} photos</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  
-                  <div className="flex flex-col items-end gap-1.5">
-                    {project.category && (
-                      <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-mono font-bold uppercase tracking-wider rounded-[4px]">
-                        {project.category}
-                      </span>
-                    )}
-                    {project.images && project.images.length > 1 && (
-                      <span className="px-1.5 py-0.5 bg-black/50 backdrop-blur-md text-[9px] font-mono text-white/90 rounded-[4px] border border-white/10 inline-flex items-center gap-1">
-                        <CameraIcon className="w-3 h-3 text-white/80" />
-                        <span>{project.images.length} photos</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-4 flex flex-col flex-1">
-                <div className="flex justify-between items-start mb-1">
-                  <h3 
-                    className="font-bold text-neutral-900 dark:text-white line-clamp-1 cursor-pointer hover:text-amber-500 transition-colors"
-                    onClick={() => handleOpenEdit(project)}
-                  >
-                    {project.name}
-                  </h3>
                 </div>
 
-                {/* Architectural Specs Preview Tag */}
-                {(project.lotArea || project.floorArea || project.bedrooms) && (
-                  <div className="flex items-center gap-2 mb-2 text-[10px] text-amber-700 dark:text-amber-400 font-mono">
-                    <span className="inline-flex items-center gap-1">
-                      <RulerIcon className="w-3 h-3 text-amber-500 shrink-0" />
-                      <span>{project.lotArea ? `Lot: ${project.lotArea}` : ""}{project.floorArea ? ` · Floor: ${project.floorArea}` : ""}</span>
-                    </span>
-                  </div>
-                )}
-                
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4 line-clamp-2 flex-1">
-                  {project.description}
-                </p>
-                
-                <div className="flex items-center justify-between mt-auto pt-3 border-t border-neutral-100 dark:border-white/5">
-                  <div className="text-[10px] font-mono text-neutral-400">
-                    {project.location} • {project.month ? `${project.month} ` : ""}{project.year}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
+                {/* Card Content Body */}
+                <div className="p-4 sm:p-5 flex flex-col flex-1 space-y-3">
+                  <div>
+                    <h3
+                      className="font-bold text-base text-neutral-900 dark:text-white line-clamp-1 cursor-pointer hover:text-amber-500 transition-colors tracking-tight font-sans"
                       onClick={() => handleOpenEdit(project)}
-                      className="px-2.5 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 hover:text-amber-500 hover:bg-neutral-100 dark:hover:bg-white/5 rounded-[4px] transition-colors cursor-pointer"
                     >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenDeleteProject(project)}
-                      className="p-1.5 text-neutral-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-[4px] transition-colors cursor-pointer"
-                      title="Delete Project"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
+                      {project.name}
+                    </h3>
+
+                    {/* Architectural Specs Preview Tag */}
+                    {(project.lotArea || project.floorArea || project.bedrooms) && (
+                      <div className="flex items-center gap-2 mt-1.5 text-xs text-amber-700 dark:text-amber-400 font-sans">
+                        <span className="inline-flex items-center gap-1">
+                          <RulerIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>
+                            {project.lotArea ? `Lot: ${project.lotArea}` : ""}
+                            {project.lotArea && project.floorArea ? " • " : ""}
+                            {project.floorArea ? `Floor: ${project.floorArea}` : ""}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 flex-1 font-sans leading-relaxed">
+                    {project.description}
+                  </p>
+
+                  <div className="flex items-center justify-between mt-auto pt-3 border-t border-neutral-100 dark:border-white/[0.05]">
+                    <div className="text-xs font-sans text-neutral-400 truncate max-w-[170px]">
+                      {project.location} • {project.month ? `${project.month} ` : ""}{project.year}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(project)}
+                        className="px-3 py-1 text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:text-amber-500 hover:bg-neutral-100 dark:hover:bg-white/[0.06] rounded-lg transition-colors cursor-pointer border border-neutral-200/80 dark:border-white/10"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDeleteProject(project)}
+                        className="p-1.5 text-neutral-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                        title="Delete Project"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })
-      )}
+            );
+          })
+        )}
       </div>
       
       {isEditorOpen && (

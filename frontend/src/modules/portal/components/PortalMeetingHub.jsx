@@ -700,10 +700,10 @@ export default function PortalMeetingHub({
             <CalendarCheck className="w-3.5 h-3.5" />
             <span>Consultation &amp; Meeting Schedule</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-tight text-neutral-900 dark:text-white">
-            Client Appointments Hub
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-neutral-900 dark:text-white">
+            Client Appointment Meeting
           </h1>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 max-w-2xl leading-relaxed">
             Manage your face-to-face appointments and online video engineering sessions
             {(activeProject?.project_code || primaryInquiry?.trackingId) && (
               <>
@@ -764,14 +764,14 @@ export default function PortalMeetingHub({
       </div>
 
       {/* 1.1 VIEW FILTER TABS: All Meetings / Active Schedule / Consultation History */}
-      <div className="flex flex-wrap items-center gap-2 p-1 rounded-xl bg-neutral-100 dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] w-fit shadow-xs">
+      <div className="flex flex-wrap items-center gap-1 border-b border-neutral-200 dark:border-white/10 w-full">
         <button
           type="button"
           onClick={() => setHubTab("all")}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-3.5 py-2.5 text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 border-b-2 ${
             hubTab === "all"
-              ? "bg-white dark:bg-white/10 text-neutral-900 dark:text-white shadow-xs border border-neutral-200/60 dark:border-white/10"
-              : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+              ? "text-neutral-900 dark:text-white border-amber-500"
+              : "text-neutral-500 dark:text-neutral-400 border-transparent hover:text-neutral-900 dark:hover:text-white"
           }`}
         >
           <CalendarCheck className="w-3.5 h-3.5 text-amber-500" />
@@ -781,10 +781,10 @@ export default function PortalMeetingHub({
         <button
           type="button"
           onClick={() => setHubTab("active")}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-3.5 py-2.5 text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 border-b-2 ${
             hubTab === "active"
-              ? "bg-white dark:bg-white/10 text-neutral-900 dark:text-white shadow-xs border border-neutral-200/60 dark:border-white/10"
-              : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+              ? "text-neutral-900 dark:text-white border-amber-500"
+              : "text-neutral-500 dark:text-neutral-400 border-transparent hover:text-neutral-900 dark:hover:text-white"
           }`}
         >
           <Clock className="w-3.5 h-3.5 text-emerald-500" />
@@ -794,10 +794,10 @@ export default function PortalMeetingHub({
         <button
           type="button"
           onClick={() => setHubTab("history")}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-3.5 py-2.5 text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 border-b-2 ${
             hubTab === "history"
-              ? "bg-white dark:bg-white/10 text-neutral-900 dark:text-white shadow-xs border border-neutral-200/60 dark:border-white/10"
-              : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+              ? "text-neutral-900 dark:text-white border-amber-500"
+              : "text-neutral-500 dark:text-neutral-400 border-transparent hover:text-neutral-900 dark:hover:text-white"
           }`}
         >
           <Archive className="w-3.5 h-3.5 text-amber-500" />
@@ -892,16 +892,16 @@ export default function PortalMeetingHub({
             </div>
           </div>
         ) : (
-        <div className="relative overflow-hidden rounded-[12px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 shadow-sm dark:shadow-xl transition-all">
-        <div className="p-6 space-y-6">
+        <div className="relative overflow-hidden rounded-[10px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/10 shadow-sm dark:shadow-xl transition-all">
+        <div className="p-5 sm:p-6 space-y-6">
           {/* Header Row: Mode Pill, Dynamic Status Pill, Scheduled Time */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-100 dark:border-white/5">
             <div className="flex flex-wrap items-center gap-2.5">
               <span
-                className={`px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wide flex items-center gap-1.5 ${
+                className={`text-xs font-mono font-bold uppercase tracking-wide flex items-center gap-1.5 ${
                   isOnlineMode
-                    ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
-                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                    ? "text-sky-600 dark:text-sky-400"
+                    : "text-emerald-600 dark:text-emerald-400"
                 }`}
               >
                 {isOnlineMode ? <Video className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
@@ -910,17 +910,17 @@ export default function PortalMeetingHub({
 
               {/* LIVE ONGOING INDICATOR */}
               {lifecycle.isOngoing ? (
-                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 flex items-center gap-2 animate-pulse">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-2 animate-pulse">
                   <span className="w-2 h-2 rounded-full bg-rose-500 inline-block animate-ping" />
                   <span>ONGOING MEETING SESSION</span>
                 </span>
               ) : lifecycle.isRoomUnlocked ? (
-                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>ROOM READY (LIVE)</span>
                 </span>
               ) : activeMeetingInfo.attendanceConfirmed ? (
-                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                   <Check className="w-3.5 h-3.5" />
                   <span>ATTENDANCE CONFIRMED</span>
                 </span>
@@ -1066,7 +1066,7 @@ export default function PortalMeetingHub({
                     <h4 className="text-sm font-bold text-neutral-900 dark:text-white truncate">
                       {activeMeetingInfo.leadConsultant}
                     </h4>
-                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 uppercase shrink-0">
+                    <span className="text-[9px] font-mono font-bold text-amber-700 dark:text-amber-400 uppercase shrink-0">
                       Admin
                     </span>
                   </div>

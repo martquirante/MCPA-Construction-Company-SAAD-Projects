@@ -217,12 +217,21 @@ class ConstructionController {
     }
   }
 
-  // DELETE PHOTO / VIDEO LOG
+  // DELETE PHOTO / VIDEO LOG (supports single ID or comma-separated batch)
   async deletePhotoLog(req, res) {
     try {
       const { logId } = req.params;
-      await db.query("DELETE FROM site_photo_logs WHERE log_id = $1", [parseInt(logId, 10)]);
-      return res.json({ success: true, message: "Photo log deleted." });
+      const ids = String(logId || "")
+        .split(",")
+        .map((id) => parseInt(id.trim(), 10))
+        .filter((n) => !isNaN(n));
+
+      if (ids.length === 0) {
+        return res.status(400).json({ message: "Invalid logId provided." });
+      }
+
+      await db.query("DELETE FROM site_photo_logs WHERE log_id = ANY($1::int[])", [ids]);
+      return res.json({ success: true, message: `${ids.length} photo log(s) deleted.` });
     } catch (err) {
       console.error("[ConstructionController.deletePhotoLog] Error:", err);
       return res.status(500).json({ message: "Failed to delete photo log: " + err.message });
@@ -434,7 +443,22 @@ class ConstructionController {
           sp.virtual_tour_urls,
           sp.contract_date,
           sp.original_turnover,
-          sp.revised_turnover
+          sp.revised_turnover,
+          COALESCE((
+            SELECT json_agg(
+              json_build_object(
+                'milestone_id', sm.milestone_id,
+                'phase_code', sm.phase_code,
+                'phase_name', sm.phase_name,
+                'completion_pct', COALESCE(sm.completion_pct, 0),
+                'status', sm.status,
+                'weight', sm.weight
+              )
+              ORDER BY sm.phase_code ASC
+            )
+            FROM public.site_milestones sm
+            WHERE sm.project_code = cp.project_code
+          ), '[]'::json) AS milestones
         FROM public.client_projects cp
         LEFT JOIN public.users u ON cp.user_id = u.user_id
         LEFT JOIN public.site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id OR sp.project_code = cp.site_project_code

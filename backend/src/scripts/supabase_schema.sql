@@ -19,10 +19,14 @@ CREATE TABLE IF NOT EXISTS public.users (
   failed_login_attempts INT DEFAULT 0,
   lockout_enabled BOOLEAN DEFAULT FALSE,
   lockout_end TIMESTAMP WITH TIME ZONE NULL,
+  invite_token VARCHAR(255) NULL,
+  invite_expires_at TIMESTAMP WITH TIME ZONE NULL,
+  account_status VARCHAR(50) DEFAULT 'active',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
+CREATE INDEX IF NOT EXISTS idx_users_invite_token ON public.users(invite_token);
 
 -- -----------------------------------------------------------------------------
 -- 2. OTP_CODES TABLE (Two-Factor Authentication & Password Reset)

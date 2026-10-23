@@ -1551,7 +1551,7 @@ export default function InquiryPipelineTab({
                               <h4 className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">
                                 {selectedBrief.clientName}
                               </h4>
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold tracking-wide uppercase bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                              <span className="text-[10px] font-mono font-semibold tracking-wide uppercase text-neutral-600 dark:text-neutral-300">
                                 {selectedBrief.locationType === "OFW" ? "OFW Priority Client" : "Domestic Homeowner"}
                               </span>
                             </div>
@@ -1674,32 +1674,32 @@ export default function InquiryPipelineTab({
                           {addr && (
                             <div className="flex flex-wrap gap-1.5 mt-2.5">
                               {addr.province && (
-                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                <span className="text-[10px] font-mono text-neutral-600 dark:text-neutral-300">
                                   Prov: <strong>{addr.province}</strong>
                                 </span>
                               )}
                               {addr.city && (
-                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                <span className="text-[10px] font-mono text-neutral-600 dark:text-neutral-300">
                                   City: <strong>{addr.city}</strong>
                                 </span>
                               )}
                               {addr.barangay && (
-                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                <span className="text-[10px] font-mono text-neutral-600 dark:text-neutral-300">
                                   Brgy: <strong>{addr.barangay}</strong>
                                 </span>
                               )}
                               {addr.subdivision && (
-                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                <span className="text-[10px] font-mono text-neutral-600 dark:text-neutral-300">
                                   Subd: <strong>{addr.subdivision}</strong>
                                 </span>
                               )}
                               {addr.street && (
-                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                <span className="text-[10px] font-mono text-neutral-600 dark:text-neutral-300">
                                   Street: <strong>{addr.street}</strong>
                                 </span>
                               )}
                               {(addr.blkLot || addr.houseNo) && (
-                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-[10px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/5">
+                                <span className="text-[10px] font-mono text-neutral-600 dark:text-neutral-300">
                                   Unit: <strong>{[addr.blkLot && `Blk ${addr.blkLot}`, addr.houseNo && `No. ${addr.houseNo}`].filter(Boolean).join(", ")}</strong>
                                 </span>
                               )}
@@ -1772,7 +1772,7 @@ export default function InquiryPipelineTab({
                                 {spatial.featureTags.map((tag) => (
                                   <span
                                     key={tag}
-                                    className="px-2.5 py-1 rounded-md bg-neutral-100 dark:bg-white/5 text-neutral-700 dark:text-neutral-300 text-xs font-medium capitalize"
+                                    className="text-neutral-700 dark:text-neutral-300 text-xs font-medium capitalize"
                                   >
                                     {tag.replace(/[_-]/g, " ")}
                                   </span>

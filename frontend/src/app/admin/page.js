@@ -20,6 +20,7 @@ import BillingLedgerTab from "@/modules/admin/components/BillingLedgerTab";
 import WarrantyTicketsTab from "@/modules/admin/components/WarrantyTicketsTab";
 import AdminIncomingCallManager from "@/modules/admin/components/AdminIncomingCallManager";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
+import AdminNotificationCenter from "@/modules/admin/components/AdminNotificationCenter";
 import { useAuthoritativeClock } from "@/modules/admin/hooks/useAuthoritativeClock";
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
 import {
@@ -94,6 +95,51 @@ export function resolveAdminAvatar(user) {
   }
 
   return null;
+}
+
+export const TAB_ROLE_PERMISSIONS = {
+  dashboard: ["admin", "super_admin", "architect", "engineer"],
+  blueprints: ["admin", "super_admin", "architect", "engineer"],
+  meetings: ["admin", "super_admin", "architect", "engineer"],
+  documents: ["admin", "super_admin", "architect", "engineer"],
+  quotations: ["admin", "super_admin", "architect"],
+  projects: ["admin", "super_admin", "architect"],
+  "site-progress": ["admin", "super_admin", "engineer"],
+  delays: ["admin", "super_admin", "engineer"],
+  groundbreaking: ["admin", "super_admin", "engineer"],
+  warranty: ["admin", "super_admin", "engineer"],
+  briefs: ["admin", "super_admin"],
+  billing: ["admin", "super_admin"],
+  accounts: ["admin", "super_admin"],
+};
+
+export function getRoleBadgeMeta(role) {
+  const r = (role || "").toLowerCase().trim();
+  if (r === "architect") {
+    return {
+      title: "PROJECT ARCHITECT",
+      badgeClass: "text-violet-700 dark:text-violet-300 bg-violet-500/10 border-violet-500/30",
+      consoleTitle: "Architectural Planning & Design",
+      defaultTab: "blueprints",
+      baseTabs: ["dashboard", "blueprints", "meetings", "documents"],
+    };
+  }
+  if (r === "engineer") {
+    return {
+      title: "SITE ENGINEER",
+      badgeClass: "text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/30",
+      consoleTitle: "Site Engineering & Execution",
+      defaultTab: "site-progress",
+      baseTabs: ["dashboard", "site-progress", "meetings", "blueprints"],
+    };
+  }
+  return {
+    title: "ADMINISTRATOR",
+    badgeClass: "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/30",
+    consoleTitle: "Executive Administration",
+    defaultTab: "dashboard",
+    baseTabs: ["dashboard", "briefs", "meetings", "documents"],
+  };
 }
 
 function AdminAvatar({ user, sizeClasses = "w-8 h-8", textClasses = "text-xs" }) {
@@ -220,12 +266,14 @@ export default function AdminPage() {
   const [siteExpenses, setSiteExpenses] = useState([]);
   const [activeDbProvider, setActiveDbProvider] = useState("cloud");
 
-  // Document requests badge counter
+  // Document requests badge counter & list
   const [pendingDocsCount, setPendingDocsCount] = useState(0);
+  const [documentRequestsList, setDocumentRequestsList] = useState([]);
   useEffect(() => {
     const checkRequests = () => {
       try {
         const reqs = loadDocumentRequests();
+        setDocumentRequestsList(reqs);
         const pendingOrUploaded = reqs.filter((r) => r.status === "uploaded" || r.status === "pending").length;
         setPendingDocsCount(pendingOrUploaded);
       } catch (e) {}
@@ -279,6 +327,292 @@ export default function AdminPage() {
     window.addEventListener("mcpa-contract-updated", fetchPendingContracts);
     return () => window.removeEventListener("mcpa-contract-updated", fetchPendingContracts);
   }, []);
+
+  // Notification Center flyout & read state tracking (Declared unconditionally at top of AdminPage)
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+  const [readNotificationIds, setReadNotificationIds] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("mcpa_admin_read_notification_ids");
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const markNotificationAsRead = useCallback((notifId) => {
+    if (!notifId) return;
+    setReadNotificationIds((prev) => {
+      if (prev.includes(notifId)) return prev;
+      const next = [...prev, notifId];
+      try {
+        localStorage.setItem("mcpa_admin_read_notification_ids", JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  }, []);
+
+  // Aggregated real-time admin notifications across all MCPA construction stages
+  const adminNotifications = useMemo(() => {
+    const notifs = [];
+
+    // Helper to resolve client avatar across clientBriefs and known client directories
+    const resolveClientAvatarForNotif = (clientName, clientEmail, projectCode) => {
+      const nameClean = (clientName || "").toLowerCase().trim();
+      const emailClean = (clientEmail || "").toLowerCase().trim();
+      const codeClean = (projectCode || "").trim();
+
+      // Look in clientBriefs
+      const matchingBrief = (clientBriefs || []).find((b) => {
+        const bName = (b.clientName || b.client_name || "").toLowerCase().trim();
+        const bEmail = (b.clientEmail || b.client_email || "").toLowerCase().trim();
+        const bCode = (b.trackingId || b.submissionId || b.projectCode || "").trim();
+        return (emailClean && bEmail === emailClean) ||
+               (nameClean && bName === nameClean) ||
+               (codeClean && bCode === codeClean);
+      });
+
+      if (matchingBrief) {
+        const av = matchingBrief.avatarUrl || matchingBrief.avatar_url;
+        if (av && typeof av === "string" && av.trim() && av !== "null" && av !== "undefined") {
+          return av.trim();
+        }
+      }
+
+      // Special known profiles (Engr. Raymart Quirante / Mart Quirante)
+      if (
+        nameClean.includes("raymart") ||
+        nameClean.includes("quirante") ||
+        emailClean.includes("rayquirante") ||
+        emailClean.includes("martquirante")
+      ) {
+        return "https://lh3.googleusercontent.com/a/ACg8ocJSgjDxI6dd7r0yDQrkxJS9ussu_06e7avpCYzWzPxcaJkkFRMr=s96-c";
+      }
+
+      return null;
+    };
+
+    // 1. Rescheduled Meetings & Adjustments
+    (clientBriefs || []).forEach((b) => {
+      const isRescheduled = Boolean(
+        b.isRescheduled ||
+        b.updatedByClient ||
+        b.rescheduleReason ||
+        (b.status === "Meeting Scheduled" && b.isRescheduled)
+      );
+      if (isRescheduled) {
+        const notifId = `reschedule-${b.id || b.submissionId || b.trackingId}`;
+        const resolvedAvatar = b.avatarUrl || b.avatar_url || resolveClientAvatarForNotif(b.clientName || b.client_name, b.clientEmail || b.client_email, b.trackingId || b.submissionId);
+        notifs.push({
+          id: notifId,
+          category: "reschedule",
+          title: "Client Reschedule Request",
+          description: `${b.clientName || b.client_name || "Client"} requested to adjust consultation schedule to ${b.meetingDate || b.meeting_date || "New Date"} at ${b.meetingTime || b.meeting_time || "New Time"} (${b.rescheduleReason || "Client Adjustment"}).`,
+          clientName: b.clientName || b.client_name || "Valued Client",
+          clientAvatar: resolvedAvatar,
+          projectCode: b.trackingId || b.submissionId || b.projectCode,
+          timestamp: b.updated_at || b.rescheduled_at || b.created_at || Date.now(),
+          targetTab: "meetings",
+          isRead: readNotificationIds.includes(notifId),
+        });
+      }
+    });
+
+    // 2. New Inquiries Received (Unread / Pending Review)
+    (clientBriefs || []).forEach((b) => {
+      const notifId = `inquiry-${b.id || b.submissionId || b.trackingId}`;
+      const isRead =
+        readInquiryIds.includes(b.id) ||
+        readInquiryIds.includes(b.submissionId) ||
+        readInquiryIds.includes(b.trackingId) ||
+        b.is_read === true ||
+        b.isRead === true ||
+        readNotificationIds.includes(notifId);
+      
+      const s = (b.status || "").toLowerCase();
+      const isTerminated = s.includes("reject") || s.includes("decline") || s.includes("closed") || s.includes("archive");
+
+      if (!isTerminated) {
+        const resolvedAvatar = b.avatarUrl || b.avatar_url || resolveClientAvatarForNotif(b.clientName || b.client_name, b.clientEmail || b.client_email, b.trackingId || b.submissionId);
+        notifs.push({
+          id: notifId,
+          category: "inquiry",
+          title: "New Project Inquiry",
+          description: `${b.clientName || b.client_name || "Client"} submitted inquiry for ${b.projectType || b.project_type || "Construction Project"} in ${b.location || "Mindanao"} (Budget: ${b.budgetRange || b.budget_range || "Flexible"}).`,
+          clientName: b.clientName || b.client_name || "Valued Client",
+          clientAvatar: resolvedAvatar,
+          projectCode: b.trackingId || b.submissionId || b.projectCode,
+          timestamp: b.created_at || Date.now(),
+          targetTab: "briefs",
+          isRead,
+        });
+      }
+    });
+
+    // 3. Document Uploads from Clients
+    (documentRequestsList || []).forEach((r) => {
+      if (r.status === "uploaded" || r.status === "pending") {
+        const notifId = `doc-${r.id || r.requestId}`;
+        const resolvedAvatar = r.clientAvatar || r.client_avatar || resolveClientAvatarForNotif(r.clientName, r.clientEmail, r.projectCode);
+        notifs.push({
+          id: notifId,
+          category: "document",
+          title: "Document Uploaded by Client",
+          description: `${r.clientName || "Client"} uploaded ${r.title || "Required Document"} for engineering setback and boundary verification.`,
+          clientName: r.clientName || "Valued Client",
+          clientAvatar: resolvedAvatar,
+          projectCode: r.projectCode || "MCPA-CLIENT",
+          timestamp: r.uploadedAt || r.updatedAt || r.createdAt || Date.now(),
+          targetTab: "documents",
+          isRead: readNotificationIds.includes(notifId),
+        });
+      }
+    });
+
+    // 4. Milestone Billing Proof-of-Payments
+    (billingLedger || []).forEach((bill) => {
+      if (bill.status === "Pending") {
+        const notifId = `bill-${bill.id || bill.invoice_no}`;
+        const resolvedAvatar = resolveClientAvatarForNotif(bill.client_name, bill.client_email, bill.project_code);
+        notifs.push({
+          id: notifId,
+          category: "billing",
+          title: "Milestone Payment Uploaded",
+          description: `Proof of payment submitted for milestone ${bill.milestone_name || bill.invoice_no || "Billing"} (Amount: ₱${Number(bill.amount || 0).toLocaleString()}). Pending admin verification.`,
+          clientName: bill.client_name || "Property Owner",
+          clientAvatar: resolvedAvatar,
+          projectCode: bill.project_code || "MCPA-BUILD",
+          timestamp: bill.updated_at || bill.created_at || Date.now(),
+          targetTab: "billing",
+          isRead: readNotificationIds.includes(notifId),
+        });
+      }
+    });
+
+    // 5. Signed Contracts Awaiting Countersignature
+    if (pendingContractsCount > 0) {
+      const notifId = "contract-pending-countersign";
+      notifs.push({
+        id: notifId,
+        category: "contract",
+        title: "Client Signed Construction Contract",
+        description: `${pendingContractsCount} project contract(s) digitally executed by client — awaiting contractor countersignature & groundbreaking scheduling.`,
+        clientName: "Contracts Queue",
+        clientAvatar: null,
+        projectCode: "MCPA-CONTRACTS",
+        timestamp: Date.now() - 3600000,
+        targetTab: "groundbreaking",
+        isRead: readNotificationIds.includes(notifId),
+      });
+    }
+
+    // 6. Pending Quotation Requests
+    if (pendingQuotationsCount > 0) {
+      const notifId = "quotation-pending-req";
+      notifs.push({
+        id: notifId,
+        category: "quotation",
+        title: "Quotation / Cost Estimate Requested",
+        description: `${pendingQuotationsCount} quotation request(s) awaiting BOQ calculation and publishing to client portal.`,
+        clientName: "Estimating Queue",
+        clientAvatar: null,
+        projectCode: "MCPA-ESTIMATING",
+        timestamp: Date.now() - 7200000,
+        targetTab: "quotations",
+        isRead: readNotificationIds.includes(notifId),
+      });
+    }
+
+    // 7. Active Site Delay Events
+    (delayEvents || []).forEach((d) => {
+      const notifId = `delay-${d.id || d.event_id || Math.random()}`;
+      notifs.push({
+        id: notifId,
+        category: "delay",
+        title: "Site Delay Event Logged",
+        description: `${d.reason || d.title || "Weather / site progress disruption"} recorded. Adjustments required on timeline.`,
+        clientName: "Site Engineer",
+        clientAvatar: null,
+        projectCode: d.project_code || "MCPA-SITE",
+        timestamp: d.logged_at || d.created_at || Date.now(),
+        targetTab: "delays",
+        isRead: readNotificationIds.includes(notifId),
+      });
+    });
+
+    // 8. Warranty & Punchlist Tickets
+    (warrantyTickets || []).forEach((w) => {
+      if ((w.status || "").toLowerCase() !== "resolved") {
+        const notifId = `warranty-${w.id || w.ticket_id}`;
+        notifs.push({
+          id: notifId,
+          category: "warranty",
+          title: "Warranty Service Ticket Filed",
+          description: `Homeowner reported: ${w.issue || w.title || "Post-handover service item"} (${w.priority || "Standard"} Priority).`,
+          clientName: w.client_name || "Homeowner",
+          clientAvatar: resolveClientAvatarForNotif(w.client_name, w.client_email, w.project_code),
+          projectCode: w.project_code || "MCPA-SERVICE",
+          timestamp: w.created_at || Date.now(),
+          targetTab: "warranty",
+          isRead: readNotificationIds.includes(notifId),
+        });
+      }
+    });
+
+    // Sort: Unread first, then newest timestamp
+    return notifs.sort((a, b) => {
+      if (!a.isRead && b.isRead) return -1;
+      if (a.isRead && !b.isRead) return 1;
+      const timeA = typeof a.timestamp === "string" ? new Date(a.timestamp).getTime() : Number(a.timestamp);
+      const timeB = typeof b.timestamp === "string" ? new Date(b.timestamp).getTime() : Number(b.timestamp);
+      return (timeB || 0) - (timeA || 0);
+    });
+  }, [
+    clientBriefs,
+    documentRequestsList,
+    billingLedger,
+    warrantyTickets,
+    delayEvents,
+    pendingContractsCount,
+    pendingQuotationsCount,
+    readNotificationIds,
+    readInquiryIds,
+  ]);
+
+  // Role-filtered notifications based on authenticated staff role
+  const filteredAdminNotifications = useMemo(() => {
+    const role = (currentUser?.role || "admin").toLowerCase().trim();
+    if (role === "admin" || role === "super_admin") return adminNotifications;
+    return adminNotifications.filter((n) => {
+      const allowed = TAB_ROLE_PERMISSIONS[n.targetTab] || ["admin", "super_admin"];
+      return allowed.includes(role);
+    });
+  }, [adminNotifications, currentUser]);
+
+  const unreadNotificationCount = useMemo(() => {
+    return filteredAdminNotifications.filter((n) => !n.isRead).length;
+  }, [filteredAdminNotifications]);
+
+  const markAllNotificationsAsRead = useCallback(() => {
+    const allIds = filteredAdminNotifications.map((n) => n.id);
+    setReadNotificationIds(allIds);
+    try {
+      localStorage.setItem("mcpa_admin_read_notification_ids", JSON.stringify(allIds));
+    } catch (e) {}
+  }, [filteredAdminNotifications]);
+
+  const handleSelectNotification = useCallback((notif) => {
+    if (notif.id) {
+      markNotificationAsRead(notif.id);
+    }
+    setIsNotificationCenterOpen(false);
+    setIsMobileSidebarOpen(false);
+    if (notif.targetTab) {
+      setActiveTab(notif.targetTab);
+    }
+  }, [markNotificationAsRead]);
 
   const toggleSidebarCollapse = () => {
     setIsSidebarCollapsed((prev) => {
@@ -687,6 +1021,20 @@ export default function AdminPage() {
     };
   }, []);
 
+  // Active Tab Role Guard: ensure user is never stranded on an unauthorized tab (unconditional top-level hook)
+  useEffect(() => {
+    if (!currentUser) return;
+    const role = (currentUser.role || "admin").toLowerCase().trim();
+    const allowedForRole = Object.entries(TAB_ROLE_PERMISSIONS)
+      .filter(([_, roles]) => roles.includes(role) || (roles.includes("admin") && (role === "admin" || role === "super_admin")))
+      .map(([tabId]) => tabId);
+
+    if (allowedForRole.length > 0 && !allowedForRole.includes(activeTab)) {
+      const fallback = role === "architect" ? "blueprints" : role === "engineer" ? "site-progress" : "dashboard";
+      setActiveTab(allowedForRole.includes(fallback) ? fallback : allowedForRole[0]);
+    }
+  }, [currentUser, activeTab]);
+
   const handleToggleTheme = () => {
     const next = currentThemeMode === "dark" ? "light" : "dark";
     setThemePreference(next);
@@ -726,8 +1074,10 @@ export default function AdminPage() {
       }
 
       if (res.ok && data.success) {
-        if (data.user && (data.user.role || "").toLowerCase() !== "admin" && (data.user.role || "").toLowerCase() !== "super_admin") {
-          setAuthError("Access Denied: Administrative privileges required. Client accounts must log in via /portal.");
+        const allowedRoles = ["admin", "super_admin", "architect", "engineer"];
+        const userRole = (data.user?.role || "").toLowerCase();
+        if (data.user && !allowedRoles.includes(userRole)) {
+          setAuthError("Access Denied: Staff privileges required. Client accounts must log in via /portal.");
           setIsLoggingIn(false);
           return;
         }
@@ -744,7 +1094,7 @@ export default function AdminPage() {
           : {
               name: emailInput.trim() ? emailInput.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : "MCPA Administrator",
               email: emailInput.trim() || "admin@mcpa.com",
-              role: "SUPER ADMIN",
+              role: "ADMIN",
             };
 
         setCurrentUser(loggedUser);
@@ -1285,13 +1635,25 @@ export default function AdminPage() {
 
   const handleDeletePhoto = async (logId) => {
     try {
-      const res = await authFetch(`/api/construction/photos/${logId}`, {
+      const idsToDelete = Array.isArray(logId)
+        ? logId.map((id) => Number(id)).filter((n) => !isNaN(n))
+        : String(logId || "")
+            .split(",")
+            .map((id) => Number(id.trim()))
+            .filter((n) => !isNaN(n));
+
+      const param = idsToDelete.join(",");
+      const res = await authFetch(`/api/construction/photos/${param}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (data.success) {
-        setSitePhotos((prev) => prev.filter((p) => p.log_id !== logId));
-        showToast?.("Site update record deleted.");
+        setSitePhotos((prev) => prev.filter((p) => !idsToDelete.includes(Number(p.log_id))));
+        showToast?.(
+          idsToDelete.length > 1
+            ? `${idsToDelete.length} site media records deleted.`
+            : "Site update record deleted."
+        );
       }
     } catch (e) {
       console.warn("Could not delete photo from backend:", e);
@@ -1467,7 +1829,7 @@ export default function AdminPage() {
                   type="email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="admin@mcpa.com"
+                  placeholder="Enter staff email address"
                   autoComplete="off"
                   required
                   className="w-full pl-9 pr-4 py-2.5 rounded-[4px] bg-neutral-50 dark:bg-[#0c0e14] border border-neutral-300 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono text-xs transition-colors"
@@ -1636,12 +1998,19 @@ export default function AdminPage() {
   const pendingBillsCount = (billingLedger || []).filter((b) => b.status === "Pending").length;
   const activeWarrantyCount = (warrantyTickets || []).filter((w) => (w.status || "").toLowerCase() !== "resolved").length;
 
+
   const navSections = [
     {
       title: "Overview & Website",
       stageBadge: null,
       items: [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
+        {
+          id: "meetings",
+          label: "Meetings",
+          icon: CalendarIcon,
+          badge: meetingsCount > 0 ? meetingsCount : undefined,
+        },
         { id: "projects", label: "Projects Showcase", icon: FolderKanbanIcon },
         { id: "accounts", label: "Accounts & Roles", icon: UserIcon },
       ],
@@ -1662,12 +2031,6 @@ export default function AdminPage() {
       title: "Stage 2: Consultation & Planning",
       stageBadge: "Stage 2",
       items: [
-        {
-          id: "meetings",
-          label: "Meetings & Video Hub",
-          icon: CalendarIcon,
-          badge: meetingsCount > 0 ? meetingsCount : undefined,
-        },
         { id: "blueprints", label: "Blueprints & Plans", icon: LayersIcon },
         {
           id: "quotations",
@@ -1727,9 +2090,29 @@ export default function AdminPage() {
     },
   ];
 
-  const navItems = navSections.flatMap((s) => s.items);
+  // RBAC: Dynamically filter sidebar sections and tabs based on authenticated staff role
+  const userRole = (currentUser?.role || "admin").toLowerCase().trim();
+  const roleMeta = getRoleBadgeMeta(userRole);
 
-  const currentTabInfo = navItems.find((n) => n.id === activeTab) || navItems[0];
+  const visibleNavSections = navSections
+    .map((section) => {
+      const allowedItems = section.items.filter((item) => {
+        const perms = TAB_ROLE_PERMISSIONS[item.id] || ["admin", "super_admin"];
+        return (
+          perms.includes(userRole) ||
+          (perms.includes("admin") && (userRole === "admin" || userRole === "super_admin"))
+        );
+      });
+      return {
+        ...section,
+        items: allowedItems,
+      };
+    })
+    .filter((section) => section.items.length > 0);
+
+  const navItems = visibleNavSections.flatMap((s) => s.items);
+
+  const currentTabInfo = navItems.find((n) => n.id === activeTab) || navItems[0] || { id: "dashboard", label: "Dashboard" };
 
   return (
     <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex font-sans transition-colors duration-300">
@@ -1884,7 +2267,7 @@ export default function AdminPage() {
             isSidebarCollapsed ? "lg:p-2 space-y-2" : "lg:p-2.5"
           }`}
         >
-          {navSections.map((section, sIdx) => (
+          {visibleNavSections.map((section, sIdx) => (
             <div key={section.title || sIdx} className="space-y-1">
               {/* Section Header with Centered Straight-Line Divider */}
               {/* Desktop Collapsed View: compact 24px hairline divider */}
@@ -2033,9 +2416,9 @@ export default function AdminPage() {
                 <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                   {currentUser?.fullName || currentUser?.name || "Raymart Quirante"}
                 </p>
-                <div className="flex items-center">
-                  <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                    {currentUser?.role || "SUPER ADMIN"}
+                <div className="flex items-center mt-0.5">
+                  <span className={`text-[9.5px] font-mono px-1.5 py-0.5 rounded-[3px] border uppercase font-bold tracking-wider ${roleMeta.badgeClass}`}>
+                    {roleMeta.title}
                   </span>
                 </div>
               </div>
@@ -2115,9 +2498,9 @@ export default function AdminPage() {
                     <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                       {currentUser?.fullName || currentUser?.name || "Raymart Quirante"}
                     </p>
-                    <div className="flex items-center">
-                      <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                        {currentUser?.role || "SUPER ADMIN"}
+                    <div className="flex items-center mt-0.5">
+                      <span className={`text-[9.5px] font-mono px-1.5 py-0.5 rounded-[3px] border uppercase font-bold tracking-wider ${roleMeta.badgeClass}`}>
+                        {roleMeta.title}
                       </span>
                     </div>
                   </div>
@@ -2196,6 +2579,17 @@ export default function AdminPage() {
             >
               {isSidebarCollapsed ? <ChevronRightIcon className="w-4 h-4" /> : <ChevronLeftIcon className="w-4 h-4" />}
             </button>
+
+            {/* Desktop Console Workspace & Tab Breadcrumb */}
+            <div className="hidden lg:flex items-center gap-2 select-none">
+              <span className="text-xs font-mono font-semibold text-neutral-500 dark:text-neutral-400">
+                {roleMeta.consoleTitle}
+              </span>
+              <span className="text-neutral-300 dark:text-neutral-700 text-xs">/</span>
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                {currentTabInfo.label}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -2224,17 +2618,39 @@ export default function AdminPage() {
             {/* Subtle hairline separator */}
             <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-800 hidden sm:block" />
 
-            {/* Notification Bell */}
-            <button
-              onClick={() => {
-                setActiveTab("briefs");
-                setIsMobileSidebarOpen(false);
-              }}
-              title="View Inquiries"
-              className="relative p-1.5 rounded-[4px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-            >
-              <BellIcon className="w-4 h-4" />
-            </button>
+            {/* Notification Bell Container with Flyout & Mobile Bottom Sheet */}
+            <div className="relative">
+              <button
+                id="admin-notification-bell-btn"
+                type="button"
+                onClick={() => setIsNotificationCenterOpen((prev) => !prev)}
+                title="Notifications & Activity Center"
+                className={`relative p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer ${
+                  isNotificationCenterOpen
+                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 active:scale-95"
+                }`}
+                aria-expanded={isNotificationCenterOpen}
+                aria-haspopup="true"
+                aria-label="Toggle notifications menu"
+              >
+                <BellIcon className="w-4 h-4" />
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-amber-500 text-neutral-950 font-mono text-[10px] font-bold flex items-center justify-center shadow-xs ring-2 ring-white dark:ring-[#101218]">
+                    {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                  </span>
+                )}
+              </button>
+
+              <AdminNotificationCenter
+                isOpen={isNotificationCenterOpen}
+                onClose={() => setIsNotificationCenterOpen(false)}
+                notifications={filteredAdminNotifications}
+                onSelectNotification={handleSelectNotification}
+                onMarkAllAsRead={markAllNotificationsAsRead}
+                onMarkAsRead={markNotificationAsRead}
+              />
+            </div>
 
             <Link
               href="/"
@@ -2436,11 +2852,11 @@ export default function AdminPage() {
           className="pointer-events-auto w-auto max-w-[92vw] rounded-full bg-white/90 dark:bg-[#101218]/90 backdrop-blur-2xl border border-neutral-300/80 dark:border-white/15 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.12),inset_0_1px_1px_rgba(255,255,255,0.7)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-300"
         >
           {(() => {
-            // Dynamic Quick Tabs
-            const mobileBaseTabs = ["dashboard", "meetings", "briefs", "documents"];
+            // Dynamic Quick Tabs tailored to staff role
+            const mobileBaseTabs = roleMeta.baseTabs;
             let mobileTabIds = [...mobileBaseTabs];
             if (!mobileBaseTabs.includes(activeTab) && navItems.some((n) => n.id === activeTab)) {
-              mobileTabIds = ["dashboard", activeTab, "briefs", "documents"];
+              mobileTabIds = [mobileBaseTabs[0], activeTab, ...mobileBaseTabs.slice(2)];
             }
             const mobileNavList = mobileTabIds
               .map((id) => navItems.find((n) => n.id === id))

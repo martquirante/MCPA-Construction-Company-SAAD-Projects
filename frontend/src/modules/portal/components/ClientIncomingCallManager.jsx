@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { io } from "socket.io-client";
 import {
   PhoneCall,
@@ -173,7 +173,58 @@ export default function ClientIncomingCallManager({
 }) {
   const [incomingCall, setIncomingCall] = useState(null);
   const [secondsRemaining, setSecondsRemaining] = useState(180);
+  const [avatarError, setAvatarError] = useState(false);
   const socketRef = useRef(null);
+
+  // Reset avatar error when a new incoming call arrives
+  useEffect(() => {
+    setAvatarError(false);
+  }, [incomingCall?.roomCode]);
+
+  // Resolve Admin / Consultant Avatar (Profile Picture)
+  const adminAvatarUrl = useMemo(() => {
+    if (!incomingCall) return null;
+    const direct =
+      incomingCall.adminAvatar ||
+      incomingCall.callerAvatar ||
+      incomingCall.avatar ||
+      incomingCall.photoURL ||
+      incomingCall.photoUrl ||
+      incomingCall.picture;
+    if (direct && typeof direct === "string" && direct.trim() && direct !== "null" && direct !== "undefined") {
+      return direct.trim();
+    }
+
+    if (typeof window !== "undefined") {
+      try {
+        const customAvatar = localStorage.getItem("mcpa_admin_avatar");
+        if (customAvatar && customAvatar.trim() && customAvatar !== "null") {
+          return customAvatar.trim();
+        }
+
+        const storedAdmin = localStorage.getItem("mcpa_admin_user");
+        if (storedAdmin) {
+          const parsed = JSON.parse(storedAdmin);
+          const av = parsed.avatarUrl || parsed.avatar_url || parsed.photoURL || parsed.picture;
+          if (av && typeof av === "string" && av.trim()) return av.trim();
+        }
+      } catch (e) {}
+    }
+
+    // Official Engr. Raymart Quirante Google profile photo fallback
+    return "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
+  }, [incomingCall]);
+
+  // Compute initials for avatar fallback (e.g. "RQ" for Engr. Raymart Quirante)
+  const adminInitials = useMemo(() => {
+    const raw = incomingCall?.adminName || incomingCall?.callerName || "Engr. Raymart Quirante";
+    const cleaned = raw.replace(/^(engr\.|engineer|architect|arch\.|mr\.|ms\.|dr\.)\s*/i, "").trim();
+    const parts = cleaned.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return (parts[0] || "RQ").slice(0, 2).toUpperCase();
+  }, [incomingCall]);
 
   // Keep latest references for non-reactive access inside event listeners
   const currentUserRef = useRef(currentUser);
@@ -456,102 +507,135 @@ export default function ClientIncomingCallManager({
   const seconds = secondsRemaining % 60;
   const formattedTime = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
+  const adminName = incomingCall.adminName || incomingCall.callerName || "Engr. Raymart Quirante";
+  const adminRole = incomingCall.adminRole || incomingCall.callerRole || "Lead Project Engineer & Consultant";
+  const projectScope = incomingCall.projectTitle || "Architectural Review & Progress Consultation";
+  const projectCode = incomingCall.projectCode || "MCPA-CLIENT";
+
   return (
     <aside
       role="dialog"
       aria-labelledby="client-incoming-call-title"
       aria-modal="true"
-      className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[9999999] flex items-end sm:items-center justify-center p-4 sm:p-0 pointer-events-none"
+      className="fixed inset-x-3 bottom-3 sm:inset-auto sm:bottom-6 sm:right-6 z-[9999999] pointer-events-none flex justify-center sm:block"
     >
-      <div className="w-full sm:w-[420px] rounded-2xl bg-[#0d0f15]/95 border border-amber-500/50 text-white shadow-2xl backdrop-blur-xl p-5 sm:p-6 pointer-events-auto animate-in slide-in-from-bottom-6 duration-300 ring-2 ring-amber-500/30">
+      <div className="w-full sm:w-[410px] pointer-events-auto overflow-hidden rounded-2xl bg-white/95 dark:bg-[#111317]/95 text-neutral-900 dark:text-white border border-neutral-200/90 dark:border-neutral-800 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.18),0_0_1px_1px_rgba(0,0,0,0.06)] dark:shadow-[0_25px_65px_-12px_rgba(0,0,0,0.7),0_0_1px_1px_rgba(255,255,255,0.06)] backdrop-blur-xl transition-all duration-300 animate-in slide-in-from-bottom-5">
         
-        {/* Top Header */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            {/* Glowing Avatar with Animated Ripple */}
-            <div className="relative">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 p-0.5 shadow-lg shadow-amber-500/30 animate-pulse">
-                <div className="w-full h-full rounded-[10px] bg-[#12141c] flex items-center justify-center font-bold font-mono text-amber-400 text-base">
-                  M
-                </div>
-              </div>
-              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500" />
+        <div className="p-4 sm:p-5">
+          {/* Header Row: Live Status & Countdown */}
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-neutral-100 dark:border-neutral-800/80">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-70" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span className="text-[11px] font-semibold tracking-wide uppercase text-emerald-700 dark:text-emerald-400">
+                MCPA Live Call
+              </span>
+              <span className="text-neutral-300 dark:text-neutral-700">•</span>
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
+                Incoming Consultation
               </span>
             </div>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30">
-                  MCPA Live Call
-                </span>
-                <span className="text-[11px] font-mono text-amber-300 font-bold">
-                  {formattedTime}
-                </span>
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800/90 text-neutral-600 dark:text-neutral-300 text-xs font-mono tabular-nums font-semibold">
+              <Clock className="w-3 h-3 text-neutral-400 dark:text-neutral-500" />
+              <span>{formattedTime}</span>
+            </div>
+          </div>
+
+          {/* Caller Identity Block */}
+          <div className="flex items-center gap-3.5">
+            {/* Admin PFP / Avatar with Verified Live Badge */}
+            <div className="relative shrink-0">
+              <div className="w-[52px] h-[52px] rounded-full overflow-hidden ring-2 ring-neutral-200/90 dark:ring-neutral-700/80 shadow-sm bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                {adminAvatarUrl && !avatarError ? (
+                  <img
+                    src={adminAvatarUrl}
+                    alt={adminName}
+                    className="w-full h-full object-cover"
+                    onError={() => setAvatarError(true)}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-500 to-amber-600 text-white font-semibold text-base tracking-wider">
+                    {adminInitials}
+                  </div>
+                )}
               </div>
-              <h2
-                id="client-incoming-call-title"
-                className="text-sm font-bold text-white tracking-tight mt-1"
-              >
-                {incomingCall.adminName || "Engr. Raymart Quirante"}
-              </h2>
-              <p className="text-[11px] text-neutral-400 font-mono">
-                {incomingCall.adminRole || "Lead Project Engineer & Consultant"}
+              <span className="absolute -bottom-0.5 -right-0.5 p-1 rounded-full bg-emerald-600 text-white shadow-sm ring-2 ring-white dark:ring-[#111317]">
+                <Video className="w-2.5 h-2.5" />
+              </span>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <h2
+                  id="client-incoming-call-title"
+                  className="text-sm font-bold text-neutral-900 dark:text-white truncate tracking-tight"
+                >
+                  {adminName}
+                </h2>
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" title="Verified MCPA Consultant" />
+              </div>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5 font-medium">
+                {adminRole}
+              </p>
+              <p className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
+                MCPA Engineering &amp; Project Advisory
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Project Card Context */}
-        <div className="mb-4 p-3 rounded-xl bg-white/[0.04] border border-white/[0.08] space-y-1">
-          <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider">
-            Consultation Scope
+          {/* Consultation Scope & Project Card */}
+          <div className="mt-3.5 mb-3 p-3 rounded-xl bg-neutral-50/90 dark:bg-neutral-800/40 border border-neutral-200/70 dark:border-neutral-800/80 space-y-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-neutral-500 dark:text-neutral-400 font-medium">Consultation Scope</span>
+              <span className="font-mono text-[10px] font-semibold text-neutral-600 dark:text-neutral-400 bg-neutral-200/60 dark:bg-neutral-700/60 px-2 py-0.5 rounded">
+                Code: {projectCode}
+              </span>
+            </div>
+            <div className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+              {projectScope}
+            </div>
           </div>
-          <div className="text-xs font-semibold text-neutral-200 truncate">
-            {incomingCall.projectTitle || "Architectural Review & Progress Discussion"}
-          </div>
-          <div className="text-[10px] font-mono text-amber-400/90 flex items-center justify-between">
-            <span>Project Code: {incomingCall.projectCode || "MCPA-CONSULTATION"}</span>
-            <span className="text-emerald-400 font-bold flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
-              Calling Now
+
+          {/* Audio Tap-to-Check Banner */}
+          <div
+            onClick={() => playIncomingCallRingtone()}
+            role="button"
+            tabIndex={0}
+            className="mb-4 py-2 px-3 rounded-xl bg-neutral-100/70 hover:bg-neutral-100 dark:bg-neutral-800/40 dark:hover:bg-neutral-800/70 border border-neutral-200/60 dark:border-neutral-700/50 text-[11px] text-neutral-600 dark:text-neutral-300 flex items-center justify-between cursor-pointer transition-colors group select-none"
+            title="Click to check or unmute ringtone"
+          >
+            <span className="flex items-center gap-2">
+              <Volume2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span>Ringtone ringing... Tap to verify audio</span>
+            </span>
+            <span className="text-[10px] font-medium text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white underline-offset-2 group-hover:underline">
+              Check sound
             </span>
           </div>
-        </div>
 
-        {/* Audio Tap-to-Unmute Banner */}
-        <div
-          onClick={() => playIncomingCallRingtone()}
-          className="mb-4 py-1.5 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 font-mono flex items-center justify-between cursor-pointer hover:bg-amber-500/15 transition-colors"
-          title="Click to ensure ringtone audio is playing"
-        >
-          <span className="flex items-center gap-1.5">
-            <Volume2 className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
-            <span>Ringtone ringing... Tap here to unmute sound</span>
-          </span>
-          <span className="text-[10px] font-bold uppercase underline">Test</span>
-        </div>
+          {/* Action Buttons */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={handleDecline}
+              className="py-2.5 px-4 rounded-xl bg-neutral-100 hover:bg-rose-50 text-neutral-700 hover:text-rose-600 dark:bg-neutral-800 dark:hover:bg-rose-950/30 dark:text-neutral-300 dark:hover:text-rose-400 border border-neutral-200/80 hover:border-rose-200 dark:border-neutral-700 dark:hover:border-rose-900/40 text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+            >
+              <PhoneOff className="w-3.5 h-3.5" />
+              <span>Decline</span>
+            </button>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <button
-            type="button"
-            onClick={handleDecline}
-            className="py-2.5 px-4 rounded-xl bg-white/[0.05] hover:bg-rose-500/20 text-neutral-300 hover:text-rose-400 border border-white/10 hover:border-rose-500/30 text-xs font-mono font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-          >
-            <PhoneOff className="w-4 h-4" />
-            <span>Decline</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleAnswer}
-            className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/25 active:scale-95"
-          >
-            <Video className="w-4 h-4 fill-current/20" />
-            <span>Join Call</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleAnswer}
+              className="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm shadow-emerald-600/25 active:scale-[0.98]"
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span>Join Call</span>
+            </button>
+          </div>
         </div>
       </div>
     </aside>

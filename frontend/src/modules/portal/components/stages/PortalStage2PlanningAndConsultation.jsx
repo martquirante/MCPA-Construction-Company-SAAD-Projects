@@ -538,12 +538,8 @@ export default function PortalStage2PlanningAndConsultation({
   const [hasDrawnSig, setHasDrawnSig] = useState(false);
   const sigCanvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [sigColor, setSigColor] = useState("#0f172a");
   const [signRole, setSignRole] = useState("CLIENT");
-  const [signatureMode, setSignatureMode] = useState("draw"); // "draw" | "upload"
-  const [uploadedRawFile, setUploadedRawFile] = useState(null);
   const [uploadedSigDataUrl, setUploadedSigDataUrl] = useState("");
-  const [bgRemoveThreshold, setBgRemoveThreshold] = useState(195);
   const [isProcessingBgRemoval, setIsProcessingBgRemoval] = useState(false);
 
   // -------------------------------------------------------------
@@ -847,7 +843,7 @@ export default function PortalStage2PlanningAndConsultation({
     ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = sigColor || "#0f172a";
+    ctx.strokeStyle = "#000000";
     ctx.lineTo(x, y);
     ctx.stroke();
   };
@@ -860,6 +856,38 @@ export default function PortalStage2PlanningAndConsultation({
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasDrawnSig(false);
+    setUploadedSigDataUrl("");
+  };
+
+  const handleSignatureUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast?.("Please upload a PNG, JPG, or WEBP signature image.", "error");
+      return;
+    }
+
+    setIsProcessingBgRemoval(true);
+    try {
+      const result = await extractPaperSignature(file, {
+        threshold: 220,
+        smoothness: 45,
+        targetColor: "#000000",
+        autoCrop: true,
+      });
+      const canvas = sigCanvasRef.current;
+      if (canvas) {
+        canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+      }
+      setUploadedSigDataUrl(result.dataUrl);
+      setHasDrawnSig(true);
+    } catch (error) {
+      console.error("Signature image processing error:", error);
+      showToast?.("Could not process that signature image. Please try a clearer photo.", "error");
+    } finally {
+      setIsProcessingBgRemoval(false);
+    }
   };
 
   const handleSubmitSignature = async () => {
@@ -867,7 +895,7 @@ export default function PortalStage2PlanningAndConsultation({
     setIsSigning(true);
     try {
       const canvas = sigCanvasRef.current;
-      const signatureImageUrl = canvas ? canvas.toDataURL("image/png") : "data:image/png;base64,SIGNED";
+      const signatureImageUrl = uploadedSigDataUrl || (canvas ? canvas.toDataURL("image/png") : "");
       const targetContractId = contract?.contract_id && !isNaN(Number(contract.contract_id))
         ? contract.contract_id
         : (projectId || 0);
@@ -888,7 +916,17 @@ export default function PortalStage2PlanningAndConsultation({
         }),
       });
 
-      const data = await res.json();
+      const responseText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(
+          res.status >= 500
+            ? "The server could not process your signature. Please try again."
+            : "The server returned an invalid response. Please try again."
+        );
+      }
       if (res.ok && data.success) {
         setIsSignModalOpen(false);
         if (data.contract) {
@@ -3171,29 +3209,8 @@ export default function PortalStage2PlanningAndConsultation({
               </button>
             </div>
 
-            <div className="flex items-center justify-between pb-1 text-xs">
-              <span className="font-mono text-neutral-500 text-[11px]">Ink Tone:</span>
-              <div className="flex items-center gap-1.5">
-                {[
-                  { label: "Executive Black", value: "#0f172a", bg: "bg-slate-900" },
-                  { label: "Legal Blue", value: "#1e3a8a", bg: "bg-blue-900" },
-                  { label: "Contract Amber", value: "#d97706", bg: "bg-amber-600" },
-                ].map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => setSigColor(c.value)}
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                      sigColor === c.value
-                        ? "bg-neutral-200 dark:bg-white/20 text-neutral-900 dark:text-white ring-1 ring-amber-500"
-                        : "text-neutral-500 hover:text-neutral-700"
-                    }`}
-                  >
-                    <span className={`w-2 h-2 rounded-full ${c.bg} inline-block`} />
-                    <span>{c.label}</span>
-                  </button>
-                ))}
-              </div>
+            <div className="rounded-lg border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/[0.03] p-2.5 text-[10px] text-neutral-600 dark:text-neutral-400">
+              Signature ink is fixed to black. For an uploaded signature, write on clean white paper using a black ballpen. The paper background will be removed automatically.
             </div>
 
             <div className="border border-neutral-300 dark:border-neutral-700 rounded-xl bg-white overflow-hidden shadow-inner relative">
@@ -3210,6 +3227,13 @@ export default function PortalStage2PlanningAndConsultation({
                 onTouchEnd={stopDrawing}
                 className="w-full h-44 cursor-crosshair touch-none"
               />
+              {uploadedSigDataUrl && (
+                <img
+                  src={uploadedSigDataUrl}
+                  alt="Processed uploaded signature preview"
+                  className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                />
+              )}
               <div className="pointer-events-none absolute bottom-4 left-6 right-6 border-b border-dashed border-neutral-300 flex justify-between items-end pb-1">
                 <span className="text-[10px] font-mono text-neutral-400">× Sign above this line</span>
                 <span className="text-[9px] font-mono text-neutral-400">SHA-256 Pad</span>
@@ -3226,6 +3250,16 @@ export default function PortalStage2PlanningAndConsultation({
               </button>
 
               <div className="flex items-center gap-2">
+                <label className="px-3 py-1.5 rounded-[6px] text-xs font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 cursor-pointer">
+                  {isProcessingBgRemoval ? "Processing..." : "Upload Signature"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleSignatureUpload}
+                    disabled={isProcessingBgRemoval}
+                    className="sr-only"
+                  />
+                </label>
                 <button
                   type="button"
                   onClick={() => setIsSignModalOpen(false)}
@@ -3236,7 +3270,7 @@ export default function PortalStage2PlanningAndConsultation({
                 <button
                   type="button"
                   onClick={handleSubmitSignature}
-                  disabled={!hasDrawnSig || isSigning}
+                  disabled={!hasDrawnSig || isSigning || isProcessingBgRemoval}
                   className="px-5 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <Check className="w-4 h-4" />

@@ -6,7 +6,6 @@ import {
   Calendar,
   CalendarCheck,
   Video,
-  Building,
   Clock,
   MapPin,
   Search,
@@ -49,7 +48,6 @@ import GoogleMeetRoom from "@/modules/portal/components/GoogleMeetRoom";
 import { extractRoomCode, buildMeetingUrl } from "@/modules/portal/utils/roomCodeHelper";
 import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
 import { resolveClientAvatar } from "@/modules/admin/components/InquiryPipelineTab";
-import { GoogleIcon } from "@/modules/shared/Icons";
 import VenueCombobox from "@/modules/book/components/VenueCombobox";
 import MeetingFilterCombobox from "@/modules/admin/components/MeetingFilterCombobox";
 import { authFetch } from "@/modules/shared/authFetch";
@@ -60,10 +58,32 @@ import {
   formatMeetingDuration,
 } from "@/modules/portal/utils/meetingHistoryService";
 
+function formatConsultationDate(dateStr) {
+  if (!dateStr || typeof dateStr !== "string") return "Date TBD";
+  try {
+    const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    let d;
+    if (isoMatch) {
+      d = new Date(parseInt(isoMatch[1], 10), parseInt(isoMatch[2], 10) - 1, parseInt(isoMatch[3], 10));
+    } else {
+      d = new Date(dateStr);
+    }
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+  } catch (_) {}
+  return dateStr;
+}
+
 function ClientAvatarWithFallback({ item, clientBriefs }) {
+  const itemEmail = (item?.clientEmail || item?.client_email || item?.email || "").toLowerCase().trim();
   const matchingBrief = useMemo(() => {
     if (!Array.isArray(clientBriefs)) return null;
-    const itemEmail = (item?.clientEmail || item?.client_email || item?.email || "").toLowerCase().trim();
     const itemId = item?.id || item?.briefId || item?.submissionId;
     const itemCode = item?.projectCode || item?.trackingId;
     return clientBriefs.find((b) => {
@@ -76,19 +96,10 @@ function ClientAvatarWithFallback({ item, clientBriefs }) {
         (bCode && itemCode && bCode === itemCode)
       );
     });
-  }, [clientBriefs, item]);
+  }, [clientBriefs, item, itemEmail]);
 
   const clientAvatar = resolveClientAvatar(matchingBrief || item);
   const clientName = item?.clientName || item?.client_name || item?.name || "Client";
-  const itemEmail = (item?.clientEmail || item?.client_email || item?.email || "").toLowerCase().trim();
-  const isGoogle =
-    item?.authProvider === "google" ||
-    item?.auth_provider === "google" ||
-    matchingBrief?.authProvider === "google" ||
-    matchingBrief?.auth_provider === "google" ||
-    itemEmail.endsWith("@gmail.com") ||
-    (clientAvatar && clientAvatar.includes("googleusercontent"));
-
   return (
     <div className="relative shrink-0">
       {clientAvatar ? (
@@ -113,14 +124,6 @@ function ClientAvatarWithFallback({ item, clientBriefs }) {
         {clientName.charAt(0) || "?"}
       </div>
 
-      {isGoogle && (
-        <span
-          className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
-          title="Google Account Verified"
-        >
-          <GoogleIcon className="w-2.5 h-2.5" />
-        </span>
-      )}
     </div>
   );
 }
@@ -1030,6 +1033,31 @@ export default function AdminMeetingsTab({
     const projectTitle = target.projectTitle || target.projectType || "Residential Architectural & Engineering Review";
     const projectCode = target.projectCode || target.trackingId || "MCPA-CLIENT";
 
+    let adminAvatar =
+      currentUser?.avatar_url ||
+      currentUser?.avatarUrl ||
+      currentUser?.photoURL ||
+      currentUser?.picture;
+
+    if (!adminAvatar && typeof window !== "undefined") {
+      try {
+        const customAvatar = localStorage.getItem("mcpa_admin_avatar");
+        if (customAvatar && customAvatar.trim() && customAvatar !== "null") {
+          adminAvatar = customAvatar.trim();
+        } else {
+          const storedAdmin = localStorage.getItem("mcpa_admin_user");
+          if (storedAdmin) {
+            const parsed = JSON.parse(storedAdmin);
+            adminAvatar = parsed.avatarUrl || parsed.avatar_url || parsed.photoURL || parsed.picture;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!adminAvatar) {
+      adminAvatar = "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
+    }
+
     const callPayload = {
       roomCode: instantRoom,
       initiatedBy: "admin",
@@ -1037,6 +1065,7 @@ export default function AdminMeetingsTab({
       callerRole: "Lead Project Engineer & Consultant",
       adminName: currentUser?.name || "Engr. Raymart Quirante",
       adminRole: "Lead Project Engineer & Consultant",
+      adminAvatar,
       targetClientId: target.submissionId || target.submission_id || target.id,
       targetClientEmail: (target.clientEmail || target.client_email || "").toLowerCase(),
       targetClientName: clientName,
@@ -1084,9 +1113,6 @@ export default function AdminMeetingsTab({
       {/* 0. INCOMING INSTANT CONSULTATION CALL ALERT BANNER — BESPOKE ARCHITECTURAL DISPATCH HUD */}
       {incomingInstantCall && !incomingInstantCall.answered && (
         <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-[#0d0f14]/95 backdrop-blur-xl border border-neutral-200/90 dark:border-white/[0.08] shadow-[0_16px_40px_-12px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.03)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7),0_0_35px_rgba(245,158,11,0.07)] p-4 sm:p-5 transition-all animate-in fade-in slide-in-from-top-3 duration-300">
-          {/* Top Precision Light Rail */}
-          <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-amber-500 via-emerald-400 to-amber-500" />
-          
           {/* Subtle Ambient Aura */}
           <div className="absolute -top-20 -right-20 w-44 h-44 bg-amber-500/10 dark:bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-20 -left-20 w-44 h-44 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -1160,7 +1186,7 @@ export default function AdminMeetingsTab({
                   <h3 className="text-base sm:text-lg font-bold text-neutral-950 dark:text-white tracking-tight">
                     {incomingInstantCall.clientName || "Valued Client"}
                   </h3>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-mono font-semibold uppercase tracking-wider">
+                  <span className="text-emerald-700 dark:text-emerald-400 text-[10px] font-mono font-semibold uppercase tracking-wider">
                     Client Waiting In Room
                   </span>
                 </div>
@@ -1221,56 +1247,85 @@ export default function AdminMeetingsTab({
 
       {/* 1. TOP STATS BAR - BENTO METRICS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <div className="p-4 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1 hover:border-amber-500/30 transition-colors">
-          <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 text-[11px] font-mono font-semibold uppercase tracking-wider">
-            <span>Total Consultations</span>
-            <CalendarCheck className="w-4 h-4 text-amber-500" />
+        <div className="p-4 sm:p-5 rounded-xl bg-white dark:bg-[#11141c] border border-neutral-200/90 dark:border-white/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] space-y-2 hover:border-amber-500/40 dark:hover:border-amber-500/40 transition-all duration-200 hover:-translate-y-0.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-sans">
+              Total Consultations
+            </span>
+            <div className="text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <CalendarCheck className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white">
+          <div className="text-2xl sm:text-3xl font-extrabold font-sans tracking-tight text-neutral-900 dark:text-white tabular-nums">
             {metrics.total}
           </div>
-          <div className="text-[11px] text-neutral-400 font-sans flex items-center justify-between">
+          <div className="pt-2 border-t border-neutral-100 dark:border-white/[0.04] text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-between">
             <span>Active Pipeline</span>
-            <span className="font-mono text-amber-600 dark:text-amber-400 font-semibold">{metrics.archived} in History</span>
+            <span className="text-amber-700 dark:text-amber-400 text-[10px] font-semibold">{metrics.archived} in History</span>
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1 hover:border-emerald-500/30 transition-colors">
-          <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 text-[11px] font-mono font-semibold uppercase tracking-wider">
-            <span>Today&apos;s Schedule</span>
-            <Clock className="w-4 h-4 text-emerald-500" />
+        <div className="p-4 sm:p-5 rounded-xl bg-white dark:bg-[#11141c] border border-neutral-200/90 dark:border-white/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] space-y-2 hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-all duration-200 hover:-translate-y-0.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-sans">
+              Today&apos;s Schedule
+            </span>
+            <div className="text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Clock className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
+          <div className="text-2xl sm:text-3xl font-extrabold font-sans tracking-tight text-neutral-900 dark:text-white tabular-nums">
             {metrics.today}
           </div>
-          <div className="text-[11px] text-neutral-400 font-sans">Immediate sessions required</div>
+          <div className="pt-2 border-t border-neutral-100 dark:border-white/[0.04] text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-between">
+            <span>Immediate Sessions</span>
+            <span className={`text-[10px] font-semibold ${
+              metrics.today > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-neutral-400"
+            }`}>
+              {metrics.today > 0 ? "Action Required" : "Clear Today"}
+            </span>
+          </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1 hover:border-sky-500/30 transition-colors">
-          <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 text-[11px] font-mono font-semibold uppercase tracking-wider">
-            <span>Online Calls</span>
-            <Video className="w-4 h-4 text-sky-500" />
+        <div className="p-4 sm:p-5 rounded-xl bg-white dark:bg-[#11141c] border border-neutral-200/90 dark:border-white/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] space-y-2 hover:border-sky-500/40 dark:hover:border-sky-500/40 transition-all duration-200 hover:-translate-y-0.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-sans">
+              Online Calls
+            </span>
+            <div className="text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+              <Video className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white">
+          <div className="text-2xl sm:text-3xl font-extrabold font-sans tracking-tight text-neutral-900 dark:text-white tabular-nums">
             {metrics.online}
           </div>
-          <div className="text-[11px] text-neutral-400 font-sans">Video Conference Rooms</div>
+          <div className="pt-2 border-t border-neutral-100 dark:border-white/[0.04] text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-between">
+            <span>Video Rooms</span>
+            <span className="text-sky-700 dark:text-sky-400 text-[10px] font-semibold">Ready</span>
+          </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-none space-y-1 hover:border-purple-500/30 transition-colors">
-          <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 text-[11px] font-mono font-semibold uppercase tracking-wider">
-            <span>Face-to-Face</span>
-            <Building className="w-4 h-4 text-purple-500" />
+        <div className="p-4 sm:p-5 rounded-xl bg-white dark:bg-[#11141c] border border-neutral-200/90 dark:border-white/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] space-y-2 hover:border-purple-500/40 dark:hover:border-purple-500/40 transition-all duration-200 hover:-translate-y-0.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-sans">
+              Face-to-Face
+            </span>
+            <div className="text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+              <Building2 className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white">
+          <div className="text-2xl sm:text-3xl font-extrabold font-sans tracking-tight text-neutral-900 dark:text-white tabular-nums">
             {metrics.f2f}
           </div>
-          <div className="text-[11px] text-neutral-400 font-sans">Office &amp; Site Consultations</div>
+          <div className="pt-2 border-t border-neutral-100 dark:border-white/[0.04] text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-between">
+            <span>Site &amp; Office</span>
+            <span className="text-purple-700 dark:text-purple-400 text-[10px] font-semibold">HQ Sessions</span>
+          </div>
         </div>
       </div>
 
       {/* 2. FILTER TABS & SEARCH BAR - POLISHED SEGMENTED CONTROL */}
-      <div className="p-2 sm:p-2.5 rounded-xl bg-white dark:bg-[#11131a] border border-neutral-200/80 dark:border-white/[0.06] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+      <div className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-[#11141c] border border-neutral-200/80 dark:border-white/[0.06] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
         {/* Combobox Filter Selector */}
         <MeetingFilterCombobox
           activeFilter={activeFilter}
@@ -1285,7 +1340,7 @@ export default function AdminMeetingsTab({
           <button
             type="button"
             onClick={() => setIsInstantCallModalOpen(true)}
-            className="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-amber-500/20 shrink-0"
+            className="h-8.5 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-neutral-950 font-sans text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs hover:shadow-md hover:shadow-amber-500/15 shrink-0"
             title="Ring client directly for instant consultation"
           >
             <PhoneCall className="w-3.5 h-3.5" />
@@ -1394,7 +1449,7 @@ export default function AdminMeetingsTab({
                     {/* Single Clean Lifecycle Status Badge */}
                     <div className="shrink-0">
                       {lifecycle.isOngoing ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                           <span className="relative flex h-1.5 w-1.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
@@ -1402,11 +1457,11 @@ export default function AdminMeetingsTab({
                           Live Now
                         </span>
                       ) : isArchived ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-neutral-100 dark:bg-white/[0.06] text-neutral-600 dark:text-neutral-400 border border-neutral-200/80 dark:border-white/10">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
                           Concluded
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                           Scheduled
                         </span>
                       )}
@@ -1429,9 +1484,9 @@ export default function AdminMeetingsTab({
                     <div className="flex items-center justify-between gap-2 text-neutral-800 dark:text-neutral-200 font-medium">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span>{item.displayDate}</span>
+                        <span>{formatConsultationDate(item.displayDate)}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 font-mono text-[11px] text-neutral-500 dark:text-neutral-400 shrink-0">
+                      <div className="flex items-center gap-1.5 font-sans text-[11px] text-neutral-500 dark:text-neutral-400 shrink-0">
                         <Clock className="w-3 h-3 text-neutral-400" />
                         <span>{item.time}</span>
                       </div>
@@ -1442,7 +1497,7 @@ export default function AdminMeetingsTab({
                         {isOnline ? (
                           <Video className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                         ) : (
-                          <Building className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <Building2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                         )}
                         <span className="truncate" title={item.venue}>
                           {item.venue || (isOnline ? "MCPA Video Room" : "Office Consultation")}
@@ -1670,16 +1725,16 @@ export default function AdminMeetingsTab({
 
                     {/* Col 2: Schedule & Time */}
                     <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800 dark:text-neutral-200 font-sans">
                         <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span className="truncate">{item.displayDate}</span>
+                        <span className="truncate">{formatConsultationDate(item.displayDate)}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
+                      <div className="flex items-center gap-1.5 text-[11px] font-sans text-neutral-500 dark:text-neutral-400 truncate">
                         <Clock className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                         <span className="truncate">{item.time}</span>
                       </div>
                       {item.duration && (
-                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
+                        <div className="flex items-center gap-1.5 text-[10px] font-sans text-neutral-400 truncate">
                           <span>Duration: {item.duration}</span>
                         </div>
                       )}
@@ -1702,7 +1757,7 @@ export default function AdminMeetingsTab({
                             Concluded
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                             Scheduled
                           </span>
                         )}
@@ -1724,7 +1779,7 @@ export default function AdminMeetingsTab({
                           {isOnline ? (
                             <Video className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                           ) : (
-                            <Building className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <Building2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                           )}
                           <span className="truncate min-w-0 flex-1 block" title={item.venue}>
                             {item.venue || (isOnline ? "MCPA Video Room" : "Office Consultation")}
@@ -2579,7 +2634,7 @@ export default function AdminMeetingsTab({
                   <div className="text-[10px] font-mono uppercase text-neutral-400 dark:text-neutral-500 font-bold">
                     Current Stage
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 mt-1">
+                  <span className="inline-flex items-center text-[10px] font-mono font-bold uppercase text-amber-600 dark:text-amber-400 mt-1">
                     Round {outcomeMeeting.round || 1}
                   </span>
                 </div>
@@ -2599,14 +2654,14 @@ export default function AdminMeetingsTab({
                   <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                     Selected Outcome
                   </span>
-                  <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border whitespace-nowrap ${
+                  <span className={`text-[10px] font-mono font-bold uppercase whitespace-nowrap ${
                     outcomeType === "DISCONTINUED_REJECTED"
-                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                        ? "text-rose-600 dark:text-rose-400"
                       : outcomeType === "AGREED_ADVANCE"
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                        ? "text-emerald-600 dark:text-emerald-400"
                       : outcomeType === "REVISION_DELIBERATION"
-                      ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/20"
-                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                        ? "text-sky-600 dark:text-sky-400"
+                        : "text-amber-600 dark:text-amber-400"
                   }`}>
                     {outcomeType === "DISCONTINUED_REJECTED" && "Revert to Phase 1"}
                     {outcomeType === "AGREED_ADVANCE" && "Stage Gate Unlocked"}
@@ -2800,10 +2855,10 @@ export default function AdminMeetingsTab({
 
             {/* Badges: Mode, Duration, Date */}
             <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/60 dark:border-white/5 text-xs font-mono">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
                 {viewMinutesSession.mode}
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
+              <span className="text-[10px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
                 <Clock className="w-3 h-3 text-amber-500" />
                 <span>Duration: {viewMinutesSession.duration || "< 1 min"}</span>
               </span>
@@ -2834,7 +2889,7 @@ export default function AdminMeetingsTab({
                   </span>
                 </div>
               </div>
-              <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400">
                 {viewMinutesSession.status}
               </span>
             </div>
@@ -3035,4 +3090,3 @@ export default function AdminMeetingsTab({
     </div>
   );
 }
-
