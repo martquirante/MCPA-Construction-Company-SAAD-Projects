@@ -54,6 +54,9 @@ import {
   getAudioRoutingCapabilities,
   getSelectableOutputs,
   findLabeledAccessory,
+  isExternalHeadset,
+  findSpeakerDevice,
+  findEarpieceDevice,
   logAudioRoutingDiagnostics,
   registerRemoteAudioElement,
   setRemoteAudioOutput,
@@ -490,16 +493,11 @@ export default function GoogleMeetRoom({
   const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
   const audioRoutingCaps = useMemo(() => getAudioRoutingCapabilities(), []);
 
-  // Physical accessory detection (Headphones / Bluetooth earbuds / AirPods)
+  // Physical accessory detection (Bluetooth earbuds, wired headphones, AirPods)
+  // Explicitly excludes internal earpiece (e.g. "Headset earpiece")
   const detectedHeadset = useMemo(() => {
     const all = [...audioInputDevices, ...audioOutputDevices];
-    return (
-      all.find((d) =>
-        /(headset|headphone|earphone|airpod|earbud|bud|bluetooth|hands-free|wireless)/i.test(
-          d.label || ""
-        )
-      ) || null
-    );
+    return all.find((d) => isExternalHeadset(d)) || null;
   }, [audioInputDevices, audioOutputDevices]);
 
   // Real-time device refresh & hardware listeners
@@ -509,8 +507,20 @@ export default function GoogleMeetRoom({
       const devs = await navigator.mediaDevices.enumerateDevices();
       setVideoDevices(devs.filter((d) => d.kind === "videoinput"));
       setAudioInputDevices(devs.filter((d) => d.kind === "audioinput"));
-      setAudioOutputDevices(devs.filter((d) => d.kind === "audiooutput"));
+      const outputs = devs.filter((d) => d.kind === "audiooutput");
+      setAudioOutputDevices(outputs);
       logAudioRoutingDiagnostics(devs);
+
+      // Auto-route to the phone's LOUDSPEAKER if available and no external headset is plugged in
+      const headset = devs.find((d) => isExternalHeadset(d));
+      if (!headset && outputs.length > 0) {
+        const speaker = findSpeakerDevice(outputs);
+        if (speaker && speaker.deviceId) {
+          console.info("[AUDIO ROUTING] Auto-routing to Loudspeaker:", speaker.label || speaker.deviceId);
+          setRemoteAudioOutput(speaker.deviceId).catch(() => {});
+          setSelectedAudioOutputId(speaker.deviceId);
+        }
+      }
     } catch (e) {
       console.warn("Device enumeration notice:", e);
     }

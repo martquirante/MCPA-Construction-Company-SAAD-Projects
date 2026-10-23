@@ -17,8 +17,35 @@ const registeredElements = new Set();
 let activeSinkId = "";
 let diagnosticsLogged = false;
 
-const HEADSET_LABEL_PATTERN =
-  /(headset|headphone|earphone|airpod|earbud|buds|bluetooth|hands-free|wireless)/i;
+/**
+ * Checks whether an audio device represents an EXTERNAL accessory (Bluetooth, wired headphones, AirPods).
+ * Explicitly EXCLUDES the built-in phone earpiece (which Android labels "Headset earpiece").
+ */
+export function isExternalHeadset(deviceOrLabel) {
+  const label = typeof deviceOrLabel === "string" ? deviceOrLabel : deviceOrLabel?.label || "";
+  if (!label) return false;
+
+  // Internal phone earpiece / receiver is NOT an external headset
+  if (/earpiece|receiver|built-in|internal/i.test(label)) {
+    return false;
+  }
+  // Built-in phone speaker is NOT a headset
+  if (/speaker/i.test(label)) {
+    return false;
+  }
+
+  // True external accessories
+  if (/(bluetooth|airpod|earbud|buds|headphone|wired|hands-free|wireless)/i.test(label)) {
+    return true;
+  }
+
+  // If label contains "headset" but NOT "earpiece"
+  if (/\bheadset\b/i.test(label) && !/earpiece/i.test(label)) {
+    return true;
+  }
+
+  return false;
+}
 
 /** Feature-detect real routing capability of the current browser. */
 export function getAudioRoutingCapabilities() {
@@ -34,7 +61,6 @@ export function getAudioRoutingCapabilities() {
   let canSelectOutput = false;
   try {
     canSelectOutput =
-      !isMobile &&
       typeof HTMLMediaElement !== "undefined" &&
       typeof HTMLMediaElement.prototype.setSinkId === "function";
   } catch (e) {
@@ -47,8 +73,7 @@ export function getAudioRoutingCapabilities() {
 }
 
 /**
- * Real, selectable output devices. Empty when the browser cannot route output
- * (the "default" pseudo-entry alone is not a choice).
+ * Real, selectable output devices.
  */
 export function getSelectableOutputs(devices = []) {
   const { canSelectOutput } = getAudioRoutingCapabilities();
@@ -57,12 +82,39 @@ export function getSelectableOutputs(devices = []) {
 }
 
 /**
- * Informational only: a headset/Bluetooth device whose label is visible.
- * Labels are empty until the user grants a media permission, so absence of a
- * match never proves that nothing is connected.
+ * Finds the audio output device corresponding to the device's loudspeaker.
+ */
+export function findSpeakerDevice(devices = []) {
+  const outputs = devices.filter((d) => d.kind === "audiooutput");
+  if (outputs.length === 0) return null;
+
+  // 1. Explicitly labeled speaker / speakerphone / loudspeaker
+  const speaker = outputs.find((d) => /speaker/i.test(d.label));
+  if (speaker) return speaker;
+
+  // 2. Any non-earpiece device that isn't the generic "default"
+  const nonEarpiece = outputs.find(
+    (d) => !/earpiece|receiver/i.test(d.label) && d.deviceId && d.deviceId !== "default"
+  );
+  if (nonEarpiece) return nonEarpiece;
+
+  // 3. Fallback to default
+  return outputs.find((d) => d.deviceId === "default") || outputs[0] || null;
+}
+
+/**
+ * Finds the phone's internal earpiece if exposed by the browser.
+ */
+export function findEarpieceDevice(devices = []) {
+  const outputs = devices.filter((d) => d.kind === "audiooutput");
+  return outputs.find((d) => /earpiece|receiver/i.test(d.label)) || null;
+}
+
+/**
+ * Informational only: a true external headset/Bluetooth device whose label is visible.
  */
 export function findLabeledAccessory(devices = []) {
-  return devices.find((d) => d.label && HEADSET_LABEL_PATTERN.test(d.label)) || null;
+  return devices.find((d) => isExternalHeadset(d)) || null;
 }
 
 /** One-time, non-sensitive diagnostics (no device IDs or labels). */

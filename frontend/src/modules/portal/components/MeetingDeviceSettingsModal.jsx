@@ -13,6 +13,7 @@ import {
   Sliders,
   Video,
 } from "lucide-react";
+import { isExternalHeadset } from "@/modules/portal/utils/audioOutputRouting";
 
 /**
  * Plays a clean, pleasant harmonic 3-tone chime to test the audio output path
@@ -85,9 +86,7 @@ export default function MeetingDeviceSettingsModal({
 
   const detectedHeadset = useMemo(() => {
     const allAudio = [...audioInputDevices, ...audioOutputDevices];
-    return allAudio.find((dev) =>
-      /(headset|headphone|airpod|earbud|bud|bluetooth|earphone|hands-free|wireless)/i.test(dev.label || "")
-    ) || null;
+    return allAudio.find((dev) => isExternalHeadset(dev)) || null;
   }, [audioInputDevices, audioOutputDevices]);
 
   // Real-time device enumeration
