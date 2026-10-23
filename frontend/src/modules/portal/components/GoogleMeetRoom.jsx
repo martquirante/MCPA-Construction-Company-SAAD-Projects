@@ -2234,40 +2234,42 @@ export default function GoogleMeetRoom({
 
       {/* 1. TOP HEADER (CLEAN, ZERO ARBITRARY DOTS, MOBILE-FIRST) */}
       {!isFloatingPiP && (
-        <header className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between border-b border-white/[0.06] bg-[#0e0f14]/80 backdrop-blur-md z-30 shrink-0">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-wider text-amber-400">
-              MCPA Meet
+        <header className="h-14 sm:h-16 px-2.5 sm:px-6 flex items-center justify-between border-b border-white/[0.06] bg-[#0e0f14]/85 backdrop-blur-md z-30 shrink-0 gap-2 overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink">
+            <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-wider text-amber-400 shrink-0 whitespace-nowrap">
+              MCPA <span className="hidden xs:inline">MEET</span>
             </h2>
-            <span className="text-white/20">|</span>
+            <span className="text-white/20 shrink-0">|</span>
             <button
               type="button"
               onClick={handleShareOrCopyLink}
-              className="flex items-center gap-1.5 text-xs font-mono text-white/80 hover:text-white transition-colors cursor-pointer group"
+              className="flex items-center gap-1 text-xs font-mono text-white/80 hover:text-white transition-colors cursor-pointer group min-w-0"
               title="Click to copy or share link"
             >
-              <span>{canonicalRoomCode}</span>
+              <span className="whitespace-nowrap truncate font-medium max-w-[140px] sm:max-w-none">
+                {canonicalRoomCode}
+              </span>
               {hasCopiedLink ? (
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               ) : (
-                <Share2 className="w-3.5 h-3.5 text-white/40 group-hover:text-amber-400 transition-colors" />
+                <Share2 className="w-3 h-3 text-white/40 group-hover:text-amber-400 transition-colors shrink-0" />
               )}
             </button>
             {timeState.isAbroad && (
-              <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-mono text-white/40">
+              <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-mono text-white/40 shrink-0">
                 <Globe className="w-3 h-3" />
                 <span>PH {timeState.phTime}</span>
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* Flip camera on mobile */}
             {isVideoOn && (
               <button
                 type="button"
                 onClick={flipCamera}
-                className="p-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer flex sm:hidden"
+                className="p-1.5 rounded-xl text-white/70 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer flex sm:hidden shrink-0"
                 title="Switch camera"
               >
                 <SwitchCamera className="w-4 h-4" />
@@ -2275,11 +2277,11 @@ export default function GoogleMeetRoom({
             )}
 
             {/* Audio Output Route Indicator / Selector */}
-            <div className="relative" data-meet-popover>
+            <div className="relative shrink-0" data-meet-popover>
               <button
                 type="button"
                 onClick={() => setIsAudioOutputMenuOpen((v) => !v)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-sans font-medium transition-all cursor-pointer border ${
+                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full text-xs font-sans font-medium transition-all cursor-pointer border shrink-0 ${
                   detectedHeadset
                     ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
                     : "bg-white/[0.08] hover:bg-white/[0.14] text-white/90 hover:text-white border-white/10"
@@ -2287,20 +2289,20 @@ export default function GoogleMeetRoom({
                 title="Audio Output Route"
               >
                 {detectedHeadset ? (
-                  <Headphones className="w-3.5 h-3.5 text-emerald-400" />
+                  <Headphones className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 ) : (
-                  <Volume2 className="w-3.5 h-3.5 text-blue-400" />
+                  <Volume2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 )}
-                <span className="capitalize text-[11px]">
+                <span className="capitalize text-[11px] hidden xs:inline">
                   {detectedHeadset ? "Headset" : "Speaker"}
                 </span>
-                <ChevronUp className={`w-3 h-3 text-neutral-400 transition-transform ${isAudioOutputMenuOpen ? "" : "rotate-180"}`} />
+                <ChevronUp className={`w-3 h-3 text-neutral-400 transition-transform ${isAudioOutputMenuOpen ? "" : "rotate-180"} shrink-0`} />
               </button>
 
               {/* Audio Output Popover */}
               {isAudioOutputMenuOpen && (
                 <div
-                  className="absolute top-full right-0 mt-2 w-72 rounded-2xl bg-[#202124] border border-[#3c4043] shadow-2xl p-3 text-white z-50 animate-in fade-in zoom-in-95 duration-150 font-sans"
+                  className="absolute top-full right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-[#202124] border border-[#3c4043] shadow-2xl p-3 text-white z-50 animate-in fade-in zoom-in-95 duration-150 font-sans"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="text-[10px] font-medium text-neutral-400 px-1 pb-2 uppercase tracking-wider border-b border-white/[0.08]">
@@ -2373,11 +2375,11 @@ export default function GoogleMeetRoom({
               )}
             </div>
 
-            {/* Audio & Video Device Settings Modal Trigger */}
+            {/* Audio & Video Device Settings Modal Trigger (Desktop) */}
             <button
               type="button"
               onClick={() => setIsDeviceSettingsOpen(true)}
-              className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              className="hidden sm:flex p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer shrink-0"
               title="Camera, Microphone & Speaker Settings"
             >
               <Settings className="w-4 h-4" />
@@ -2385,16 +2387,16 @@ export default function GoogleMeetRoom({
 
             {/* Instant call standby timer */}
             {isInstantMeeting && !isCallAnswered && (
-              <div className="text-xs font-mono text-amber-400 font-bold px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
+              <div className="text-[11px] sm:text-xs font-mono text-amber-400 font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-amber-500/10 border border-amber-500/20 shrink-0">
                 Calling... {Math.floor(instantTimer / 60)}:{(instantTimer % 60).toString().padStart(2, "0")}
               </div>
             )}
 
-            {/* Share link button */}
+            {/* Share link button (Desktop) */}
             <button
               type="button"
               onClick={handleShareOrCopyLink}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-xs font-mono font-semibold text-white transition-all cursor-pointer border border-white/10"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-xs font-mono font-semibold text-white transition-all cursor-pointer border border-white/10 shrink-0"
               title="Share meeting invitation"
             >
               <Share2 className="w-3.5 h-3.5 text-amber-400" />
@@ -2405,7 +2407,7 @@ export default function GoogleMeetRoom({
             <button
               type="button"
               onClick={() => setActiveSidePanel(activeSidePanel === "info" ? null : "info")}
-              className="flex sm:hidden items-center justify-center p-2 rounded-xl hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
+              className="flex sm:hidden items-center justify-center p-1.5 rounded-xl hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer shrink-0"
               title="Meeting info"
             >
               <Info className="w-4 h-4 text-amber-400" />
@@ -2415,11 +2417,11 @@ export default function GoogleMeetRoom({
             <button
               type="button"
               onClick={() => setActiveSidePanel(activeSidePanel === "people" ? null : "people")}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 text-xs font-mono text-white/80 hover:text-white transition-colors cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-white/10 text-xs font-mono text-white/80 hover:text-white transition-colors cursor-pointer shrink-0"
               title="Participants list"
             >
-              <Users className="w-4 h-4 text-amber-400" />
-              <span>{participantCount}</span>
+              <Users className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="text-[11px] sm:text-xs font-bold">{participantCount}</span>
             </button>
 
             {/* Minimize to Picture-in-Picture (PiP) */}
@@ -2429,7 +2431,7 @@ export default function GoogleMeetRoom({
                 setActiveSidePanel(null);
                 setIsFloatingPiP(true);
               }}
-              className="hidden sm:flex items-center justify-center p-2 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+              className="hidden sm:flex items-center justify-center p-2 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer shrink-0"
               title="Minimize to floating corner window"
             >
               <Minimize2 className="w-4 h-4" />
