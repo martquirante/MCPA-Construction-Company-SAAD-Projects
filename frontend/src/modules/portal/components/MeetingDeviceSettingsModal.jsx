@@ -326,64 +326,36 @@ export default function MeetingDeviceSettingsModal({
                   </div>
                 )}
 
-                {/* Intelligent Output Routing (Mobile Speaker vs Earpiece, with Headset only if connected) */}
+                {/* Output Routing Status for Mobile or Desktop */}
                 {isMobile ? (
                   <div className="space-y-2 pt-1">
-                    <span className="text-[11px] text-neutral-400 block font-medium">Output Mode</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onSelectAudioOutputMode("speaker")}
-                        className={`p-3 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer ${
-                          audioOutputMode === "speaker"
-                            ? "bg-blue-500/15 border-blue-400 text-white font-medium"
-                            : "bg-[#28292c] border-[#3c4043] text-neutral-300 hover:border-neutral-500"
-                        }`}
-                      >
-                        <Volume2 className="w-4 h-4 text-blue-400 shrink-0" />
-                        <div className="text-left leading-tight">
-                          <div className="text-xs font-medium">Speaker</div>
-                          <div className="text-[10px] text-neutral-400">Loudspeaker</div>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onSelectAudioOutputMode("earpiece")}
-                        className={`p-3 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer ${
-                          audioOutputMode === "earpiece"
-                            ? "bg-blue-500/15 border-blue-400 text-white font-medium"
-                            : "bg-[#28292c] border-[#3c4043] text-neutral-300 hover:border-neutral-500"
-                        }`}
-                      >
-                        <Smartphone className="w-4 h-4 text-sky-400 shrink-0" />
-                        <div className="text-left leading-tight">
-                          <div className="text-xs font-medium">Phone</div>
-                          <div className="text-[10px] text-neutral-400">Ear receiver</div>
-                        </div>
-                      </button>
-                    </div>
-
-                    {/* ONLY display Headset option if actual headphones/Bluetooth are detected */}
-                    {detectedHeadset && (
-                      <button
-                        type="button"
-                        onClick={() => onSelectAudioOutputMode("headset")}
-                        className={`w-full p-3 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer ${
-                          audioOutputMode === "headset"
-                            ? "bg-blue-500/15 border-blue-400 text-white font-medium"
-                            : "bg-[#28292c] border-[#3c4043] text-neutral-300 hover:border-neutral-500"
-                        }`}
-                      >
-                        <Headphones className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="text-[11px] text-neutral-400 block font-medium">Device Audio Route</span>
+                    {detectedHeadset ? (
+                      <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-3">
+                        <Headphones className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                         <div className="text-left leading-tight flex-1">
-                          <div className="text-xs font-medium">Connected Headset</div>
-                          <div className="text-[10px] text-neutral-400 truncate">
-                            {detectedHeadset.label || "Bluetooth / Wired Earphones"}
+                          <div className="text-xs font-semibold text-emerald-300">Connected Headset / Bluetooth</div>
+                          <div className="text-[11px] text-neutral-300 mt-0.5 truncate">
+                            {detectedHeadset.label || "External Headphones"}
+                          </div>
+                          <div className="text-[10px] text-neutral-400 mt-1">
+                            Audio is automatically routed to your connected headphones or Bluetooth device by Android.
                           </div>
                         </div>
-                        {audioOutputMode === "headset" && <Check className="w-4 h-4 text-blue-400" />}
-                      </button>
+                      </div>
+                    ) : (
+                      <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-start gap-3">
+                        <Volume2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                        <div className="text-left leading-tight flex-1">
+                          <div className="text-xs font-semibold text-blue-300">Loudspeaker Active</div>
+                          <div className="text-[11px] text-neutral-300 mt-0.5">
+                            Hands-free loudspeaker enabled
+                          </div>
+                          <div className="text-[10px] text-neutral-400 mt-1">
+                            Call audio is playing through the device loudspeaker. Connecting a wired or Bluetooth headset will automatically route audio to it.
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 ) : (

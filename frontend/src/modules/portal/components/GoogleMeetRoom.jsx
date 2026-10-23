@@ -50,6 +50,16 @@ import {
   markRoomConcluded,
   clearRoomConcluded,
 } from "@/modules/portal/utils/roomCodeHelper";
+import {
+  getAudioRoutingCapabilities,
+  getSelectableOutputs,
+  findLabeledAccessory,
+  logAudioRoutingDiagnostics,
+  registerRemoteAudioElement,
+  setRemoteAudioOutput,
+  resumeRemoteAudio,
+  resetAudioOutputState,
+} from "@/modules/portal/utils/audioOutputRouting";
 
 // Studio-grade WebRTC DSP constraints for noise isolation and echo cancellation
 const OPTIMAL_AUDIO_CONSTRAINTS = {
@@ -72,155 +82,76 @@ const FALLBACK_AUDIO_CONSTRAINTS = {
 };
 
 /**
- * High-fidelity Audio playback engine for an individual remote peer.
- * Uses a dual-path pipeline:
- * 1. Web Audio API connected to AudioContext.destination which Android Chromium routes
- *    directly through STREAM_MUSIC (Phone Loudspeaker / Media channel at full volume).
- * 2. An unmuted <video playsInline> fallback element to keep Chrome's media pipeline engaged.
- * When in "earpiece" mode, Web Audio is muted and audio routes gently (volume 0.25) to the ear receiver.
+ * Remote audio playback for one peer: exactly ONE media element and ONE
+ * playback path (no Web Audio duplicate, no volume tricks).
+ *
+ * Uses <video playsInline> with hidden off-screen positioning rather than <audio>
+ * because on Android Chrome, WebRTC audio played through an <audio> tag triggers
+ * handset earpiece telephony routing, whereas <video playsInline> signals a video
+ * conference session and routes audio to the LOUDSPEAKER.
+ *
+ * On browsers that support setSinkId() the chosen output device is applied
+ * through audioOutputRouting.js.
  */
-function RemotePeerAudio({ stream, streamVersion = 0, sinkId = null, audioOutputMode = "speaker" }) {
+function RemotePeerAudio({ stream, streamVersion = 0, onAutoplayBlocked }) {
   const mediaRef = useRef(null);
-  const audioCtxRef = useRef(null);
-  const gainNodeRef = useRef(null);
-  const sourceNodeRef = useRef(null);
 
-  // Web Audio API routing for guaranteed mobile loudspeaker output
+  // Register once so routing changes / resume apply to every peer
   useEffect(() => {
-    if (!stream) return;
-    const audioTracks = stream.getAudioTracks().filter((t) => t.readyState === "live");
-    if (audioTracks.length === 0) return;
+    const mediaEl = mediaRef.current;
+    if (!mediaEl) return undefined;
+    const unregister = registerRemoteAudioElement(mediaEl);
+    return () => {
+      unregister();
+      try {
+        mediaEl.pause();
+        mediaEl.srcObject = null;
+      } catch (e) {}
+    };
+  }, []);
 
-    try {
-      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtxClass) return;
-
-      if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-        audioCtxRef.current = new AudioCtxClass({ latencyHint: "interactive" });
-      }
-      const ctx = audioCtxRef.current;
-
-      if (ctx.state === "suspended") {
-        ctx.resume().catch(() => {});
-      }
-
-      if (!gainNodeRef.current) {
-        gainNodeRef.current = ctx.createGain();
-        // Limiter keeps boosted speaker audio clean (no clipping/distortion)
-        const limiter = ctx.createDynamicsCompressor();
-        limiter.threshold.value = -8;
-        limiter.knee.value = 6;
-        limiter.ratio.value = 12;
-        limiter.attack.value = 0.003;
-        limiter.release.value = 0.25;
-        gainNodeRef.current.connect(limiter);
-        limiter.connect(ctx.destination);
-      }
-
-      // Reconnect source if stream changed
-      if (sourceNodeRef.current) {
-        try {
-          sourceNodeRef.current.disconnect();
-        } catch (e) {}
-      }
-      sourceNodeRef.current = ctx.createMediaStreamSource(stream);
-      sourceNodeRef.current.connect(gainNodeRef.current);
-
-      const now = ctx.currentTime;
-      if (audioOutputMode === "earpiece") {
-        // Silence loudspeaker Web Audio so it only comes out of the earpiece
-        gainNodeRef.current.gain.setValueAtTime(0.0, now);
-      } else if (audioOutputMode === "headset") {
-        gainNodeRef.current.gain.setValueAtTime(0.95, now);
-      } else {
-        // Loudspeaker mode: boosted (Android call-volume stream is quiet), limited above
-        gainNodeRef.current.gain.setValueAtTime(2.2, now);
-      }
-    } catch (err) {
-      console.warn("[REMOTE AUDIO] Web Audio bridge:", err);
-    }
-  }, [stream, streamVersion, audioOutputMode]);
-
-  // Media Element connection
+  // Attach the remote stream (only re-attach when tracks changed,
+  // so renegotiation does not restart playback or create duplicates)
   useEffect(() => {
     const mediaEl = mediaRef.current;
     if (!mediaEl || !stream) return;
 
-    if (mediaEl.srcObject !== stream) {
+    const trackKey = (s) =>
+      s ? s.getTracks().map((t) => `${t.kind}:${t.id}`).join("|") : "";
+    if (!mediaEl.srcObject || trackKey(mediaEl.srcObject) !== trackKey(stream)) {
       mediaEl.srcObject = stream;
     }
-
-    if (audioOutputMode === "earpiece") {
-      mediaEl.muted = false;
-      mediaEl.volume = 0.25;
-    } else if (audioOutputMode === "headset") {
-      mediaEl.muted = false;
-      mediaEl.volume = 0.85;
-    } else {
-      mediaEl.muted = false;
-      mediaEl.volume = 0.95;
-    }
-
-    // Set hardware sinkId if supported
-    if (sinkId && typeof mediaEl.setSinkId === "function") {
-      mediaEl.setSinkId(sinkId).catch(() => {});
-    }
+    mediaEl.muted = false;
+    mediaEl.volume = 1;
 
     const playPromise = mediaEl.play();
     if (playPromise !== undefined) {
-      playPromise.catch(() => {});
+      playPromise
+        .then(() => onAutoplayBlocked?.(false))
+        .catch((err) => {
+          if (err?.name === "NotAllowedError") {
+            console.warn("[REMOTE AUDIO] Autoplay blocked; waiting for user gesture");
+            onAutoplayBlocked?.(true);
+          } else if (err?.name !== "AbortError") {
+            console.warn("[REMOTE AUDIO] play() failed:", err?.name);
+          }
+        });
     }
-  }, [stream, streamVersion, sinkId, audioOutputMode]);
-
-  // Keep alive on user touch, click, visibility change
-  useEffect(() => {
-    const resumeAudio = () => {
-      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
-        audioCtxRef.current.resume().catch(() => {});
-      }
-      const mediaEl = mediaRef.current;
-      if (mediaEl && mediaEl.srcObject && mediaEl.paused) {
-        mediaEl.play().catch(() => {});
-      }
-    };
-
-    window.addEventListener("click", resumeAudio);
-    window.addEventListener("touchstart", resumeAudio);
-    window.addEventListener("touchend", resumeAudio);
-    document.addEventListener("visibilitychange", resumeAudio);
-
-    return () => {
-      window.removeEventListener("click", resumeAudio);
-      window.removeEventListener("touchstart", resumeAudio);
-      window.removeEventListener("touchend", resumeAudio);
-      document.removeEventListener("visibilitychange", resumeAudio);
-      if (sourceNodeRef.current) {
-        try {
-          sourceNodeRef.current.disconnect();
-        } catch (e) {}
-      }
-      if (gainNodeRef.current) {
-        try {
-          gainNodeRef.current.disconnect();
-        } catch (e) {}
-      }
-      if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
-        audioCtxRef.current.close().catch(() => {});
-      }
-    };
-  }, []);
+  }, [stream, streamVersion, onAutoplayBlocked]);
 
   return (
     <video
       ref={mediaRef}
       autoPlay
       playsInline
+      webkit-playsinline="true"
+      aria-hidden="true"
       style={{
         position: "fixed",
-        top: -9999,
-        left: -9999,
-        width: 1,
-        height: 1,
+        top: "-9999px",
+        left: "-9999px",
+        width: "1px",
+        height: "1px",
         opacity: 0,
         pointerEvents: "none",
       }}
@@ -555,6 +486,10 @@ export default function GoogleMeetRoom({
     );
   }, []);
 
+  // Autoplay recovery & platform routing capabilities
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
+  const audioRoutingCaps = useMemo(() => getAudioRoutingCapabilities(), []);
+
   // Physical accessory detection (Headphones / Bluetooth earbuds / AirPods)
   const detectedHeadset = useMemo(() => {
     const all = [...audioInputDevices, ...audioOutputDevices];
@@ -575,6 +510,7 @@ export default function GoogleMeetRoom({
       setVideoDevices(devs.filter((d) => d.kind === "videoinput"));
       setAudioInputDevices(devs.filter((d) => d.kind === "audioinput"));
       setAudioOutputDevices(devs.filter((d) => d.kind === "audiooutput"));
+      logAudioRoutingDiagnostics(devs);
     } catch (e) {
       console.warn("Device enumeration notice:", e);
     }
@@ -593,6 +529,29 @@ export default function GoogleMeetRoom({
     }
     return () => clearTimeout(timer);
   }, [refreshDevices]);
+
+  // Resume remote audio on first user interaction if autoplay was blocked
+  useEffect(() => {
+    if (!isAutoplayBlocked) return;
+    const handleUserGesture = () => {
+      resumeRemoteAudio().then((stillBlocked) => {
+        setIsAutoplayBlocked(stillBlocked);
+      });
+    };
+    window.addEventListener("click", handleUserGesture, { once: true });
+    window.addEventListener("touchstart", handleUserGesture, { once: true });
+    return () => {
+      window.removeEventListener("click", handleUserGesture);
+      window.removeEventListener("touchstart", handleUserGesture);
+    };
+  }, [isAutoplayBlocked]);
+
+  // Reset audio output state on room unmount
+  useEffect(() => {
+    return () => {
+      resetAudioOutputState();
+    };
+  }, []);
 
   // If headset mode was selected but headset was unplugged/disconnected, auto-revert to loudspeaker
   useEffect(() => {
@@ -1732,12 +1691,22 @@ export default function GoogleMeetRoom({
     }
   };
 
-  const handleSelectAudioOutput = (deviceId) => {
-    setSelectedAudioOutputId(deviceId);
-    try {
-      localStorage.setItem("mcpa_selected_speaker_id", deviceId);
-    } catch (e) {}
-    showToast("Speaker output updated");
+  const handleSelectAudioOutput = async (deviceId) => {
+    const res = await setRemoteAudioOutput(deviceId);
+    if (res.ok) {
+      setSelectedAudioOutputId(deviceId);
+      try {
+        localStorage.setItem("mcpa_selected_speaker_id", deviceId);
+      } catch (e) {}
+      showToast("Speaker output updated");
+    } else {
+      console.warn("[AUDIO ROUTING] Could not switch output device:", res.reason);
+      if (res.reason === "unsupported") {
+        showToast("Audio output selection is managed by your operating system");
+      } else {
+        showToast("Failed to switch audio output device");
+      }
+    }
   };
 
   const handleSelectAudioOutputMode = (mode) => {
@@ -1745,28 +1714,6 @@ export default function GoogleMeetRoom({
     try {
       localStorage.setItem("mcpa_audio_output_mode", mode);
     } catch (e) {}
-    if (mode === "earpiece") {
-      showToast("👂 Earpiece mode (Mahinang tunog sa tenga)");
-    } else if (mode === "headset") {
-      showToast("🎧 Headset mode");
-    } else {
-      showToast("🔊 Loudspeaker mode");
-    }
-  };
-
-  const cycleAudioOutputMode = () => {
-    if (detectedHeadset) {
-      const nextMode =
-        audioOutputMode === "speaker"
-          ? "earpiece"
-          : audioOutputMode === "earpiece"
-          ? "headset"
-          : "speaker";
-      handleSelectAudioOutputMode(nextMode);
-    } else {
-      const nextMode = audioOutputMode === "speaker" ? "earpiece" : "speaker";
-      handleSelectAudioOutputMode(nextMode);
-    }
   };
 
   // Toggle Screen Sharing with Mobile Support & Informative Device Guidance
@@ -2083,10 +2030,22 @@ export default function GoogleMeetRoom({
           key={peer.socketId}
           stream={peer.stream}
           streamVersion={peer.streamVersion || 0}
-          sinkId={selectedAudioOutputId}
-          audioOutputMode={audioOutputMode}
+          onAutoplayBlocked={setIsAutoplayBlocked}
         />
       ))}
+
+      {/* Autoplay blocked banner for mobile browsers */}
+      {isAutoplayBlocked && (
+        <div
+          onClick={() => {
+            resumeRemoteAudio().then((blocked) => setIsAutoplayBlocked(blocked));
+          }}
+          className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-black px-4 py-2 rounded-full text-xs font-semibold shadow-2xl flex items-center gap-2 cursor-pointer animate-pulse hover:bg-amber-400 transition-all"
+        >
+          <Volume2 className="w-4 h-4" />
+          <span>Tap anywhere to enable remote audio</span>
+        </div>
+      )}
 
       {/* Floating PiP Restore Button */}
       {isFloatingPiP && (
@@ -2142,126 +2101,101 @@ export default function GoogleMeetRoom({
               </button>
             )}
 
-            {/* Quick Audio Output Toggle & Selector (Google Meet Style) */}
+            {/* Audio Output Route Indicator / Selector */}
             <div className="relative" data-meet-popover>
               <button
                 type="button"
                 onClick={() => setIsAudioOutputMenuOpen((v) => !v)}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-sans font-medium transition-all cursor-pointer border ${
-                  audioOutputMode === "earpiece"
-                    ? "bg-amber-500/15 text-amber-300 border-amber-500/40"
-                    : audioOutputMode === "headset"
+                  detectedHeadset
                     ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
                     : "bg-white/[0.08] hover:bg-white/[0.14] text-white/90 hover:text-white border-white/10"
                 }`}
-                title="Select Audio Output Device (Loudspeaker / Phone / Headset)"
+                title="Audio Output Route"
               >
-                {audioOutputMode === "earpiece" ? (
-                  <Smartphone className="w-3.5 h-3.5 text-amber-400" />
-                ) : audioOutputMode === "headset" ? (
+                {detectedHeadset ? (
                   <Headphones className="w-3.5 h-3.5 text-emerald-400" />
                 ) : (
                   <Volume2 className="w-3.5 h-3.5 text-blue-400" />
                 )}
                 <span className="capitalize text-[11px]">
-                  {audioOutputMode === "earpiece"
-                    ? "Phone"
-                    : audioOutputMode === "headset"
-                    ? "Headset"
-                    : "Speaker"}
+                  {detectedHeadset ? "Headset" : "Speaker"}
                 </span>
                 <ChevronUp className={`w-3 h-3 text-neutral-400 transition-transform ${isAudioOutputMenuOpen ? "" : "rotate-180"}`} />
               </button>
 
-              {/* Mobile Audio Output Popover */}
+              {/* Audio Output Popover */}
               {isAudioOutputMenuOpen && (
                 <div
-                  className="absolute top-full right-0 mt-2 w-64 rounded-2xl bg-[#202124] border border-[#3c4043] shadow-2xl p-2 text-white z-50 animate-in fade-in zoom-in-95 duration-150 font-sans"
+                  className="absolute top-full right-0 mt-2 w-72 rounded-2xl bg-[#202124] border border-[#3c4043] shadow-2xl p-3 text-white z-50 animate-in fade-in zoom-in-95 duration-150 font-sans"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="text-[10px] font-medium text-neutral-400 px-3 py-1.5 uppercase tracking-wider">
-                    Audio Output Route
+                  <div className="text-[10px] font-medium text-neutral-400 px-1 pb-2 uppercase tracking-wider border-b border-white/[0.08]">
+                    Audio Output
                   </div>
-                  <div className="space-y-1">
-                    {/* Speakerphone */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleSelectAudioOutputMode("speaker");
-                        setIsAudioOutputMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-colors cursor-pointer text-left ${
-                        audioOutputMode === "speaker"
-                          ? "bg-blue-500/15 text-blue-300 font-medium"
-                          : "text-neutral-200 hover:bg-white/[0.08]"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Volume2 className="w-4 h-4 text-blue-400 shrink-0" />
-                        <div>
-                          <div className="font-medium text-xs">Speaker</div>
-                          <div className="text-[10px] text-neutral-400">Loudspeaker (Hands-free)</div>
-                        </div>
-                      </div>
-                      {audioOutputMode === "speaker" && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
-                    </button>
 
-                    {/* Phone Earpiece */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleSelectAudioOutputMode("earpiece");
-                        setIsAudioOutputMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-colors cursor-pointer text-left ${
-                        audioOutputMode === "earpiece"
-                          ? "bg-blue-500/15 text-blue-300 font-medium"
-                          : "text-neutral-200 hover:bg-white/[0.08]"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Smartphone className="w-4 h-4 text-sky-400 shrink-0" />
-                        <div>
-                          <div className="font-medium text-xs">Phone</div>
-                          <div className="text-[10px] text-neutral-400">Ear receiver (Sa tenga)</div>
-                        </div>
-                      </div>
-                      {audioOutputMode === "earpiece" && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
-                    </button>
-
-                    {/* Headset / Bluetooth (Only enabled if physically detected) */}
-                    {detectedHeadset ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleSelectAudioOutputMode("headset");
-                          setIsAudioOutputMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-colors cursor-pointer text-left ${
-                          audioOutputMode === "headset"
-                            ? "bg-blue-500/15 text-blue-300 font-medium"
-                            : "text-neutral-200 hover:bg-white/[0.08]"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 truncate">
-                          <Headphones className="w-4 h-4 text-emerald-400 shrink-0" />
-                          <div className="truncate">
-                            <div className="font-medium text-xs truncate">Headset / BT</div>
-                            <div className="text-[10px] text-neutral-400 truncate">{detectedHeadset.label || "Connected Earphones"}</div>
+                  {/* Desktop with setSinkId and selectable outputs */}
+                  {audioRoutingCaps.canSelectOutput && getSelectableOutputs(audioOutputDevices).length > 0 ? (
+                    <div className="pt-2 space-y-1">
+                      {getSelectableOutputs(audioOutputDevices).map((dev, idx) => {
+                        const isSelected =
+                          selectedAudioOutputId === dev.deviceId ||
+                          (!selectedAudioOutputId && idx === 0);
+                        return (
+                          <button
+                            key={dev.deviceId || idx}
+                            type="button"
+                            onClick={() => {
+                              handleSelectAudioOutput(dev.deviceId);
+                              setIsAudioOutputMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                              isSelected
+                                ? "bg-blue-500/15 text-blue-300 font-medium"
+                                : "text-neutral-200 hover:bg-white/[0.08]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <Volume2 className="w-4 h-4 text-blue-400 shrink-0" />
+                              <span className="truncate">{dev.label || `Speaker ${idx + 1}`}</span>
+                            </div>
+                            {isSelected && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Mobile or platform-managed audio output */
+                    <div className="pt-2 space-y-2">
+                      {detectedHeadset ? (
+                        <div className="space-y-1.5 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                          <div className="flex items-center gap-2 text-emerald-300 font-medium text-xs">
+                            <Headphones className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>Headset Connected</span>
                           </div>
+                          <p className="text-[11px] text-neutral-200 truncate">
+                            {detectedHeadset.label || "External Headphones"}
+                          </p>
+                          <p className="text-[10px] text-neutral-400 leading-normal">
+                            Audio is routed to your connected headphones or Bluetooth device by Android.
+                          </p>
                         </div>
-                        {audioOutputMode === "headset" && <Check className="w-4 h-4 text-blue-400 shrink-0" />}
-                      </button>
-                    ) : (
-                      <div className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs opacity-40 text-neutral-400 cursor-not-allowed">
-                        <Headphones className="w-4 h-4 text-neutral-500 shrink-0" />
-                        <div>
-                          <div className="text-xs">Headset / BT</div>
-                          <div className="text-[10px]">No accessory connected</div>
+                      ) : (
+                        <div className="space-y-1.5 p-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                          <div className="flex items-center gap-2 text-blue-300 font-medium text-xs">
+                            <Volume2 className="w-4 h-4 text-blue-400 shrink-0" />
+                            <span>Loudspeaker Active</span>
+                          </div>
+                          <p className="text-[11px] text-neutral-200">
+                            Hands-free loudspeaker enabled
+                          </p>
+                          <p className="text-[10px] text-neutral-400 leading-normal">
+                            Call audio is playing through the device loudspeaker. Connecting headphones or Bluetooth will automatically route audio to it.
+                          </p>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

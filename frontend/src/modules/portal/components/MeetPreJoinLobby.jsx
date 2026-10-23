@@ -590,40 +590,14 @@ export default function MeetPreJoinLobby({
                   {isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
                 </button>
 
-                {/* Quick Phone Audio Mode Switch (Speaker / Earpiece / Headset) */}
+                {/* Audio Output Settings */}
                 <button
                   type="button"
-                  onClick={() => {
-                    const nextMode =
-                      audioOutputMode === "speaker"
-                        ? "earpiece"
-                        : audioOutputMode === "earpiece"
-                        ? "headset"
-                        : "speaker";
-                    handleSelectAudioOutputMode(nextMode);
-                  }}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border ${
-                    audioOutputMode === "earpiece"
-                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                      : audioOutputMode === "headset"
-                      ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
-                      : "bg-white/10 hover:bg-white/20 text-white border-transparent"
-                  }`}
-                  title={`Audio Output: ${
-                    audioOutputMode === "earpiece"
-                      ? "Phone Earpiece (Tenga / Mahina)"
-                      : audioOutputMode === "headset"
-                      ? "Headset"
-                      : "Loudspeaker (Malakas)"
-                  }. Click to switch.`}
+                  onClick={() => setIsDeviceSettingsOpen(true)}
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all border bg-white/10 hover:bg-white/20 text-white border-transparent cursor-pointer"
+                  title="Audio Output & Speaker Settings"
                 >
-                  {audioOutputMode === "earpiece" ? (
-                    <Smartphone className="w-4 h-4 text-amber-400" />
-                  ) : audioOutputMode === "headset" ? (
-                    <Headphones className="w-4 h-4 text-sky-400" />
-                  ) : (
-                    <Volume2 className="w-4 h-4" />
-                  )}
+                  <Volume2 className="w-4 h-4" />
                 </button>
 
                 {/* Audio & Video Device Settings */}
