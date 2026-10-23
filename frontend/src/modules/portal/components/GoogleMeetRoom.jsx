@@ -419,6 +419,171 @@ function ParticipantVideoCard({
   );
 }
 
+/**
+ * ScreenSharePresentationStage
+ * 
+ * Mobile-first presentation canvas designed to eliminate the Android Chrome / iOS Safari
+ * black-screen bug when viewing a remote peer's screen share.
+ * 
+ * Features:
+ * - Direct DOM manipulation of `defaultMuted = true` and `muted = true` (bypasses Android autoplay block)
+ * - `playsinline` and `webkit-playsinline` attributes (prevents unwanted full-screen video takeover)
+ * - Listens for WebRTC `unmute` event (when the first keyframe arrives over RTP)
+ * - Continuous playback health watchdog and retry on failure / document visibility change
+ * - Graceful loading indicator before first video frames decode, eliminating dead black screen confusion
+ * - Tap-to-play recovery for strict mobile browsers requiring a user gesture
+ */
+function ScreenSharePresentationStage({ activeScreenShare }) {
+  const videoRef = useRef(null);
+  const [hasDecodedFrames, setHasDecodedFrames] = useState(false);
+
+  useEffect(() => {
+    const videoEl = videoRef.current;
+    const stream = activeScreenShare?.stream;
+    if (!videoEl || !stream) {
+      setHasDecodedFrames(false);
+      return;
+    }
+
+    // Explicit native DOM properties to strictly satisfy Android Chrome & iOS Safari autoplay
+    videoEl.defaultMuted = true;
+    videoEl.muted = true;
+    videoEl.setAttribute("playsinline", "true");
+    videoEl.setAttribute("webkit-playsinline", "true");
+
+    if (videoEl.srcObject !== stream) {
+      videoEl.srcObject = stream;
+    }
+
+    const checkFrameDecoded = () => {
+      if (videoEl.readyState >= 2 || (videoEl.videoWidth > 0 && videoEl.videoHeight > 0)) {
+        setHasDecodedFrames(true);
+      }
+    };
+
+    const attemptPlay = () => {
+      if (!videoEl || !videoEl.srcObject) return;
+      videoEl.defaultMuted = true;
+      videoEl.muted = true;
+      const playPromise = videoEl.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            checkFrameDecoded();
+          })
+          .catch((err) => {
+            console.warn("[SCREEN SHARE STAGE] Play failed, retrying in 300ms:", err?.name);
+            setTimeout(() => {
+              if (videoEl && videoEl.srcObject && videoEl.paused) {
+                videoEl.play().then(checkFrameDecoded).catch(() => {});
+              }
+            }, 300);
+          });
+      }
+    };
+
+    attemptPlay();
+
+    const handleLoadedMetadata = () => {
+      attemptPlay();
+      checkFrameDecoded();
+    };
+
+    const handlePlaying = () => {
+      checkFrameDecoded();
+    };
+
+    const handleWaitingOrPause = () => {
+      checkFrameDecoded();
+      if (videoEl && videoEl.srcObject && videoEl.paused) {
+        attemptPlay();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        attemptPlay();
+        checkFrameDecoded();
+      }
+    };
+
+    videoEl.addEventListener("loadedmetadata", handleLoadedMetadata);
+    videoEl.addEventListener("loadeddata", handleLoadedMetadata);
+    videoEl.addEventListener("canplay", handleLoadedMetadata);
+    videoEl.addEventListener("playing", handlePlaying);
+    videoEl.addEventListener("timeupdate", handlePlaying);
+    videoEl.addEventListener("resize", handlePlaying);
+    videoEl.addEventListener("pause", handleWaitingOrPause);
+    videoEl.addEventListener("waiting", handleWaitingOrPause);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Watch video tracks for unmute (fires as soon as first WebRTC RTP keyframe is decoded)
+    const videoTracks = stream.getVideoTracks();
+    const handleUnmute = () => {
+      console.log("[SCREEN SHARE STAGE] Remote track unmuted, initiating playback...");
+      attemptPlay();
+      checkFrameDecoded();
+    };
+
+    videoTracks.forEach((track) => {
+      track.addEventListener("unmute", handleUnmute);
+    });
+
+    return () => {
+      videoEl.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      videoEl.removeEventListener("loadeddata", handleLoadedMetadata);
+      videoEl.removeEventListener("canplay", handleLoadedMetadata);
+      videoEl.removeEventListener("playing", handlePlaying);
+      videoEl.removeEventListener("timeupdate", handlePlaying);
+      videoEl.removeEventListener("resize", handlePlaying);
+      videoEl.removeEventListener("pause", handleWaitingOrPause);
+      videoEl.removeEventListener("waiting", handleWaitingOrPause);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      videoTracks.forEach((track) => {
+        track.removeEventListener("unmute", handleUnmute);
+      });
+    };
+  }, [activeScreenShare?.stream, activeScreenShare?.streamVersion]);
+
+  return (
+    <div
+      onClick={() => {
+        if (videoRef.current) {
+          videoRef.current.play().catch(() => {});
+        }
+      }}
+      className="relative flex-1 min-h-0 bg-black rounded-2xl overflow-hidden flex items-center justify-center border border-white/10 cursor-pointer"
+    >
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className={`w-full h-full object-contain bg-black transition-opacity duration-300 ${
+          hasDecodedFrames ? "opacity-100" : "opacity-0"
+        }`}
+      />
+
+      {/* Loading state before first video frames decode */}
+      {!hasDecodedFrames && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0a0a0d] z-10 pointer-events-none">
+          <div className="w-9 h-9 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+          <p className="text-xs font-mono text-neutral-300 font-medium tracking-wide animate-pulse">
+            Loading presentation stream...
+          </p>
+        </div>
+      )}
+
+      {/* Presenting Label: Clean drop-shadow directly over video */}
+      <div className="absolute top-3 left-4 z-20 pointer-events-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]">
+        <span className="text-white text-xs sm:text-sm font-semibold tracking-tight">
+          {activeScreenShare.presenterName} is presenting
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function GoogleMeetRoom({
   roomCode = "mcpa-2026-meet",
   currentUser,
@@ -1556,7 +1721,11 @@ export default function GoogleMeetRoom({
           }
         }
       } catch (err) {
-        showToast("Unable to access camera. Check browser permissions or if another app is using it.");
+        if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+          showToast("No camera or webcam detected on this device.");
+        } else {
+          showToast("Unable to access camera. Check browser permissions or if another app is using it.");
+        }
         return;
       }
     } else if (localStreamRef.current) {
@@ -1736,6 +1905,10 @@ export default function GoogleMeetRoom({
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((t) => t.stop());
         screenStreamRef.current = null;
+      }
+      if (screenAudioMixerRef.current) {
+        screenAudioMixerRef.current.stop();
+        screenAudioMixerRef.current = null;
       }
       setScreenStream(null);
       if (peerManagerRef.current) {
@@ -2014,16 +2187,6 @@ export default function GoogleMeetRoom({
 
   const isAnotherPresenterActive = Boolean(activeScreenShare && !activeScreenShare.isLocal);
 
-  // Connect screen share video element
-  useEffect(() => {
-    if (screenVideoRef.current && activeScreenShare?.stream) {
-      if (screenVideoRef.current.srcObject !== activeScreenShare.stream) {
-        screenVideoRef.current.srcObject = activeScreenShare.stream;
-      }
-      screenVideoRef.current.play().catch(() => {});
-    }
-  }, [activeScreenShare]);
-
   const participantCount = allParticipants.length;
 
   if (!mounted || typeof document === "undefined") return null;
@@ -2282,22 +2445,8 @@ export default function GoogleMeetRoom({
           {/* A. SCREEN SHARE ACTIVE VIEW */}
           {activeScreenShare ? (
             <div className="relative w-full h-full flex flex-col md:flex-row gap-3 overflow-hidden">
-              {/* Main Presentation Stage (~85% canvas) */}
-              <div className="relative flex-1 min-h-0 bg-black rounded-2xl overflow-hidden flex items-center justify-center border border-white/10">
-                <video
-                  ref={screenVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-contain bg-black"
-                />
-                {/* Presenting Label: Clean drop-shadow, NO box background, NO dot */}
-                <div className="absolute top-3 left-4 z-10 pointer-events-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]">
-                  <span className="text-white text-xs sm:text-sm font-semibold tracking-tight">
-                    {activeScreenShare.presenterName} is presenting
-                  </span>
-                </div>
-              </div>
+              {/* Main Presentation Stage (~85% canvas, mobile-optimized player) */}
+              <ScreenSharePresentationStage activeScreenShare={activeScreenShare} />
 
               {/* Side Video Cards ("Gigilid" vertical strip on desktop, horizontal bottom strip on mobile) */}
               <div className="w-full md:w-64 lg:w-72 h-28 md:h-full flex flex-row md:flex-col gap-2 shrink-0 overflow-x-auto md:overflow-y-auto pb-1 md:pb-0">

@@ -231,6 +231,8 @@ export class WebRTCPeerManager {
     this.onPeerLeft = onPeerLeft;
 
     this.localStream = localStream || null;
+    this.activeVideoTrack = null;
+    this.activeAudioTrack = null;
     this.peers = new Map(); // socketId -> { socketId, pc, remoteStream, user, isInitiator, pendingCandidates }
     this.stalledWatchdogTimer = null;
     this.startStalledStreamWatchdog();
@@ -672,7 +674,22 @@ export class WebRTCPeerManager {
     const senders = typeof pc.getSenders === "function" ? pc.getSenders() : [];
     let needsRenegotiation = false;
 
-    for (const track of stream.getTracks()) {
+    // Determine effective audio and video tracks:
+    // If an active track was assigned via replaceVideoTrack (e.g. screen share) or replaceAudioTrack (e.g. mixer),
+    // give it priority over the default stream so we never overwrite screen share or drop devices without webcams.
+    const effectiveAudioTrack =
+      this.activeAudioTrack && this.activeAudioTrack.readyState === "live"
+        ? this.activeAudioTrack
+        : stream?.getAudioTracks?.()?.find((t) => t.readyState === "live") || null;
+
+    const effectiveVideoTrack =
+      this.activeVideoTrack && this.activeVideoTrack.readyState === "live"
+        ? this.activeVideoTrack
+        : stream?.getVideoTracks?.()?.find((t) => t.readyState === "live") || null;
+
+    const tracksToAttach = [effectiveAudioTrack, effectiveVideoTrack].filter(Boolean);
+
+    for (const track of tracksToAttach) {
       if (track.readyState === "ended") continue;
 
       // NOTE: never force track.enabled here — mute / camera-off state is owned by the UI.
@@ -967,6 +984,7 @@ export class WebRTCPeerManager {
    * @param {MediaStreamTrack} newVideoTrack 
    */
   async replaceVideoTrack(newVideoTrack) {
+    this.activeVideoTrack = newVideoTrack || null;
     for (const peer of this.peers.values()) {
       try {
         if (!peer.isInitiator && !peer.pc.remoteDescription) {
@@ -974,18 +992,24 @@ export class WebRTCPeerManager {
         }
 
         const videoTransceiver = findTransceiverForKind(peer.pc, "video");
+        const hadPreviousTrack = Boolean(videoTransceiver?.sender?.track);
 
         if (videoTransceiver && videoTransceiver.sender) {
           videoTransceiver.direction = "sendrecv";
           await videoTransceiver.sender.replaceTrack(newVideoTrack);
-          if (
-            newVideoTrack &&
-            peer.pc.signalingState === "stable" &&
-            peer.pc.remoteDescription &&
-            videoTransceiver.currentDirection &&
-            videoTransceiver.currentDirection !== "sendrecv" &&
-            videoTransceiver.currentDirection !== "sendonly"
-          ) {
+          
+          // CRITICAL: If there was no previous video track (e.g. laptop had no webcam!),
+          // or if transceiver was inactive / recvonly, Chrome MUST renegotiate to assign an SSRC
+          // in the SDP so media packets are actually transmitted to the remote peer!
+          const needsOffer =
+            Boolean(newVideoTrack) &&
+            (!hadPreviousTrack ||
+              (videoTransceiver.currentDirection &&
+                videoTransceiver.currentDirection !== "sendrecv" &&
+                videoTransceiver.currentDirection !== "sendonly"));
+
+          if (needsOffer && peer.pc.signalingState === "stable" && peer.pc.remoteDescription) {
+            console.log(`[WEBRTC MESH] Renegotiating newly attached video track with peer ${peer.socketId}`);
             await this.createAndSendOffer(peer.socketId, peer.user);
           }
           continue;
@@ -995,8 +1019,8 @@ export class WebRTCPeerManager {
         const videoSender = senders.find((s) => s.track && s.track.kind === "video");
         if (videoSender) {
           await videoSender.replaceTrack(newVideoTrack);
-        } else if (newVideoTrack && this.localStream) {
-          peer.pc.addTrack(newVideoTrack, this.localStream);
+        } else if (newVideoTrack) {
+          peer.pc.addTrack(newVideoTrack, this.localStream || new MediaStream([newVideoTrack]));
           if (peer.pc.signalingState === "stable" && peer.pc.remoteDescription) {
             await this.createAndSendOffer(peer.socketId, peer.user);
           }
@@ -1013,6 +1037,7 @@ export class WebRTCPeerManager {
    */
   async replaceAudioTrack(newAudioTrack) {
     if (!newAudioTrack) return;
+    this.activeAudioTrack = newAudioTrack;
     for (const peer of this.peers.values()) {
       try {
         if (!peer.isInitiator && !peer.pc.remoteDescription) {
@@ -1020,17 +1045,18 @@ export class WebRTCPeerManager {
         }
 
         const audioTransceiver = findTransceiverForKind(peer.pc, "audio");
+        const hadPreviousTrack = Boolean(audioTransceiver?.sender?.track);
 
         if (audioTransceiver && audioTransceiver.sender) {
           audioTransceiver.direction = "sendrecv";
           await audioTransceiver.sender.replaceTrack(newAudioTrack);
-          if (
-            peer.pc.signalingState === "stable" &&
-            peer.pc.remoteDescription &&
-            audioTransceiver.currentDirection &&
-            audioTransceiver.currentDirection !== "sendrecv" &&
-            audioTransceiver.currentDirection !== "sendonly"
-          ) {
+          const needsOffer =
+            !hadPreviousTrack ||
+            (audioTransceiver.currentDirection &&
+              audioTransceiver.currentDirection !== "sendrecv" &&
+              audioTransceiver.currentDirection !== "sendonly");
+
+          if (needsOffer && peer.pc.signalingState === "stable" && peer.pc.remoteDescription) {
             await this.createAndSendOffer(peer.socketId, peer.user);
           }
           continue;
@@ -1040,8 +1066,8 @@ export class WebRTCPeerManager {
         const audioSender = senders.find((s) => s.track && s.track.kind === "audio");
         if (audioSender) {
           await audioSender.replaceTrack(newAudioTrack);
-        } else if (this.localStream) {
-          peer.pc.addTrack(newAudioTrack, this.localStream);
+        } else {
+          peer.pc.addTrack(newAudioTrack, this.localStream || new MediaStream([newAudioTrack]));
           if (peer.pc.signalingState === "stable" && peer.pc.remoteDescription) {
             await this.createAndSendOffer(peer.socketId, peer.user);
           }
