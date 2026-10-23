@@ -573,13 +573,17 @@ export default function GoogleMeetRoom({
   }, []);
 
   useEffect(() => {
-    refreshDevices();
+    const timer = setTimeout(() => {
+      refreshDevices();
+    }, 0);
     if (navigator?.mediaDevices?.addEventListener) {
       navigator.mediaDevices.addEventListener("devicechange", refreshDevices);
       return () => {
+        clearTimeout(timer);
         navigator.mediaDevices.removeEventListener("devicechange", refreshDevices);
       };
     }
+    return () => clearTimeout(timer);
   }, [refreshDevices]);
 
   // If headset mode was selected but headset was unplugged/disconnected, auto-revert to loudspeaker
@@ -1431,7 +1435,7 @@ export default function GoogleMeetRoom({
             socketRef.current.emit("join-room", {
               roomCode: canonicalRoomCode,
               user: {
-                ...(currentUserPayloadRef.current || currentUserPayload),
+                ...(currentUserPayloadRef.current || {}),
                 clientSessionId: clientSessionIdRef.current,
                 mediaState: localMediaStateRef.current,
               },
@@ -1468,7 +1472,7 @@ export default function GoogleMeetRoom({
         conn.removeEventListener("change", triggerNetworkRecovery);
       }
     };
-  }, [canonicalRoomCode, affiliation, currentUserPayload]);
+  }, [canonicalRoomCode, affiliation]);
 
   // Toggle Microphone
   const toggleAudio = async () => {
