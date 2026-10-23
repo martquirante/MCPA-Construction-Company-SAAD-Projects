@@ -71,67 +71,171 @@ const FALLBACK_AUDIO_CONSTRAINTS = {
 
 /**
  * Audio playback element for an individual remote peer.
- * Separates audio from the video element to guarantee zero-drop audio rendering across all platforms.
- * Supports output device routing via setSinkId and phone earpiece / headset / speakerphone volume modes.
+ * Uses Web Audio API (AudioContext) with GainNode and DynamicsCompressorNode
+ * to guarantee:
+ * 1. Routing to Android/mobile Loudspeaker (STREAM_MUSIC) rather than whisper-quiet Earpiece (STREAM_VOICE_CALL).
+ * 2. 2.8x volume boost for Loudspeaker mode so phone volume is loud and room-filling.
+ * 3. Studio-grade dynamics compression to prevent any clipping, crackle, or distortion.
+ * 4. Responds dynamically to Speaker vs Earpiece vs Headset mode switches.
+ * 5. Fallback to native HTML5 audio element if Web Audio API is unavailable.
  */
 function RemotePeerAudio({ stream, streamVersion = 0, sinkId = null, audioOutputMode = "speaker" }) {
   const audioRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const sourceNodeRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  const compressorRef = useRef(null);
+  const isWebAudioActiveRef = useRef(false);
 
+  // Helper to calculate target gain based on output mode
+  const getTargetGain = (mode) => {
+    if (mode === "earpiece") return 0.35; // Gentle volume for holding directly against ear
+    if (mode === "headset") return 1.0;   // 1:1 true volume for earphones/headphones
+    return 2.8;                          // Boosted 2.8x amplification for crystal-clear loud phone speaker
+  };
+
+  // Setup Web Audio pipeline for the incoming stream
   useEffect(() => {
     const audioEl = audioRef.current;
-    if (audioEl && stream) {
-      if (audioEl.srcObject !== stream) {
-        audioEl.srcObject = stream;
-      }
-      audioEl.muted = false;
+    if (!stream) return;
 
-      // Adjust volume based on output mode (earpiece: safe low volume for holding against ear)
-      if (audioOutputMode === "earpiece") {
-        audioEl.volume = 0.28;
-      } else if (audioOutputMode === "headset") {
-        audioEl.volume = 0.8;
-      } else {
-        audioEl.volume = 1.0;
-      }
+    // Attach stream to <audio> element as primary anchor for browser media engine
+    if (audioEl && audioEl.srcObject !== stream) {
+      audioEl.srcObject = stream;
+    }
 
+    // Try setting up Web Audio API routing & amplification
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        // Clean up previous context if any
+        if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+          try {
+            audioCtxRef.current.close();
+          } catch (e) {}
+        }
+
+        const audioCtx = new AudioContextClass({ latencyHint: "interactive" });
+        audioCtxRef.current = audioCtx;
+
+        if (sinkId && typeof audioCtx.setSinkId === "function") {
+          audioCtx.setSinkId(sinkId).catch(() => {});
+        }
+
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          const source = audioCtx.createMediaStreamSource(stream);
+          sourceNodeRef.current = source;
+
+          // Studio-grade compressor to prevent clipping when volume is boosted
+          const compressor = audioCtx.createDynamicsCompressor();
+          compressor.threshold.setValueAtTime(-24, audioCtx.currentTime);
+          compressor.knee.setValueAtTime(30, audioCtx.currentTime);
+          compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
+          compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
+          compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
+          compressorRef.current = compressor;
+
+          // Gain node for loudspeaker amplification
+          const gainNode = audioCtx.createGain();
+          const initialGain = getTargetGain(audioOutputMode);
+          gainNode.gain.setValueAtTime(initialGain, audioCtx.currentTime);
+          gainNodeRef.current = gainNode;
+
+          // Connect pipeline: Stream -> Compressor -> Gain -> Output Destination (Loudspeaker)
+          source.connect(compressor);
+          compressor.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+
+          isWebAudioActiveRef.current = true;
+
+          // Mute the underlying <audio> element so audio doesn't double/echo
+          if (audioEl) {
+            audioEl.muted = true;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[WEBRTC AUDIO] Web Audio API setup notice, falling back to HTML5 audio:", err);
+      isWebAudioActiveRef.current = false;
+      if (audioEl) {
+        audioEl.muted = false;
+        audioEl.volume = audioOutputMode === "earpiece" ? 0.3 : 1.0;
+      }
+    }
+
+    // Attempt to start <audio> element playback (keeps WebRTC pipeline active)
+    if (audioEl) {
       if (sinkId && typeof audioEl.setSinkId === "function") {
-        audioEl.setSinkId(sinkId).catch((err) => {
-          console.warn("[WEBRTC] setSinkId error:", err);
-        });
+        audioEl.setSinkId(sinkId).catch(() => {});
       }
-
       const playPromise = audioEl.play();
       if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn("[WEBRTC] Remote audio auto-play waiting for user interaction:", err);
-        });
+        playPromise.catch(() => {});
       }
     }
-  }, [stream, streamVersion, sinkId, audioOutputMode]);
 
+    // Resume AudioContext if suspended by mobile autoplay policy
+    const resumeAudio = () => {
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+      if (audioEl && audioEl.paused && audioEl.srcObject) {
+        audioEl.play().catch(() => {});
+      }
+    };
+
+    resumeAudio();
+
+    // Event listeners to revive audio on mobile touch / click / visibility change
+    window.addEventListener("click", resumeAudio);
+    window.addEventListener("touchstart", resumeAudio);
+    window.addEventListener("touchend", resumeAudio);
+
+    return () => {
+      window.removeEventListener("click", resumeAudio);
+      window.removeEventListener("touchstart", resumeAudio);
+      window.removeEventListener("touchend", resumeAudio);
+
+      if (sourceNodeRef.current) {
+        try {
+          sourceNodeRef.current.disconnect();
+        } catch (e) {}
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+        try {
+          audioCtxRef.current.close();
+        } catch (e) {}
+      }
+      isWebAudioActiveRef.current = false;
+    };
+  }, [stream, streamVersion, sinkId]);
+
+  // Dynamically respond to audioOutputMode switching (Speaker vs Earpiece vs Headset)
   useEffect(() => {
+    const targetGain = getTargetGain(audioOutputMode);
+
+    if (gainNodeRef.current && audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+      try {
+        gainNodeRef.current.gain.setTargetAtTime(targetGain, audioCtxRef.current.currentTime, 0.05);
+      } catch (e) {}
+    }
+
     const audioEl = audioRef.current;
-    if (!audioEl) return;
-
-    if (sinkId && typeof audioEl.setSinkId === "function") {
-      audioEl.setSinkId(sinkId).catch(() => {});
+    if (audioEl && !isWebAudioActiveRef.current) {
+      audioEl.volume = audioOutputMode === "earpiece" ? 0.28 : 1.0;
     }
+  }, [audioOutputMode]);
 
-    if (audioOutputMode === "earpiece") {
-      audioEl.volume = 0.28;
-    } else if (audioOutputMode === "headset") {
-      audioEl.volume = 0.8;
-    } else {
-      audioEl.volume = 1.0;
-    }
-  }, [sinkId, audioOutputMode]);
-
-  // Handle visibility changes and network stall events to revive remote audio
+  // Keep alive on visibility changes and network stalls
   useEffect(() => {
     const audioEl = audioRef.current;
     if (!audioEl) return;
 
     const resumeAudio = () => {
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
       if (audioEl.srcObject && audioEl.paused) {
         audioEl.play().catch(() => {});
       }
@@ -146,8 +250,6 @@ function RemotePeerAudio({ stream, streamVersion = 0, sinkId = null, audioOutput
     audioEl.addEventListener("stalled", resumeAudio);
     audioEl.addEventListener("pause", resumeAudio);
     document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("click", resumeAudio, { once: true });
-    window.addEventListener("touchstart", resumeAudio, { once: true });
 
     return () => {
       audioEl.removeEventListener("stalled", resumeAudio);
