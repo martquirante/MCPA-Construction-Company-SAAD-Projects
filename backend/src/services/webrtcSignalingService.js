@@ -142,39 +142,38 @@ class WebRTCSignalingService {
         socket.join(roomCode);
         socket.currentRoom = roomCode;
 
-        // Clean up any stale/ghost socket entries for the reconnecting user (e.g. from network drops before pingTimeout)
-        if (user?.id || user?.email) {
+        // Clean up any stale/ghost socket entries for the reconnecting user (e.g. from network drops / carrier switch)
+        if (user?.id || user?.email || user?.clientSessionId) {
           for (const [existingSocketId, existingData] of roomParticipants.entries()) {
+            if (existingSocketId === socket.id) continue;
+
+            const isExactSameSession = Boolean(
+              user.clientSessionId && existingData?.clientSessionId === user.clientSessionId
+            );
+
             const isSameUser =
               (user.id && existingData?.id === user.id) ||
               (user.email && existingData?.email === user.email);
-            if (isSameUser && existingSocketId !== socket.id) {
-              const isSameRole = (existingData?.role || "client") === (role || "client");
-              const existingAffil = existingData?.affiliation || (existingData?.role === "admin" ? "mcpa" : "client");
-              const incomingAffil = user?.affiliation || (role === "admin" ? "mcpa" : "client");
-              const isSameAffiliation = existingAffil === incomingAffil;
 
-              // Safeguard 1: Never purge a peer with a different role or affiliation (e.g. Admin testing alongside Client on same account/email)
-              if (!isSameRole || !isSameAffiliation) {
-                console.log(
-                  `[WEBRTC] Preserving distinct role/affiliation participant ${existingSocketId} (${existingData?.role}/${existingAffil}) vs incoming (${role}/${incomingAffil})`
-                );
-                continue;
-              }
+            const isSameRole = (existingData?.role || "client") === (role || "client");
+            const existingAffil = existingData?.affiliation || (existingData?.role === "admin" ? "mcpa" : "client");
+            const incomingAffil = user?.affiliation || (role === "admin" ? "mcpa" : "client");
+            const isSameAffiliation = existingAffil === incomingAffil;
 
-              // Safeguard 2: Multi-tab defense testing / active concurrent session protection
-              const existingSocketInstance = io.sockets.sockets.get(existingSocketId);
-              const isStillActive = Boolean(existingSocketInstance && existingSocketInstance.connected);
-              if (isStillActive) {
-                console.log(
-                  `[WEBRTC] Multi-active connection detected for "${user.name || user.id}" (${existingSocketId} & ${socket.id}). Preserving both.`
-                );
-                continue;
-              }
-
+            // Reconnecting session detected (either exact same browser tab session or same user+role)
+            if (isExactSameSession || (isSameUser && isSameRole && isSameAffiliation)) {
               console.log(
-                `[WEBRTC] Purging stale ghost socket ${existingSocketId} for reconnecting user "${user.name || user.id}"`
+                `[WEBRTC] User session reconnected (${user.name || user.id}). Purging stale ghost socket ${existingSocketId} (exactSession: ${isExactSameSession})`
               );
+
+              const existingSocketInstance = this.io.sockets.sockets.get(existingSocketId);
+              if (existingSocketInstance) {
+                try {
+                  existingSocketInstance.leave(roomCode);
+                  existingSocketInstance.disconnect(true);
+                } catch (e) {}
+              }
+
               roomParticipants.delete(existingSocketId);
               socket.to(roomCode).emit("peer-left", {
                 socketId: existingSocketId,
@@ -268,6 +267,19 @@ class WebRTCSignalingService {
           socket.to(roomCode).emit("ice-candidate", {
             fromSocketId: socket.id,
             candidate,
+          });
+        }
+      });
+
+      // 4b. WebRTC ICE Restart Request Relay (Peer A requests Peer B to initiate ICE restart)
+      socket.on("request-ice-restart", ({ targetSocketId, roomCode }) => {
+        if (targetSocketId) {
+          socket.to(targetSocketId).emit("request-ice-restart", {
+            fromSocketId: socket.id,
+          });
+        } else if (roomCode) {
+          socket.to(roomCode).emit("request-ice-restart", {
+            fromSocketId: socket.id,
           });
         }
       });

@@ -617,6 +617,22 @@ export default function GoogleMeetRoom({
   const [isCallAnswered, setIsCallAnswered] = useState(isAdmin && !isInstantMeeting);
   const [hasCopiedLink, setHasCopiedLink] = useState(false);
 
+  // Stable client session ID (persists across carrier / Wi-Fi to cellular switches)
+  const clientSessionIdRef = useRef(
+    typeof window !== "undefined"
+      ? window.sessionStorage?.getItem("mcpa_meet_session_id") ||
+        `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+      : "sess_initial"
+  );
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && clientSessionIdRef.current) {
+      try {
+        window.sessionStorage?.setItem("mcpa_meet_session_id", clientSessionIdRef.current);
+      } catch (e) {}
+    }
+  }, []);
+
   // Time & Meeting Duration
   const callStartTimeRef = useRef(Date.now());
   const [callDurationSeconds, setCallDurationSeconds] = useState(0);
@@ -1078,6 +1094,7 @@ export default function GoogleMeetRoom({
         roomCode: canonicalRoomCode,
         user: {
           ...baseUser,
+          clientSessionId: clientSessionIdRef.current,
           mediaState: localMediaStateRef.current,
         },
         role: affiliation === "mcpa" ? "admin" : "client",
@@ -1212,6 +1229,10 @@ export default function GoogleMeetRoom({
 
     socket.on("ice-candidate", async ({ fromSocketId, candidate }) => {
       await peerManager.handleIceCandidate(candidate, fromSocketId);
+    });
+
+    socket.on("request-ice-restart", async ({ fromSocketId }) => {
+      await peerManager.handleRequestIceRestart(fromSocketId);
     });
 
     // Remote peer media state changes (mute, video toggle, screen share)
@@ -1349,6 +1370,64 @@ export default function GoogleMeetRoom({
       }
     };
   }, [isInstantMeeting, isAdmin, isCallAnswered]);
+
+  // Handle network shifts (Wi-Fi <-> Mobile Data, brief dropouts, online event)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let recoveryDebounceTimer = null;
+    const triggerNetworkRecovery = () => {
+      if (recoveryDebounceTimer) clearTimeout(recoveryDebounceTimer);
+      recoveryDebounceTimer = setTimeout(() => {
+        console.log("[WEBRTC] Network transition detected (online/carrier switch). Reviving connection...");
+        showToastRef.current?.("📶 Network connection restored. Resuming video & audio...");
+
+        if (socketRef.current) {
+          if (!socketRef.current.connected) {
+            socketRef.current.connect();
+          } else {
+            // Re-announce presence with active session ID
+            socketRef.current.emit("join-room", {
+              roomCode: canonicalRoomCode,
+              user: {
+                ...(currentUserPayloadRef.current || currentUserPayload),
+                clientSessionId: clientSessionIdRef.current,
+                mediaState: localMediaStateRef.current,
+              },
+              role: affiliation === "mcpa" ? "admin" : "client",
+              isReconnection: true,
+            });
+          }
+        }
+
+        if (peerManagerRef.current) {
+          peerManagerRef.current.reconnectAllPeers().catch(() => {});
+        }
+      }, 500);
+    };
+
+    const handleOffline = () => {
+      showToastRef.current?.("⚠️ Network lost. Reconnecting once internet is back...");
+    };
+
+    window.addEventListener("online", triggerNetworkRecovery);
+    window.addEventListener("offline", handleOffline);
+
+    // Modern mobile carrier switch detection (WiFi <-> LTE/5G)
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn && typeof conn.addEventListener === "function") {
+      conn.addEventListener("change", triggerNetworkRecovery);
+    }
+
+    return () => {
+      if (recoveryDebounceTimer) clearTimeout(recoveryDebounceTimer);
+      window.removeEventListener("online", triggerNetworkRecovery);
+      window.removeEventListener("offline", handleOffline);
+      if (conn && typeof conn.removeEventListener === "function") {
+        conn.removeEventListener("change", triggerNetworkRecovery);
+      }
+    };
+  }, [canonicalRoomCode, affiliation, currentUserPayload]);
 
   // Toggle Microphone
   const toggleAudio = async () => {
