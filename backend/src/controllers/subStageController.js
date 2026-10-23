@@ -467,6 +467,78 @@ class SubStageController {
   }
 
   /**
+   * POST /api/admin/permits/apply-template
+   */
+  async applyPermitsTemplate(req, res) {
+    try {
+      const { projectId, permitTypes } = req.body;
+      if (!projectId) {
+        return res.status(400).json({ success: false, message: "Project ID is required" });
+      }
+      const permits = await stageEngineService.applyPermitsTemplate({
+        projectId: parseInt(projectId, 10),
+        permitTypes,
+      });
+      return res.status(200).json({ success: true, permits });
+    } catch (err) {
+      console.error("[SubStageController.applyPermitsTemplate] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * POST /api/admin/permits
+   */
+  async createPermit(req, res) {
+    try {
+      const {
+        projectId,
+        permitType,
+        lguAgency,
+        status,
+        filingDate,
+        targetReleaseDate,
+        actualReleaseDate,
+        remarks,
+      } = req.body;
+      if (!projectId || !permitType) {
+        return res.status(400).json({
+          success: false,
+          message: "Project ID and Permit Type are required",
+        });
+      }
+      const permit = await stageEngineService.createPermitRecord({
+        projectId: parseInt(projectId, 10),
+        permitType,
+        lguAgency,
+        status,
+        filingDate,
+        targetReleaseDate,
+        actualReleaseDate,
+        remarks,
+      });
+      return res.status(201).json({ success: true, permit });
+    } catch (err) {
+      console.error("[SubStageController.createPermit] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * DELETE /api/admin/permits/:permitId
+   */
+  async deletePermit(req, res) {
+    try {
+      const permitId = parseInt(req.params.permitId, 10);
+      const success = await stageEngineService.deletePermitRecord(permitId);
+      return res.status(200).json({ success });
+    } catch (err) {
+      console.error("[SubStageController.deletePermit] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
    * PATCH /api/admin/permits/:permitId
    */
   async updatePermit(req, res) {
@@ -569,10 +641,29 @@ class SubStageController {
     try {
       const userId = req.user?.userId || req.user?.user_id;
       const contractId = parseInt(req.params.id, 10);
-      const { projectId = null, signerRole = "CLIENT", signerName, signerEmail, signatureImageUrl } = req.body || {};
+      const {
+        projectId = null,
+        signerRole = "CLIENT",
+        signerName,
+        signerEmail,
+        signatureImageUrl,
+        signatureData,
+      } = req.body || {};
 
-      if (!signatureImageUrl || !signerName || !signerEmail) {
-        return res.status(400).json({ success: false, message: "Signature image, name, and email are required." });
+      const finalSignature = signatureImageUrl || signatureData;
+      const finalSignerName =
+        signerName ||
+        req.user?.fullName ||
+        req.user?.full_name ||
+        req.user?.name ||
+        (signerRole === "CONTRACTOR" ? "Engr. Raymart Quirante" : "Client");
+      const finalSignerEmail =
+        signerEmail ||
+        req.user?.email ||
+        (signerRole === "CONTRACTOR" ? "legal@mcpabuilders.com" : "client@mcpa.com");
+
+      if (!finalSignature || !finalSignerName) {
+        return res.status(400).json({ success: false, message: "Signature image and signer name are required." });
       }
 
       const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || null;
@@ -583,9 +674,9 @@ class SubStageController {
         projectId,
         userId,
         signerRole,
-        signerName,
-        signerEmail,
-        signatureImageUrl,
+        signerName: finalSignerName,
+        signerEmail: finalSignerEmail,
+        signatureImageUrl: finalSignature,
         ipAddress: clientIp,
         userAgent,
       });

@@ -146,6 +146,29 @@ class WebRTCSignalingService {
               (user.id && existingData?.id === user.id) ||
               (user.email && existingData?.email === user.email);
             if (isSameUser && existingSocketId !== socket.id) {
+              const isSameRole = (existingData?.role || "client") === (role || "client");
+              const existingAffil = existingData?.affiliation || (existingData?.role === "admin" ? "mcpa" : "client");
+              const incomingAffil = user?.affiliation || (role === "admin" ? "mcpa" : "client");
+              const isSameAffiliation = existingAffil === incomingAffil;
+
+              // Safeguard 1: Never purge a peer with a different role or affiliation (e.g. Admin testing alongside Client on same account/email)
+              if (!isSameRole || !isSameAffiliation) {
+                console.log(
+                  `[WEBRTC] Preserving distinct role/affiliation participant ${existingSocketId} (${existingData?.role}/${existingAffil}) vs incoming (${role}/${incomingAffil})`
+                );
+                continue;
+              }
+
+              // Safeguard 2: Multi-tab defense testing / active concurrent session protection
+              const existingSocketInstance = io.sockets.sockets.get(existingSocketId);
+              const isStillActive = Boolean(existingSocketInstance && existingSocketInstance.connected);
+              if (isStillActive) {
+                console.log(
+                  `[WEBRTC] Multi-active connection detected for "${user.name || user.id}" (${existingSocketId} & ${socket.id}). Preserving both.`
+                );
+                continue;
+              }
+
               console.log(
                 `[WEBRTC] Purging stale ghost socket ${existingSocketId} for reconnecting user "${user.name || user.id}"`
               );

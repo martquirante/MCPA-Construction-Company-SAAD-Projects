@@ -16,7 +16,12 @@ import {
   Clock,
   Sparkles,
   Lock,
+  Settings,
+  Volume2,
+  Smartphone,
+  Headphones,
 } from "lucide-react";
+import MeetingDeviceSettingsModal from "./MeetingDeviceSettingsModal";
 import {
   formatRoomCode,
   getRoomExpiryState,
@@ -90,6 +95,33 @@ export default function MeetPreJoinLobby({
   const [mediaStream, setMediaStream] = useState(null);
   const [mediaPermissionDenied, setMediaPermissionDenied] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
+
+  // Device selection & output routing state
+  const [isDeviceSettingsOpen, setIsDeviceSettingsOpen] = useState(false);
+  const [selectedCameraId, setSelectedCameraId] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mcpa_selected_camera_id") || "";
+    }
+    return "";
+  });
+  const [selectedMicId, setSelectedMicId] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mcpa_selected_mic_id") || "";
+    }
+    return "";
+  });
+  const [selectedAudioOutputId, setSelectedAudioOutputId] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mcpa_selected_speaker_id") || "";
+    }
+    return "";
+  });
+  const [audioOutputMode, setAudioOutputMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mcpa_audio_output_mode") || "speaker";
+    }
+    return "speaker";
+  });
 
   const videoPreviewRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -314,6 +346,96 @@ export default function MeetPreJoinLobby({
     setIsVideoOn((prev) => !prev);
   };
 
+  const handleSelectCamera = async (deviceId) => {
+    setSelectedCameraId(deviceId);
+    try {
+      localStorage.setItem("mcpa_selected_camera_id", deviceId);
+    } catch (e) {}
+
+    if (!navigator?.mediaDevices?.getUserMedia) return;
+    try {
+      const constraints = {
+        video: deviceId
+          ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+        audio: false,
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (newVideoTrack && streamRef.current) {
+        newVideoTrack.enabled = isVideoOn;
+        const oldTrack = streamRef.current.getVideoTracks()[0];
+        if (oldTrack) {
+          oldTrack.stop();
+          streamRef.current.removeTrack(oldTrack);
+        }
+        streamRef.current.addTrack(newVideoTrack);
+        const updated = new MediaStream(streamRef.current.getTracks());
+        streamRef.current = updated;
+        setMediaStream(updated);
+        if (videoPreviewRef.current) {
+          videoPreviewRef.current.srcObject = updated;
+          videoPreviewRef.current.play().catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn("[LOBBY] Camera switch error:", err);
+    }
+  };
+
+  const handleSelectMic = async (deviceId) => {
+    setSelectedMicId(deviceId);
+    try {
+      localStorage.setItem("mcpa_selected_mic_id", deviceId);
+    } catch (e) {}
+
+    if (!navigator?.mediaDevices?.getUserMedia) return;
+    try {
+      const constraints = {
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+        video: false,
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const newAudioTrack = newStream.getAudioTracks()[0];
+      if (newAudioTrack && streamRef.current) {
+        newAudioTrack.enabled = isMicOn;
+        const oldTrack = streamRef.current.getAudioTracks()[0];
+        if (oldTrack) {
+          oldTrack.stop();
+          streamRef.current.removeTrack(oldTrack);
+        }
+        streamRef.current.addTrack(newAudioTrack);
+        const updated = new MediaStream(streamRef.current.getTracks());
+        streamRef.current = updated;
+        setMediaStream(updated);
+
+        // Reconnect audio meter
+        if (audioContextRef.current && analyserRef.current) {
+          try {
+            const source = audioContextRef.current.createMediaStreamSource(updated);
+            source.connect(analyserRef.current);
+          } catch (e) {}
+        }
+      }
+    } catch (err) {
+      console.warn("[LOBBY] Mic switch error:", err);
+    }
+  };
+
+  const handleSelectAudioOutput = (deviceId) => {
+    setSelectedAudioOutputId(deviceId);
+    try {
+      localStorage.setItem("mcpa_selected_speaker_id", deviceId);
+    } catch (e) {}
+  };
+
+  const handleSelectAudioOutputMode = (mode) => {
+    setAudioOutputMode(mode);
+    try {
+      localStorage.setItem("mcpa_audio_output_mode", mode);
+    } catch (e) {}
+  };
+
   const handleAffiliationChange = (type) => {
     setAffiliation(type);
     if (type === "mcpa") {
@@ -359,6 +481,10 @@ export default function MeetPreJoinLobby({
       isMicOn,
       isVideoOn,
       preloadedStream: mediaStream,
+      selectedCameraId,
+      selectedMicId,
+      selectedAudioOutputId,
+      audioOutputMode,
     });
   };
 
@@ -436,31 +562,79 @@ export default function MeetPreJoinLobby({
               </div>
 
               {/* Bottom Video Controls Overlay */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2.5 bg-black/75 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/15 shadow-xl">
                 <button
                   type="button"
                   onClick={handleToggleMic}
-                  className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                     isMicOn
                       ? "bg-white/10 hover:bg-white/20 text-white"
                       : "bg-rose-500 hover:bg-rose-600 text-white"
                   }`}
                   aria-label={isMicOn ? "Mute Microphone" : "Unmute Microphone"}
+                  title={isMicOn ? "Turn off mic" : "Turn on mic"}
                 >
-                  {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                  {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
                 </button>
 
                 <button
                   type="button"
                   onClick={handleToggleVideo}
-                  className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                     isVideoOn
                       ? "bg-white/10 hover:bg-white/20 text-white"
                       : "bg-rose-500 hover:bg-rose-600 text-white"
                   }`}
                   aria-label={isVideoOn ? "Turn Camera Off" : "Turn Camera On"}
+                  title={isVideoOn ? "Turn off camera" : "Turn on camera"}
                 >
-                  {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                  {isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                </button>
+
+                {/* Quick Phone Audio Mode Switch (Speaker / Earpiece / Headset) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextMode =
+                      audioOutputMode === "speaker"
+                        ? "earpiece"
+                        : audioOutputMode === "earpiece"
+                        ? "headset"
+                        : "speaker";
+                    handleSelectAudioOutputMode(nextMode);
+                  }}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border ${
+                    audioOutputMode === "earpiece"
+                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                      : audioOutputMode === "headset"
+                      ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                      : "bg-white/10 hover:bg-white/20 text-white border-transparent"
+                  }`}
+                  title={`Audio Output: ${
+                    audioOutputMode === "earpiece"
+                      ? "Phone Earpiece (Tenga / Mahina)"
+                      : audioOutputMode === "headset"
+                      ? "Headset"
+                      : "Loudspeaker (Malakas)"
+                  }. Click to switch.`}
+                >
+                  {audioOutputMode === "earpiece" ? (
+                    <Smartphone className="w-4 h-4 text-amber-400" />
+                  ) : audioOutputMode === "headset" ? (
+                    <Headphones className="w-4 h-4 text-sky-400" />
+                  ) : (
+                    <Volume2 className="w-4 h-4" />
+                  )}
+                </button>
+
+                {/* Audio & Video Device Settings */}
+                <button
+                  type="button"
+                  onClick={() => setIsDeviceSettingsOpen(true)}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer"
+                  title="Audio & Video Settings (Select camera, mic, speaker)"
+                >
+                  <Settings className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -654,6 +828,21 @@ export default function MeetPreJoinLobby({
       <footer className="border-t border-white/[0.08] px-4 sm:px-8 py-3 text-center text-[11px] text-neutral-500 font-mono">
         MCPA Construction and Supply · Plaridel, Bulacan · Zero-Cost Encrypted WebRTC Architecture
       </footer>
+
+      {/* Media Device Settings Modal (Camera, Mic, Audio Output & Phone Modes) */}
+      <MeetingDeviceSettingsModal
+        isOpen={isDeviceSettingsOpen}
+        onClose={() => setIsDeviceSettingsOpen(false)}
+        activeVideoDeviceId={selectedCameraId}
+        activeAudioDeviceId={selectedMicId}
+        activeAudioOutputId={selectedAudioOutputId}
+        audioOutputMode={audioOutputMode}
+        onSelectVideoDevice={handleSelectCamera}
+        onSelectAudioDevice={handleSelectMic}
+        onSelectAudioOutput={handleSelectAudioOutput}
+        onSelectAudioOutputMode={handleSelectAudioOutputMode}
+        previewStream={mediaStream}
+      />
     </div>
   );
 }

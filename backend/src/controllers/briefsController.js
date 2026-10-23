@@ -58,10 +58,15 @@ class BriefsController {
           }
 
           const isOnline = (b.meeting_mode || "").toLowerCase().includes("online");
-          const resolvedRoomCode = b.meeting_room_code || (isOnline ? extractRoomCode(b.meeting_link || b) : null);
+          const resolvedRoomCode = b.meeting_room_code || extractRoomCode(b);
           const resolvedMeetingLink = isOnline && resolvedRoomCode
             ? buildMeetingUrl(resolvedRoomCode)
-            : (b.meeting_link || "");
+            : (b.meeting_link || (resolvedRoomCode ? buildMeetingUrl(resolvedRoomCode) : ""));
+
+          // Auto-persist deterministic meeting_room_code if not yet stored in database
+          if (!b.meeting_room_code && resolvedRoomCode) {
+            db.query("UPDATE client_briefs SET meeting_room_code = $1 WHERE brief_id = $2", [resolvedRoomCode, b.brief_id]).catch(() => {});
+          }
 
           return {
             ...b,
@@ -85,10 +90,14 @@ class BriefsController {
             resolvedAvatar = "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
           }
           const isOnline = (b.meeting_mode || "").toLowerCase().includes("online");
-          const resolvedRoomCode = b.meeting_room_code || (isOnline ? extractRoomCode(b.meeting_link || b) : null);
+          const resolvedRoomCode = b.meeting_room_code || extractRoomCode(b);
           const resolvedMeetingLink = isOnline && resolvedRoomCode
             ? buildMeetingUrl(resolvedRoomCode)
-            : (b.meeting_link || "");
+            : (b.meeting_link || (resolvedRoomCode ? buildMeetingUrl(resolvedRoomCode) : ""));
+
+          if (!b.meeting_room_code && resolvedRoomCode) {
+            db.query("UPDATE client_briefs SET meeting_room_code = $1 WHERE brief_id = $2", [resolvedRoomCode, b.brief_id]).catch(() => {});
+          }
 
           return {
             ...b,
@@ -237,12 +246,10 @@ class BriefsController {
 
       const effectiveMeetingMode = meetingMode || (venueType ? `In-Person (${venueType})` : "Online Meeting");
       const isOnline = effectiveMeetingMode.toLowerCase().includes("online");
-      const assignedRoomCode = isOnline
-        ? (req.body.meetingRoomCode ? formatRoomCode(req.body.meetingRoomCode) : generateRoomCode())
-        : null;
+      const assignedRoomCode = formatRoomCode(req.body.meetingRoomCode || id);
       const assignedMeetingLink = isOnline
         ? (req.body.meetingLink || buildMeetingUrl(assignedRoomCode))
-        : (venueDetails || "");
+        : (venueDetails || buildMeetingUrl(assignedRoomCode));
 
       let result;
       try {
@@ -439,9 +446,11 @@ class BriefsController {
 
       const incomingMode = meetingMode || "";
       const isOnline = incomingMode.toLowerCase().includes("online");
-      const incomingRoomCode = req.body.meetingRoomCode || (meetingLink ? extractRoomCode(meetingLink) : null);
-      const assignedRoomCode = isOnline ? (incomingRoomCode ? formatRoomCode(incomingRoomCode) : generateRoomCode()) : null;
-      const assignedMeetingLink = isOnline ? (meetingLink || buildMeetingUrl(assignedRoomCode)) : (venueDetails || meetingLink || null);
+      const incomingRoomCode = req.body.meetingRoomCode || req.body.meeting_room_code || (meetingLink && !isPhysicalAddress(meetingLink) ? extractRoomCode(meetingLink) : null);
+      const assignedRoomCode = formatRoomCode(incomingRoomCode || cleanId);
+      const assignedMeetingLink = isOnline
+        ? (meetingLink && !isPhysicalAddress(meetingLink) ? meetingLink : buildMeetingUrl(assignedRoomCode))
+        : (venueDetails || meetingLink || null);
 
       const result = await db.query(
         `UPDATE client_briefs SET 

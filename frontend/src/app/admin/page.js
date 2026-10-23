@@ -258,6 +258,28 @@ export default function AdminPage() {
     return () => window.removeEventListener("mcpa-quotations-updated", fetchPendingQuotations);
   }, []);
 
+  // Contracts pending countersignature badge counter
+  const [pendingContractsCount, setPendingContractsCount] = useState(0);
+  useEffect(() => {
+    const fetchPendingContracts = async () => {
+      try {
+        const res = await authFetch("/api/admin/groundbreaking/overview");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.projects)) {
+            const count = data.projects.filter(
+              (p) => p.has_client_contract_signature && !p.has_contractor_contract_signature
+            ).length;
+            setPendingContractsCount(count);
+          }
+        }
+      } catch (e) {}
+    };
+    fetchPendingContracts();
+    window.addEventListener("mcpa-contract-updated", fetchPendingContracts);
+    return () => window.removeEventListener("mcpa-contract-updated", fetchPendingContracts);
+  }, []);
+
   const toggleSidebarCollapse = () => {
     setIsSidebarCollapsed((prev) => {
       const next = !prev;
@@ -1661,8 +1683,9 @@ export default function AdminPage() {
         },
         {
           id: "groundbreaking",
-          label: "Groundbreaking Kickoff",
+          label: "Contracts & Groundbreaking",
           icon: SparklesIcon,
+          badge: pendingContractsCount > 0 ? `${pendingContractsCount} Sign` : undefined,
         },
       ],
     },

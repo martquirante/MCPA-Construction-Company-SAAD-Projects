@@ -93,8 +93,8 @@ export default function PortalMeetingHub({
 
   const primaryInquiry = inquiries?.[0];
   const roomCode = useMemo(() => {
-    return extractRoomCode(primaryInquiry || meetingRoom);
-  }, [primaryInquiry, meetingRoom]);
+    return extractRoomCode(primaryInquiry || activeProject || meetingRoom);
+  }, [primaryInquiry, activeProject, meetingRoom]);
 
   const resolvedInitialMode =
     primaryInquiry?.venue_type || primaryInquiry?.venueType
@@ -596,8 +596,7 @@ export default function PortalMeetingHub({
       sessionStorage.removeItem("mcpa_call_recently_left");
     } catch (e) {}
 
-    const cleanBaseCode = (roomCode || "meet").replace(/^(mcpa-)?(instant-)?/, "");
-    const instantRoomCode = `mcpa-instant-${cleanBaseCode}`;
+    const instantRoomCode = roomCode;
     const clientAvatar =
       currentUser?.avatar_url ||
       currentUser?.avatarUrl ||

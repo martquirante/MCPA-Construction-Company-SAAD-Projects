@@ -1232,41 +1232,100 @@ class StageEngineService {
    * PERMITS & REVISIONS TRACKER
    */
   async getProjectPermits(projectId) {
-    let res = await db.query(
+    const res = await db.query(
       `SELECT * FROM public.permit_records 
        WHERE client_project_id = $1 
-          OR client_project_id IN (
-            SELECT cp.client_project_id FROM public.client_projects cp WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
-          )
        ORDER BY permit_id ASC;`,
       [projectId]
     );
-    if (!res.rows || res.rows.length === 0) {
-      // Seed default standard Philippine LGU permits for the project
-      const defaultPermits = [
-        { type: "BARANGAY_CLEARANCE", agency: "Barangay Hall (Local Jurisdiction)", status: "SUBMITTED", remarks: "Barangay construction permit application filed" },
-        { type: "LOCATIONAL_CLEARANCE", agency: "City/Municipal Planning & Development Office", status: "UNDER_EVALUATION", remarks: "Zoning and land use conformance evaluation" },
-        { type: "BUILDING_PERMIT", agency: "Office of the Building Official (OBO)", status: "UNDER_EVALUATION", remarks: "Architectural, Structural, MEPFS clearance review" },
-        { type: "FSEC_FIRE", agency: "Bureau of Fire Protection (BFP)", status: "IN_PREPARATION", remarks: "Fire Safety Evaluation Clearance documents compiled" },
-        { type: "OCCUPANCY_PERMIT", agency: "City/Municipal Engineering & Inspection", status: "NOT_STARTED", remarks: "Scheduled upon final post-construction punchlist clearance" },
-      ];
-      for (const p of defaultPermits) {
-        try {
-          await db.query(
-            `INSERT INTO public.permit_records (client_project_id, permit_type, lgu_agency, status, remarks)
-             VALUES ($1, $2, $3, $4, $5);`,
-            [projectId, p.type, p.agency, p.status, p.remarks]
-          );
-        } catch (seedErr) {
-          console.warn("[getProjectPermits] Seed notice:", seedErr.message);
+    return res.rows || [];
+  }
+
+  async applyPermitsTemplate({ projectId, permitTypes = null }) {
+    const standardTemplates = [
+      {
+        type: "BARANGAY_CLEARANCE",
+        agency: "Barangay Hall (Local Jurisdiction)",
+        status: "IN_PREPARATION",
+        remarks: "Barangay construction permit application & HOA clearance",
+      },
+      {
+        type: "LOCATIONAL_CLEARANCE",
+        agency: "City/Municipal Planning & Development Office",
+        status: "NOT_STARTED",
+        remarks: "Zoning and land use conformance evaluation",
+      },
+      {
+        type: "BUILDING_PERMIT",
+        agency: "Office of the Building Official (OBO)",
+        status: "NOT_STARTED",
+        remarks: "Architectural, Structural, MEPFS clearance review",
+      },
+      {
+        type: "FSEC_FIRE",
+        agency: "Bureau of Fire Protection (BFP)",
+        status: "NOT_STARTED",
+        remarks: "Fire Safety Evaluation Clearance documents compilation",
+      },
+      {
+        type: "OCCUPANCY_PERMIT",
+        agency: "City/Municipal Engineering & Inspection",
+        status: "NOT_STARTED",
+        remarks: "Scheduled upon final post-construction punchlist clearance",
+      },
+    ];
+
+    const toInsert = Array.isArray(permitTypes) && permitTypes.length > 0
+      ? standardTemplates.filter((p) => permitTypes.includes(p.type))
+      : standardTemplates;
+
+    const inserted = [];
+    for (const p of toInsert) {
+      const existing = await db.query(
+        `SELECT permit_id FROM public.permit_records WHERE client_project_id = $1 AND permit_type = $2;`,
+        [projectId, p.type]
+      );
+      if (!existing.rows || existing.rows.length === 0) {
+        const ins = await db.query(
+          `INSERT INTO public.permit_records (client_project_id, permit_type, lgu_agency, status, remarks)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING *;`,
+          [projectId, p.type, p.agency, p.status, p.remarks]
+        );
+        if (ins.rows && ins.rows[0]) {
+          inserted.push(ins.rows[0]);
         }
       }
-      res = await db.query(
-        `SELECT * FROM public.permit_records WHERE client_project_id = $1 ORDER BY permit_id ASC;`,
-        [projectId]
-      );
     }
-    return res.rows || [];
+    return inserted;
+  }
+
+  async createPermitRecord({
+    projectId,
+    permitType,
+    lguAgency = "City / Municipal Engineering Office",
+    status = "NOT_STARTED",
+    filingDate = null,
+    targetReleaseDate = null,
+    actualReleaseDate = null,
+    remarks = null,
+  }) {
+    const res = await db.query(
+      `INSERT INTO public.permit_records (
+        client_project_id, permit_type, lgu_agency, status, filing_date, target_release_date, actual_release_date, remarks
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *;`,
+      [projectId, permitType, lguAgency, status, filingDate, targetReleaseDate, actualReleaseDate, remarks]
+    );
+    return res.rows[0];
+  }
+
+  async deletePermitRecord(permitId) {
+    const res = await db.query(
+      `DELETE FROM public.permit_records WHERE permit_id = $1 RETURNING permit_id;`,
+      [permitId]
+    );
+    return res.rows && res.rows.length > 0;
   }
 
   async getAdminPermitsOverview() {
@@ -1328,10 +1387,22 @@ class StageEngineService {
         cb.location,
         u.avatar_url AS avatar_url,
         u.auth_provider,
-        u.email_verified
+        u.email_verified,
+        c.contract_id,
+        c.contract_number,
+        COALESCE(c.status, 'DRAFT') AS contract_status,
+        c.total_contract_amount,
+        (SELECT COUNT(*) FROM public.contract_signatures cs WHERE cs.contract_id = c.contract_id AND cs.signer_role = 'CLIENT') > 0 AS has_client_contract_signature,
+        (SELECT COUNT(*) FROM public.contract_signatures cs WHERE cs.contract_id = c.contract_id AND cs.signer_role IN ('CONTRACTOR', 'ADMIN')) > 0 AS has_contractor_contract_signature,
+        (SELECT signed_at FROM public.contract_signatures cs WHERE cs.contract_id = c.contract_id AND cs.signer_role = 'CLIENT' ORDER BY signed_at DESC LIMIT 1) AS client_contract_signed_at
       FROM public.client_projects cp
       LEFT JOIN public.client_briefs cb ON cp.brief_id = cb.brief_id
       LEFT JOIN public.users u ON cp.user_id = u.user_id
+      LEFT JOIN LATERAL (
+        SELECT * FROM public.contracts 
+        WHERE client_project_id = cp.client_project_id 
+        ORDER BY contract_id DESC LIMIT 1
+      ) c ON true
       WHERE cp.is_archived = FALSE
       ORDER BY 
         CASE 
@@ -1674,7 +1745,7 @@ class StageEngineService {
 
     const contract = contractRes.rows[0];
     const sigsRes = await db.query(
-      `SELECT * FROM public.contract_signatures WHERE contract_id = $1 ORDER BY signed_at ASC;`,
+      `SELECT * FROM public.contract_signatures WHERE contract_id = $1 ORDER BY signed_at DESC, signature_id DESC;`,
       [contract.contract_id]
     );
 
@@ -1702,10 +1773,25 @@ class StageEngineService {
       console.warn("[getProjectContract] Could not enrich project metadata:", metaErr.message);
     }
 
+    const signatures = sigsRes.rows || [];
+    const clientSig = signatures.find((s) => (s.signer_role || "").toUpperCase() === "CLIENT");
+    const contractorSig = signatures.find((s) =>
+      ["CONTRACTOR", "ADMIN"].includes((s.signer_role || "").toUpperCase())
+    );
+    const latestSig = signatures.length > 0 ? signatures[0] : null;
+
     return {
       ...contract,
+      contract_sum: contract.total_contract_amount,
+      client_signed_at: clientSig?.signed_at || null,
+      client_signer_name: clientSig?.signer_name || null,
+      client_signature_image_url: clientSig?.signature_image_url || null,
+      contractor_signed_at: contractorSig?.signed_at || null,
+      contractor_signer_name: contractorSig?.signer_name || null,
+      contractor_signature_image_url: contractorSig?.signature_image_url || null,
+      sha256_hash: latestSig?.hash_sha256 || null,
       project_meta: projectMeta,
-      signatures: sigsRes.rows || [],
+      signatures,
     };
   }
 
@@ -1738,6 +1824,12 @@ class StageEngineService {
     const hashData = `${resolvedContractId}-${userId || 0}-${normalizedRole}-${signerEmail}-${new Date().toISOString()}`;
     const hashSha256 = crypto.createHash("sha256").update(hashData).digest("hex");
 
+    // Clean up previous signatures for this role on this contract so re-signing replaces cleanly
+    await db.query(
+      `DELETE FROM public.contract_signatures WHERE contract_id = $1 AND signer_role = $2;`,
+      [resolvedContractId, normalizedRole]
+    );
+
     const sigRes = await db.query(
       `INSERT INTO public.contract_signatures (
         contract_id, user_id, signer_role, signer_name, signer_email, signature_type, signature_image_url, ip_address, user_agent, signed_at, hash_sha256
@@ -1755,7 +1847,7 @@ class StageEngineService {
     const hasClientSig = existingRoles.includes("CLIENT");
     const hasContractorSig = existingRoles.includes("CONTRACTOR") || existingRoles.includes("ADMIN");
 
-    const updatedStatus = (hasClientSig && hasContractorSig) ? "FULLY_EXECUTED" : "PARTIALLY_EXECUTED";
+    const updatedStatus = (hasClientSig && hasContractorSig) ? "FULLY_EXECUTED" : "PARTIALLY_SIGNED";
 
     // Update contract status
     await db.query(

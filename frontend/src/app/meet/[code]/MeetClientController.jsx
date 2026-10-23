@@ -178,6 +178,10 @@ export default function MeetClientController({ roomCode }) {
         preloadedMediaStream={joinedParticipant.preloadedStream}
         initialMicOn={joinedParticipant.isMicOn}
         initialVideoOn={joinedParticipant.isVideoOn}
+        initialCameraId={joinedParticipant.selectedCameraId}
+        initialMicId={joinedParticipant.selectedMicId}
+        initialAudioOutputId={joinedParticipant.selectedAudioOutputId}
+        initialAudioOutputMode={joinedParticipant.audioOutputMode}
         isAdmin={joinedParticipant.affiliation === "mcpa"}
         onLeave={handleCallLeave}
       />

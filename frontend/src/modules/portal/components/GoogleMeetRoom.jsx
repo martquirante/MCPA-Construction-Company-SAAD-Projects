@@ -27,12 +27,17 @@ import {
   Star,
   CheckCircle2,
   Share2,
+  Settings,
+  Volume2,
+  Smartphone,
+  Headphones,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { WebRTCPeerManager } from "@/modules/portal/utils/webrtcPeerManager";
 import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
 import { playOutgoingRingbackTone } from "@/modules/portal/utils/outgoingRingbackTone";
 import { ScreenAudioMixer } from "@/modules/portal/utils/screenAudioMixer";
+import MeetingDeviceSettingsModal from "./MeetingDeviceSettingsModal";
 import {
   formatMeetingDuration,
   recordConcludedMeeting,
@@ -67,8 +72,9 @@ const FALLBACK_AUDIO_CONSTRAINTS = {
 /**
  * Audio playback element for an individual remote peer.
  * Separates audio from the video element to guarantee zero-drop audio rendering across all platforms.
+ * Supports output device routing via setSinkId and phone earpiece / headset / speakerphone volume modes.
  */
-function RemotePeerAudio({ stream, streamVersion = 0 }) {
+function RemotePeerAudio({ stream, streamVersion = 0, sinkId = null, audioOutputMode = "speaker" }) {
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -78,7 +84,22 @@ function RemotePeerAudio({ stream, streamVersion = 0 }) {
         audioEl.srcObject = stream;
       }
       audioEl.muted = false;
-      audioEl.volume = 1.0;
+
+      // Adjust volume based on output mode (earpiece: safe low volume for holding against ear)
+      if (audioOutputMode === "earpiece") {
+        audioEl.volume = 0.28;
+      } else if (audioOutputMode === "headset") {
+        audioEl.volume = 0.8;
+      } else {
+        audioEl.volume = 1.0;
+      }
+
+      if (sinkId && typeof audioEl.setSinkId === "function") {
+        audioEl.setSinkId(sinkId).catch((err) => {
+          console.warn("[WEBRTC] setSinkId error:", err);
+        });
+      }
+
       const playPromise = audioEl.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
@@ -86,7 +107,24 @@ function RemotePeerAudio({ stream, streamVersion = 0 }) {
         });
       }
     }
-  }, [stream, streamVersion]);
+  }, [stream, streamVersion, sinkId, audioOutputMode]);
+
+  useEffect(() => {
+    const audioEl = audioRef.current;
+    if (!audioEl) return;
+
+    if (sinkId && typeof audioEl.setSinkId === "function") {
+      audioEl.setSinkId(sinkId).catch(() => {});
+    }
+
+    if (audioOutputMode === "earpiece") {
+      audioEl.volume = 0.28;
+    } else if (audioOutputMode === "headset") {
+      audioEl.volume = 0.8;
+    } else {
+      audioEl.volume = 1.0;
+    }
+  }, [sinkId, audioOutputMode]);
 
   // Handle visibility changes and network stall events to revive remote audio
   useEffect(() => {
@@ -390,9 +428,44 @@ export default function GoogleMeetRoom({
   preloadedMediaStream = null,
   initialMicOn = true,
   initialVideoOn = true,
+  initialCameraId = "",
+  initialMicId = "",
+  initialAudioOutputId = "",
+  initialAudioOutputMode = "speaker",
   showToast = () => {},
 }) {
   const canonicalRoomCode = useMemo(() => formatRoomCode(roomCode), [roomCode]);
+
+  // Audio & Video Device Settings State
+  const [isDeviceSettingsOpen, setIsDeviceSettingsOpen] = useState(false);
+  const [selectedCameraId, setSelectedCameraId] = useState(() => {
+    if (initialCameraId) return initialCameraId;
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mcpa_selected_camera_id") || "";
+    }
+    return "";
+  });
+  const [selectedMicId, setSelectedMicId] = useState(() => {
+    if (initialMicId) return initialMicId;
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mcpa_selected_mic_id") || "";
+    }
+    return "";
+  });
+  const [selectedAudioOutputId, setSelectedAudioOutputId] = useState(() => {
+    if (initialAudioOutputId) return initialAudioOutputId;
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mcpa_selected_speaker_id") || "";
+    }
+    return "";
+  });
+  const [audioOutputMode, setAudioOutputMode] = useState(() => {
+    if (initialAudioOutputMode) return initialAudioOutputMode;
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("mcpa_audio_output_mode") || "speaker";
+    }
+    return "speaker";
+  });
 
   // Resolve user identity & affiliation
   const effectiveUser = userProfile || currentUser || {};
@@ -1334,6 +1407,118 @@ export default function GoogleMeetRoom({
     }
   };
 
+  // Device Selection & Audio Output Mode Handlers
+  const handleSelectCamera = async (deviceId) => {
+    setSelectedCameraId(deviceId);
+    try {
+      localStorage.setItem("mcpa_selected_camera_id", deviceId);
+    } catch (e) {}
+
+    if (!navigator?.mediaDevices?.getUserMedia) return;
+    try {
+      const constraints = {
+        video: deviceId ? { deviceId: { exact: deviceId } } : true,
+        audio: false,
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (newVideoTrack && localStreamRef.current) {
+        newVideoTrack.enabled = isVideoOn;
+        const oldTrack = localStreamRef.current.getVideoTracks()[0];
+        if (oldTrack) {
+          oldTrack.stop();
+          localStreamRef.current.removeTrack(oldTrack);
+        }
+        localStreamRef.current.addTrack(newVideoTrack);
+        const updated = new MediaStream(localStreamRef.current.getTracks());
+        localStreamRef.current = updated;
+        setLocalStream(updated);
+        setLocalStreamVersion((v) => v + 1);
+
+        if (peerManagerRef.current && !isScreenSharing) {
+          await peerManagerRef.current.replaceVideoTrack(newVideoTrack);
+        }
+      }
+      showToast("Camera switched successfully");
+    } catch (err) {
+      console.warn("Camera switch error:", err);
+      showToast("Failed to switch camera");
+    }
+  };
+
+  const handleSelectMic = async (deviceId) => {
+    setSelectedMicId(deviceId);
+    try {
+      localStorage.setItem("mcpa_selected_mic_id", deviceId);
+    } catch (e) {}
+
+    if (!navigator?.mediaDevices?.getUserMedia) return;
+    try {
+      const constraints = {
+        audio: {
+          ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+          ...OPTIMAL_AUDIO_CONSTRAINTS,
+        },
+        video: false,
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const newAudioTrack = newStream.getAudioTracks()[0];
+      if (newAudioTrack && localStreamRef.current) {
+        newAudioTrack.enabled = isMicOn;
+        const oldTrack = localStreamRef.current.getAudioTracks()[0];
+        if (oldTrack) {
+          oldTrack.stop();
+          localStreamRef.current.removeTrack(oldTrack);
+        }
+        localStreamRef.current.addTrack(newAudioTrack);
+        const updated = new MediaStream(localStreamRef.current.getTracks());
+        localStreamRef.current = updated;
+        setLocalStream(updated);
+        setLocalStreamVersion((v) => v + 1);
+
+        if (peerManagerRef.current) {
+          await peerManagerRef.current.replaceAudioTrack(newAudioTrack);
+        }
+      }
+      showToast("Microphone switched successfully");
+    } catch (err) {
+      console.warn("Microphone switch error:", err);
+      showToast("Failed to switch microphone");
+    }
+  };
+
+  const handleSelectAudioOutput = (deviceId) => {
+    setSelectedAudioOutputId(deviceId);
+    try {
+      localStorage.setItem("mcpa_selected_speaker_id", deviceId);
+    } catch (e) {}
+    showToast("Speaker output updated");
+  };
+
+  const handleSelectAudioOutputMode = (mode) => {
+    setAudioOutputMode(mode);
+    try {
+      localStorage.setItem("mcpa_audio_output_mode", mode);
+    } catch (e) {}
+    if (mode === "earpiece") {
+      showToast("👂 Earpiece mode (Mahinang tunog sa tenga)");
+    } else if (mode === "headset") {
+      showToast("🎧 Headset mode");
+    } else {
+      showToast("🔊 Loudspeaker mode");
+    }
+  };
+
+  const cycleAudioOutputMode = () => {
+    const nextMode =
+      audioOutputMode === "speaker"
+        ? "earpiece"
+        : audioOutputMode === "earpiece"
+        ? "headset"
+        : "speaker";
+    handleSelectAudioOutputMode(nextMode);
+  };
+
   // Toggle Screen Sharing with Mobile Support & Informative Device Guidance
   const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
@@ -1648,6 +1833,8 @@ export default function GoogleMeetRoom({
           key={peer.socketId}
           stream={peer.stream}
           streamVersion={peer.streamVersion || 0}
+          sinkId={selectedAudioOutputId}
+          audioOutputMode={audioOutputMode}
         />
       ))}
 
@@ -1704,6 +1891,51 @@ export default function GoogleMeetRoom({
                 <SwitchCamera className="w-4 h-4" />
               </button>
             )}
+
+            {/* Quick Audio Output Toggle (Speaker / Earpiece / Headset) */}
+            <button
+              type="button"
+              onClick={cycleAudioOutputMode}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-medium transition-all cursor-pointer border ${
+                audioOutputMode === "earpiece"
+                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                  : audioOutputMode === "headset"
+                  ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                  : "bg-white/[0.08] hover:bg-white/[0.14] text-white/80 hover:text-white border-white/10"
+              }`}
+              title={`Audio output mode: ${
+                audioOutputMode === "earpiece"
+                  ? "Phone Earpiece (Tenga / Mahina)"
+                  : audioOutputMode === "headset"
+                  ? "Headset"
+                  : "Loudspeaker (Malakas)"
+              }. Click to switch.`}
+            >
+              {audioOutputMode === "earpiece" ? (
+                <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+              ) : audioOutputMode === "headset" ? (
+                <Headphones className="w-3.5 h-3.5 text-sky-400" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5 text-white/70" />
+              )}
+              <span className="hidden sm:inline capitalize">
+                {audioOutputMode === "earpiece"
+                  ? "Earpiece"
+                  : audioOutputMode === "headset"
+                  ? "Headset"
+                  : "Speaker"}
+              </span>
+            </button>
+
+            {/* Audio & Video Device Settings Modal Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsDeviceSettingsOpen(true)}
+              className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              title="Camera, Microphone & Speaker Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
 
             {/* Instant call standby timer */}
             {isInstantMeeting && !isCallAnswered && (
@@ -2213,6 +2445,16 @@ export default function GoogleMeetRoom({
               {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
             </button>
 
+            {/* Audio & Video Device Settings */}
+            <button
+              type="button"
+              onClick={() => setIsDeviceSettingsOpen(true)}
+              className="p-3 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all cursor-pointer"
+              title="Audio & Video Settings (Camera, Mic, Speaker)"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -2423,6 +2665,21 @@ export default function GoogleMeetRoom({
           </div>
         </div>
       )}
+
+      {/* Media Device Settings Modal (Camera, Mic, Audio Output & Phone Modes) */}
+      <MeetingDeviceSettingsModal
+        isOpen={isDeviceSettingsOpen}
+        onClose={() => setIsDeviceSettingsOpen(false)}
+        activeVideoDeviceId={selectedCameraId}
+        activeAudioDeviceId={selectedMicId}
+        activeAudioOutputId={selectedAudioOutputId}
+        audioOutputMode={audioOutputMode}
+        onSelectVideoDevice={handleSelectCamera}
+        onSelectAudioDevice={handleSelectMic}
+        onSelectAudioOutput={handleSelectAudioOutput}
+        onSelectAudioOutputMode={handleSelectAudioOutputMode}
+        previewStream={localStream}
+      />
     </div>
   );
 

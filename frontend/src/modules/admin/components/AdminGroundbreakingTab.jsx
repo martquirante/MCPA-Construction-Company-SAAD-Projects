@@ -209,7 +209,8 @@ const COMMON_RESCHEDULE_REASONS = [
 ];
 
 const STATUS_FILTER_OPTIONS = [
-  { id: "ALL", label: "All Ceremonies", icon: CalendarCheck, color: "text-amber-500" },
+  { id: "ALL", label: "All Projects & Ceremonies", icon: CalendarCheck, color: "text-amber-500" },
+  { id: "AWAITING_COUNTERSIGN", label: "Contracts Awaiting Sign", icon: FileCheck, color: "text-amber-500" },
   { id: "UPCOMING", label: "Upcoming Kickoffs", icon: Clock, color: "text-emerald-500" },
   { id: "RESCHEDULED", label: "Rescheduled / Delayed", icon: AlertTriangle, color: "text-amber-500" },
   { id: "PENDING", label: "Awaiting Schedule", icon: Calendar, color: "text-neutral-400" },
@@ -251,6 +252,7 @@ function GroundbreakingFilterCombobox({
 
   const getCount = (id) => {
     if (id === "ALL") return totalCount;
+    if (id === "AWAITING_COUNTERSIGN") return metrics.awaitingCountersign || 0;
     if (id === "UPCOMING") return metrics.scheduled;
     if (id === "RESCHEDULED") return metrics.rescheduled;
     if (id === "PENDING") return metrics.pending;
@@ -374,7 +376,60 @@ export default function AdminGroundbreakingTab({
     "Authorized Managing Officer, M.C.P.A. Design & Construction"
   );
   const [contractorSignatureData, setContractorSignatureData] = useState("");
-  const [adminSignMode, setAdminSignMode] = useState("type"); // "type" | "draw"
+  const [adminSignMode, setAdminSignMode] = useState("draw"); // "type" | "draw"
+  const [isAdminSignModalOpen, setIsAdminSignModalOpen] = useState(false);
+  const adminSigCanvasRef = useRef(null);
+  const [isAdminDrawing, setIsAdminDrawing] = useState(false);
+  const [hasAdminDrawnSig, setHasAdminDrawnSig] = useState(false);
+  const [adminSigColor, setAdminSigColor] = useState("#0f172a");
+
+  // Admin Canvas drawing handlers with resolution scaling
+  const getAdminCanvasCoords = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / (rect.width || 460);
+    const scaleY = canvas.height / (rect.height || 180);
+    const clientX = e.clientX !== undefined ? e.clientX : e.touches?.[0]?.clientX;
+    const clientY = e.clientY !== undefined ? e.clientY : e.touches?.[0]?.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startAdminDrawing = (e) => {
+    const canvas = adminSigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const { x, y } = getAdminCanvasCoords(e, canvas);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsAdminDrawing(true);
+    setHasAdminDrawnSig(true);
+  };
+
+  const drawAdmin = (e) => {
+    if (!isAdminDrawing) return;
+    const canvas = adminSigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const { x, y } = getAdminCanvasCoords(e, canvas);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = adminSigColor || "#0f172a";
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopAdminDrawing = () => setIsAdminDrawing(false);
+
+  const clearAdminSignature = () => {
+    const canvas = adminSigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasAdminDrawnSig(false);
+  };
 
   // Advance to Stage 3 State
   const [isAdvancingId, setIsAdvancingId] = useState(null);
@@ -538,27 +593,37 @@ export default function AdminGroundbreakingTab({
 
   // Sign Contract as Contractor (Admin / Authorized Managing Officer)
   const handleSignContractAsAdmin = async (e) => {
-    e?.preventDefault();
+    e?.preventDefault?.();
     if (!contractData?.contract_id) {
       showToast?.("No active contract loaded for this project.", "error");
       return;
     }
-    const signatureValue =
-      contractorSignatureData.trim() || contractorSignerName.trim() || "Engr. Raymart Quirante";
+
+    let signatureValue = contractorSignatureData?.trim();
+    if (adminSigCanvasRef.current && hasAdminDrawnSig) {
+      signatureValue = adminSigCanvasRef.current.toDataURL("image/png");
+    } else if (!signatureValue && !hasAdminDrawnSig) {
+      signatureValue = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><text x="10" y="50" font-family="serif" font-style="italic" font-size="28" font-weight="bold" fill="%230f172a">${encodeURIComponent(contractorSignerName || "Engr. Raymart Quirante")}</text></svg>`;
+    }
+
     setIsSigningContract(true);
     try {
       const res = await authFetch(`/api/contracts/${contractData.contract_id}/sign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          projectId: contractModalProject?.client_project_id,
           signerRole: "CONTRACTOR",
-          signerName: contractorSignerName,
+          signerName: contractorSignerName || "Engr. Raymart Quirante",
+          signerEmail: currentUser?.email || "legal@mcpabuilders.com",
+          signatureImageUrl: signatureValue,
           signatureData: signatureValue,
         }),
       });
       const data = await res.json();
       if (res.ok && data.success && data.contract) {
         setContractData(data.contract);
+        setIsAdminSignModalOpen(false);
         showToast?.(
           data.contract.status === "FULLY_EXECUTED"
             ? "Turnkey Contract is now FULLY EXECUTED with dual verified signatures & SHA-256 seal!"
@@ -566,6 +631,9 @@ export default function AdminGroundbreakingTab({
           "success"
         );
         fetchGroundbreakingOverview();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("mcpa-contract-updated"));
+        }
       } else {
         showToast?.(data.message || "Failed to sign contract", "error");
       }
@@ -630,6 +698,9 @@ export default function AdminGroundbreakingTab({
       }
 
       // Status filter
+      if (statusFilter === "AWAITING_COUNTERSIGN") {
+        return Boolean(p.has_client_contract_signature && !p.has_contractor_contract_signature);
+      }
       if (statusFilter === "UPCOMING") {
         if (!p.groundbreaking_date) return false;
         const isUpcoming = new Date(p.groundbreaking_date).getTime() > Date.now();
@@ -656,6 +727,9 @@ export default function AdminGroundbreakingTab({
   // Aggregate metric counters
   const metrics = useMemo(() => {
     const total = projects.length;
+    const awaitingCountersign = projects.filter(
+      (p) => p.has_client_contract_signature && !p.has_contractor_contract_signature
+    ).length;
     const scheduled = projects.filter(
       (p) => p.groundbreaking_date && p.groundbreaking_status !== "COMPLETED"
     ).length;
@@ -673,7 +747,7 @@ export default function AdminGroundbreakingTab({
     ).length;
     const completed = projects.filter((p) => p.groundbreaking_status === "COMPLETED").length;
 
-    return { total, scheduled, imminent7Days, rescheduled, pending, completed };
+    return { total, awaitingCountersign, scheduled, imminent7Days, rescheduled, pending, completed };
   }, [projects]);
 
   return (
@@ -684,16 +758,16 @@ export default function AdminGroundbreakingTab({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-neutral-200 dark:border-white/10 pb-5">
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 uppercase tracking-wider mb-1">
-            <span>Phase 2: Consultation &amp; Planning</span>
+            <span>Stage 2: Consultation &amp; Planning</span>
             <span>/</span>
-            <span className="text-amber-600 dark:text-amber-400 font-bold">Site Kickoff Hub</span>
+            <span className="text-amber-600 dark:text-amber-400 font-bold">Legal Contracts &amp; Site Kickoff Hub</span>
           </div>
           <h1 className="text-2xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white uppercase flex items-center gap-2.5">
             <Sparkles className="w-6 h-6 text-amber-500" />
-            <span>Groundbreaking Ceremonies</span>
+            <span>Contracts &amp; Groundbreaking Kickoff</span>
           </h1>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-2xl leading-relaxed">
-            Schedule, monitor, and adjust auspicious site blessing &amp; priest invocation dates for Phase 2 client projects in Bulacan. Adjust dates for rain delays or early permit clearances with real-time countdown synchronization.
+            Review and countersign Master Turnkey Construction Contracts with SHA-256 digital seals, and schedule auspicious site blessings &amp; liturgical groundbreaking ceremonies for Stage 2 projects.
           </p>
         </div>
 
@@ -713,10 +787,32 @@ export default function AdminGroundbreakingTab({
       {/* ------------------------------------------------------------- */}
       {/* 2. METRIC CARDS (HUMAN-DESIGNED HIGH INFORMATION DENSITY)    */}
       {/* ------------------------------------------------------------- */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+        <div
+          onClick={() => setStatusFilter(statusFilter === "AWAITING_COUNTERSIGN" ? "ALL" : "AWAITING_COUNTERSIGN")}
+          className={`p-4 rounded-[14px] border shadow-xs cursor-pointer transition-all ${
+            metrics.awaitingCountersign > 0
+              ? "bg-amber-500/10 border-amber-500/40 hover:bg-amber-500/15 ring-1 ring-amber-500/30"
+              : "bg-white dark:bg-[#101218] border-neutral-200/80 dark:border-white/10"
+          }`}
+        >
+          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1 font-bold flex items-center justify-between">
+            <span>Contracts to Sign</span>
+            {metrics.awaitingCountersign > 0 && <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />}
+          </span>
+          <div className="flex items-baseline justify-between">
+            <span className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
+              {metrics.awaitingCountersign}
+            </span>
+            <span className="text-[10px] font-mono text-amber-600/80 font-bold">
+              {metrics.awaitingCountersign > 0 ? "Action Required" : "All Signed"}
+            </span>
+          </div>
+        </div>
+
         <div className="p-4 rounded-[14px] bg-white dark:bg-[#101218] border border-neutral-200/80 dark:border-white/10 shadow-xs">
           <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 block mb-1">
-            Phase 2 Clients
+            Stage 2 Clients
           </span>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-bold font-mono text-neutral-900 dark:text-white">
@@ -990,11 +1086,23 @@ export default function AdminGroundbreakingTab({
                           <button
                             type="button"
                             onClick={() => handleOpenContractModal(p)}
-                            className="px-2.5 py-1.5 rounded-[6px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10 font-mono font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1"
+                            className={`px-2.5 py-1.5 rounded-[6px] font-mono font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer shadow-xs inline-flex items-center gap-1 ${
+                              p.has_client_contract_signature && !p.has_contractor_contract_signature
+                                ? "bg-amber-500 hover:bg-amber-400 text-neutral-950 ring-2 ring-amber-400/40 animate-pulse"
+                                : p.has_client_contract_signature && p.has_contractor_contract_signature
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                : "bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10"
+                            }`}
                             title="Review and Countersign Construction Contract"
                           >
                             <FileCheck className="w-3 h-3 text-amber-500" />
-                            <span>Contract</span>
+                            <span>
+                              {p.has_client_contract_signature && !p.has_contractor_contract_signature
+                                ? "Client Signed (Sign Now)"
+                                : p.has_client_contract_signature && p.has_contractor_contract_signature
+                                ? "Executed"
+                                : "Contract"}
+                            </span>
                           </button>
 
                           {isScheduled ? (
@@ -1161,11 +1269,23 @@ export default function AdminGroundbreakingTab({
                     <button
                       type="button"
                       onClick={() => handleOpenContractModal(p)}
-                      className="px-3 py-2 rounded-[8px] bg-white dark:bg-[#12151c] hover:bg-neutral-100 dark:hover:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className={`px-3 py-2 rounded-[8px] font-mono font-bold text-xs uppercase tracking-wider transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                        p.has_client_contract_signature && !p.has_contractor_contract_signature
+                          ? "bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-md ring-2 ring-amber-400/40 animate-pulse"
+                          : p.has_client_contract_signature && p.has_contractor_contract_signature
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                          : "bg-white dark:bg-[#12151c] hover:bg-neutral-100 dark:hover:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                      }`}
                       title="Review Contract and Dual E-Signatures"
                     >
-                      <FileCheck className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Review Contract</span>
+                      <FileCheck className="w-3.5 h-3.5" />
+                      <span>
+                        {p.has_client_contract_signature && !p.has_contractor_contract_signature
+                          ? "Client Signed (Countersign Now)"
+                          : p.has_client_contract_signature && p.has_contractor_contract_signature
+                          ? "Contract Executed (View Seal)"
+                          : "Review Contract"}
+                      </span>
                     </button>
 
                     {isScheduled ? (
@@ -1814,63 +1934,146 @@ export default function AdminGroundbreakingTab({
                     )}
 
                     {/* DUAL SIGNATURE BLOCKS */}
-                    <div className="pt-6 border-t border-neutral-300">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                        {/* Owner Signature Block */}
-                        <div className="border border-neutral-200 rounded p-4 text-center space-y-2 bg-neutral-50/50">
-                          <span className="text-[10px] font-mono uppercase text-neutral-500 font-bold block">
-                            FIRST PARTY / OWNER (CLIENT)
-                          </span>
-                          <div className="h-16 flex items-center justify-center border-b border-neutral-300">
-                            {contractData?.client_signed_at ? (
-                              <div className="space-y-0.5">
-                                <span className="font-serif italic text-lg text-emerald-800 font-bold block">
-                                  {contractData.client_signer_name || contractModalProject.client_name}
-                                </span>
-                                <span className="text-[9px] font-mono text-emerald-600 flex items-center justify-center gap-1">
-                                  <Check className="w-3 h-3" /> E-Signed {new Date(contractData.client_signed_at).toLocaleDateString("en-PH")}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-neutral-400 font-mono text-[10px] italic">
-                                Pending Client E-Signature in Portal
-                              </span>
-                            )}
-                          </div>
-                          <span className="font-bold text-xs uppercase text-neutral-900 block">
-                            {contractData?.client_signer_name || contractModalProject.client_name || "Owner"}
-                          </span>
-                          <span className="text-[10px] text-neutral-500">Owner &amp; Principal Client</span>
-                        </div>
+                    {(() => {
+                      const clientSigs = (contractData?.signatures || [])
+                        .filter((s) => (s.signer_role || "").toUpperCase() === "CLIENT")
+                        .sort((a, b) => (b.signature_id || 0) - (a.signature_id || 0) || new Date(b.signed_at).getTime() - new Date(a.signed_at).getTime());
+                      const modalClientSig = clientSigs[0] || (contractData?.client_signature_image_url ? {
+                        signature_image_url: contractData.client_signature_image_url,
+                        signer_name: contractData.client_signer_name,
+                        signed_at: contractData.client_signed_at,
+                      } : null);
 
-                        {/* Contractor Signature Block */}
-                        <div className="border border-neutral-200 rounded p-4 text-center space-y-2 bg-neutral-50/50">
-                          <span className="text-[10px] font-mono uppercase text-neutral-500 font-bold block">
-                            SECOND PARTY / CONTRACTOR (M.C.P.A.)
-                          </span>
-                          <div className="h-16 flex items-center justify-center border-b border-neutral-300">
-                            {contractData?.contractor_signed_at ? (
-                              <div className="space-y-0.5">
-                                <span className="font-serif italic text-lg text-emerald-800 font-bold block">
-                                  {contractData.contractor_signer_name || "Engr. Raymart Quirante"}
-                                </span>
-                                <span className="text-[9px] font-mono text-emerald-600 flex items-center justify-center gap-1">
-                                  <Check className="w-3 h-3" /> Countersigned {new Date(contractData.contractor_signed_at).toLocaleDateString("en-PH")}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-amber-600 font-mono text-[10px] font-bold">
-                                Ready for Admin Countersigning Below
+                      const contractorSigs = (contractData?.signatures || [])
+                        .filter((s) => ["CONTRACTOR", "ADMIN"].includes((s.signer_role || "").toUpperCase()))
+                        .sort((a, b) => (b.signature_id || 0) - (a.signature_id || 0) || new Date(b.signed_at).getTime() - new Date(a.signed_at).getTime());
+                      const modalContractorSig = contractorSigs[0] || (contractData?.contractor_signature_image_url ? {
+                        signature_image_url: contractData.contractor_signature_image_url,
+                        signer_name: contractData.contractor_signer_name,
+                        signed_at: contractData.contractor_signed_at,
+                      } : null);
+
+                      return (
+                        <div className="pt-6 border-t border-neutral-300">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                            {/* Owner Signature Block */}
+                            <div className="border border-neutral-200 rounded p-4 text-center space-y-2 bg-neutral-50/50">
+                              <span className="text-[10px] font-mono uppercase text-neutral-500 font-bold block">
+                                FIRST PARTY / OWNER (CLIENT)
                               </span>
-                            )}
+                              <div className="min-h-20 flex flex-col items-center justify-center border-b border-neutral-300 pb-2">
+                                {modalClientSig ? (
+                                  <div className="space-y-1 w-full">
+                                    {modalClientSig.signature_image_url && modalClientSig.signature_image_url.length > 50 ? (
+                                      <img
+                                        src={modalClientSig.signature_image_url}
+                                        alt="Client Signature"
+                                        className="h-12 max-w-full object-contain mx-auto"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = "none";
+                                          const fallback = e.currentTarget.nextElementSibling;
+                                          if (fallback) fallback.style.display = "block";
+                                        }}
+                                      />
+                                    ) : null}
+                                    <span
+                                      className="font-serif italic text-lg text-emerald-800 font-bold block"
+                                      style={{
+                                        display:
+                                          modalClientSig.signature_image_url && modalClientSig.signature_image_url.length > 50
+                                            ? "none"
+                                            : "block",
+                                      }}
+                                    >
+                                      {modalClientSig.signer_name || contractModalProject.client_name}
+                                    </span>
+                                    <span className="text-[9px] font-mono text-emerald-600 flex items-center justify-center gap-1">
+                                      <Check className="w-3 h-3" /> E-Signed {modalClientSig.signed_at ? new Date(modalClientSig.signed_at).toLocaleDateString("en-PH") : "Recorded"}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-neutral-400 font-mono text-[10px] italic">
+                                    Pending Client E-Signature in Portal
+                                  </span>
+                                )}
+                              </div>
+                              <span className="font-bold text-xs uppercase text-neutral-900 block">
+                                {modalClientSig?.signer_name || contractModalProject.client_name || "Owner"}
+                              </span>
+                              <span className="text-[10px] text-neutral-500">Owner &amp; Principal Client</span>
+                            </div>
+
+                            {/* Contractor Signature Block */}
+                            <div className="border border-neutral-200 rounded p-4 text-center space-y-2 bg-neutral-50/50">
+                              <span className="text-[10px] font-mono uppercase text-neutral-500 font-bold block">
+                                SECOND PARTY / CONTRACTOR (M.C.P.A.)
+                              </span>
+                              <div className="min-h-20 flex flex-col items-center justify-center border-b border-neutral-300 pb-2">
+                                {modalContractorSig ? (
+                                  <div className="space-y-1 w-full">
+                                    {modalContractorSig.signature_image_url && modalContractorSig.signature_image_url.length > 50 ? (
+                                      <img
+                                        src={modalContractorSig.signature_image_url}
+                                        alt="Contractor Signature"
+                                        className="h-12 max-w-full object-contain mx-auto"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = "none";
+                                          const fallback = e.currentTarget.nextElementSibling;
+                                          if (fallback) fallback.style.display = "block";
+                                        }}
+                                      />
+                                    ) : null}
+                                    <span
+                                      className="font-serif italic text-lg text-emerald-800 font-bold block"
+                                      style={{
+                                        display:
+                                          modalContractorSig.signature_image_url && modalContractorSig.signature_image_url.length > 50
+                                            ? "none"
+                                            : "block",
+                                      }}
+                                    >
+                                      {modalContractorSig.signer_name || "Engr. Raymart Quirante"}
+                                    </span>
+                                    <span className="text-[9px] font-mono text-emerald-600 flex items-center justify-center gap-1">
+                                      <Check className="w-3 h-3" /> Countersigned {modalContractorSig.signed_at ? new Date(modalContractorSig.signed_at).toLocaleDateString("en-PH") : "Recorded"}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        clearAdminSignature();
+                                        setIsAdminSignModalOpen(true);
+                                      }}
+                                      className="text-[9px] font-mono text-amber-600 hover:text-amber-700 font-bold inline-flex items-center gap-1 cursor-pointer transition-colors pt-1"
+                                    >
+                                      <PenTool className="w-2.5 h-2.5" />
+                                      <span>Re-Sign / Redraw with Canvas</span>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2 w-full py-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        clearAdminSignature();
+                                        setIsAdminSignModalOpen(true);
+                                      }}
+                                      className="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+                                    >
+                                      <PenTool className="w-3.5 h-3.5" />
+                                      <span>Draw &amp; Sign Document Here</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              <span className="font-bold text-xs uppercase text-neutral-900 block">
+                                {modalContractorSig?.signer_name || contractorSignerName || "Engr. Raymart Quirante"}
+                              </span>
+                              <span className="text-[10px] text-neutral-500">Authorized Managing Officer</span>
+                            </div>
                           </div>
-                          <span className="font-bold text-xs uppercase text-neutral-900 block">
-                            {contractData?.contractor_signer_name || contractorSignerName || "Engr. Raymart Quirante"}
-                          </span>
-                          <span className="text-[10px] text-neutral-500">Authorized Managing Officer</span>
                         </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
 
                   {/* ADMIN COUNTERSIGNING FORM (IF NOT YET SIGNED BY CONTRACTOR) */}
@@ -1967,6 +2170,132 @@ export default function AdminGroundbreakingTab({
               >
                 Close Window
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN DIGITAL SIGNATURE MODAL */}
+      {isAdminSignModalOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#12141c] border border-neutral-300 dark:border-white/10 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-neutral-200 dark:border-white/10 pb-3">
+              <div>
+                <h3 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white">
+                  Contractor Official Countersignature
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono mt-0.5">
+                  Sign below as Authorized Managing Officer of M.C.P.A.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdminSignModalOpen(false)}
+                className="p-1 rounded text-neutral-400 hover:text-neutral-900 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-neutral-500 font-bold mb-1">
+                    Signer Name
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorSignerName}
+                    onChange={(e) => setContractorSignerName(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-neutral-300 dark:border-white/10 bg-white dark:bg-black/30 text-neutral-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-neutral-500 font-bold mb-1">
+                    Designation
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorTitle}
+                    onChange={(e) => setContractorTitle(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-neutral-300 dark:border-white/10 bg-white dark:bg-black/30 text-neutral-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-1">
+                <span className="font-mono text-neutral-500 text-[11px]">Ink Tone:</span>
+                <div className="flex items-center gap-1.5">
+                  {[
+                    { label: "Executive Black", value: "#0f172a", bg: "bg-slate-900" },
+                    { label: "Legal Blue", value: "#1e3a8a", bg: "bg-blue-900" },
+                    { label: "Contract Amber", value: "#d97706", bg: "bg-amber-600" },
+                  ].map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setAdminSigColor(c.value)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        adminSigColor === c.value
+                          ? "bg-neutral-200 dark:bg-white/20 text-neutral-900 dark:text-white ring-1 ring-amber-500"
+                          : "text-neutral-500 hover:text-neutral-700"
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${c.bg} inline-block`} />
+                      <span>{c.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border border-neutral-300 dark:border-neutral-700 rounded-xl bg-white overflow-hidden shadow-inner relative">
+                <canvas
+                  ref={adminSigCanvasRef}
+                  width={460}
+                  height={180}
+                  onMouseDown={startAdminDrawing}
+                  onMouseMove={drawAdmin}
+                  onMouseUp={stopAdminDrawing}
+                  onMouseLeave={stopAdminDrawing}
+                  onTouchStart={startAdminDrawing}
+                  onTouchMove={drawAdmin}
+                  onTouchEnd={stopAdminDrawing}
+                  className="w-full h-44 cursor-crosshair touch-none"
+                />
+                <div className="pointer-events-none absolute bottom-4 left-6 right-6 border-b border-dashed border-neutral-300 flex justify-between items-end pb-1">
+                  <span className="text-[10px] font-mono text-neutral-400">× Sign above this line</span>
+                  <span className="text-[9px] font-mono text-neutral-400">M.C.P.A. Official Seal</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={clearAdminSignature}
+                className="px-3 py-1.5 rounded-[6px] text-xs font-mono text-neutral-500 hover:text-neutral-900 dark:hover:text-white cursor-pointer"
+              >
+                Clear Canvas
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAdminSignModalOpen(false)}
+                  className="px-4 py-2 rounded-[8px] text-xs font-mono text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSignContractAsAdmin}
+                  disabled={!hasAdminDrawnSig || isSigningContract}
+                  className="px-5 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{isSigningContract ? "Sealing & Executing..." : "Countersign & Execute"}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

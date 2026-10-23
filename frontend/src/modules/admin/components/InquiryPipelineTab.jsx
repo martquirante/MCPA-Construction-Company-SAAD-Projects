@@ -2185,7 +2185,7 @@ export default function InquiryPipelineTab({
                       {selectedBrief.status === "Meeting Scheduled" || selectedBrief.status === "Approved / Accepted" ? (
                         <>
                           {/* Confirmed Status Indicator */}
-                          <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/[0.08] dark:bg-emerald-500/[0.12] border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-mono font-medium shadow-2xs select-none">
+                          <div className="inline-flex items-center gap-2 px-1 text-emerald-700 dark:text-emerald-400 text-xs font-mono font-medium select-none">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             <span>Confirmed &amp; Scheduled</span>
                           </div>
@@ -2377,9 +2377,9 @@ export default function InquiryPipelineTab({
               </div>
 
               {/* Informational Callout */}
-              <div className="p-3 rounded-xl bg-amber-500/[0.08] border border-amber-500/20 flex items-start gap-2.5">
-                <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-amber-800 dark:text-amber-300/90 leading-relaxed font-sans">
+              <div className="flex items-start gap-2 pt-1 px-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed font-sans">
                   Approving this consultation locks the schedule into the MCPA timeline and dispatches an official confirmation docket and calendar invite to <strong className="font-semibold text-neutral-900 dark:text-white">{selectedBrief.clientEmail}</strong>.
                 </p>
               </div>

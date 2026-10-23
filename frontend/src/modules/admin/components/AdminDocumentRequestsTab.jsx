@@ -114,6 +114,33 @@ export default function AdminDocumentRequestsTab({
   const [permitRemarks, setPermitRemarks] = useState("");
   const [isUpdatingPermit, setIsUpdatingPermit] = useState(false);
 
+  // Modals for Permit Pipeline Template & Manual Creation
+  const [isApplyTemplateModalOpen, setIsApplyTemplateModalOpen] = useState(false);
+  const [templateTargetProjectId, setTemplateTargetProjectId] = useState("");
+  const [selectedTemplatePermits, setSelectedTemplatePermits] = useState([
+    "BARANGAY_CLEARANCE",
+    "LOCATIONAL_CLEARANCE",
+    "BUILDING_PERMIT",
+    "FSEC_FIRE",
+    "OCCUPANCY_PERMIT",
+  ]);
+  const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
+  const [isTemplateClientComboboxOpen, setIsTemplateClientComboboxOpen] = useState(false);
+  const templateClientComboboxRef = useRef(null);
+
+  const [isCreatePermitModalOpen, setIsCreatePermitModalOpen] = useState(false);
+  const [newPermitProjectId, setNewPermitProjectId] = useState("");
+  const [newPermitType, setNewPermitType] = useState("BUILDING_PERMIT");
+  const [newPermitCustomType, setNewPermitCustomType] = useState("");
+  const [newPermitAgency, setNewPermitAgency] = useState("Office of the Building Official (OBO)");
+  const [newPermitStatus, setNewPermitStatus] = useState("NOT_STARTED");
+  const [newPermitFilingDate, setNewPermitFilingDate] = useState("");
+  const [newPermitTargetDate, setNewPermitTargetDate] = useState("");
+  const [newPermitRemarks, setNewPermitRemarks] = useState("");
+  const [isCreatingPermit, setIsCreatingPermit] = useState(false);
+  const [isNewPermitClientComboboxOpen, setIsNewPermitClientComboboxOpen] = useState(false);
+  const newPermitClientComboboxRef = useRef(null);
+
   // Modal 1: Request Document from Client
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [targetClientBriefId, setTargetClientBriefId] = useState(""); // Blank initially, no auto-select
@@ -159,6 +186,12 @@ export default function AdminDocumentRequestsTab({
       }
       if (directClientComboboxRef.current && !directClientComboboxRef.current.contains(e.target)) {
         setIsDirectClientComboboxOpen(false);
+      }
+      if (templateClientComboboxRef.current && !templateClientComboboxRef.current.contains(e.target)) {
+        setIsTemplateClientComboboxOpen(false);
+      }
+      if (newPermitClientComboboxRef.current && !newPermitClientComboboxRef.current.contains(e.target)) {
+        setIsNewPermitClientComboboxOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -332,6 +365,129 @@ export default function AdminDocumentRequestsTab({
       showToast?.(err.message || "Error updating permit", "error");
     } finally {
       setIsUpdatingPermit(false);
+    }
+  };
+
+  // Apply Standard LGU Permit Pipeline Template to a project
+  const handleApplyTemplate = async (e) => {
+    e?.preventDefault();
+    if (!templateTargetProjectId) {
+      showToast?.("Please select a target client project first", "error");
+      return;
+    }
+    if (selectedTemplatePermits.length === 0) {
+      showToast?.("Please select at least one permit from the template", "error");
+      return;
+    }
+
+    setIsApplyingTemplate(true);
+    try {
+      const res = await authFetch("/api/admin/permits/apply-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: parseInt(templateTargetProjectId, 10),
+          permitTypes: selectedTemplatePermits,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast?.(`Standard permit template applied (${data.permits?.length || selectedTemplatePermits.length} permits created)!`, "success");
+        setIsApplyTemplateModalOpen(false);
+        setTemplateTargetProjectId("");
+        fetchPermits();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("mcpa-permits-updated"));
+        }
+      } else {
+        showToast?.(data.message || "Failed to apply permit template", "error");
+      }
+    } catch (err) {
+      console.error("Apply template error:", err);
+      showToast?.(err.message || "Error applying template", "error");
+    } finally {
+      setIsApplyingTemplate(false);
+    }
+  };
+
+  // Create single custom permit
+  const handleCreateSinglePermit = async (e) => {
+    e?.preventDefault();
+    if (!newPermitProjectId) {
+      showToast?.("Please select a target client project first", "error");
+      return;
+    }
+    const finalPermitType =
+      newPermitType === "OTHER_CUSTOM"
+        ? newPermitCustomType.trim() || "CUSTOM_PERMIT"
+        : newPermitType.trim();
+
+    if (!finalPermitType) {
+      showToast?.("Please enter or select a permit type", "error");
+      return;
+    }
+
+    setIsCreatingPermit(true);
+    try {
+      const res = await authFetch("/api/admin/permits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: parseInt(newPermitProjectId, 10),
+          permitType: finalPermitType,
+          lguAgency: newPermitAgency.trim() || "City / Municipal Engineering Office",
+          status: newPermitStatus,
+          filingDate: newPermitFilingDate || null,
+          targetReleaseDate: newPermitTargetDate || null,
+          remarks: newPermitRemarks.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast?.(`Permit "${finalPermitType}" added successfully!`, "success");
+        setIsCreatePermitModalOpen(false);
+        setNewPermitProjectId("");
+        setNewPermitType("BUILDING_PERMIT");
+        setNewPermitCustomType("");
+        setNewPermitAgency("Office of the Building Official (OBO)");
+        setNewPermitStatus("NOT_STARTED");
+        setNewPermitFilingDate("");
+        setNewPermitTargetDate("");
+        setNewPermitRemarks("");
+        fetchPermits();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("mcpa-permits-updated"));
+        }
+      } else {
+        showToast?.(data.message || "Failed to create permit", "error");
+      }
+    } catch (err) {
+      console.error("Create permit error:", err);
+      showToast?.(err.message || "Error creating permit", "error");
+    } finally {
+      setIsCreatingPermit(false);
+    }
+  };
+
+  // Delete Permit Record
+  const handleDeletePermit = async (permitId) => {
+    if (!confirm("Are you sure you want to remove this permit record?")) return;
+    try {
+      const res = await authFetch(`/api/admin/permits/${permitId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        showToast?.("Permit record deleted successfully", "success");
+        fetchPermits();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("mcpa-permits-updated"));
+        }
+      } else {
+        showToast?.("Failed to delete permit record", "error");
+      }
+    } catch (err) {
+      console.error("Delete permit error:", err);
+      showToast?.(err.message || "Error deleting permit", "error");
     }
   };
 
@@ -831,6 +987,16 @@ export default function AdminDocumentRequestsTab({
         </div>
       </div>
 
+      {/* Notice Banner for Construction Master Contracts */}
+      <div className="p-3.5 rounded-[8px] bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+        <div className="flex items-center gap-2.5 text-neutral-800 dark:text-neutral-200">
+          <FileCheck className="w-4 h-4 text-amber-500 shrink-0" />
+          <span>
+            Looking for <strong>Turnkey Construction Master Agreements</strong>? Legal contracts and dual e-signatures are managed under <strong>Stage 2: Contracts &amp; Groundbreaking</strong>.
+          </span>
+        </div>
+      </div>
+
       {/* 2. STATS OVERVIEW CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 flex flex-col justify-between">
@@ -956,13 +1122,35 @@ export default function AdminDocumentRequestsTab({
       {activeFilter === "permits" ? (
         /* LGU PERMITS & REGULATORY CLEARANCES TRACKER */
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-mono font-bold uppercase text-neutral-500 tracking-wider">
-              LGU Regulatory Permits &amp; Municipal Clearances ({filteredPermits.length})
-            </h3>
-            <span className="text-[11px] font-mono text-neutral-400">
-              Synchronized with Stage 2 Client Portal &bull; City Hall Pipeline
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+            <div>
+              <h3 className="text-xs font-mono font-bold uppercase text-neutral-500 tracking-wider">
+                LGU Regulatory Permits &amp; Municipal Clearances ({filteredPermits.length})
+              </h3>
+              <p className="text-[11px] font-mono text-neutral-400 mt-0.5">
+                City Hall permit tracking &bull; Use template to initialize for a client project
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsApplyTemplateModalOpen(true)}
+                className="px-3.5 py-2 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Apply Permit Template</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsCreatePermitModalOpen(true)}
+                className="px-3.5 py-2 rounded-[6px] bg-white dark:bg-white/10 hover:bg-neutral-100 dark:hover:bg-white/15 text-neutral-900 dark:text-white border border-neutral-300 dark:border-white/10 font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5 text-amber-500" />
+                <span>Add Single Permit</span>
+              </button>
+            </div>
           </div>
 
           {filteredPermits.length === 0 ? (
@@ -970,7 +1158,17 @@ export default function AdminDocumentRequestsTab({
               fallback={Building2}
               badgeText="Permits Pipeline Standby"
               title="No LGU Permits Records Found"
-              description="Permits are automatically initialized for consultation projects or when clients enter Stage 2 Pre-Construction Planning."
+              description="Permits are not added automatically. Use 'Apply Permit Template' above to initialize standard LGU permits for a client project, or click 'Add Single Permit' to add a specific clearance."
+              actionButton={
+                <button
+                  type="button"
+                  onClick={() => setIsApplyTemplateModalOpen(true)}
+                  className="px-4 py-2.5 rounded-[6px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all shadow-md active:scale-95"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Apply Standard Permit Template</span>
+                </button>
+              }
             />
           ) : (
             <div className="overflow-x-auto rounded-[8px] border border-neutral-200 dark:border-white/5 bg-white dark:bg-[#101218] shadow-xs">
@@ -1069,14 +1267,24 @@ export default function AdminDocumentRequestsTab({
                         </td>
 
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditPermit(perm)}
-                            className="px-2.5 py-1.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Edit3 className="w-3 h-3 text-amber-500" />
-                            <span>Update</span>
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditPermit(perm)}
+                              className="px-2.5 py-1.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit3 className="w-3 h-3 text-amber-500" />
+                              <span>Update</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePermit(perm.permit_id)}
+                              className="p-1.5 rounded-[4px] text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              title="Delete permit record"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -2438,6 +2646,467 @@ export default function AdminDocumentRequestsTab({
                     <>
                       <Check className="w-3.5 h-3.5" />
                       <span>Save &amp; Sync to Portal</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: APPLY STANDARD LGU PERMITS PIPELINE TEMPLATE                     */}
+      {/* ========================================================================= */}
+      {isApplyTemplateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-[14px] bg-white dark:bg-[#11131a] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 pb-4 border-b border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.02]">
+              <div>
+                <h3 className="text-sm sm:text-base font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>Apply Permit Pipeline Template</span>
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+                  Initialize standard Philippine LGU regulatory permits for a client project.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsApplyTemplateModalOpen(false)}
+                className="p-1.5 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleApplyTemplate} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+              {/* TARGET CLIENT PROJECT */}
+              <div className="space-y-1.5 relative" ref={templateClientComboboxRef}>
+                <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300 flex items-center justify-between">
+                  <span>Target Client Project</span>
+                  <span className="text-[10px] text-amber-500 lowercase font-normal">required</span>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setIsTemplateClientComboboxOpen(!isTemplateClientComboboxOpen)}
+                  className="w-full px-3 py-2.5 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white flex items-center justify-between text-left cursor-pointer hover:border-amber-500 transition-colors shadow-xs"
+                >
+                  {templateTargetProjectId ? (
+                    (() => {
+                      const sel = clientOptions.find((c) => String(c.projectId || c.id) === String(templateTargetProjectId));
+                      return sel ? (
+                        <div className="flex items-center gap-2 truncate">
+                          <ClientAvatarBadge client={sel} sizeClasses="w-6 h-6" />
+                          <span className="font-bold text-neutral-900 dark:text-white truncate">{sel.name}</span>
+                          <span className="text-[10px] text-amber-500 font-mono">({sel.code})</span>
+                        </div>
+                      ) : (
+                        <span>Project ID #{templateTargetProjectId}</span>
+                      );
+                    })()
+                  ) : (
+                    <span className="text-neutral-400">Select target client project...</span>
+                  )}
+                  <ChevronDown className="w-4 h-4 text-neutral-400" />
+                </button>
+
+                {isTemplateClientComboboxOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-40 rounded-[10px] bg-white dark:bg-[#151722] border border-neutral-200 dark:border-white/15 shadow-2xl max-h-56 overflow-y-auto divide-y divide-neutral-100 dark:divide-white/5">
+                    {clientOptions.length === 0 ? (
+                      <div className="p-4 text-xs font-mono text-neutral-400 text-center">No active projects found</div>
+                    ) : (
+                      clientOptions.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setTemplateTargetProjectId(c.projectId || c.id);
+                            setIsTemplateClientComboboxOpen(false);
+                          }}
+                          className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-2 hover:bg-amber-500/10 transition-colors cursor-pointer ${
+                            String(templateTargetProjectId) === String(c.projectId || c.id)
+                              ? "bg-amber-500/15 font-bold"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <ClientAvatarBadge client={c} sizeClasses="w-6 h-6" />
+                            <div className="truncate">
+                              <span className="text-neutral-900 dark:text-white font-sans">{c.name}</span>
+                              <span className="text-[10px] text-neutral-400 font-mono ml-2">({c.code})</span>
+                            </div>
+                          </div>
+                          {String(templateTargetProjectId) === String(c.projectId || c.id) && (
+                            <Check className="w-4 h-4 text-amber-500 shrink-0" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* PERMITS TO INITIALIZE CHECKBOX LIST */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
+                  <span>Permits Included in Pipeline Template:</span>
+                  <div className="flex gap-2 text-[10px] font-normal text-amber-600 dark:text-amber-400 lowercase">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTemplatePermits(["BARANGAY_CLEARANCE", "LOCATIONAL_CLEARANCE", "BUILDING_PERMIT", "FSEC_FIRE", "OCCUPANCY_PERMIT"])}
+                      className="hover:underline cursor-pointer"
+                    >
+                      select all
+                    </button>
+                    <span>&bull;</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTemplatePermits([])}
+                      className="hover:underline cursor-pointer"
+                    >
+                      clear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {[
+                    {
+                      type: "BARANGAY_CLEARANCE",
+                      title: "Barangay Construction Clearance & HOA Approval",
+                      agency: "Barangay Hall (Local Jurisdiction)",
+                      badge: "Initial Filing",
+                    },
+                    {
+                      type: "LOCATIONAL_CLEARANCE",
+                      title: "Locational & Zoning Clearance",
+                      agency: "City/Municipal Planning & Development Office",
+                      badge: "Zoning",
+                    },
+                    {
+                      type: "BUILDING_PERMIT",
+                      title: "Municipal Building Permit (NBCP P.D. 1096)",
+                      agency: "Office of the Building Official (OBO)",
+                      badge: "Structural Review",
+                    },
+                    {
+                      type: "FSEC_FIRE",
+                      title: "Fire Safety Evaluation Clearance (FSEC)",
+                      agency: "Bureau of Fire Protection (BFP)",
+                      badge: "Fire Safety",
+                    },
+                    {
+                      type: "OCCUPANCY_PERMIT",
+                      title: "Certificate of Occupancy",
+                      agency: "City/Municipal Engineering & Inspection",
+                      badge: "Final Handover",
+                    },
+                  ].map((p) => {
+                    const isChecked = selectedTemplatePermits.includes(p.type);
+                    return (
+                      <label
+                        key={p.type}
+                        className={`p-3 rounded-lg border text-xs flex items-start gap-3 transition-colors cursor-pointer select-none ${
+                          isChecked
+                            ? "bg-amber-500/10 border-amber-500/30 text-neutral-900 dark:text-white"
+                            : "bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 text-neutral-500"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTemplatePermits((prev) => [...prev, p.type]);
+                            } else {
+                              setSelectedTemplatePermits((prev) => prev.filter((t) => t !== p.type));
+                            }
+                          }}
+                          className="mt-0.5 w-4 h-4 text-amber-500 rounded border-neutral-300 focus:ring-amber-500 cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold font-mono text-[11px]">{p.title}</span>
+                            <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-400 shrink-0">
+                              {p.badge}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-neutral-400 font-sans mt-0.5">{p.agency}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-200 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsApplyTemplateModalOpen(false)}
+                  disabled={isApplyingTemplate}
+                  className="px-4 py-2 rounded-[6px] border border-neutral-300 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-mono text-xs font-bold uppercase transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isApplyingTemplate || !templateTargetProjectId || selectedTemplatePermits.length === 0}
+                  className="px-5 py-2 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all shadow-md active:scale-95"
+                >
+                  {isApplyingTemplate ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 animate-spin" />
+                      <span>Applying Template...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Apply Template to Project</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 6: ADD INDIVIDUAL CUSTOM PERMIT                                     */}
+      {/* ========================================================================= */}
+      {isCreatePermitModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-[14px] bg-white dark:bg-[#11131a] border border-neutral-200 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="flex items-center justify-between p-5 pb-4 border-b border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.02]">
+              <div>
+                <h3 className="text-sm sm:text-base font-bold font-mono uppercase text-neutral-900 dark:text-white flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-amber-500" />
+                  <span>Add Municipal Permit</span>
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+                  Log a specific permit or clearance record for a client project.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreatePermitModalOpen(false)}
+                className="p-1.5 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSinglePermit} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+              {/* TARGET CLIENT PROJECT */}
+              <div className="space-y-1.5 relative" ref={newPermitClientComboboxRef}>
+                <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300 flex items-center justify-between">
+                  <span>Target Client Project</span>
+                  <span className="text-[10px] text-amber-500 lowercase font-normal">required</span>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setIsNewPermitClientComboboxOpen(!isNewPermitClientComboboxOpen)}
+                  className="w-full px-3 py-2.5 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white flex items-center justify-between text-left cursor-pointer hover:border-amber-500 transition-colors shadow-xs"
+                >
+                  {newPermitProjectId ? (
+                    (() => {
+                      const sel = clientOptions.find((c) => String(c.projectId || c.id) === String(newPermitProjectId));
+                      return sel ? (
+                        <div className="flex items-center gap-2 truncate">
+                          <ClientAvatarBadge client={sel} sizeClasses="w-6 h-6" />
+                          <span className="font-bold text-neutral-900 dark:text-white truncate">{sel.name}</span>
+                          <span className="text-[10px] text-amber-500 font-mono">({sel.code})</span>
+                        </div>
+                      ) : (
+                        <span>Project ID #{newPermitProjectId}</span>
+                      );
+                    })()
+                  ) : (
+                    <span className="text-neutral-400">Select target client project...</span>
+                  )}
+                  <ChevronDown className="w-4 h-4 text-neutral-400" />
+                </button>
+
+                {isNewPermitClientComboboxOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-40 rounded-[10px] bg-white dark:bg-[#151722] border border-neutral-200 dark:border-white/15 shadow-2xl max-h-56 overflow-y-auto divide-y divide-neutral-100 dark:divide-white/5">
+                    {clientOptions.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setNewPermitProjectId(c.projectId || c.id);
+                          setIsNewPermitClientComboboxOpen(false);
+                        }}
+                        className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-2 hover:bg-amber-500/10 transition-colors cursor-pointer ${
+                          String(newPermitProjectId) === String(c.projectId || c.id)
+                            ? "bg-amber-500/15 font-bold"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 truncate">
+                          <ClientAvatarBadge client={c} sizeClasses="w-6 h-6" />
+                          <div className="truncate">
+                            <span className="text-neutral-900 dark:text-white font-sans">{c.name}</span>
+                            <span className="text-[10px] text-neutral-400 font-mono ml-2">({c.code})</span>
+                          </div>
+                        </div>
+                        {String(newPermitProjectId) === String(c.projectId || c.id) && (
+                          <Check className="w-4 h-4 text-amber-500 shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* PERMIT TYPE SELECTION */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
+                  Permit / Clearance Type
+                </label>
+                <select
+                  value={newPermitType}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewPermitType(val);
+                    if (val === "BARANGAY_CLEARANCE") setNewPermitAgency("Barangay Hall (Local Jurisdiction)");
+                    else if (val === "LOCATIONAL_CLEARANCE") setNewPermitAgency("City/Municipal Planning & Development Office");
+                    else if (val === "BUILDING_PERMIT") setNewPermitAgency("Office of the Building Official (OBO)");
+                    else if (val === "FSEC_FIRE") setNewPermitAgency("Bureau of Fire Protection (BFP)");
+                    else if (val === "OCCUPANCY_PERMIT") setNewPermitAgency("City/Municipal Engineering & Inspection");
+                    else if (val === "ECC_ENVIRONMENTAL") setNewPermitAgency("DENR - Environmental Management Bureau (EMB)");
+                  }}
+                  className="w-full px-3 py-2 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="BUILDING_PERMIT">BUILDING_PERMIT — Municipal Building Permit</option>
+                  <option value="BARANGAY_CLEARANCE">BARANGAY_CLEARANCE — Barangay Construction Clearance</option>
+                  <option value="LOCATIONAL_CLEARANCE">LOCATIONAL_CLEARANCE — Locational &amp; Zoning Clearance</option>
+                  <option value="FSEC_FIRE">FSEC_FIRE — Fire Safety Evaluation Clearance</option>
+                  <option value="OCCUPANCY_PERMIT">OCCUPANCY_PERMIT — Certificate of Occupancy</option>
+                  <option value="ECC_ENVIRONMENTAL">ECC_ENVIRONMENTAL — Environmental Compliance Certificate</option>
+                  <option value="OTHER_CUSTOM">OTHER_CUSTOM — Custom Clearance / Permit</option>
+                </select>
+              </div>
+
+              {newPermitType === "OTHER_CUSTOM" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
+                    Custom Permit Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newPermitCustomType}
+                    onChange={(e) => setNewPermitCustomType(e.target.value)}
+                    placeholder="e.g., Tree Cutting Permit, DPWH Right of Way..."
+                    className="w-full px-3 py-2 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
+
+              {/* LGU ISSUING AGENCY */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
+                  LGU Issuing Agency
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newPermitAgency}
+                  onChange={(e) => setNewPermitAgency(e.target.value)}
+                  placeholder="e.g., Office of the Building Official (OBO)"
+                  className="w-full px-3 py-2 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* INITIAL STATUS & DATES */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                    Initial Status
+                  </label>
+                  <select
+                    value={newPermitStatus}
+                    onChange={(e) => setNewPermitStatus(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-[6px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="NOT_STARTED">NOT_STARTED</option>
+                    <option value="IN_PREPARATION">IN_PREPARATION</option>
+                    <option value="SUBMITTED">SUBMITTED</option>
+                    <option value="UNDER_EVALUATION">UNDER_EVALUATION</option>
+                    <option value="APPROVED">APPROVED</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                    Filing Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newPermitFilingDate}
+                    onChange={(e) => setNewPermitFilingDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-[6px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1 font-bold">
+                    Target Release
+                  </label>
+                  <input
+                    type="date"
+                    value={newPermitTargetDate}
+                    onChange={(e) => setNewPermitTargetDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-[6px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* REMARKS */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
+                  Remarks / Notes
+                </label>
+                <textarea
+                  rows={2}
+                  value={newPermitRemarks}
+                  onChange={(e) => setNewPermitRemarks(e.target.value)}
+                  placeholder="e.g., Documents compiled for city hall liaison officer submission..."
+                  className="w-full px-3 py-2 rounded-[8px] bg-neutral-100 dark:bg-[#181a24] border border-neutral-300 dark:border-white/10 text-xs font-sans text-neutral-900 dark:text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-200 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatePermitModalOpen(false)}
+                  disabled={isCreatingPermit}
+                  className="px-4 py-2 rounded-[6px] border border-neutral-300 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-mono text-xs font-bold uppercase transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingPermit || !newPermitProjectId}
+                  className="px-5 py-2 rounded-[6px] bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all shadow-md active:scale-95"
+                >
+                  {isCreatingPermit ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 animate-spin" />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create Permit</span>
                     </>
                   )}
                 </button>

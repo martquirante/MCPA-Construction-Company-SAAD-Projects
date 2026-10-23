@@ -43,8 +43,11 @@ import {
   HelpCircle,
   ChevronDown,
   Upload,
+  Sliders,
+  Camera,
 } from "lucide-react";
 import { authFetch } from "@/modules/shared/authFetch";
+import { extractPaperSignature } from "@/modules/shared/imageUtils";
 import PortalMeetingHub from "../PortalMeetingHub";
 import DocumentUploadModal from "@/modules/shared/DocumentUploadModal";
 import LordIcon from "@/modules/shared/LordIcon";
@@ -535,6 +538,13 @@ export default function PortalStage2PlanningAndConsultation({
   const [hasDrawnSig, setHasDrawnSig] = useState(false);
   const sigCanvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [sigColor, setSigColor] = useState("#0f172a");
+  const [signRole, setSignRole] = useState("CLIENT");
+  const [signatureMode, setSignatureMode] = useState("draw"); // "draw" | "upload"
+  const [uploadedRawFile, setUploadedRawFile] = useState(null);
+  const [uploadedSigDataUrl, setUploadedSigDataUrl] = useState("");
+  const [bgRemoveThreshold, setBgRemoveThreshold] = useState(195);
+  const [isProcessingBgRemoval, setIsProcessingBgRemoval] = useState(false);
 
   // -------------------------------------------------------------
   // 7. Groundbreaking Ceremony Official State (Admin Authoritative Schedule)
@@ -802,14 +812,24 @@ export default function PortalStage2PlanningAndConsultation({
     }
   };
 
-  // Canvas drawing handlers for signature
+  // Canvas drawing handlers for signature with resolution-aware coordinate scaling
+  const getCanvasCoords = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / (rect.width || 460);
+    const scaleY = canvas.height / (rect.height || 180);
+    const clientX = e.clientX !== undefined ? e.clientX : e.touches?.[0]?.clientX;
+    const clientY = e.clientY !== undefined ? e.clientY : e.touches?.[0]?.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
   const startDrawing = (e) => {
     const canvas = sigCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
-    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+    const { x, y } = getCanvasCoords(e, canvas);
 
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -822,13 +842,12 @@ export default function PortalStage2PlanningAndConsultation({
     const canvas = sigCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
-    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+    const { x, y } = getCanvasCoords(e, canvas);
 
     ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#f59e0b";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = sigColor || "#0f172a";
     ctx.lineTo(x, y);
     ctx.stroke();
   };
@@ -858,9 +877,13 @@ export default function PortalStage2PlanningAndConsultation({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId,
-          signerRole: "CLIENT",
-          signerName: currentUser?.fullName || currentUser?.full_name || "Client",
-          signerEmail: currentUser?.email || activeInquiry?.clientEmail || activeInquiry?.client_email || "client@mcpa.com",
+          signerRole: signRole || "CLIENT",
+          signerName: signRole === "CONTRACTOR"
+            ? (currentUser?.fullName || currentUser?.name || "Engr. Raymart Quirante")
+            : (currentUser?.fullName || currentUser?.full_name || "Client"),
+          signerEmail: signRole === "CONTRACTOR"
+            ? (currentUser?.email || "legal@mcpabuilders.com")
+            : (currentUser?.email || activeInquiry?.clientEmail || activeInquiry?.client_email || "client@mcpa.com"),
           signatureImageUrl,
         }),
       });
@@ -870,14 +893,39 @@ export default function PortalStage2PlanningAndConsultation({
         setIsSignModalOpen(false);
         if (data.contract) {
           setContract(data.contract);
-        } else {
-          setContract((prev) => ({
-            ...(prev || {}),
-            contract_id: data.signature?.contract_id || prev?.contract_id || "CTR-2026-EXEC",
-            status: "FULLY_EXECUTED",
-            signed_date: data.signature?.signed_at || new Date().toISOString(),
-            signer_name: currentUser?.fullName || currentUser?.full_name || "Client",
-          }));
+        } else if (data.signature) {
+          setContract((prev) => {
+            const roleKey = (data.signature.signer_role || signRole || "CLIENT").toUpperCase();
+            const existingSigs = (prev?.signatures || []).filter(
+              (s) => (s.signer_role || "").toUpperCase() !== roleKey
+            );
+            return {
+              ...(prev || {}),
+              contract_id: data.signature.contract_id || prev?.contract_id || "CTR-2026-EXEC",
+              status: (roleKey === "CLIENT" ? prev?.contractor_signed_at : prev?.client_signed_at) || existingSigs.length > 0 ? "FULLY_EXECUTED" : "PARTIALLY_SIGNED",
+              signed_date: data.signature.signed_at || new Date().toISOString(),
+              ...(roleKey === "CONTRACTOR" ? {
+                contractor_signed_at: data.signature.signed_at,
+                contractor_signer_name: data.signature.signer_name,
+                contractor_signature_image_url: data.signature.signature_image_url,
+              } : {
+                client_signed_at: data.signature.signed_at,
+                client_signer_name: data.signature.signer_name,
+                client_signature_image_url: data.signature.signature_image_url,
+              }),
+              sha256_hash: data.signature.hash_sha256,
+              signatures: [data.signature, ...existingSigs],
+            };
+          });
+        }
+        // Background sync to ensure all signatures and metadata are current
+        if (projectId) {
+          authFetch(`/api/projects/${projectId}/contract`)
+            .then((r) => r.json())
+            .then((d) => {
+              if (d?.success && d?.contract) setContract(d.contract);
+            })
+            .catch(() => {});
         }
         showToast?.("Construction Master Agreement executed with SHA-256 digital stamp!");
       } else {
@@ -2553,14 +2601,26 @@ export default function PortalStage2PlanningAndConsultation({
       {/* SUB-TAB 6: E-CONTRACT & GROUND BREAKING SCHEDULER              */}
       {/* ------------------------------------------------------------- */}
       {activeSubTab === "contract" && (() => {
-        const clientSig = contract?.signatures?.find(
-          (s) => (s.signer_role || "").toUpperCase() === "CLIENT"
-        );
-        const contractorSig = contract?.signatures?.find(
-          (s) => (s.signer_role || "").toUpperCase() === "CONTRACTOR" || (s.signer_role || "").toUpperCase() === "ADMIN"
-        );
+        const clientSigs = (contract?.signatures || [])
+          .filter((s) => (s.signer_role || "").toUpperCase() === "CLIENT")
+          .sort((a, b) => (b.signature_id || 0) - (a.signature_id || 0) || new Date(b.signed_at).getTime() - new Date(a.signed_at).getTime());
+        const clientSig = clientSigs[0] || (contract?.client_signature_image_url ? {
+          signature_image_url: contract.client_signature_image_url,
+          signer_name: contract.client_signer_name,
+          signed_at: contract.client_signed_at,
+          hash_sha256: contract.sha256_hash,
+        } : null);
+
+        const contractorSigs = (contract?.signatures || [])
+          .filter((s) => ["CONTRACTOR", "ADMIN"].includes((s.signer_role || "").toUpperCase()))
+          .sort((a, b) => (b.signature_id || 0) - (a.signature_id || 0) || new Date(b.signed_at).getTime() - new Date(a.signed_at).getTime());
+        const contractorSig = contractorSigs[0] || (contract?.contractor_signature_image_url ? {
+          signature_image_url: contract.contractor_signature_image_url,
+          signer_name: contract.contractor_signer_name,
+          signed_at: contract.contractor_signed_at,
+        } : null);
         const isFullyExecuted = Boolean(contract?.status === "FULLY_EXECUTED" || (clientSig && contractorSig));
-        const isClientSigned = Boolean(clientSig);
+        const isClientSigned = Boolean(clientSig || contract?.client_signed_at || contract?.status === "PARTIALLY_SIGNED" || contract?.status === "PARTIALLY_EXECUTED");
 
         const projectRefCode = contract?.project_meta?.project_code || projectCode || activeProject?.project_code || "MCPA-2026-001";
         const contractDateStr = contract?.created_at
@@ -2632,16 +2692,32 @@ export default function PortalStage2PlanningAndConsultation({
                   <span>Print / Save PDF</span>
                 </button>
 
-                {!isClientSigned && (
+                {!isClientSigned ? (
                   <button
                     type="button"
-                    onClick={() => setIsSignModalOpen(true)}
+                    onClick={() => {
+                      clearSignature();
+                      setIsSignModalOpen(true);
+                    }}
                     className="px-4 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95"
                   >
                     <PenTool className="w-4 h-4" />
                     <span>Sign Master Contract</span>
                   </button>
-                )}
+                ) : !isFullyExecuted ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearSignature();
+                      setIsSignModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 rounded-[8px] border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
+                    title="Change or redraw your digital signature before contractor countersigning"
+                  >
+                    <PenTool className="w-4 h-4" />
+                    <span>Re-Sign / Redraw Signature</span>
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -2846,12 +2922,30 @@ export default function PortalStage2PlanningAndConsultation({
                     {clientSig ? (
                       <div className="space-y-1.5">
                         <div className="h-16 flex items-center justify-start border-b border-neutral-400">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={clientSig.signature_image_url}
-                            alt="Client Signature"
-                            className="max-h-14 max-w-full object-contain"
-                          />
+                          {clientSig.signature_image_url && clientSig.signature_image_url.length > 50 ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={clientSig.signature_image_url}
+                              alt="Client Signature"
+                              className="max-h-14 max-w-full object-contain"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const fallback = e.currentTarget.nextElementSibling;
+                                if (fallback) fallback.style.display = "block";
+                              }}
+                            />
+                          ) : null}
+                          <span
+                            className="font-serif italic text-lg text-emerald-800 font-bold"
+                            style={{
+                              display:
+                                clientSig.signature_image_url && clientSig.signature_image_url.length > 50
+                                  ? "none"
+                                  : "block",
+                            }}
+                          >
+                            {clientSig.signer_name || clientLegalName}
+                          </span>
                         </div>
                         <div className="font-bold text-neutral-950 font-mono text-xs">
                           {clientSig.signer_name || clientLegalName}
@@ -2862,6 +2956,22 @@ export default function PortalStage2PlanningAndConsultation({
                         <div className="text-[9px] font-mono text-emerald-600 truncate">
                           SHA-256: {clientSig.hash_sha256?.slice(0, 24)}...
                         </div>
+                        {!isFullyExecuted && (
+                          <div className="pt-2 border-t border-neutral-200">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                clearSignature();
+                                setSignRole("CLIENT");
+                                setIsSignModalOpen(true);
+                              }}
+                              className="text-[10px] font-mono font-bold text-amber-600 hover:text-amber-700 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <PenTool className="w-3 h-3" />
+                              <span>Re-Sign / Redraw with Canvas</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -2876,7 +2986,11 @@ export default function PortalStage2PlanningAndConsultation({
                         </div>
                         <button
                           type="button"
-                          onClick={() => setIsSignModalOpen(true)}
+                          onClick={() => {
+                            clearSignature();
+                            setSignRole("CLIENT");
+                            setIsSignModalOpen(true);
+                          }}
                           className="w-full py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-[10px] uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                         >
                           <PenTool className="w-3 h-3" />
@@ -2895,12 +3009,30 @@ export default function PortalStage2PlanningAndConsultation({
                     {contractorSig ? (
                       <div className="space-y-1.5">
                         <div className="h-16 flex items-center justify-start border-b border-neutral-400">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={contractorSig.signature_image_url}
-                            alt="Contractor Signature"
-                            className="max-h-14 max-w-full object-contain"
-                          />
+                          {contractorSig.signature_image_url && contractorSig.signature_image_url.length > 50 ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={contractorSig.signature_image_url}
+                              alt="Contractor Signature"
+                              className="max-h-14 max-w-full object-contain"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const fallback = e.currentTarget.nextElementSibling;
+                                if (fallback) fallback.style.display = "block";
+                              }}
+                            />
+                          ) : null}
+                          <span
+                            className="font-serif italic text-lg text-emerald-800 font-bold"
+                            style={{
+                              display:
+                                contractorSig.signature_image_url && contractorSig.signature_image_url.length > 50
+                                  ? "none"
+                                  : "block",
+                            }}
+                          >
+                            {contractorSig.signer_name || "Engr. Raymart Quirante"}
+                          </span>
                         </div>
                         <div className="font-bold text-neutral-950 font-mono text-xs">
                           Authorized Managing Officer
@@ -2914,11 +3046,27 @@ export default function PortalStage2PlanningAndConsultation({
                         <div className="text-[9px] font-mono text-emerald-600 truncate">
                           SHA-256: {contractorSig.hash_sha256?.slice(0, 24)}...
                         </div>
+                        {["ADMIN", "SUPERADMIN"].includes((currentUser?.role || "").toUpperCase()) && (
+                          <div className="pt-2 border-t border-neutral-200">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                clearSignature();
+                                setSignRole("CONTRACTOR");
+                                setIsSignModalOpen(true);
+                              }}
+                              className="text-[10px] font-mono font-bold text-amber-600 hover:text-amber-700 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <PenTool className="w-3 h-3" />
+                              <span>Re-Sign as Contractor</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <div className="h-16 border-b border-dashed border-neutral-400 flex items-center justify-center text-neutral-400 font-mono text-[10px]">
-                          [Pending Contractor Countersignature in Admin Console]
+                          [Pending Contractor Countersignature]
                         </div>
                         <div className="font-bold text-neutral-950 font-mono text-xs">
                           Authorized Managing Officer
@@ -2926,9 +3074,24 @@ export default function PortalStage2PlanningAndConsultation({
                         <div className="text-[10px] font-mono text-neutral-500">
                           M.C.P.A. Design &amp; Construction
                         </div>
-                        <div className="text-[10px] font-mono text-neutral-400">
-                          Countersigning via MCPA Admin Console
-                        </div>
+                        {["ADMIN", "SUPERADMIN"].includes((currentUser?.role || "").toUpperCase()) ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearSignature();
+                              setSignRole("CONTRACTOR");
+                              setIsSignModalOpen(true);
+                            }}
+                            className="w-full py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono font-bold text-[10px] uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <PenTool className="w-3 h-3" />
+                            <span>Countersign as Contractor</span>
+                          </button>
+                        ) : (
+                          <div className="text-[10px] font-mono text-neutral-400">
+                            Countersigning via MCPA Admin Console
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2993,10 +3156,10 @@ export default function PortalStage2PlanningAndConsultation({
             <div className="flex items-center justify-between border-b border-neutral-200 dark:border-white/10 pb-3">
               <div>
                 <h3 className="text-base font-bold font-mono uppercase text-neutral-900 dark:text-white">
-                  Execute Master Construction Contract
+                  {signRole === "CONTRACTOR" ? "Countersign Construction Contract" : "Execute Master Construction Contract"}
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono mt-0.5">
-                  Sign below with your stylus, mouse, or touch finger.
+                  {signRole === "CONTRACTOR" ? "Sign below as M.C.P.A. Authorized Managing Officer." : "Sign below with your stylus, mouse, or touch finger."}
                 </p>
               </div>
               <button
@@ -3008,7 +3171,32 @@ export default function PortalStage2PlanningAndConsultation({
               </button>
             </div>
 
-            <div className="border border-neutral-300 dark:border-white/10 rounded-xl bg-neutral-50 dark:bg-black/40 overflow-hidden">
+            <div className="flex items-center justify-between pb-1 text-xs">
+              <span className="font-mono text-neutral-500 text-[11px]">Ink Tone:</span>
+              <div className="flex items-center gap-1.5">
+                {[
+                  { label: "Executive Black", value: "#0f172a", bg: "bg-slate-900" },
+                  { label: "Legal Blue", value: "#1e3a8a", bg: "bg-blue-900" },
+                  { label: "Contract Amber", value: "#d97706", bg: "bg-amber-600" },
+                ].map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => setSigColor(c.value)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                      sigColor === c.value
+                        ? "bg-neutral-200 dark:bg-white/20 text-neutral-900 dark:text-white ring-1 ring-amber-500"
+                        : "text-neutral-500 hover:text-neutral-700"
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${c.bg} inline-block`} />
+                    <span>{c.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="border border-neutral-300 dark:border-neutral-700 rounded-xl bg-white overflow-hidden shadow-inner relative">
               <canvas
                 ref={sigCanvasRef}
                 width={460}
@@ -3022,6 +3210,10 @@ export default function PortalStage2PlanningAndConsultation({
                 onTouchEnd={stopDrawing}
                 className="w-full h-44 cursor-crosshair touch-none"
               />
+              <div className="pointer-events-none absolute bottom-4 left-6 right-6 border-b border-dashed border-neutral-300 flex justify-between items-end pb-1">
+                <span className="text-[10px] font-mono text-neutral-400">× Sign above this line</span>
+                <span className="text-[9px] font-mono text-neutral-400">SHA-256 Pad</span>
+              </div>
             </div>
 
             <div className="flex items-center justify-between pt-1">
@@ -3048,7 +3240,7 @@ export default function PortalStage2PlanningAndConsultation({
                   className="px-5 py-2 rounded-[8px] bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <Check className="w-4 h-4" />
-                  <span>{isSigning ? "Cryptographically Sealing..." : "Confirm & Sign"}</span>
+                  <span>{isSigning ? "Cryptographically Sealing..." : signRole === "CONTRACTOR" ? "Countersign & Execute" : "Confirm & Sign"}</span>
                 </button>
               </div>
             </div>

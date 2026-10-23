@@ -421,7 +421,10 @@ app.post("/api/projects/:id/blueprints/:blueprintId/pins", requireAuth, (req, re
 app.patch("/api/admin/blueprints/:blueprintId/pins/:pinId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updateBlueprintPinStatus(req, res));
 app.get("/api/projects/:id/permits", requireAuth, (req, res) => subStageController.getPermits(req, res));
 app.get("/api/admin/permits/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminPermitsOverview(req, res));
+app.post("/api/admin/permits/apply-template", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.applyPermitsTemplate(req, res));
+app.post("/api/admin/permits", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.createPermit(req, res));
 app.patch("/api/admin/permits/:permitId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.updatePermit(req, res));
+app.delete("/api/admin/permits/:permitId", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.deletePermit(req, res));
 app.get("/api/admin/groundbreaking/overview", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.getAdminGroundbreakingOverview(req, res));
 app.get("/api/projects/:id/groundbreaking", optionalAuth, (req, res) => subStageController.getGroundbreaking(req, res));
 app.post("/api/projects/:id/groundbreaking", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.scheduleGroundbreaking(req, res));

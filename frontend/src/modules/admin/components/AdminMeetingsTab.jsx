@@ -1024,11 +1024,7 @@ export default function AdminMeetingsTab({
   // ADMIN INITIATES INSTANT CONSULTATION WITH A CLIENT (VICE VERSA)
   const handleStartAdminInstantCall = (target) => {
     if (!target) return;
-    const briefId = target.submissionId || target.submission_id || target.id || target.projectCode || Date.now();
-    const cleanCode = String(target.projectCode || target.trackingId || `client-${briefId}`)
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
-    const instantRoom = `mcpa-instant-${cleanCode}`;
+    const instantRoom = target.roomCode || extractRoomCode(target);
 
     const clientName = target.clientName || target.client_name || "Valued Client";
     const projectTitle = target.projectTitle || target.projectType || "Residential Architectural & Engineering Review";

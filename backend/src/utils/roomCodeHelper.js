@@ -62,8 +62,8 @@ function isPhysicalAddress(str) {
 }
 
 function formatRoomCode(raw) {
-  if (!raw) return generateRoomCode();
-  if (isPhysicalAddress(raw)) return generateRoomCode();
+  if (!raw) return "mcpa-arch-2026";
+  if (isPhysicalAddress(raw)) return "mcpa-arch-2026";
   let clean = String(raw).trim().toLowerCase();
   
   if (clean.includes("/meet/")) {
@@ -82,6 +82,10 @@ function formatRoomCode(raw) {
     clean = `mcpa-${clean}`;
   }
 
+  if (clean === "mcpa-" || clean.length < 6) {
+    clean = "mcpa-arch-2026";
+  }
+
   if (clean.length > 28) {
     clean = clean.slice(0, 24);
   }
@@ -96,9 +100,27 @@ function isValidRoomCode(code) {
 }
 
 function extractRoomCode(briefOrLink) {
-  if (!briefOrLink) return generateRoomCode();
+  if (!briefOrLink) return "mcpa-arch-2026";
 
   if (typeof briefOrLink === "object") {
+    // 1. Authoritative: Derive from Submission ID / Project Code / Tracking ID (100% deterministic per project/inquiry)
+    const rawId =
+      briefOrLink.submission_id ||
+      briefOrLink.submissionId ||
+      briefOrLink.project_code ||
+      briefOrLink.projectCode ||
+      briefOrLink.tracking_id ||
+      briefOrLink.trackingId ||
+      briefOrLink.brief_id ||
+      briefOrLink.inquiry_id;
+
+    if (rawId) {
+      const cleanSub = String(rawId).toLowerCase().replace(/[^a-z0-9-]/g, "");
+      if (cleanSub.startsWith("mcpa-")) return cleanSub;
+      return `mcpa-${cleanSub}`;
+    }
+
+    // 2. Explicit clean room code property
     if (briefOrLink.meeting_room_code && !isPhysicalAddress(briefOrLink.meeting_room_code)) {
       return formatRoomCode(briefOrLink.meeting_room_code);
     }
@@ -112,6 +134,7 @@ function extractRoomCode(briefOrLink) {
       return formatRoomCode(briefOrLink.roomCode);
     }
 
+    // 3. Real meeting URL (only if actual URL and not physical address)
     const link = briefOrLink.meeting_link || briefOrLink.meetingLink;
     if (link && typeof link === "string" && !isPhysicalAddress(link)) {
       const isRealUrl =
@@ -126,29 +149,18 @@ function extractRoomCode(briefOrLink) {
       }
     }
 
-    const rawId =
-      briefOrLink.submission_id ||
-      briefOrLink.submissionId ||
-      briefOrLink.trackingId ||
-      briefOrLink.tracking_id ||
-      briefOrLink.projectCode ||
-      briefOrLink.project_code ||
-      briefOrLink.brief_id ||
-      briefOrLink.inquiry_id ||
-      briefOrLink.id;
-
-    if (rawId) {
-      const cleanSub = String(rawId).toLowerCase().replace(/[^a-z0-9-]/g, "");
-      if (cleanSub.startsWith("mcpa-")) return cleanSub;
-      return `mcpa-${cleanSub}`;
+    // 4. Fallback to generic id property
+    if (briefOrLink.id) {
+      const cleanId = String(briefOrLink.id).toLowerCase().replace(/[^a-z0-9-]/g, "");
+      return cleanId.startsWith("mcpa-") ? cleanId : `mcpa-${cleanId}`;
     }
 
-    return generateRoomCode();
+    return "mcpa-arch-2026";
   }
 
   const str = String(briefOrLink).trim();
   if (str === "[object Object]" || !str || isPhysicalAddress(str)) {
-    return generateRoomCode();
+    return "mcpa-arch-2026";
   }
 
   return formatRoomCode(str);
@@ -167,3 +179,4 @@ module.exports = {
   isValidRoomCode,
   isPhysicalAddress,
 };
+
