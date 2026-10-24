@@ -538,9 +538,9 @@ export default function PortalPhase1PreInquiry({
       },
       {
         icon: ShieldCheck,
-        title: "15-Year Structural Warranty & Handover",
-        badge: "Stage 4 Protection",
-        desc: "Certified turnkey turnover backed by a 15-Year Structural Integrity Warranty and dedicated post-construction maintenance support.",
+        title: "Finished Project & Wrapped",
+        badge: "Stage 4 Handover",
+        desc: "Key turnover, a full record of your build from the first inquiry to handover, and your Project Wrapped story to keep and share.",
       },
     ];
 
@@ -631,9 +631,9 @@ export default function PortalPhase1PreInquiry({
       {
         stage: "Stage 4",
         code: "COMPLETED",
-        title: "Handover, Wrapped & 15-Year Warranty",
-        desc: "Celebrate 100% turnkey completion with your interactive MCPA Project Wrapped recap, Before/After transformation slider, Certificate of Completion, and activated 15-Year Structural Warranty vault.",
-        deliverables: ["Interactive Project Wrapped Recap", "Before & After Site Transformation", "15-Year Structural Warranty Certificate"],
+        title: "Finished Project & Wrapped",
+        desc: "Celebrate completion with your interactive MCPA Project Wrapped story, the full timeline of your build from inquiry to handover, and the Before/After transformation of your site.",
+        deliverables: ["Interactive Project Wrapped Story", "Full Inquiry-to-Handover Timeline", "Before & After Site Transformation"],
       },
     ];
 

@@ -4,18 +4,17 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Trophy,
   Sparkles,
-  Calendar,
-  Layers,
   Building2,
-  Share2,
-  CheckCircle2,
   ArrowRight,
+  Sun,
+  Moon,
+  AlertCircle,
   ShieldCheck,
-  Compass,
+  Share2,
 } from "lucide-react";
 import LordIcon from "@/modules/shared/LordIcon";
+import WrappedStoryExperience from "@/modules/wrapped/WrappedStoryExperience";
 
 export default function PublicWrappedPage() {
   const params = useParams();
@@ -23,7 +22,12 @@ export default function PublicWrappedPage() {
   const [wrapped, setWrapped] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [sliderPosition, setSliderPosition] = useState(50);
+  const [pageTheme, setPageTheme] = useState(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.classList.contains("dark") ? "dark" : "light";
+    }
+    return "dark";
+  });
 
   useEffect(() => {
     if (!token) return;
@@ -34,10 +38,11 @@ export default function PublicWrappedPage() {
         if (data.success && data.wrapped) {
           setWrapped(data.wrapped);
         } else {
-          setError(data.message || "Project recap not found or private.");
+          setError(data.message || "This project recap is not available or is set to private.");
         }
       } catch (e) {
-        setError("Failed to connect to MCPA Public Registry.");
+        console.error("Fetch wrapped error:", e);
+        setError("Failed to connect to MCPA Architectural Registry.");
       } finally {
         setIsLoading(false);
       }
@@ -45,17 +50,31 @@ export default function PublicWrappedPage() {
     fetchPublicWrapped();
   }, [token]);
 
+  const togglePageTheme = () => {
+    const nextTheme = pageTheme === "dark" ? "light" : "dark";
+    setPageTheme(nextTheme);
+    if (typeof document !== "undefined") {
+      if (nextTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+  };
+
+  const isDark = pageTheme === "dark";
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-6 text-white font-mono">
+      <div className="min-h-screen bg-[#080a0e] flex flex-col items-center justify-center p-6 text-white font-mono">
         <LordIcon
           src="https://cdn.lordicon.com/lupuorrc.json"
-          size={80}
+          size={84}
           trigger="loop"
           colors="primary:#f59e0b,secondary:#e2e8f0"
         />
-        <div className="text-sm font-bold uppercase mt-4 text-amber-400 animate-pulse">
-          Loading MCPA Architectural Wrapped...
+        <div className="text-xs font-bold uppercase mt-4 tracking-widest text-amber-400 animate-pulse">
+          Opening MCPA Architectural Monograph...
         </div>
       </div>
     );
@@ -63,180 +82,142 @@ export default function PublicWrappedPage() {
 
   if (error || !wrapped) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-6 text-white font-mono text-center space-y-4">
-        <div className="w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 mx-auto">
-          ✕
+      <div className="min-h-screen bg-[#080a0e] flex flex-col items-center justify-center p-6 text-white font-mono text-center space-y-4">
+        <div className="w-14 h-14 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
+          <AlertCircle className="w-7 h-7" />
         </div>
-        <h1 className="text-xl font-bold uppercase">{error || "Wrapped Story Not Found"}</h1>
-        <p className="text-xs text-neutral-400 font-sans max-w-sm">
-          This recap link may have expired or is set to private by the project owner.
-        </p>
+        <div className="space-y-1">
+          <h1 className="text-lg font-bold uppercase tracking-tight">Monograph Not Available</h1>
+          <p className="text-xs text-neutral-400 font-sans max-w-sm">
+            {error || "This recap link may have expired or is set to private by the project owner."}
+          </p>
+        </div>
         <Link
           href="/"
-          className="px-6 py-2.5 rounded-[4px] bg-amber-500 text-neutral-950 font-bold uppercase text-xs"
+          className="px-5 py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold uppercase text-xs tracking-wider transition-colors"
         >
-          Return to MCPA Home
+          Return to MCPA Showcase
         </Link>
       </div>
     );
   }
 
-  const storyCards = wrapped.story_cards || [];
+  const payload = wrapped.wrapped_payload || {
+    projectTitle: wrapped.project_title || "Residential Build",
+    projectCode: wrapped.project_code || "MCPA-REC",
+    location: wrapped.target_location || "Philippines",
+    archetype: {
+      name: "The Visionary Estate",
+      tagline: "Precision Engineered Handover",
+      accent: "#f59e0b",
+      description: "An exemplar of turnkey execution with bespoke finishes.",
+    },
+    chapters: [],
+    photos: { early: [], middle: [], turnover: [] },
+  };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-amber-500 selection:text-neutral-950 font-sans">
-      {/* Top Corporate Nav */}
-      <header className="border-b border-white/10 bg-neutral-950/80 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-[4px] bg-amber-500 flex items-center justify-center text-neutral-950 font-mono font-extrabold text-sm">
-            M
-          </div>
-          <span className="font-mono text-sm font-bold tracking-wider uppercase text-white">
-            MCPA Construction & Supply
-          </span>
-        </Link>
-
+    <div
+      className={`min-h-screen flex flex-col transition-colors duration-300 font-sans ${
+        isDark ? "bg-[#080a0e] text-white" : "bg-[#f8f7f5] text-neutral-900"
+      }`}
+    >
+      {/* Top Precision Header Bar */}
+      <header
+        className={`w-full border-b sticky top-0 z-40 backdrop-blur-md px-4 sm:px-8 py-3 flex items-center justify-between transition-colors ${
+          isDark
+            ? "border-white/10 bg-[#080a0e]/90"
+            : "border-neutral-200 bg-white/90"
+        }`}
+      >
         <div className="flex items-center gap-3">
-          <Link
-            href="/portal"
-            className="px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-colors"
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-8 h-8 rounded-[4px] bg-amber-500 text-neutral-950 font-mono font-extrabold text-sm flex items-center justify-center transition-transform group-hover:scale-105">
+              M
+            </div>
+            <div className="flex flex-col">
+              <span className="font-mono text-xs font-bold tracking-wider uppercase">
+                MCPA Architectural
+              </span>
+              <span className="text-[9px] font-mono text-neutral-500 uppercase">
+                Project Monograph · Public Recap
+              </span>
+            </div>
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Theme switcher */}
+          <button
+            type="button"
+            onClick={togglePageTheme}
+            className={`p-2 rounded-[4px] border transition-colors cursor-pointer ${
+              isDark
+                ? "border-white/15 bg-white/5 text-neutral-300 hover:text-white"
+                : "border-neutral-300 bg-neutral-100 text-neutral-700 hover:text-black"
+            }`}
+            title={`Switch to ${isDark ? "Light" : "Dark"} Theme`}
+            aria-label="Toggle theme"
           >
-            Client Portal
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-800" />}
+          </button>
+
+          <Link
+            href="/portal?mode=signup"
+            className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            <span>Build with MCPA</span>
           </Link>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-12 space-y-12">
-        {/* Hero Card */}
-        <div className="text-center space-y-4 max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[4px] bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-mono uppercase tracking-wider font-bold">
-            <Sparkles className="w-4 h-4" />
-            <span>Official Commissioned Project Recap · 2026</span>
+      {/* Main 12-Chapter Wrapped Story Experience */}
+      <main className="flex-1 flex flex-col items-center justify-center p-2 sm:p-6 w-full max-w-5xl mx-auto">
+        <div className="w-full h-full flex flex-col items-center justify-center">
+          <WrappedStoryExperience
+            payload={payload}
+            initialTheme={pageTheme}
+            mode="public"
+            shareToken={token}
+          />
+        </div>
+      </main>
+
+      {/* Public Footer CTA */}
+      <footer
+        className={`w-full border-t py-8 px-4 sm:px-8 mt-auto text-center transition-colors ${
+          isDark
+            ? "border-white/10 bg-[#06080b] text-neutral-400"
+            : "border-neutral-200 bg-neutral-50 text-neutral-600"
+        }`}
+      >
+        <div className="max-w-2xl mx-auto space-y-4">
+          <div className="flex items-center justify-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-amber-500">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Engineered by MCPA Construction & Supply</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-extrabold font-mono uppercase tracking-tight text-white">
-            {wrapped.project_title}
-          </h1>
-
-          <p className="text-sm text-neutral-400">
-            Engineered & Built by MCPA Construction & Supply · Location:{" "}
-            <span className="text-white font-bold">{wrapped.target_location || "Philippines"}</span>
+          <p className="text-xs font-sans leading-relaxed">
+            Every home in the MCPA Architectural Monograph undergoes end-to-end milestone supervision, cloud photo logging, and Article 1723 structural engineering standards.
           </p>
-        </div>
 
-        {/* Stories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {storyCards.map((card, idx) => (
-            <div
-              key={idx}
-              className="p-6 rounded-[8px] border border-white/10 bg-linear-to-b from-white/[0.04] to-transparent flex flex-col justify-between space-y-6"
-            >
-              <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">
-                  CHAPTER 0{idx + 1}
-                </span>
-                <h3 className="text-base font-bold font-mono uppercase text-white">
-                  {card.headline}
-                </h3>
-                <p className="text-xs text-neutral-400 font-sans leading-relaxed">
-                  {card.subtext}
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-white/10">
-                <div className="text-3xl font-extrabold font-mono text-amber-400 tracking-tight">
-                  {card.metric}
-                </div>
-                <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider mt-0.5">
-                  {card.metricLabel}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Before and After Interactive Split Canvas */}
-        <div className="p-6 rounded-[8px] border border-white/10 bg-neutral-900/40 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-base font-bold font-mono uppercase text-white flex items-center gap-2">
-              <Compass className="w-4 h-4 text-amber-500" />
-              Before & After Site Transformation
-            </h2>
-            <span className="text-[10px] font-mono text-neutral-400 uppercase">
-              Drag Slider ↔
-            </span>
-          </div>
-
-          <div className="relative w-full h-80 sm:h-[420px] rounded-[6px] overflow-hidden select-none bg-neutral-950">
-            {/* AFTER PHOTO */}
-            <img
-              src={wrapped.after_photo_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"}
-              alt="Completed Project After"
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-
-            {/* BEFORE PHOTO (Clipped) */}
-            <div
-              className="absolute inset-y-0 left-0 overflow-hidden"
-              style={{ width: `${sliderPosition}%` }}
-            >
-              <img
-                src={wrapped.before_photo_url || "https://images.unsplash.com/photo-1541888946425-d0fbb1861593?auto=format&fit=crop&w=1200&q=80"}
-                alt="Raw Ground Lot Before"
-                className="absolute inset-y-0 left-0 max-w-none h-full object-cover"
-                style={{ width: "100%", minWidth: "800px" }}
-              />
-              <div className="absolute top-4 left-4 px-3 py-1 rounded-[3px] bg-neutral-950/80 backdrop-blur-md text-[10px] font-mono font-bold text-white uppercase border border-white/20">
-                Groundbreaking (Before)
-              </div>
-            </div>
-
-            <div className="absolute top-4 right-4 px-3 py-1 rounded-[3px] bg-neutral-950/80 backdrop-blur-md text-[10px] font-mono font-bold text-amber-400 uppercase border border-amber-500/40">
-              Turnkey Finished (After)
-            </div>
-
-            {/* Draggable Divider */}
-            <div
-              className="absolute inset-y-0 w-1 bg-amber-500 shadow-2xl pointer-events-none z-20 flex items-center justify-center"
-              style={{ left: `${sliderPosition}%` }}
-            >
-              <div className="w-8 h-8 rounded-full bg-amber-500 text-neutral-950 font-mono text-[10px] font-bold flex items-center justify-center shadow-xl border-2 border-neutral-950">
-                ↔
-              </div>
-            </div>
-
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={sliderPosition}
-              onChange={(e) => setSliderPosition(Number(e.target.value))}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
-            />
-          </div>
-        </div>
-
-        {/* Call to action for viewers */}
-        <div className="p-8 rounded-[8px] border border-amber-500/30 bg-linear-to-b from-amber-500/10 to-transparent text-center space-y-4">
-          <h3 className="text-xl sm:text-2xl font-bold font-mono uppercase text-white">
-            Inspired to Build Your Own Home?
-          </h3>
-          <p className="text-xs sm:text-sm text-neutral-300 max-w-lg mx-auto font-sans">
-            Start your project consultation with MCPA Construction & Supply. Access real-time estimates and guaranteed turn-key delivery.
-          </p>
-          <div className="pt-2">
+          <div className="pt-2 flex items-center justify-center gap-3">
             <Link
               href="/portal?mode=signup"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105 shadow-xl"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[4px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all shadow-md cursor-pointer"
             >
               <Building2 className="w-4 h-4" />
-              <span>Inquire Your Custom Project</span>
+              <span>Start Your Project Consultation</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
+
+          <div className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 pt-4">
+            MCPA ARCHITECTURAL SYSTEM · PHILIPPINES · EST. 2026
+          </div>
         </div>
-      </main>
+      </footer>
     </div>
   );
 }

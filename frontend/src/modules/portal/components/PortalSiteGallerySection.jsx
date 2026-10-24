@@ -163,13 +163,11 @@ export default function PortalSiteGallerySection({
     { id: "weekly", label: "Weekly Recaps" },
     { id: "daily", label: "Daily Logs" },
     { id: "inspections", label: "Inspection Proof" },
-    { id: "360", label: "360° Views" },
   ];
 
   const displayedPhotos = useMemo(() => {
     if (!Array.isArray(photos)) return [];
     if (activeFilter === "all") return photos;
-    if (activeFilter === "360") return photos.filter((p) => p.is_360);
     if (activeFilter === "weekly") {
       return photos.filter(
         (p) =>

@@ -70,7 +70,6 @@ function ClientAvatar({ client, size = "md", className = "" }) {
   }, [client]);
 
   const isGoogle =
-    client?.client_email?.toLowerCase().endsWith("@gmail.com") ||
     client?.auth_provider === "google";
 
   const sizeClasses = {
@@ -836,10 +835,10 @@ export default function AdminBudgetQuotationTab({
         /* EMPTY STATE: Large Animated LordIcon from CDN API */
         <div className="p-12 sm:p-20 text-center rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-6 shadow-xs">
           <LordIcon
-            src="https://cdn.lordicon.com/qhgmphtg.json"
+            src="https://cdn.lordicon.com/qhviklyi.json"
             size={96}
             trigger="loop"
-            colors="primary:#f59e0b,secondary:#38bdf8"
+            colors="primary:#f59e0b,secondary:#10b981"
             fallback={CreditCard}
           />
           <div className="max-w-xl mx-auto space-y-2">

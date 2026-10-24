@@ -433,6 +433,8 @@ app.get("/api/admin/groundbreaking/overview", requireAuth, requireRole("admin", 
 app.get("/api/projects/:id/groundbreaking", optionalAuth, (req, res) => subStageController.getGroundbreaking(req, res));
 app.post("/api/projects/:id/groundbreaking", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => subStageController.scheduleGroundbreaking(req, res));
 app.get("/api/projects/:id/contract", requireAuth, (req, res) => subStageController.getContract(req, res));
+app.get("/api/projects/:id/contract/pdf", (req, res) => subStageController.downloadContractPdf(req, res));
+app.get("/api/contracts/:id/pdf", (req, res) => subStageController.downloadContractPdf(req, res));
 app.post("/api/contracts/:id/sign", requireAuth, (req, res) => subStageController.signContract(req, res));
 
 // Budget & Quotation Engine (Phase 2 Consultation & Client Portal)
@@ -449,6 +451,47 @@ app.get("/api/projects/:id/loans", requireAuth, (req, res) => subStageController
 
 // Post-Construction & Handover (Wrapped & Public Recap)
 app.get("/api/projects/:id/wrapped", requireAuth, (req, res) => subStageController.getWrapped(req, res));
+app.post("/api/projects/:id/wrapped/regenerate", requireAuth, (req, res) => subStageController.regenerateWrapped(req, res));
+app.patch("/api/projects/:id/wrapped/onboarding-seen", requireAuth, (req, res) => subStageController.markWrappedOnboardingSeen(req, res));
+app.patch("/api/projects/:id/wrapped/share-settings", requireAuth, (req, res) => subStageController.updateWrappedShareSettings(req, res));
+app.get("/api/finished-projects", requireAuth, (req, res) => subStageController.getFinishedProjects(req, res));
+app.post("/api/admin/finished-projects/:id/sync-showcase", requireAuth, requireRole("admin", "super_admin"), (req, res) => subStageController.syncFinishedProjectShowcase(req, res));
+
+// CORS-safe image relay so Wrapped slides can be rasterised to 1080x1920 PNGs without tainting the canvas.
+// Strictly allow-listed to this app's own storage hosts (no open proxy / SSRF).
+function isAllowedWrappedImageHost(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  if (!host) return false;
+  if (host.endsWith(".blob.core.windows.net") || host.endsWith(".supabase.co") || host.endsWith(".supabase.in")) return true;
+  const extra = [process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEON_S3_ENDPOINT]
+    .filter(Boolean)
+    .map((u) => {
+      try { return new URL(u).hostname.toLowerCase(); } catch (e) { return null; }
+    })
+    .filter(Boolean);
+  return extra.includes(host);
+}
+app.get("/api/wrapped-image-proxy", async (req, res) => {
+  try {
+    const target = new URL(String(req.query.url || ""));
+    if (target.protocol !== "https:" || !isAllowedWrappedImageHost(target.hostname)) {
+      return res.status(400).json({ message: "Image host is not allowed." });
+    }
+    const upstream = await fetch(target.toString(), { redirect: "error", signal: AbortSignal.timeout(15000) });
+    const type = upstream.headers.get("content-type") || "";
+    if (!upstream.ok || !type.startsWith("image/")) {
+      return res.status(404).json({ message: "Image unavailable." });
+    }
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    if (buf.length > 15 * 1024 * 1024) return res.status(413).json({ message: "Image too large." });
+    res.setHeader("Content-Type", type);
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    return res.end(buf);
+  } catch (err) {
+    return res.status(400).json({ message: "Invalid image request." });
+  }
+});
 app.get("/api/wrapped/:shareToken", (req, res) => subStageController.getPublicWrapped(req, res));
 
 // -----------------------------------------------------------------------------
@@ -497,9 +540,10 @@ app.patch("/api/construction/billing/:billId/proof", optionalAuth, (req, res) =>
 app.post("/api/construction/billing/:billId/proof", optionalAuth, (req, res) => constructionController.uploadPaymentProof(req, res));
 app.get("/api/construction/expenses/:code", optionalAuth, (req, res) => constructionController.getProjectExpenses(req, res));
 app.post("/api/construction/delays", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.logDelay(req, res));
-app.post("/api/construction/warranty", optionalAuth, (req, res) => constructionController.submitWarrantyTicket(req, res));
-app.patch("/api/construction/warranty/:ticketId", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.updateWarrantyStatus(req, res));
 app.post("/api/construction/expenses/ocr", requireAuth, requireRole("admin", "super_admin"), (req, res) => constructionController.logOcrExpense(req, res));
+app.post("/api/construction/turnover", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.updateTurnoverSchedule(req, res));
+app.patch("/api/construction/projects/:code/turnover", requireAuth, requireRole("admin", "super_admin", "engineer"), (req, res) => constructionController.updateTurnoverSchedule(req, res));
+app.get("/api/construction/completion-media/:code", optionalAuth, (req, res) => constructionController.getCompletionMedia(req, res));
 
 // OCR RECEIPT AUTO-SCAN & PARSING ROUTE
 app.post("/api/construction/scan-receipt", (req, res, next) => {

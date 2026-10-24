@@ -40,13 +40,20 @@ export default function LordIcon({
     document.body.appendChild(script);
   }, []);
 
+  const fallbackSize = Math.min(Math.round(size * 0.45), 52);
+
   if (!isClient) {
     return (
       <div
         className={`inline-flex items-center justify-center ${className}`}
         style={{ width: `${size}px`, height: `${size}px`, ...style }}
       >
-        {FallbackIcon && <FallbackIcon className="w-8 h-8 text-amber-500 animate-pulse" />}
+        {FallbackIcon && (
+          <FallbackIcon
+            style={{ width: `${fallbackSize}px`, height: `${fallbackSize}px` }}
+            className="text-amber-500 animate-pulse"
+          />
+        )}
       </div>
     );
   }
@@ -62,6 +69,14 @@ export default function LordIcon({
         colors={colors}
         style={{ width: `${size}px`, height: `${size}px` }}
       />
+      {!scriptLoaded && FallbackIcon && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <FallbackIcon
+            style={{ width: `${fallbackSize}px`, height: `${fallbackSize}px` }}
+            className="text-amber-500 animate-pulse"
+          />
+        </div>
+      )}
     </div>
   );
 }

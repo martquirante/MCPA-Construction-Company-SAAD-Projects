@@ -17,10 +17,11 @@ import AdminGroundbreakingTab from "@/modules/admin/components/AdminGroundbreaki
 import SiteProgressTab from "@/modules/admin/components/SiteProgressTab";
 import DelayManagementTab from "@/modules/admin/components/DelayManagementTab";
 import BillingLedgerTab from "@/modules/admin/components/BillingLedgerTab";
-import WarrantyTicketsTab from "@/modules/admin/components/WarrantyTicketsTab";
+import FinishedProjectsTab from "@/modules/admin/components/FinishedProjectsTab";
 import AdminIncomingCallManager from "@/modules/admin/components/AdminIncomingCallManager";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
 import AdminNotificationCenter from "@/modules/admin/components/AdminNotificationCenter";
+import Snackbar from "@/modules/shared/Snackbar";
 import { useAuthoritativeClock } from "@/modules/admin/hooks/useAuthoritativeClock";
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
 import {
@@ -31,6 +32,7 @@ import {
   Clock as ClockIcon,
   CreditCard as CreditCardIcon,
   Sparkles as SparklesIcon,
+  Archive as ArchiveIcon,
 } from "lucide-react";
 import { loadDocumentRequests } from "@/modules/portal/utils/documentRequestsHelper";
 import {
@@ -107,7 +109,7 @@ export const TAB_ROLE_PERMISSIONS = {
   "site-progress": ["admin", "super_admin", "engineer"],
   delays: ["admin", "super_admin", "engineer"],
   groundbreaking: ["admin", "super_admin", "engineer"],
-  warranty: ["admin", "super_admin", "engineer"],
+  "finished-projects": ["admin", "super_admin", "architect", "engineer"],
   briefs: ["admin", "super_admin"],
   billing: ["admin", "super_admin"],
   accounts: ["admin", "super_admin"],
@@ -262,7 +264,6 @@ export default function AdminPage() {
   const [sitePhotos, setSitePhotos] = useState([]);
   const [billingLedger, setBillingLedger] = useState([]);
   const [delayEvents, setDelayEvents] = useState([]);
-  const [warrantyTickets, setWarrantyTickets] = useState([]);
   const [siteExpenses, setSiteExpenses] = useState([]);
   const [activeDbProvider, setActiveDbProvider] = useState("cloud");
 
@@ -413,7 +414,7 @@ export default function AdminPage() {
           clientName: b.clientName || b.client_name || "Valued Client",
           clientAvatar: resolvedAvatar,
           projectCode: b.trackingId || b.submissionId || b.projectCode,
-          timestamp: b.updated_at || b.rescheduled_at || b.created_at || Date.now(),
+          timestamp: b.updated_at || b.rescheduled_at || b.created_at || null,
           targetTab: "meetings",
           isRead: readNotificationIds.includes(notifId),
         });
@@ -444,7 +445,7 @@ export default function AdminPage() {
           clientName: b.clientName || b.client_name || "Valued Client",
           clientAvatar: resolvedAvatar,
           projectCode: b.trackingId || b.submissionId || b.projectCode,
-          timestamp: b.created_at || Date.now(),
+          timestamp: b.created_at || b.createdAt || b.submitted_at || b.submittedAt || null,
           targetTab: "briefs",
           isRead,
         });
@@ -456,6 +457,20 @@ export default function AdminPage() {
       if (r.status === "uploaded" || r.status === "pending") {
         const notifId = `doc-${r.id || r.requestId}`;
         const resolvedAvatar = r.clientAvatar || r.client_avatar || resolveClientAvatarForNotif(r.clientName, r.clientEmail, r.projectCode);
+        const resolvedDocTime =
+          r.uploadedAt ||
+          r.uploaded_at ||
+          r.file?.uploadedAt ||
+          r.requestedAt ||
+          r.requested_at ||
+          r.issuedAt ||
+          r.issued_at ||
+          r.updatedAt ||
+          r.updated_at ||
+          r.createdAt ||
+          r.created_at ||
+          r.date ||
+          null;
         notifs.push({
           id: notifId,
           category: "document",
@@ -464,7 +479,7 @@ export default function AdminPage() {
           clientName: r.clientName || "Valued Client",
           clientAvatar: resolvedAvatar,
           projectCode: r.projectCode || "MCPA-CLIENT",
-          timestamp: r.uploadedAt || r.updatedAt || r.createdAt || Date.now(),
+          timestamp: resolvedDocTime,
           targetTab: "documents",
           isRead: readNotificationIds.includes(notifId),
         });
@@ -484,7 +499,7 @@ export default function AdminPage() {
           clientName: bill.client_name || "Property Owner",
           clientAvatar: resolvedAvatar,
           projectCode: bill.project_code || "MCPA-BUILD",
-          timestamp: bill.updated_at || bill.created_at || Date.now(),
+          timestamp: bill.updated_at || bill.updatedAt || bill.proof_uploaded_at || bill.created_at || bill.createdAt || bill.due_date || null,
           targetTab: "billing",
           isRead: readNotificationIds.includes(notifId),
         });
@@ -502,7 +517,7 @@ export default function AdminPage() {
         clientName: "Contracts Queue",
         clientAvatar: null,
         projectCode: "MCPA-CONTRACTS",
-        timestamp: Date.now() - 3600000,
+        timestamp: Date.now(),
         targetTab: "groundbreaking",
         isRead: readNotificationIds.includes(notifId),
       });
@@ -519,7 +534,7 @@ export default function AdminPage() {
         clientName: "Estimating Queue",
         clientAvatar: null,
         projectCode: "MCPA-ESTIMATING",
-        timestamp: Date.now() - 7200000,
+        timestamp: Date.now(),
         targetTab: "quotations",
         isRead: readNotificationIds.includes(notifId),
       });
@@ -536,29 +551,10 @@ export default function AdminPage() {
         clientName: "Site Engineer",
         clientAvatar: null,
         projectCode: d.project_code || "MCPA-SITE",
-        timestamp: d.logged_at || d.created_at || Date.now(),
+        timestamp: d.logged_at || d.loggedAt || d.created_at || d.createdAt || d.date || null,
         targetTab: "delays",
         isRead: readNotificationIds.includes(notifId),
       });
-    });
-
-    // 8. Warranty & Punchlist Tickets
-    (warrantyTickets || []).forEach((w) => {
-      if ((w.status || "").toLowerCase() !== "resolved") {
-        const notifId = `warranty-${w.id || w.ticket_id}`;
-        notifs.push({
-          id: notifId,
-          category: "warranty",
-          title: "Warranty Service Ticket Filed",
-          description: `Homeowner reported: ${w.issue || w.title || "Post-handover service item"} (${w.priority || "Standard"} Priority).`,
-          clientName: w.client_name || "Homeowner",
-          clientAvatar: resolveClientAvatarForNotif(w.client_name, w.client_email, w.project_code),
-          projectCode: w.project_code || "MCPA-SERVICE",
-          timestamp: w.created_at || Date.now(),
-          targetTab: "warranty",
-          isRead: readNotificationIds.includes(notifId),
-        });
-      }
     });
 
     // Sort: Unread first, then newest timestamp
@@ -573,7 +569,6 @@ export default function AdminPage() {
     clientBriefs,
     documentRequestsList,
     billingLedger,
-    warrantyTickets,
     delayEvents,
     pendingContractsCount,
     pendingQuotationsCount,
@@ -635,7 +630,7 @@ export default function AdminPage() {
     skewText,
   } = useAuthoritativeClock("Asia/Manila");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [successToast, setSuccessToast] = useState("");
+  const [toast, setToast] = useState(null);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
   const fetchHealthStatus = async () => {
@@ -688,7 +683,7 @@ export default function AdminPage() {
               ...b,
               avatarUrl: avatar,
               avatar_url: avatar,
-              authProvider: b.authProvider || b.auth_provider || (email.endsWith("@gmail.com") ? "google" : "local"),
+              authProvider: b.authProvider || b.auth_provider || "local",
             };
           });
           setClientBriefs(enriched);
@@ -773,7 +768,7 @@ export default function AdminPage() {
             clientPhone: b.client_phone || b.clientPhone,
             avatarUrl: avatar,
             avatar_url: avatar,
-            authProvider: b.auth_provider || b.authProvider || (email.endsWith("@gmail.com") ? "google" : null),
+            authProvider: b.auth_provider || b.authProvider || null,
             projectType: b.project_type || b.projectType,
           preferredStyle: b.preferred_style || b.preferredStyle,
           budgetRange: b.budget_range || b.budgetRange,
@@ -835,7 +830,6 @@ export default function AdminPage() {
         setSitePhotos(fresh.photos || []);
         setBillingLedger(fresh.billing || []);
         setDelayEvents(fresh.delays || []);
-        setWarrantyTickets(fresh.warranty || []);
         setSiteExpenses(fresh.expenses || []);
       }
     } catch (e) {
@@ -1160,9 +1154,16 @@ export default function AdminPage() {
     setIsMobileSidebarOpen(false);
   };
 
-  const showToast = useCallback((msg) => {
-    setSuccessToast(msg);
-    setTimeout(() => setSuccessToast(""), 3500);
+  const showToast = useCallback((msg, explicitType = null) => {
+    if (!msg) return;
+    const messageStr = typeof msg === "string" ? msg : (msg?.message || String(msg));
+    setToast({
+      id: Date.now() + Math.random(),
+      message: messageStr,
+      type: explicitType || (typeof msg === "object" ? msg?.type : null),
+      title: typeof msg === "object" ? msg?.title : undefined,
+      duration: typeof msg === "object" && msg?.duration ? msg.duration : 4000,
+    });
   }, []);
 
   const handleAddProject = async (newProject) => {
@@ -1454,7 +1455,6 @@ export default function AdminPage() {
       setSitePhotos([]);
       setBillingLedger([]);
       setDelayEvents([]);
-      setWarrantyTickets([]);
       setSiteExpenses([]);
       return;
     }
@@ -1479,7 +1479,6 @@ export default function AdminPage() {
           setSitePhotos(data.photos || []);
           setBillingLedger(data.billing || []);
           setDelayEvents(data.delays || []);
-          setWarrantyTickets(data.warranty || []);
           setSiteExpenses(data.expenses || []);
         }
       } catch (err) {
@@ -1726,19 +1725,6 @@ export default function AdminPage() {
       console.warn("Could not log delay on backend:", e);
     }
   };
-
-  const handleUpdateWarranty = async (ticketId, status) => {
-    try {
-      await authFetch(`/api/construction/warranty/${ticketId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-    } catch (e) {
-      console.warn("Could not update warranty status on backend:", e);
-    }
-  };
-
 
   // =========================================================================
   // 1. SECURITY PIN GATE (For unauthenticated users)
@@ -1996,7 +1982,7 @@ export default function AdminPage() {
   }).length;
 
   const pendingBillsCount = (billingLedger || []).filter((b) => b.status === "Pending").length;
-  const activeWarrantyCount = (warrantyTickets || []).filter((w) => (w.status || "").toLowerCase() !== "resolved").length;
+  const finishedProjectsCount = (clientBriefs || []).filter((b) => (b.current_stage_status || b.currentStageStatus || b.stage_id) === "COMPLETED").length;
 
 
   const navSections = [
@@ -2021,7 +2007,7 @@ export default function AdminPage() {
       items: [
         {
           id: "briefs",
-          label: "Inquiries Pipeline",
+          label: "Inquiries",
           icon: ClipboardListIcon,
           badge: unreadInquiriesCount > 0 ? unreadInquiriesCount : undefined,
         },
@@ -2077,14 +2063,14 @@ export default function AdminPage() {
       ],
     },
     {
-      title: "Stage 4: Handover & Completed",
+      title: "Stage 4: Finished Project & Wrapped",
       stageBadge: "Stage 4",
       items: [
         {
-          id: "warranty",
-          label: "Warranty & Maintenance",
-          icon: ShieldCheckIcon,
-          badge: activeWarrantyCount > 0 ? activeWarrantyCount : undefined,
+          id: "finished-projects",
+          label: "Finished Projects",
+          icon: ArchiveIcon,
+          badge: finishedProjectsCount > 0 ? finishedProjectsCount : undefined,
         },
       ],
     },
@@ -2113,16 +2099,29 @@ export default function AdminPage() {
   const navItems = visibleNavSections.flatMap((s) => s.items);
 
   const currentTabInfo = navItems.find((n) => n.id === activeTab) || navItems[0] || { id: "dashboard", label: "Dashboard" };
+  const mobileTabLabel = {
+    "site-progress": "SITE",
+    briefs: "INQUIRIES",
+    meetings: "MEETINGS",
+    dashboard: "DASHBOARD",
+    projects: "PROJECTS",
+    accounts: "ACCOUNTS",
+    blueprints: "PLANS",
+    quotations: "QUOTATIONS",
+    documents: "DOCUMENTS",
+    delays: "DELAYS",
+    groundbreaking: "GROUND BREAKING",
+    billing: "BILLING",
+    "finished-projects": "FINISHED",
+  }[currentTabInfo.id] || currentTabInfo.label;
 
   return (
     <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex font-sans transition-colors duration-300">
-      {/* Toast Notification */}
-      {successToast && (
-        <div className="fixed top-6 right-6 z-[100] px-4 py-2.5 rounded-[4px] bg-emerald-500 text-neutral-950 border border-emerald-400 font-bold text-xs shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
-          <CheckIcon className="w-4 h-4 shrink-0" />
-          <span>{successToast}</span>
-        </div>
-      )}
+      {/* World-Class Bottom-Right Architectural Snackbar */}
+      <Snackbar
+        toast={toast}
+        onClose={() => setToast(null)}
+      />
 
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
@@ -2565,8 +2564,11 @@ export default function AdminPage() {
                 />
               </div>
               <span className="text-neutral-300 dark:text-neutral-700 select-none text-xs">/</span>
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 truncate">
-                {currentTabInfo.label}
+              <span
+                className="max-w-[105px] sm:max-w-none text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 whitespace-nowrap truncate"
+                title={currentTabInfo.label}
+              >
+                {mobileTabLabel}
               </span>
             </div>
 
@@ -2832,13 +2834,16 @@ export default function AdminPage() {
         )}
 
         {/* ================================================================= */}
-        {/* TAB: WARRANTY & MAINTENANCE (STAGE 5: TURNOVER & WARRANTY)        */}
+        {/* TAB: FINISHED PROJECTS (STAGE 4: FINISHED PROJECT & WRAPPED)        */}
         {/* ================================================================= */}
-        {activeTab === "warranty" && (
-          <WarrantyTicketsTab
-            warranty={warrantyTickets}
-            onUpdateStatus={handleUpdateWarranty}
+        {activeTab === "finished-projects" && (
+          <FinishedProjectsTab
             showToast={showToast}
+            onOpenShowcase={() => {
+              loadProjectsAndBriefs(false);
+              setActiveTab("projects");
+            }}
+            onShowcaseChanged={() => loadProjectsAndBriefs(false)}
           />
         )}
 

@@ -1816,7 +1816,7 @@ export default function AdminBlueprintsTab({
                     transform: `translate(${previewPan.x}px, ${previewPan.y}px) scale(${previewZoom})`,
                     transformOrigin: "center center",
                   }}
-                  className="transition-transform duration-75 max-w-full max-h-full flex items-center justify-center"
+                  className="transition-transform duration-75 max-w-full max-h-full flex items-center justify-center relative"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -1825,6 +1825,29 @@ export default function AdminBlueprintsTab({
                     draggable={false}
                     className="max-w-full max-h-[75vh] object-contain rounded-[4px] shadow-2xl border border-neutral-300 dark:border-white/10 pointer-events-none select-none"
                   />
+                  {parsePins(activeBlueprint.pins).map((pin, index) => {
+                    const isResolved = pin.status === "Resolved" || pin.resolved === true;
+                    return (
+                      <button
+                        key={pin.id || index}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsPreviewModalOpen(false);
+                          setIsPinsModalOpen(true);
+                        }}
+                        title={`${pin.author || "Client"}: ${pin.note || pin.comment || "Revision pin"}`}
+                        style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+                        className={`absolute -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-125 cursor-pointer ${
+                          isResolved
+                            ? "bg-emerald-500 text-neutral-950"
+                            : "bg-amber-500 text-neutral-950 animate-bounce"
+                        }`}
+                      >
+                        <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} aria-hidden="true" />
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1876,8 +1899,8 @@ export default function AdminBlueprintsTab({
                       key={pin.id || idx}
                       className={`p-4 rounded-[12px] border transition-all ${
                         isResolved
-                          ? "bg-neutral-50 dark:bg-white/[0.02] border-neutral-200 dark:border-white/5 opacity-80"
-                          : "bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/30"
+                          ? "bg-white dark:bg-[#12151c] border-neutral-200 dark:border-white/10 opacity-80"
+                          : "bg-white dark:bg-[#12151c] border-neutral-200 dark:border-white/10"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1887,14 +1910,14 @@ export default function AdminBlueprintsTab({
                               isResolved ? "bg-emerald-500 text-neutral-950" : "bg-amber-500 text-neutral-950"
                             }`}
                           >
-                            📍
+                            <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} aria-hidden="true" />
                           </span>
                           <div>
                             <span className="font-bold text-xs text-neutral-900 dark:text-white">
                               {pin.author || "Client"}
                             </span>
                             <span className="text-[10px] font-mono text-neutral-400 ml-2">
-                              Coord: {pin.x}%, {pin.y}%
+                              X: {pin.x}% · Y: {pin.y}%
                             </span>
                           </div>
                         </div>

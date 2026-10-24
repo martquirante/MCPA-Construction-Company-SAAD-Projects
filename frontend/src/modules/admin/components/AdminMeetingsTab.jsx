@@ -378,7 +378,7 @@ export default function AdminMeetingsTab({
             time: b.meetingTime || b.meeting_time || "10:00 AM - 11:30 AM PHT",
             status: statusText,
             leadConsultant: "Lead Technical Consultant",
-            venue: b.meetingMode?.toLowerCase().includes("office") ? "MCPA Pasig Headquarters" : "MCPA Secure Video Room",
+            venue: b.meetingMode?.toLowerCase().includes("office") ? "MCPA Plaridel Headquarters" : "MCPA Secure Video Room",
             notes: b.meetingNotes || b.meeting_notes || b.message || "Consultation deliberation",
             isToday: Boolean(b.meetingDate && b.meetingDate === new Date().toISOString().split("T")[0]),
           });

@@ -19,20 +19,39 @@ import {
   AlertCircle,
   Video,
   ClipboardList,
-  ShieldAlert,
   ArrowUpRight,
 } from "lucide-react";
+
+/**
+ * Safely parses any timestamp into a valid millisecond number.
+ * Handles ISO strings, numeric timestamps, and PostgreSQL timestamps ("YYYY-MM-DD HH:MM:SS.ms+TZ").
+ */
+function parseSafeTimestamp(timestamp) {
+  if (!timestamp) return null;
+  if (timestamp instanceof Date && !isNaN(timestamp.getTime())) return timestamp.getTime();
+  if (typeof timestamp === "number" && !isNaN(timestamp)) return timestamp;
+  if (typeof timestamp === "string") {
+    let cleaned = timestamp.trim();
+    if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(cleaned)) {
+      cleaned = cleaned.replace(" ", "T").replace(/\+(\d{2})$/, "+$1:00");
+    }
+    const d = new Date(cleaned);
+    if (!isNaN(d.getTime())) return d.getTime();
+    const fallback = new Date(timestamp);
+    if (!isNaN(fallback.getTime())) return fallback.getTime();
+  }
+  return null;
+}
 
 /**
  * Formats relative time friendly for humans (e.g. "Just now", "5m ago", "2h ago", "Yesterday")
  */
 function formatRelativeTime(timestamp) {
-  if (!timestamp) return "Recently";
+  const time = parseSafeTimestamp(timestamp);
+  if (!time) return "Active";
   const now = Date.now();
-  const time = typeof timestamp === "string" ? new Date(timestamp).getTime() : Number(timestamp);
-  if (isNaN(time)) return "Recently";
-
   const diffMs = now - time;
+  if (diffMs < 0) return "Just now";
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
@@ -44,9 +63,20 @@ function formatRelativeTime(timestamp) {
   if (diffDay === 1) return "Yesterday";
   if (diffDay < 7) return `${diffDay}d ago`;
 
-  return new Date(time).toLocaleDateString("en-US", {
+  return new Date(time).toLocaleDateString("en-PH", {
     month: "short",
     day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatNotificationDate(timestamp) {
+  const time = parseSafeTimestamp(timestamp);
+  if (!time) return "Active Notification";
+
+  return new Date(time).toLocaleString("en-PH", {
+    dateStyle: "medium",
+    timeStyle: "short",
   });
 }
 
@@ -144,11 +174,6 @@ const CATEGORY_CONFIG = {
     badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
     icon: AlertCircle,
   },
-  warranty: {
-    label: "Warranty Ticket",
-    badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
-    icon: ShieldAlert,
-  },
   call: {
     label: "Live Consultation",
     badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
@@ -164,6 +189,13 @@ export default function AdminNotificationCenter({
   onMarkAllAsRead = () => {},
   onMarkAsRead = () => {},
 }) {
+  const [, setTimeNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setTimeNow(Date.now()), 30000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
   const [activeCategory, setActiveCategory] = useState("all");
   const panelRef = useRef(null);
 
@@ -526,7 +558,10 @@ export default function AdminNotificationCenter({
                       >
                         {cfg.label}
                       </span>
-                      <span className="text-[11px] text-neutral-400 dark:text-neutral-500 tabular-nums whitespace-nowrap">
+                      <span
+                        className="text-[11px] text-neutral-400 dark:text-neutral-500 tabular-nums whitespace-nowrap"
+                        title={formatNotificationDate(notif.timestamp)}
+                      >
                         {formatRelativeTime(notif.timestamp)}
                       </span>
                     </div>

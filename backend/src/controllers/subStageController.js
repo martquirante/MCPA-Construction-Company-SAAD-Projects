@@ -12,6 +12,9 @@
  */
 
 const stageEngineService = require("../services/stageEngineService");
+const db = require("../services/dbFailoverEngine");
+const { generateContractPdf } = require("../services/contractPdfService");
+const finishedProjectService = require("../services/finishedProjectService");
 
 class SubStageController {
   /**
@@ -698,6 +701,102 @@ class SubStageController {
   }
 
   /**
+   * GET /api/projects/:id/contract/pdf
+   * GET /api/contracts/:id/pdf
+   * Pure server-side vector PDF generation using PDFKit matching legal Word-style layout
+   */
+  async downloadContractPdf(req, res) {
+    try {
+      const rawParam = req.params.id;
+      const isNumeric = !isNaN(Number(rawParam));
+      let projectId = isNumeric ? parseInt(rawParam, 10) : null;
+
+      // 1. Resolve projectId whether param was a contract_id, numeric project_id, or project_code
+      if (isNumeric) {
+        const directContract = await db.query(
+          `SELECT client_project_id FROM public.contracts WHERE contract_id = $1 LIMIT 1`,
+          [projectId]
+        );
+        if (directContract.rows && directContract.rows.length > 0) {
+          projectId = directContract.rows[0].client_project_id;
+        }
+      } else {
+        const pRes = await db.query(
+          `SELECT client_project_id FROM public.client_projects WHERE project_code = $1 LIMIT 1`,
+          [rawParam]
+        );
+        if (pRes.rows && pRes.rows.length > 0) {
+          projectId = pRes.rows[0].client_project_id;
+        }
+      }
+
+      if (!projectId) {
+        return res.status(404).json({ success: false, message: "Project or contract not found." });
+      }
+
+      // 2. Fetch enriched contract via stageEngineService
+      const contract = await stageEngineService.getProjectContract(projectId);
+
+      if (!contract) {
+        return res.status(404).json({ success: false, message: "Contract record not found for this project." });
+      }
+
+      // 3. Fetch latest quotation for boqRef & locked amount
+      let quotation = null;
+      try {
+        const quoRes = await db.query(
+          `SELECT quotation_code, total_amount FROM public.client_quotations 
+           WHERE client_project_id = $1 
+           ORDER BY quotation_id DESC LIMIT 1`,
+          [projectId]
+        );
+        if (quoRes.rows && quoRes.rows.length > 0) {
+          quotation = quoRes.rows[0];
+        }
+      } catch (_) {}
+
+      // 4. Fetch latest blueprint for blueprintRef
+      let blueprint = null;
+      try {
+        const bpRes = await db.query(
+          `SELECT title, version FROM public.blueprints 
+           WHERE client_project_id = $1 
+           ORDER BY blueprint_id ASC LIMIT 1`,
+          [projectId]
+        );
+        if (bpRes.rows && bpRes.rows.length > 0) {
+          blueprint = bpRes.rows[0];
+        }
+      } catch (_) {}
+
+      const options = {
+        projectCode: contract.project_meta?.project_code || rawParam,
+        clientName: contract.project_meta?.client_name,
+        clientAddress: contract.project_meta?.location,
+        clientPhone: contract.project_meta?.client_phone,
+        clientEmail: contract.project_meta?.client_email,
+        projectTitle: contract.project_meta?.project_title || contract.project_meta?.project_type,
+        siteLocation: contract.project_meta?.location,
+        lotArea: contract.project_meta?.lot_area,
+        floorArea: contract.project_meta?.floor_area,
+        blueprintRef: blueprint ? `${blueprint.title} (v${blueprint.version || "1.0"})` : undefined,
+        boqRef: quotation?.quotation_code || "BOQ-MCPA-2026-FINAL",
+        totalBOQAmount: quotation?.total_amount || contract.total_contract_amount,
+      };
+
+      const { buffer, filename } = await generateContractPdf(contract, options);
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+      return res.end(buffer);
+    } catch (err) {
+      console.error("[SubStageController.downloadContractPdf] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
    * GET /api/projects/:id/loans
    */
   async getLoans(req, res) {
@@ -712,30 +811,114 @@ class SubStageController {
   }
 
   /**
-   * GET /api/projects/:id/wrapped
+   * GET /api/projects/:id/wrapped (owner or staff)
    */
   async getWrapped(req, res) {
     try {
       const projectId = parseInt(req.params.id, 10);
+      await finishedProjectService.assertProjectAccess(projectId, req.user);
       const wrapped = await stageEngineService.getProjectWrapped(projectId);
       return res.status(200).json({ success: true, wrapped });
     } catch (err) {
       console.error("[SubStageController.getWrapped] Error:", err);
-      return res.status(500).json({ success: false, message: err.message });
+      return res.status(err.statusCode || 500).json({ success: false, message: err.message });
     }
   }
 
   /**
-   * GET /api/wrapped/:shareToken (Public Read-Only)
+   * POST /api/projects/:id/wrapped/regenerate
+   */
+  async regenerateWrapped(req, res) {
+    try {
+      const projectId = parseInt(req.params.id, 10);
+      await finishedProjectService.assertProjectAccess(projectId, req.user);
+      const wrapped = await stageEngineService.getProjectWrapped(projectId, { forceRefresh: true });
+      return res.status(200).json({ success: true, wrapped });
+    } catch (err) {
+      console.error("[SubStageController.regenerateWrapped] Error:", err);
+      return res.status(err.statusCode || 500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * PATCH /api/projects/:id/wrapped/onboarding-seen
+   */
+  async markWrappedOnboardingSeen(req, res) {
+    try {
+      const projectId = parseInt(req.params.id, 10);
+      await finishedProjectService.assertProjectAccess(projectId, req.user);
+      const wrapped = await finishedProjectService.markOnboardingSeen(projectId);
+      return res.status(200).json({ success: true, onboardingCompletedAt: wrapped?.onboarding_completed_at || null });
+    } catch (err) {
+      console.error("[SubStageController.markWrappedOnboardingSeen] Error:", err);
+      return res.status(err.statusCode || 500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * PATCH /api/projects/:id/wrapped/share-settings
+   */
+  async updateWrappedShareSettings(req, res) {
+    try {
+      const projectId = parseInt(req.params.id, 10);
+      await finishedProjectService.assertProjectAccess(projectId, req.user);
+      const isPublicShared = typeof req.body?.isPublicShared === "boolean" ? req.body.isPublicShared : undefined;
+      const wrapped = await finishedProjectService.updateShareSettings(projectId, {
+        isPublicShared,
+        rotateToken: Boolean(req.body?.rotateToken),
+      });
+      if (!wrapped) return res.status(400).json({ success: false, message: "Nothing to update." });
+      return res.status(200).json({ success: true, shareToken: wrapped.share_token, isPublicShared: Boolean(wrapped.is_public_shared) });
+    } catch (err) {
+      console.error("[SubStageController.updateWrappedShareSettings] Error:", err);
+      return res.status(err.statusCode || 500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * GET /api/wrapped/:shareToken (Public Read-Only, redacted)
    */
   async getPublicWrapped(req, res) {
     try {
       const { shareToken } = req.params;
       const wrapped = await stageEngineService.getPublicWrappedByToken(shareToken);
+      res.setHeader("Cache-Control", "no-store");
       return res.status(200).json({ success: true, wrapped });
     } catch (err) {
       console.error("[SubStageController.getPublicWrapped] Error:", err);
       return res.status(err.statusCode || 500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * GET /api/finished-projects (admin: all completed, client: own)
+   */
+  async getFinishedProjects(req, res) {
+    try {
+      const projects = await finishedProjectService.getFinishedProjectsDossier({
+        role: req.user?.role,
+        userId: req.user?.userId,
+        email: req.user?.email,
+      });
+      return res.status(200).json({ success: true, projects });
+    } catch (err) {
+      console.error("[SubStageController.getFinishedProjects] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * POST /api/admin/finished-projects/:id/sync-showcase
+   */
+  async syncFinishedProjectShowcase(req, res) {
+    try {
+      const projectId = parseInt(req.params.id, 10);
+      const result = await finishedProjectService.syncFinishedProjectToShowcase(projectId, { forceResync: true });
+      if (!result.synced) return res.status(404).json({ success: false, message: result.reason });
+      return res.status(200).json({ success: true, ...result });
+    } catch (err) {
+      console.error("[SubStageController.syncFinishedProjectShowcase] Error:", err);
+      return res.status(500).json({ success: false, message: err.message });
     }
   }
 }

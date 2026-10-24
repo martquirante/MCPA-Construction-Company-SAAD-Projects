@@ -45,7 +45,6 @@ function ClientAvatar({ client, size = "md", className = "" }) {
   }, [client]);
 
   const isGoogle =
-    client?.client_email?.toLowerCase().endsWith("@gmail.com") ||
     client?.auth_provider === "google";
 
   const sizeClasses = {
@@ -1855,15 +1854,16 @@ export default function AdminGroundbreakingTab({
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
+                <a
+                  href={`/api/projects/${contractModalProject?.client_project_id || contractData?.client_project_id || contractData?.contract_id}/contract/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="px-3 py-1.5 rounded-[8px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-mono font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer"
-                  title="Print or Save as PDF"
+                  title="Download or Print Official Vector Contract PDF"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Print / PDF</span>
-                </button>
+                </a>
                 <button
                   type="button"
                   onClick={handleCloseContractModal}
@@ -1945,7 +1945,7 @@ export default function AdminGroundbreakingTab({
                       <p className="text-center font-bold text-[10px] uppercase text-neutral-500">- and -</p>
                       <p className="pl-4">
                         <strong>THE CONTRACTOR / SECOND PARTY:</strong>{" "}
-                        <span className="font-semibold uppercase">M.C.P.A. DESIGN &amp; CONSTRUCTION</span>, a general construction entity duly organized under Philippine laws, with principal engineering office in Bulacan, represented herein by its Authorized Managing Officer,{" "}
+                        <span className="font-semibold uppercase">M.C.P.A. DESIGN &amp; CONSTRUCTION</span>, a general construction entity duly organized under Philippine laws, with principal engineering office at 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines, represented herein by its Authorized Managing Officer,{" "}
                         <span className="font-semibold uppercase">
                           {contractData?.contractor_signer_name || "Engr. Raymart Quirante"}
                         </span>

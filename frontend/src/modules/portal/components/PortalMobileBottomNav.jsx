@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Hammer,
   ListChecks,
+  Sparkles,
 } from "lucide-react";
 
 /**
@@ -264,6 +265,26 @@ function AnimatedTabIcon({ tabId, isActive, isJustSwitched, className = "" }) {
     );
   }
 
+  // 13. Wrapped Tab Micro-Animation
+  if (tabId === "wrapped") {
+    return (
+      <div
+        className={`relative flex items-center justify-center ${
+          isJustSwitched ? "animate-tab-pop" : ""
+        }`}
+      >
+        <Sparkles
+          className={`w-4 h-4 shrink-0 transition-all duration-300 ${className} ${
+            isJustSwitched ? "scale-110 rotate-12" : ""
+          }`}
+        />
+        {isJustSwitched && (
+          <span className="absolute inset-0 rounded-full bg-amber-400/40 animate-tab-ping pointer-events-none" />
+        )}
+      </div>
+    );
+  }
+
   // Default / More Menu (Hamburger)
   return (
     <div
@@ -322,9 +343,9 @@ export default function PortalMobileBottomNav({
         ];
       case "COMPLETED":
         return [
-          { id: "overview", label: "Dashboard" },
+          { id: "overview", label: "Finished" },
+          { id: "wrapped", label: "Wrapped" },
           { id: "gallery", label: "Archive" },
-          { id: "billing", label: "Billing" },
         ];
       case "PRE_INQUIRY":
       default:
@@ -352,6 +373,7 @@ export default function PortalMobileBottomNav({
     permits: { label: "Documents & Permits", id: "documents" },
     construction: { label: "Projects", id: "construction" },
     billing: { label: "Billing", id: "billing" },
+    wrapped: { label: "Project Wrapped", id: "wrapped" },
   };
 
   const isExtendedActive = !primaryTabs.some((t) => t.id === activeTab);
@@ -361,11 +383,17 @@ export default function PortalMobileBottomNav({
 
   // Trigger animation ONLY when activeTab changes
   useEffect(() => {
-    setAnimatingTab(activeTab);
-    const timer = setTimeout(() => {
-      setAnimatingTab(null);
-    }, 850);
-    return () => clearTimeout(timer);
+    let timer;
+    const animFrame = requestAnimationFrame(() => {
+      setAnimatingTab(activeTab);
+      timer = setTimeout(() => {
+        setAnimatingTab(null);
+      }, 850);
+    });
+    return () => {
+      cancelAnimationFrame(animFrame);
+      if (timer) clearTimeout(timer);
+    };
   }, [activeTab]);
 
   const handleSelectTab = (tabId) => {

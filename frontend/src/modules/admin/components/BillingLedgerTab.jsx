@@ -26,6 +26,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
+import AdminEmptyState from "./AdminEmptyState";
 import { authFetch } from "@/modules/shared/authFetch";
 
 export default function BillingLedgerTab({
@@ -434,15 +435,16 @@ export default function BillingLedgerTab({
       </div>
 
       {!project ? (
-        <div className="p-12 text-center rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-2">
-          <CreditCard className="w-8 h-8 text-neutral-400 mx-auto" />
-          <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-            No Stage 3 Client Project Selected
-          </h3>
-          <p className="text-xs text-neutral-500 max-w-md mx-auto font-mono">
-            Select an active Stage 3 project above to manage milestone tranches, verify digital official receipts, and audit OCR supplier invoices.
-          </p>
-        </div>
+        <AdminEmptyState
+          variant="card"
+          iconSrc="https://cdn.lordicon.com/qhviklyi.json"
+          fallback={CreditCard}
+          size={104}
+          colors="primary:#f59e0b,secondary:#10b981"
+          badgeText="Stage 3 • Financial Tranches & Billing"
+          title="No Stage 3 Client Project Selected"
+          description="Select an active Stage 3 project above to manage milestone tranches, verify digital official receipts, and audit OCR supplier invoices."
+        />
       ) : (
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* Financial Summary Ribbon */}
@@ -493,7 +495,7 @@ export default function BillingLedgerTab({
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-amber-500" />
               <span className="text-neutral-500 uppercase">Assigned Payment Terms:</span>
-              <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold">
+              <span className="text-amber-600 dark:text-amber-400 font-bold">
                 {project.payment_mode || "Milestone Escrow (Progressive Release)"}
               </span>
             </div>

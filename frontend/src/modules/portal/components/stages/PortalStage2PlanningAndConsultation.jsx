@@ -39,7 +39,6 @@ import {
   Download,
   User,
   Shield,
-  ShieldCheck,
   HelpCircle,
   ChevronDown,
   Upload,
@@ -1781,13 +1780,13 @@ export default function PortalStage2PlanningAndConsultation({
                                 : "bg-amber-500 text-neutral-950 animate-bounce"
                             }`}
                           >
-                            📍
+                            <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} aria-hidden="true" />
                           </div>
 
                           {/* Tooltip on hover */}
-                          <div className="hidden group-hover:block absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 rounded-lg bg-neutral-900 text-white text-[10px] font-mono shadow-xl border border-white/10 z-20 pointer-events-none">
-                            <span className="font-bold text-amber-400 block mb-0.5">{pin.author}</span>
-                            <p className="leading-tight text-neutral-300">{pin.note}</p>
+                          <div className="hidden group-hover:block absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white text-[10px] font-mono shadow-xl border border-neutral-200 dark:border-white/10 z-20 pointer-events-none">
+                            <span className="font-bold text-amber-600 dark:text-amber-400 block mb-0.5">{pin.author}</span>
+                            <p className="leading-tight text-neutral-600 dark:text-neutral-300">{pin.note}</p>
                           </div>
                         </div>
                       ))}
@@ -1844,7 +1843,7 @@ export default function PortalStage2PlanningAndConsultation({
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[10px] font-mono font-bold text-neutral-800 dark:text-neutral-200">
-                          Pin #{idx + 1} ({pin.x}%, {pin.y}%)
+                          Pin #{idx + 1} (X: {pin.x}% · Y: {pin.y}%)
                         </span>
                         <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold uppercase ${
                           pin.status === "Resolved"
@@ -1929,10 +1928,10 @@ export default function PortalStage2PlanningAndConsultation({
             /* EMPTY STATE 1: No quotation requested yet */
             <div className="p-10 sm:p-14 text-center rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 space-y-6">
               <LordIcon
-                src="https://cdn.lordicon.com/qhgmphtg.json"
+                src="https://cdn.lordicon.com/qhviklyi.json"
                 size={92}
                 trigger="loop"
-                colors="primary:#f59e0b,secondary:#38bdf8"
+                colors="primary:#f59e0b,secondary:#10b981"
                 fallback={CreditCard}
               />
               <div className="max-w-xl mx-auto space-y-2">
@@ -2120,12 +2119,12 @@ export default function PortalStage2PlanningAndConsultation({
               </div>
 
               {/* Action Banner with Pure Backend Word-Style A4 PDF Download */}
-              <div className="p-4 sm:p-5 rounded-[14px] bg-neutral-900 text-white dark:bg-white/[0.03] border border-neutral-800 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-4 sm:p-5 rounded-[14px] bg-white text-neutral-900 dark:bg-neutral-900 dark:text-white border border-neutral-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs transition-colors">
                 <div>
                   <h4 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-wider text-amber-400">
                     Official A4 Construction Quotation Document
                   </h4>
-                  <p className="text-xs text-neutral-300 font-sans mt-0.5">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-300 font-sans mt-0.5">
                     Official monochrome Word-style contract estimate prepared by MCPA licensed civil engineers. Strictly generated server-side.
                   </p>
                 </div>
@@ -2328,7 +2327,7 @@ export default function PortalStage2PlanningAndConsultation({
           <div className="p-5 sm:p-6 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                   Regulatory &amp; Legal Hub
                 </span>
                 <span className="text-[11px] font-mono text-neutral-400">
@@ -2547,7 +2546,7 @@ export default function PortalStage2PlanningAndConsultation({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-200 dark:border-white/5 pb-3 gap-2">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
                     Official Engineering Releases
                   </span>
                   <span className="text-xs font-mono text-neutral-400">
@@ -2680,32 +2679,17 @@ export default function PortalStage2PlanningAndConsultation({
             {/* Top Toolbar / Status Strip */}
             <div className="p-4 sm:p-5 rounded-[16px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  isFullyExecuted
-                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                    : isClientSigned
-                    ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30"
-                    : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                }`}>
-                  {isFullyExecuted ? (
-                    <ShieldCheck className="w-5 h-5" />
-                  ) : isClientSigned ? (
-                    <Clock className="w-5 h-5" />
-                  ) : (
-                    <PenTool className="w-5 h-5" />
-                  )}
-                </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold font-mono uppercase text-neutral-900 dark:text-white">
                       Turnkey Master Construction Contract
                     </h3>
-                    <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                    <span className={`text-[9px] font-mono font-bold uppercase tracking-wider ${
                       isFullyExecuted
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                        ? "text-emerald-600 dark:text-emerald-400"
                         : isClientSigned
-                        ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30"
-                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                        ? "px-2 py-0.5 rounded bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30"
+                        : "px-2 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                     }`}>
                       {isFullyExecuted ? "Fully Executed" : isClientSigned ? "Signed by Client (Awaiting Countersignature)" : "Awaiting E-Signature"}
                     </span>
@@ -2721,14 +2705,16 @@ export default function PortalStage2PlanningAndConsultation({
               </div>
 
               <div className="flex items-center gap-2.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
+                <a
+                  href={`/api/projects/${contract?.client_project_id || projectId || activeProject?.client_project_id || contract?.contract_id}/contract/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="px-3.5 py-2 rounded-[8px] border border-neutral-300 dark:border-white/10 hover:bg-neutral-100 dark:hover:bg-white/5 text-neutral-700 dark:text-neutral-300 font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-colors cursor-pointer"
+                  title="Download and print official high-resolution vector contract PDF generated directly by MCPA backend"
                 >
                   <Download className="w-4 h-4" />
                   <span>Print / Save PDF</span>
-                </button>
+                </a>
 
                 {!isClientSigned ? (
                   <button
@@ -2781,10 +2767,10 @@ export default function PortalStage2PlanningAndConsultation({
                       General Engineering, Architectural Design &amp; Build
                     </p>
                     <p className="text-[10px] text-neutral-500">
-                      Unit 402, Builders Tower, Emerald Ave, Pasig City, Metro Manila
+                      2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
                     </p>
                     <p className="text-[10px] text-neutral-500">
-                      Contact: (+63) 917 123 4567 | Email: legal@mcpabuilders.com | PCAB License No.: 48291-B
+                      Contact: (+63) 949 775 8239 | Email: contact@mcpaconstruction.com | PCAB License No.: 49821
                     </p>
                   </div>
                 </div>
@@ -2811,7 +2797,7 @@ export default function PortalStage2PlanningAndConsultation({
                   PARTIES INVOLVED
                 </h3>
                 <p>
-                  <strong>CONTRACTOR:</strong> M.C.P.A. Design &amp; Construction (MCPA Builders), with office address at Unit 402, Builders Tower, Emerald Ave, Pasig City, Metro Manila, represented by its authorized managing officer.
+                  <strong>CONTRACTOR:</strong> M.C.P.A. Design &amp; Construction (MCPA Builders), with office address at 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines, represented by its authorized managing officer.
                 </p>
                 <p>
                   <strong>CLIENT / OWNER:</strong> {clientLegalName}, residing at {clientAddress}, Contact No.: {clientPhone}, Email: {clientEmail}.

@@ -4204,17 +4204,17 @@ export default function AccountsTab({ clientBriefs = [] }) {
         <aside
           role="status"
           aria-live="polite"
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 p-3.5 pr-4 rounded-xl text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300 max-w-sm pointer-events-auto border ${
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3.5 p-3.5 pr-4 rounded-2xl shadow-[0_16px_36px_-6px_rgba(0,0,0,0.12)] dark:shadow-[0_24px_55px_-12px_rgba(0,0,0,0.7)] backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-300 max-w-sm pointer-events-auto border transition-colors ${
             staffToast.type === "error"
-              ? "bg-rose-950/95 border-rose-500/50"
-              : "bg-neutral-950/95 dark:bg-[#10131c]/95 border-amber-500/50"
+              ? "bg-rose-50/95 dark:bg-rose-950/90 border-rose-200 dark:border-rose-500/40 text-rose-950 dark:text-rose-100"
+              : "bg-white/95 dark:bg-[#10131c]/95 border-neutral-200/90 dark:border-white/10 text-neutral-900 dark:text-neutral-100"
           }`}
         >
           <div
-            className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
               staffToast.type === "error"
-                ? "bg-rose-500/20 text-rose-400"
-                : "bg-amber-500/20 text-amber-400"
+                ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/25"
+                : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25"
             }`}
           >
             {staffToast.type === "error" ? (
@@ -4224,15 +4224,15 @@ export default function AccountsTab({ clientBriefs = [] }) {
             )}
           </div>
           <div className="min-w-0 flex-1 text-xs">
-            <div className="font-bold text-neutral-100">{staffToast.title}</div>
-            <div className="text-neutral-400 text-[11px] mt-0.5 leading-snug">
+            <div className="font-bold text-neutral-900 dark:text-neutral-100">{staffToast.title}</div>
+            <div className="text-neutral-600 dark:text-neutral-400 text-[11px] mt-0.5 leading-snug">
               {staffToast.message}
             </div>
           </div>
           <button
             type="button"
             onClick={() => setStaffToast(null)}
-            className="text-neutral-400 hover:text-white p-1 rounded-md text-xs cursor-pointer ml-1"
+            className="text-neutral-400 hover:text-neutral-700 dark:hover:text-white p-1 rounded-md text-xs cursor-pointer ml-1 transition-colors"
           >
             ✕
           </button>
@@ -4244,29 +4244,29 @@ export default function AccountsTab({ clientBriefs = [] }) {
         <aside
           role="status"
           aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 p-3.5 pr-4 rounded-xl bg-neutral-950/95 dark:bg-[#10131c]/95 text-white border border-amber-500/50 shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300 max-w-sm pointer-events-auto"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3.5 p-3.5 pr-4 rounded-2xl bg-white/95 dark:bg-[#10131c]/95 text-neutral-900 dark:text-neutral-100 border border-neutral-200/90 dark:border-white/10 shadow-[0_16px_36px_-6px_rgba(0,0,0,0.12)] dark:shadow-[0_24px_55px_-12px_rgba(0,0,0,0.7)] backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-300 max-w-sm pointer-events-auto transition-colors"
         >
-          <div className="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
             <UserPlusIcon className="w-5 h-5 animate-pulse" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="font-bold text-amber-400 font-mono text-[10px] uppercase tracking-wider">
+              <span className="font-bold text-amber-600 dark:text-amber-400 font-mono text-[10px] uppercase tracking-wider">
                 {liveToast.title}
               </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
             </div>
-            <div className="font-bold text-neutral-100 text-xs truncate font-sans">
+            <div className="font-bold text-neutral-900 dark:text-neutral-100 text-xs truncate font-sans">
               {liveToast.name}
             </div>
-            <div className="text-[11px] text-neutral-400 font-mono truncate">
+            <div className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono truncate">
               {liveToast.subtitle}
             </div>
           </div>
           <button
             type="button"
             onClick={() => setLiveToast(null)}
-            className="text-neutral-400 hover:text-white p-1 rounded-md text-xs cursor-pointer ml-1"
+            className="text-neutral-400 hover:text-neutral-700 dark:hover:text-white p-1 rounded-md text-xs cursor-pointer ml-1 transition-colors"
             title="Dismiss notification"
           >
             ✕

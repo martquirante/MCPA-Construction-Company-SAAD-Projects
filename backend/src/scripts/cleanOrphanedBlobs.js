@@ -50,7 +50,33 @@ async function cleanOrphanedBlobs() {
     }
   });
 
-  console.log(`   Found ${activeImageNames.size} active photos currently displayed on projects.`);
+  // Site progress photos and Wrapped imagery share the portfolio container; they must be preserved.
+  const addUrl = (u) => {
+    if (typeof u !== "string" || u.trim().length === 0) return;
+    const parts = u.split("/");
+    const fileName = parts[parts.length - 1].split("?")[0];
+    if (fileName) activeImageNames.add(decodeURIComponent(fileName));
+  };
+  try {
+    const logRes = await db.query("SELECT image_url FROM site_photo_logs");
+    logRes.rows.forEach((r) => addUrl(r.image_url));
+  } catch (e) {
+    console.error("[ERROR] Could not read site_photo_logs; aborting to avoid deleting progress photos.", e.message);
+    throw e;
+  }
+  try {
+    const wrapRes = await db.query("SELECT before_photo_url, after_photo_url, wrapped_payload::text AS payload FROM project_wrapped");
+    wrapRes.rows.forEach((r) => {
+      addUrl(r.before_photo_url);
+      addUrl(r.after_photo_url);
+      const matches = (r.payload || "").match(/https?:\/\/[^"\\\s]+/g) || [];
+      matches.forEach(addUrl);
+    });
+  } catch (e) {
+    console.warn("[WARNING] Could not read project_wrapped imagery (table or column missing):", e.message);
+  }
+
+  console.log(`   Found ${activeImageNames.size} active photos currently displayed on projects, site logs and wrapped stories.`);
 
   // 2. Gather all active brief files from Database
   console.log("[2/4] Querying active client briefs in PostgreSQL...");

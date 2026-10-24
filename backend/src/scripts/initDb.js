@@ -261,6 +261,9 @@ async function initializeDatabase() {
       );
     `);
     console.log("[OK] Table 'site_photo_logs' verified/created.");
+    try {
+      await db.query("ALTER TABLE site_photo_logs ADD COLUMN IF NOT EXISTS category VARCHAR(50) DEFAULT 'progress';");
+    } catch (e) {}
 
     // 8. Create BILLING_LEDGER table
     await db.query(`
@@ -471,6 +474,15 @@ async function initializeDatabase() {
       console.log("[OK] Table 'groundbreaking_history' and client_projects ceremony columns verified/created.");
     } catch (gbErr) {
       console.warn("[initDb] Groundbreaking schema migration notice:", gbErr.message);
+    }
+
+    // Stage 4 (Finished Project & Wrapped) columns, applied to Supabase AND Neon explicitly
+    try {
+      const { ensureStage4Schema } = require("../services/stage4Schema");
+      await ensureStage4Schema();
+      console.log("[OK] Stage 4 schema (photo progress, showcase link, wrapped payload) verified on all pools.");
+    } catch (s4Err) {
+      console.warn("[initDb] Stage 4 schema notice:", s4Err.message);
     }
 
     console.log("\n[SUCCESS] Database initialization completed successfully!\n");

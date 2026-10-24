@@ -176,7 +176,7 @@ export default function DashboardTab({
   ).length;
 
   const upcomingMeetings = clientBriefs
-    .filter((b) => b.meetingDate && !isRejectedBrief(b))
+    .filter((b) => b.meetingDate && !isRejectedBrief(b) && !isMeetingPast(b.meetingDate, b.meetingTime))
     .sort((a, b) => {
       const aPast = isMeetingPast(a.meetingDate, a.meetingTime);
       const bPast = isMeetingPast(b.meetingDate, b.meetingTime);
@@ -281,14 +281,14 @@ export default function DashboardTab({
             onClick={() => onNavigateTab?.("briefs")}
             className="px-3 py-1.5 rounded-lg bg-sky-500 text-white text-xs font-semibold cursor-pointer"
           >
-            Inquiry Pipeline
+            Inquiries
           </button>
           <button
             type="button"
             onClick={() => onNavigateTab?.("meetings")}
             className="px-3 py-1.5 rounded-lg bg-amber-500 text-neutral-950 text-xs font-semibold cursor-pointer"
           >
-            Meetings Hub
+            Meetings
           </button>
         </div>
       </div>
@@ -724,7 +724,7 @@ export default function DashboardTab({
                   onClick={() => onNavigateTab("meetings")}
                   className="text-xs font-semibold text-amber-600 dark:text-amber-500 inline-flex items-center gap-1 cursor-pointer"
                 >
-                  <span>Meetings Hub</span>
+                  <span>Meetings</span>
                   <ArrowRightIcon className="w-3 h-3" />
                 </button>
               )}

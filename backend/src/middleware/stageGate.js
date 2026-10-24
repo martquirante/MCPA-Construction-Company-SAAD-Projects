@@ -25,7 +25,7 @@ const STAGE_NAMES = Object.freeze({
   CONSULTATION: "Stage 2: Consultation & Planning",
   PRE_CONSTRUCTION: "Stage 2: Consultation & Planning",
   ACTIVE_BUILD: "Stage 3: Active Site Execution",
-  COMPLETED: "Stage 4: Handover & 15-Year Structural Warranty",
+  COMPLETED: "Stage 4: Finished Project & Wrapped",
 });
 
 /**

@@ -1874,118 +1874,16 @@ class StageEngineService {
   /**
    * POST-CONSTRUCTION: MCPA Project Wrapped & Recap
    */
-  async getProjectWrapped(projectId) {
-    const res = await db.query(
-      `SELECT * FROM public.project_wrapped WHERE client_project_id = $1 LIMIT 1;`,
-      [projectId]
-    );
-
-    // Fetch project & earliest/latest site photos to ensure real before/after imagery
-    const projRes = await db.query(
-      `SELECT cp.*, sp.contract_date, sp.original_turnover, sp.revised_turnover
-       FROM public.client_projects cp
-       LEFT JOIN public.site_projects sp ON cp.site_project_code = sp.project_code
-       WHERE cp.client_project_id = $1 LIMIT 1;`,
-      [projectId]
-    );
-
-    const project = projRes.rows?.[0] || null;
-    const projectCode = project ? (project.site_project_code || project.project_code) : null;
-
-    let firstPhotoUrl = null;
-    let latestPhotoUrl = null;
-    if (projectCode) {
-      const [firstPhotoRes, latestPhotoRes] = await Promise.all([
-        db.query("SELECT image_url FROM public.site_photo_logs WHERE project_code = $1 ORDER BY created_at ASC, log_id ASC LIMIT 1;", [projectCode]).catch(() => ({ rows: [] })),
-        db.query("SELECT image_url FROM public.site_photo_logs WHERE project_code = $1 ORDER BY created_at DESC, log_id DESC LIMIT 1;", [projectCode]).catch(() => ({ rows: [] })),
-      ]);
-      firstPhotoUrl = firstPhotoRes.rows?.[0]?.image_url || null;
-      latestPhotoUrl = latestPhotoRes.rows?.[0]?.image_url || null;
-    }
-
-    if (res.rows && res.rows.length > 0) {
-      const existingWrapped = res.rows[0];
-      if ((!existingWrapped.before_photo_url && firstPhotoUrl) || (!existingWrapped.after_photo_url && latestPhotoUrl)) {
-        const updatedBefore = existingWrapped.before_photo_url || firstPhotoUrl;
-        const updatedAfter = existingWrapped.after_photo_url || latestPhotoUrl;
-        await db.query(
-          "UPDATE public.project_wrapped SET before_photo_url = $1, after_photo_url = $2 WHERE wrapped_id = $3;",
-          [updatedBefore, updatedAfter, existingWrapped.wrapped_id]
-        ).catch(() => {});
-        existingWrapped.before_photo_url = updatedBefore;
-        existingWrapped.after_photo_url = updatedAfter;
-      }
-      return existingWrapped;
-    }
-
-    if (!project) return null;
-
-    // Gather stats
-    const [photosCountRes, milestonesCountRes] = await Promise.all([
-      db.query("SELECT COUNT(*) FROM public.site_photo_logs WHERE project_code = $1;", [projectCode]),
-      db.query("SELECT COUNT(*) FROM public.site_milestones WHERE project_code = $1 AND completion_pct = 100;", [projectCode]),
-    ]);
-
-    const totalPhotos = parseInt(photosCountRes.rows[0]?.count || 0, 10);
-    const completedMilestones = parseInt(milestonesCountRes.rows[0]?.count || 0, 10);
-    const shareToken = `mcpa-wrapped-${crypto.randomBytes(6).toString("hex")}`;
-    const buildDays = Math.max(1, Math.round((Date.now() - new Date(project.created_at || Date.now()).getTime()) / (1000 * 60 * 60 * 24)));
-
-    const defaultStoryCards = [
-      {
-        id: "intro",
-        headline: "From Vision to Reality",
-        subtext: `Your ${project.project_title} reached 100% completion with MCPA craftsmanship.`,
-        metric: "100%",
-        metricLabel: "Turnkey Completed",
-      },
-      {
-        id: "duration",
-        headline: "Dedication on the Ground",
-        subtext: "Every foundation, beam, and finish was meticulously built and inspected.",
-        metric: `${buildDays} Days`,
-        metricLabel: "Total Build Journey",
-      },
-      {
-        id: "craftsmanship",
-        headline: "Precision Engineering",
-        subtext: `${totalPhotos} photo inspections logged across ${completedMilestones} completed major milestones.`,
-        metric: `${totalPhotos} Photos`,
-        metricLabel: "Site Quality Logs",
-      },
-    ];
-
-    const insertRes = await db.query(
-      `INSERT INTO public.project_wrapped (
-        client_project_id, total_days_duration, total_workers_employed, total_concrete_bags, total_steel_kg, total_photos_logged, before_photo_url, after_photo_url, story_cards, share_token, is_public_shared, created_at
-      ) VALUES ($1, $2, 0, 0, 0, $3, $4, $5, $6, $7, TRUE, NOW())
-      RETURNING *;`,
-      [projectId, buildDays, totalPhotos, firstPhotoUrl, latestPhotoUrl, JSON.stringify(defaultStoryCards), shareToken]
-    );
-
-    return insertRes.rows[0];
+  async getProjectWrapped(projectId, options = {}) {
+    // Data aggregation, photo pools and privacy rules live in finishedProjectService.
+    return require("./finishedProjectService").getOrCreateWrapped(projectId, options);
   }
 
   /**
-   * Public Wrapped Access by Token (Read-Only)
+   * Public Wrapped Access by Token (Read-Only, privacy-redacted)
    */
   async getPublicWrappedByToken(shareToken) {
-    const res = await db.query(
-      `SELECT pw.*, cp.project_title, cp.project_type, cp.target_location, cp.created_at as project_started_at
-       FROM public.project_wrapped pw
-       JOIN public.client_projects cp ON pw.client_project_id = cp.client_project_id
-       WHERE pw.share_token = $1 AND pw.is_public_shared = TRUE
-       LIMIT 1;`,
-      [shareToken]
-    );
-
-    if (!res.rows || res.rows.length === 0) {
-      const err = new Error("Project recap not found or private.");
-      err.statusCode = 404;
-      throw err;
-    }
-
-    return res.rows[0];
+    return require("./finishedProjectService").getPublicWrappedByToken(shareToken);
   }
 
   /**
@@ -2179,14 +2077,16 @@ class StageEngineService {
         await db.query(
           `UPDATE public.site_projects 
            SET status = 'Completed & Handover', 
-               progress_pct = 100,
-               updated_at = NOW() 
+               progress_pct = 100
            WHERE client_project_id = $1 OR project_code = $2;`,
           [resolvedProjectId, updatedProject.site_project_code || updatedProject.project_code]
         );
       } catch (spErr) {
         console.warn("[stageEngineService] site_projects completed notice:", spErr.message);
       }
+
+      // Stage 4 side effects: draft Showcase sync (>= 90% photos) + Wrapped generation. Never blocks the transition.
+      await require("./finishedProjectService").onProjectCompleted(resolvedProjectId);
     }
 
     // 7. Record transition audit

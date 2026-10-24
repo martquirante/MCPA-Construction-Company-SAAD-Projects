@@ -1,23 +1,45 @@
 "use client";
-import LottieIcon from "@/modules/shared/LottieIcon";
-import constructionAnim from "@/assets/animations/construction.json";
-import milestonesAnim from "@/assets/animations/milestones.json";
-import galleryAnim from "@/assets/animations/gallery.json";
-import billingAnim from "@/assets/animations/billing.json";
-import messagesAnim from "@/assets/animations/messages.json";
 
-const ANIM_MAP = {
-  construction: constructionAnim,
-  milestones: milestonesAnim,
-  gallery: galleryAnim,
-  billing: billingAnim,
-  messages: messagesAnim,
+import React from "react";
+import LottieIcon from "@/modules/shared/LottieIcon";
+import { CalendarCheck, CreditCard, Construction, FolderOpen, MessageSquare } from "lucide-react";
+import {
+  BillingEmptyIllustration,
+  MilestonesEmptyIllustration,
+  ConstructionEmptyIllustration,
+  GalleryEmptyIllustration,
+  InquiriesEmptyIllustration,
+} from "./PortalEmptyIllustrations";
+
+const BESPOKE_ILLUSTRATIONS = {
+  billing: BillingEmptyIllustration,
+  milestones: MilestonesEmptyIllustration,
+  construction: ConstructionEmptyIllustration,
+  gallery: GalleryEmptyIllustration,
+  messages: InquiriesEmptyIllustration,
+  inquiries: InquiriesEmptyIllustration,
+};
+
+const FALLBACK_ICON_MAP = {
+  construction: Construction,
+  milestones: CalendarCheck,
+  gallery: FolderOpen,
+  billing: CreditCard,
+  messages: MessageSquare,
+};
+
+const LABEL_MAP = {
+  construction: "Construction activity",
+  milestones: "Construction milestones",
+  gallery: "Project gallery",
+  billing: "Billing and escrow",
+  messages: "Project messages",
 };
 
 /**
  * PortalEmptyState
- * Powered by official LottieFiles animations and clean typography.
- * Rule: If not a button, no background box - clean text and clean icon only.
+ * Powered by bespoke animated architectural & construction illustrations,
+ * with complete theme support and clean micro-typography.
  */
 export default function PortalEmptyState({
   type = "construction",
@@ -31,19 +53,28 @@ export default function PortalEmptyState({
   secondaryAction = null,
   className = "",
 }) {
-  const chosenAnim = src || animationData || ANIM_MAP[type] || constructionAnim;
+  const FallbackIcon = FALLBACK_ICON_MAP[type] || Construction;
+  const animationLabel = LABEL_MAP[type] || "Project information";
+  const BespokeComponent = BESPOKE_ILLUSTRATIONS[type] || ConstructionEmptyIllustration;
 
   return (
     <div
       className={`relative overflow-hidden rounded-[20px] sm:rounded-[24px] border border-dashed border-neutral-300 dark:border-white/10 bg-white dark:bg-[#101218] p-6 sm:p-10 text-center transition-all duration-300 ${className}`}
     >
       <div className="relative z-10 flex flex-col items-center justify-center max-w-md mx-auto">
-        {/* LottieFiles Animated Icon (Enlarged and Prominent) */}
+        {/* Animated Construction & Engineering Illustration (Prominent & Relevant) */}
         <div className="mb-2">
-          <LottieIcon
-            src={chosenAnim}
-            className={iconClassName}
-          />
+          <div role="img" aria-label={`${animationLabel} empty state`}>
+            {src || animationData ? (
+              <LottieIcon
+                src={src || animationData}
+                className={iconClassName}
+                fallback={<FallbackIcon className="w-16 h-16 text-amber-500" aria-hidden="true" />}
+              />
+            ) : (
+              <BespokeComponent className={iconClassName} />
+            )}
+          </div>
         </div>
 
         {/* Status Label (Clean text, no bulky background) */}
@@ -66,7 +97,7 @@ export default function PortalEmptyState({
           </p>
         )}
 
-        {/* Action Buttons (Only real buttons have background) */}
+        {/* Action Buttons */}
         {(actionButton || secondaryAction) && (
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3 w-full">
             {actionButton}

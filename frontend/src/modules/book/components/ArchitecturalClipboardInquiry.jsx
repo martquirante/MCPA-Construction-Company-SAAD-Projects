@@ -335,15 +335,6 @@ export default function ArchitecturalClipboardInquiry({
     ).toLowerCase();
     if (provider === "google") return true;
 
-    const avatar =
-      currentUser.avatarUrl ||
-      currentUser.avatar_url ||
-      currentUser.photoURL ||
-      currentUser.picture ||
-      "";
-    if (avatar.includes("googleusercontent.com")) return true;
-
-    if (currentUser.googleId || currentUser.google_id) return true;
     return false;
   }, [currentUser]);
 

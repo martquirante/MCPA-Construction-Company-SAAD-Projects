@@ -14,6 +14,7 @@ export default function PortalBillingLedgerSection({
   projectCode = "PRJ-ACTIVE",
   expenses: initialExpenses = [],
   onProofUploaded,
+  showToast,
 }) {
   const [selectedBillForProof, setSelectedBillForProof] = useState(null);
   const [uploadFile, setUploadFile] = useState(null);
@@ -96,12 +97,20 @@ export default function PortalBillingLedgerSection({
         body: JSON.stringify({ proofUrl: uploadData.url }),
       });
 
-      setUploadToast("Proof of payment submitted successfully! MCPA finance team will verify.");
+      if (showToast) {
+        showToast("Proof of payment submitted successfully! MCPA finance team will verify.", "success");
+      } else {
+        setUploadToast("Proof of payment submitted successfully! MCPA finance team will verify.");
+      }
       setSelectedBillForProof(null);
       setUploadFile(null);
       if (onProofUploaded) onProofUploaded();
     } catch (err) {
-      alert("Error uploading proof: " + err.message);
+      if (showToast) {
+        showToast("Error uploading proof: " + err.message, "error");
+      } else {
+        alert("Error uploading proof: " + err.message);
+      }
     } finally {
       setIsUploading(false);
     }
@@ -111,15 +120,15 @@ export default function PortalBillingLedgerSection({
     <div className="rounded-[20px] sm:rounded-[24px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 p-5 sm:p-7 shadow-xs space-y-6 transition-colors">
       {/* Toast Alert */}
       {uploadToast && (
-        <div className="p-3.5 rounded-[12px] bg-amber-500 text-neutral-950 font-bold text-xs flex items-center justify-between shadow-md">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-neutral-950" />
+        <div className="p-3.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs font-semibold flex items-center justify-between shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <span>{uploadToast}</span>
           </div>
           <button
             type="button"
             onClick={() => setUploadToast("")}
-            className="text-xs p-1 cursor-pointer font-bold"
+            className="text-neutral-400 hover:text-neutral-700 dark:hover:text-white p-1 rounded-md text-xs cursor-pointer transition-colors"
           >
             ×
           </button>

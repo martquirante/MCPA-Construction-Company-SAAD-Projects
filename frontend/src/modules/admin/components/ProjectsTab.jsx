@@ -386,6 +386,11 @@ export default function ProjectsTab({
                           {project.status === "in_progress" ? "In Progress" : "Planning Phase"}
                         </span>
                       )}
+                      {(project.source_client_project_id || project.sourceClientProjectId || project.source_project_code || project.sourceProjectCode) && (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-wider uppercase bg-amber-500/25 text-amber-200 border border-amber-500/40 w-fit backdrop-blur-md">
+                          STAGE 4 AUTO-SYNC · ≥90%
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-col items-end gap-1.5">

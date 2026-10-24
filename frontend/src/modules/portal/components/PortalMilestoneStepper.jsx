@@ -1,7 +1,40 @@
 "use client";
 import { useState } from "react";
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronRight, AlertTriangle } from "lucide-react";
 import PortalEmptyState from "./PortalEmptyState";
+
+function parseMilestoneNotes(notesStr) {
+  if (!notesStr) {
+    return {
+      auditLogs: [],
+      generalNotes: "Civil works progressing according to master construction schedule.",
+    };
+  }
+
+  const auditRegex = /\[PROGRESS DEDUCTION \(([^)]+)\): ([^|]+) \| Reason: ([^\]]+)\]/g;
+  const auditLogs = [];
+  let match;
+  while ((match = auditRegex.exec(notesStr)) !== null) {
+    auditLogs.push({
+      date: match[1].trim(),
+      change: match[2].trim(),
+      reason: match[3].trim(),
+    });
+  }
+
+  const cleanNotes = notesStr
+    .replace(/\[PROGRESS DEDUCTION \([^)]+\): [^|]+ \| Reason: [^\]]+\]\s*/g, "")
+    .trim();
+
+  return {
+    auditLogs,
+    generalNotes:
+      cleanNotes ||
+      (auditLogs.length > 0
+        ? ""
+        : "Civil works progressing according to master construction schedule."),
+  };
+}
 
 export default function PortalMilestoneStepper({
   milestones = [],
@@ -129,33 +162,66 @@ export default function PortalMilestoneStepper({
       </div>
 
       {/* Selected Milestone Inspection Details Drawer */}
-      {selectedMilestone && (
-        <div className="p-4 rounded-[16px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase">
-                {selectedMilestone.phase_code || "PHASE"}
+      {selectedMilestone && (() => {
+        const { auditLogs, generalNotes } = parseMilestoneNotes(selectedMilestone.notes);
+        return (
+          <div className="p-4 rounded-[16px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase">
+                  {selectedMilestone.phase_code || "PHASE"}
+                </span>
+                <h4 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white">
+                  {selectedMilestone.phase_name}
+                </h4>
+              </div>
+
+              <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400">
+                {selectedMilestone.status} ({selectedMilestone.completion_pct}%)
               </span>
-              <h4 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white">
-                {selectedMilestone.phase_name}
-              </h4>
             </div>
 
-            <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400">
-              {selectedMilestone.status} ({selectedMilestone.completion_pct}%)
-            </span>
-          </div>
+            {/* Progress Revision Audit Callout(s) */}
+            {auditLogs.length > 0 && (
+              <div className="space-y-2">
+                {auditLogs.map((log, lIdx) => (
+                  <div
+                    key={lIdx}
+                    className="p-3 rounded-[12px] bg-amber-500/10 border border-amber-500/20 text-xs flex items-start gap-2.5 transition-colors"
+                  >
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                          Progress Revision · {log.date}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[9.5px] font-mono font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                          {log.change}
+                        </span>
+                      </div>
+                      <p className="text-neutral-700 dark:text-neutral-300 text-[11px] font-sans leading-relaxed">
+                        <span className="font-semibold text-neutral-900 dark:text-white">Reason: </span>
+                        {log.reason}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-          <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-            {selectedMilestone.notes || "Civil works progressing according to master construction schedule."}
-          </p>
+            {generalNotes && (
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                {generalNotes}
+              </p>
+            )}
 
-          <div className="flex flex-wrap items-center justify-between text-[11px] font-mono text-neutral-400 pt-1 border-t border-neutral-200/60 dark:border-white/5">
-            <span>Target Completion: {selectedMilestone.target_date || "TBD"}</span>
-            <span>Weight Contribution: {selectedMilestone.weight || 20}%</span>
+            <div className="flex flex-wrap items-center justify-between text-[11px] font-mono text-neutral-400 pt-1 border-t border-neutral-200/60 dark:border-white/5">
+              <span>Target Completion: {selectedMilestone.target_date || "TBD"}</span>
+              <span>Weight Contribution: {selectedMilestone.weight || 20}%</span>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

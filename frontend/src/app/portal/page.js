@@ -59,12 +59,13 @@ import PortalProjectSpecsCard from "@/modules/portal/components/PortalProjectSpe
 import PortalLiveTimeline from "@/modules/portal/components/PortalLiveTimeline";
 import PortalSiteGallerySection from "@/modules/portal/components/PortalSiteGallerySection";
 import PortalBillingLedgerSection from "@/modules/portal/components/PortalBillingLedgerSection";
+import Snackbar from "@/modules/shared/Snackbar";
 import PortalMobileBottomNav from "@/modules/portal/components/PortalMobileBottomNav";
 import PortalEmptyState from "@/modules/portal/components/PortalEmptyState";
 import PortalPhase1PreInquiry from "@/modules/portal/components/stages/PortalPhase1PreInquiry";
 import PortalStage2PlanningAndConsultation from "@/modules/portal/components/stages/PortalStage2PlanningAndConsultation";
-import PortalPhase4Execution from "@/modules/portal/components/stages/PortalPhase4Execution";
-import PortalPhase5Wrapped from "@/modules/portal/components/stages/PortalPhase5Wrapped";
+import PortalStage3Execution from "@/modules/portal/components/stages/PortalStage3Execution";
+import PortalStage4FinishedProject from "@/modules/portal/components/stages/PortalStage4FinishedProject";
 import MultiProjectRequestModal from "@/modules/portal/components/MultiProjectRequestModal";
 import SingleInquiryPolicyModal from "@/modules/shared/SingleInquiryPolicyModal";
 import { evaluateSingleInquiryPolicy } from "@/modules/shared/inquiryPolicyHelper";
@@ -166,7 +167,7 @@ function ClientPortalContent() {
   // Modal & Toast states
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
   const [activePortalCallRoom, setActivePortalCallRoom] = useState(null);
-  const [toastMessage, setToastMessage] = useState("");
+  const [toast, setToast] = useState(null);
   const [isUploadingPfp, setIsUploadingPfp] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
 
@@ -199,10 +200,7 @@ function ClientPortalContent() {
 
   const isGoogleAccount = Boolean(
     currentUser?.authProvider === "google" ||
-    currentUser?.auth_provider === "google" ||
-    currentUser?.email?.toLowerCase().endsWith("@gmail.com") ||
-    currentUser?.avatarUrl?.includes("googleusercontent.com") ||
-    currentUser?.avatar_url?.includes("googleusercontent.com")
+    currentUser?.auth_provider === "google"
   );
 
   // If user previously had messages active, gracefully fall back to overview
@@ -212,9 +210,16 @@ function ClientPortalContent() {
     }
   }, [portalTab]);
 
-  const showToast = useCallback((msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(""), 4000);
+  const showToast = useCallback((msg, explicitType = null) => {
+    if (!msg) return;
+    const messageStr = typeof msg === "string" ? msg : (msg?.message || String(msg));
+    setToast({
+      id: Date.now() + Math.random(),
+      message: messageStr,
+      type: explicitType || (typeof msg === "object" ? msg?.type : null),
+      title: typeof msg === "object" ? msg?.title : undefined,
+      duration: typeof msg === "object" && msg?.duration ? msg.duration : 4000,
+    });
   }, []);
 
   // Sync theme on mount and listen to changes
@@ -615,7 +620,7 @@ function ClientPortalContent() {
       total: 4,
       title: "Handover & Completed",
       shortLabel: "Stage 4",
-      tagline: "Wrapped & Warranty",
+      tagline: "Finished Project & Wrapped",
       badgeStyle: "bg-amber-500/15 text-amber-500 border-amber-500/30",
       progressPct: 100,
     },
@@ -641,7 +646,7 @@ function ClientPortalContent() {
           upcoming: [
             { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 3 (Active Build)", unlockBadge: "Stage 3" },
             { id: "gallery", label: "Live Drone & Webcam", icon: Camera, unlockStage: "Stage 3 (Active Build)", unlockBadge: "Stage 3" },
-            { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 4 (Completed)", unlockBadge: "Stage 4" },
+            { id: "wrapped", label: "Finished Project & Wrapped", icon: Sparkles, unlockStage: "Stage 4 (Completed)", unlockBadge: "Stage 4" },
           ],
         };
 
@@ -659,16 +664,17 @@ function ClientPortalContent() {
             { id: "inquiries", label: "Inquiries Record", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [
-            { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 4 (Completed)", unlockBadge: "Stage 4" },
+            { id: "wrapped", label: "Finished Project & Wrapped", icon: Sparkles, unlockStage: "Stage 4 (Completed)", unlockBadge: "Stage 4" },
           ],
         };
 
       case "COMPLETED":
         return {
           active: [
-            { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+            { id: "overview", label: "Finished Project", icon: LayoutDashboard },
+            { id: "wrapped", label: "Project Wrapped", icon: Sparkles },
             { id: "gallery", label: "Project Photo Vault", icon: Camera, badge: sitePhotos.length > 0 ? sitePhotos.length : undefined },
-            { id: "billing", label: "Billing & Warranty", icon: CreditCard, badge: billingLedger.length > 0 ? billingLedger.length : undefined },
+            { id: "billing", label: "Billing & Receipts", icon: CreditCard, badge: billingLedger.length > 0 ? billingLedger.length : undefined },
             { id: "inquiries", label: "Inquiries / New Build", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
           ],
           upcoming: [],
@@ -679,7 +685,7 @@ function ClientPortalContent() {
         return {
           active: [
             { id: "overview", label: "Dashboard", icon: LayoutDashboard },
-            { id: "inquiries", label: "Inquiries Pipeline", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
+            { id: "inquiries", label: "Inquiries", icon: FolderKanban, badge: inquiries.length > 0 ? inquiries.length : undefined },
             { id: "portfolio", label: "Projects", icon: Building, sectionHeader: "SHOWCASE" },
             { id: "services", label: "Services", icon: Hammer },
             { id: "process", label: "Process", icon: ListChecks },
@@ -687,7 +693,7 @@ function ClientPortalContent() {
           upcoming: [
             { id: "consultation", label: "Consultation & Planning", icon: CalendarCheck, unlockStage: "Stage 2 (Inquiry Approved)", unlockBadge: "Stage 2" },
             { id: "construction", label: "Site Execution", icon: Building, unlockStage: "Stage 3 (Active Build)", unlockBadge: "Stage 3" },
-            { id: "wrapped", label: "Project Wrapped & Warranty", icon: Sparkles, unlockStage: "Stage 4 (Completed)", unlockBadge: "Stage 4" },
+            { id: "wrapped", label: "Finished Project & Wrapped", icon: Sparkles, unlockStage: "Stage 4 (Completed)", unlockBadge: "Stage 4" },
           ],
         };
     }
@@ -790,21 +796,16 @@ function ClientPortalContent() {
   const isGoogleUser = Boolean(
     currentUser?.provider === "google" ||
     currentUser?.authProvider === "google" ||
-    currentUser?.auth_provider === "google" ||
-    (currentUser?.avatarUrl && currentUser.avatarUrl.includes("googleusercontent.com")) ||
-    (currentUser?.avatar_url && currentUser.avatar_url.includes("googleusercontent.com")) ||
-    (currentUser?.email && currentUser.email.toLowerCase().endsWith("@gmail.com"))
+    currentUser?.auth_provider === "google"
   );
 
   return (
     <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex font-sans transition-colors duration-300">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 px-4 py-2.5 rounded-[12px] bg-amber-500 text-neutral-950 font-bold text-xs shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
-          <Check className="w-4 h-4 shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      {/* World-Class Bottom-Right Architectural Snackbar */}
+      <Snackbar
+        toast={toast}
+        onClose={() => setToast(null)}
+      />
 
       {/* Logout Confirmation Modal */}
       {isLogoutConfirmOpen && (
@@ -1279,7 +1280,7 @@ function ClientPortalContent() {
                   billingLedger={billingLedger}
                 />
               ) : dashboardState?.stage_id === "ACTIVE_BUILD" ? (
-                <PortalPhase4Execution
+                <PortalStage3Execution
                   mode="overview"
                   activeProject={dashboardState.activeProject}
                   currentUser={currentUser}
@@ -1290,9 +1291,10 @@ function ClientPortalContent() {
                   billingLedger={billingLedger}
                   sitePhotos={sitePhotos}
                   siteProject={siteProject}
+                  siteMilestones={siteMilestones}
                 />
               ) : dashboardState?.stage_id === "COMPLETED" ? (
-                <PortalPhase5Wrapped
+                <PortalStage4FinishedProject
                   mode="overview"
                   activeProject={dashboardState.activeProject}
                   currentUser={currentUser}
@@ -1315,6 +1317,23 @@ function ClientPortalContent() {
                   inquiries={inquiries}
                 />
               )}
+            </div>
+          )}
+
+          {/* DEDICATED WRAPPED TAB (STAGE 4) */}
+          {portalTab === "wrapped" && (
+            <div className="space-y-6">
+              <PortalStage4FinishedProject
+                mode="wrapped"
+                activeProject={dashboardState?.activeProject}
+                currentUser={currentUser}
+                showToast={showToast}
+                onStartInquiry={handleStartInquiryClick}
+                onSelectTab={(tab) => setPortalTab(tab)}
+                inquiries={inquiries}
+                billingLedger={billingLedger}
+                sitePhotos={sitePhotos}
+              />
             </div>
           )}
 
@@ -1508,6 +1527,7 @@ function ClientPortalContent() {
               <PortalBillingLedgerSection
                 billing={billingLedger}
                 projectCode={siteProject?.project_code || "PRJ-ACTIVE"}
+                showToast={showToast}
                 onProofUploaded={() => {
                   if (currentUser?.email) {
                     fetchClientData(currentUser.email);
@@ -1538,7 +1558,7 @@ function ClientPortalContent() {
               ) : inquiries.length === 0 ? (
                 <PortalEmptyState
                   type="messages"
-                  badge="Inquiry Pipeline"
+                  badge="Inquiries"
                   title="No Active Consultation Inquiries"
                   description="Submit your architectural brief to start your design consultation with MCPA engineers."
                   actionButton={
@@ -1786,7 +1806,7 @@ function ClientPortalContent() {
                             title="Download Official Architectural Brief Dossier PDF"
                           >
                             <FileText className="w-3.5 h-3.5 text-amber-500" />
-                            <span>Download Dossier PDF</span>
+                            <span>Download PDF</span>
                           </a>
                         </div>
                       </div>

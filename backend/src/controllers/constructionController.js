@@ -1,5 +1,60 @@
 const db = require("../services/dbFailoverEngine");
 const storage = require("../services/storageService");
+const stageEngineService = require("../services/stageEngineService");
+const { ensureStage4Schema } = require("../services/stage4Schema");
+
+/**
+ * Checks whether a given target turnover date string has arrived (date <= today).
+ */
+function isDateReached(dateStr) {
+  if (!dateStr) return false;
+  const target = new Date(dateStr);
+  if (isNaN(target.getTime())) return false;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  return targetDay <= today;
+}
+
+/**
+ * Checks whether a given target turnover date string is strictly today (same calendar day).
+ */
+function isDateToday(dateStr) {
+  if (!dateStr) return false;
+  const target = new Date(dateStr);
+  if (isNaN(target.getTime())) return false;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  return targetDay.getTime() === today.getTime();
+}
+
+/**
+ * Formats a date string nicely (e.g. "Oct 24, 2026").
+ */
+function formatTurnoverDate(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/**
+ * Returns the count of completion-tagged photo logs for a project.
+ */
+async function getCompletionMediaCount(projectCode) {
+  if (!projectCode) return 0;
+  try {
+    const result = await db.query(
+      "SELECT COUNT(*) AS count FROM site_photo_logs WHERE project_code = $1 AND category = 'completion'",
+      [projectCode]
+    );
+    return parseInt(result.rows[0]?.count || 0, 10);
+  } catch (err) {
+    console.warn(`[getCompletionMediaCount] Query warning for ${projectCode}:`, err.message);
+    return 0;
+  }
+}
 
 class ConstructionController {
   // 1. SITE PROJECTS
@@ -17,7 +72,10 @@ class ConstructionController {
             COALESCE(u.full_name, sp.client_name) AS client_name,
             COALESCE(u.email, sp.client_email) AS client_email,
             COALESCE(cp.project_title, sp.name) AS project_title,
-            cp.stage_id
+            cp.stage_id,
+            COALESCE(cp.client_project_id, sp.client_project_id) AS client_project_id,
+            cp.groundbreaking_date,
+            cp.groundbreaking_status
            FROM site_projects sp
            LEFT JOIN client_projects cp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
            LEFT JOIN users u ON sp.user_id = u.user_id OR cp.user_id = u.user_id OR LOWER(u.email) = LOWER(sp.client_email)
@@ -32,7 +90,10 @@ class ConstructionController {
             COALESCE(u.full_name, sp.client_name) AS client_name,
             COALESCE(u.email, sp.client_email) AS client_email,
             COALESCE(cp.project_title, sp.name) AS project_title,
-            cp.stage_id
+            cp.stage_id,
+            COALESCE(cp.client_project_id, sp.client_project_id) AS client_project_id,
+            cp.groundbreaking_date,
+            cp.groundbreaking_status
            FROM site_projects sp
            LEFT JOIN client_projects cp ON sp.client_project_id = cp.client_project_id OR sp.project_code = cp.site_project_code
            LEFT JOIN users u ON sp.user_id = u.user_id OR cp.user_id = u.user_id OR LOWER(u.email) = LOWER(sp.client_email)
@@ -49,7 +110,10 @@ class ConstructionController {
             COALESCE(u.full_name, sp.client_name) AS client_name,
             COALESCE(u.email, sp.client_email) AS client_email,
             COALESCE(cp.project_title, sp.name) AS project_title,
-            cp.stage_id
+            cp.stage_id,
+            COALESCE(cp.client_project_id, sp.client_project_id) AS client_project_id,
+            cp.groundbreaking_date,
+            cp.groundbreaking_status
            FROM site_projects sp
            LEFT JOIN client_projects cp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
            LEFT JOIN users u ON sp.user_id = u.user_id OR cp.user_id = u.user_id OR LOWER(u.email) = LOWER(sp.client_email)
@@ -65,13 +129,36 @@ class ConstructionController {
           photos: [],
           billing: [],
           delays: [],
-          warranty: [],
           expenses: [],
         });
       }
 
       const activeProject = projRes.rows[0];
       const code = activeProject.project_code;
+
+      // Automatically advance to Stage 4 (COMPLETED) if scheduled turnover date has arrived, progress is >= 90%, and at least 3 completion photos exist
+      if (activeProject.stage_id === "ACTIVE_BUILD" && (activeProject.progress_pct || 0) >= 90) {
+        const targetTurnover = activeProject.revised_turnover || activeProject.original_turnover;
+        if (targetTurnover && isDateReached(targetTurnover)) {
+          const completionCount = await getCompletionMediaCount(code);
+          if (completionCount < 3) {
+            console.warn(`[getProject] Auto-advance held for ${code}: Only ${completionCount}/3 completion photos uploaded.`);
+          } else {
+            try {
+              await stageEngineService.advanceProjectStage({
+                projectId: activeProject.client_project_id || activeProject.project_code,
+                targetStage: "COMPLETED",
+                reason: `Automated turnover transition: Scheduled date (${targetTurnover}) reached with ${activeProject.progress_pct}% accomplishment and ${completionCount} verified completion photos.`,
+              });
+              activeProject.stage_id = "COMPLETED";
+              activeProject.progress_pct = 100;
+              activeProject.status = "Completed & Handover";
+            } catch (autoErr) {
+              console.warn(`[getProject] Auto-advance notice for ${code}:`, autoErr.message);
+            }
+          }
+        }
+      }
 
       const milestonesRes = await db.query(
         "SELECT * FROM site_milestones WHERE project_code = $1 ORDER BY phase_code ASC",
@@ -89,10 +176,6 @@ class ConstructionController {
         "SELECT * FROM delay_events WHERE project_code = $1 ORDER BY event_id DESC",
         [code]
       );
-      const warrantyRes = await db.query(
-        "SELECT * FROM warranty_tickets WHERE project_code = $1 ORDER BY reported_at DESC",
-        [code]
-      );
       const expensesRes = await db.query(
         "SELECT * FROM expenses_ocr WHERE project_code = $1 ORDER BY expense_id DESC",
         [code]
@@ -105,7 +188,6 @@ class ConstructionController {
         photos: photosRes.rows || [],
         billing: billingRes.rows || [],
         delays: delaysRes.rows || [],
-        warranty: warrantyRes.rows || [],
         expenses: expensesRes.rows || [],
       });
     } catch (err) {
@@ -160,7 +242,7 @@ class ConstructionController {
   // 3. ADD PHOTO LOG / MULTI-MEDIA PROGRESS UPDATE
   async addPhotoLog(req, res) {
     try {
-      const { projectCode, title, caption, inspector, imageUrl, logDate, is360, mediaType, mediaItems } = req.body;
+      const { projectCode, title, caption, inspector, imageUrl, logDate, is360, mediaType, mediaItems, category } = req.body;
       if (!projectCode || !title) {
         return res.status(400).json({ message: "projectCode and title are required." });
       }
@@ -168,6 +250,20 @@ class ConstructionController {
       const resolvedLogDate = logDate || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
       const resolvedInspector = inspector || "Field Engineer";
       const resolvedCaption = caption || "";
+      const resolvedCategory = (category === "completion") ? "completion" : "progress";
+
+      // Stamp the build's current accomplishment on every log so Stage 4 can
+      // pick the >= 90% completion photos for the Showcase and Wrapped collages.
+      let resolvedProgress = null;
+      const explicitProgress = Number(req.body.progressPct);
+      if (Number.isFinite(explicitProgress) && req.body.progressPct !== "" && req.body.progressPct !== null) {
+        resolvedProgress = Math.max(0, Math.min(100, Math.round(explicitProgress)));
+      } else {
+        const progRes = await db.query("SELECT progress_pct FROM site_projects WHERE project_code = $1 LIMIT 1", [projectCode]);
+        const livePct = progRes.rows?.[0]?.progress_pct;
+        resolvedProgress = livePct === null || livePct === undefined ? null : Math.max(0, Math.min(100, Number(livePct)));
+      }
+      await ensureStage4Schema();
 
       // Support multi-media array if supplied
       if (Array.isArray(mediaItems) && mediaItems.length > 0) {
@@ -177,11 +273,12 @@ class ConstructionController {
           if (!itemUrl) continue;
           const itemMediaType = item.mediaType || (itemUrl.match(/\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i) ? "video" : "image");
           const itemIs360 = Boolean(item.is360);
+          const itemCategory = item.category || resolvedCategory;
 
           const r = await db.query(
-            `INSERT INTO site_photo_logs (project_code, title, caption, inspector, image_url, log_date, is_360, media_type)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-            [projectCode, title, resolvedCaption, resolvedInspector, itemUrl, resolvedLogDate, itemIs360, itemMediaType]
+            `INSERT INTO site_photo_logs (project_code, title, caption, inspector, image_url, log_date, is_360, media_type, progress_pct, category)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+            [projectCode, title, resolvedCaption, resolvedInspector, itemUrl, resolvedLogDate, itemIs360, itemMediaType, resolvedProgress, itemCategory]
           );
           if (r.rows[0]) insertedLogs.push(r.rows[0]);
         }
@@ -196,8 +293,8 @@ class ConstructionController {
       const resolvedMediaType = mediaType || (imageUrl.match(/\.(mp4|webm|mov|mkv|avi|m4v)(\?|$)/i) ? "video" : "image");
 
       const result = await db.query(
-        `INSERT INTO site_photo_logs (project_code, title, caption, inspector, image_url, log_date, is_360, media_type)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        `INSERT INTO site_photo_logs (project_code, title, caption, inspector, image_url, log_date, is_360, media_type, progress_pct, category)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [
           projectCode,
           title,
@@ -207,6 +304,8 @@ class ConstructionController {
           resolvedLogDate,
           Boolean(is360),
           resolvedMediaType,
+          resolvedProgress,
+          resolvedCategory,
         ]
       );
 
@@ -348,52 +447,6 @@ class ConstructionController {
     }
   }
 
-  // 7. WARRANTY TICKETS
-  async submitWarrantyTicket(req, res) {
-    try {
-      const { projectCode, clientEmail, category, description, photoUrl } = req.body;
-      if (!projectCode || !category || !description) {
-        return res.status(400).json({ message: "Project code, category, and description are required." });
-      }
-
-      const ticketId = `TKT-${Date.now().toString().slice(-6)}`;
-      const result = await db.query(
-        `INSERT INTO warranty_tickets (ticket_id, project_code, client_email, category, description, photo_url, status)
-         VALUES ($1, $2, $3, $4, $5, $6, 'Open') RETURNING *`,
-        [ticketId, projectCode, clientEmail || "client@mcpa.com", category, description, photoUrl || null]
-      );
-
-      return res.status(201).json({
-        success: true,
-        ticket: result.rows[0],
-        message: `Warranty ticket ${ticketId} created. Technical repair team assigned.`,
-      });
-    } catch (err) {
-      console.error("[ConstructionController.submitWarrantyTicket] Error:", err);
-      return res.status(500).json({ message: "Failed to submit warranty ticket: " + err.message });
-    }
-  }
-
-  async updateWarrantyStatus(req, res) {
-    try {
-      const { ticketId } = req.params;
-      const { status } = req.body;
-      const resolvedAt = status === "Resolved" ? new Date() : null;
-
-      const result = await db.query(
-        `UPDATE warranty_tickets 
-         SET status = $1, resolved_at = COALESCE($2, resolved_at)
-         WHERE ticket_id = $3 RETURNING *`,
-        [status, resolvedAt, ticketId]
-      );
-
-      return res.json({ success: true, ticket: result.rows[0], message: `Ticket status updated to ${status}.` });
-    } catch (err) {
-      console.error("[ConstructionController.updateWarrantyStatus] Error:", err);
-      return res.status(500).json({ message: "Failed to update warranty status: " + err.message });
-    }
-  }
-
   // 8. OCR EXPENSES LOGGING
   async logOcrExpense(req, res) {
     try {
@@ -431,6 +484,8 @@ class ConstructionController {
           COALESCE(cp.target_location, sp.location) AS target_location,
           cp.stage_id,
           cp.created_at,
+          cp.groundbreaking_date,
+          cp.groundbreaking_status,
           u.user_id,
           COALESCE(u.full_name, sp.client_name, 'Client') AS client_name,
           COALESCE(u.email, sp.client_email, 'No email') AS client_email,
@@ -462,9 +517,36 @@ class ConstructionController {
         FROM public.client_projects cp
         LEFT JOIN public.users u ON cp.user_id = u.user_id
         LEFT JOIN public.site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id OR sp.project_code = cp.site_project_code
-        WHERE cp.stage_id = 'ACTIVE_BUILD' AND (cp.is_archived IS FALSE OR cp.is_archived IS NULL)
-        ORDER BY cp.client_project_id DESC`
+        WHERE cp.stage_id IN ('ACTIVE_BUILD', 'COMPLETED') AND (cp.is_archived IS FALSE OR cp.is_archived IS NULL)
+        ORDER BY CASE WHEN cp.stage_id = 'ACTIVE_BUILD' THEN 1 ELSE 2 END, cp.client_project_id DESC`
       );
+
+      // Auto-advance any project where scheduled turnover date has arrived, progress is >= 90%, and at least 3 completion photos exist
+      if (result.rows && result.rows.length > 0) {
+        for (const row of result.rows) {
+          if (row.stage_id === "ACTIVE_BUILD" && (row.progress_pct || 0) >= 90) {
+            const tDate = row.revised_turnover || row.original_turnover;
+            if (tDate && isDateReached(tDate)) {
+              const compCount = await getCompletionMediaCount(row.project_code);
+              if (compCount < 3) {
+                console.warn(`[getStage3Projects] Auto-advance held for ${row.project_code}: Only ${compCount}/3 completion photos uploaded.`);
+                continue;
+              }
+              try {
+                await stageEngineService.advanceProjectStage({
+                  projectId: row.client_project_id,
+                  targetStage: "COMPLETED",
+                  reason: `Automated turnover transition: Scheduled date (${tDate}) reached with ${row.progress_pct}% accomplishment and ${compCount} verified completion photos.`,
+                });
+                row.stage_id = "COMPLETED";
+                row.progress_pct = 100;
+              } catch (autoErr) {
+                console.warn(`[getStage3Projects] Auto-advance error for ${row.project_code}:`, autoErr.message);
+              }
+            }
+          }
+        }
+      }
 
       return res.json({
         success: true,
@@ -598,6 +680,171 @@ class ConstructionController {
     } catch (err) {
       console.error("[ConstructionController.getProjectExpenses] Error:", err);
       return res.status(500).json({ success: false, message: "Failed to fetch expenses: " + err.message });
+    }
+  }
+
+  // 15. UPDATE TURNOVER SCHEDULE OR EXECUTE IMMEDIATE TURNOVER (STAGE 4)
+  async updateTurnoverSchedule(req, res) {
+    try {
+      const code = req.params.code || req.body.projectCode;
+      const { turnoverDate, notes, venue, action } = req.body || {};
+      const adminUserId = req.user?.userId || req.user?.user_id;
+
+      if (!code) {
+        return res.status(400).json({ success: false, message: "projectCode is required." });
+      }
+
+      // 1. Fetch current project & site details
+      const projRes = await db.query(
+        `SELECT cp.client_project_id, cp.project_code, cp.stage_id, cp.project_title,
+                sp.project_id, COALESCE(sp.progress_pct, 0) AS progress_pct,
+                sp.original_turnover, sp.revised_turnover, sp.status
+         FROM public.client_projects cp
+         LEFT JOIN public.site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
+         WHERE cp.project_code = $1 OR cp.client_project_id::text = $1 OR sp.project_code = $1
+         LIMIT 1`,
+        [code]
+      );
+
+      if (!projRes.rows || projRes.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "Project not found." });
+      }
+
+      const proj = projRes.rows[0];
+      const currentPct = parseInt(proj.progress_pct || 0, 10);
+
+      // Business Rule: Turnover is only unlocked once progress reaches at least 90%
+      if (currentPct < 90) {
+        return res.status(400).json({
+          success: false,
+          message: `Turnover cannot be scheduled or executed yet. A minimum of 90% project accomplishment is required (Current: ${currentPct}%).`,
+        });
+      }
+
+      // Completion Media Gate: At least 3 finished/completion photos must be uploaded
+      const completionCount = await getCompletionMediaCount(proj.project_code);
+      if (completionCount < 3) {
+        return res.status(400).json({
+          success: false,
+          message: `Turnover gate locked: At least 3 finished project photos must be uploaded under the 'completion' category before turnover can be scheduled or executed (Current: ${completionCount}/3).`,
+          completionMediaCount: completionCount,
+          completionMediaRequired: 3,
+        });
+      }
+
+      const isTurnoverNow = action === "turnover_now";
+
+      if (!isTurnoverNow && !turnoverDate) {
+        return res.status(400).json({ success: false, message: "Turnover date is required." });
+      }
+
+      let selectedDay = null;
+      let today = null;
+      if (turnoverDate) {
+        const targetDateObj = new Date(turnoverDate);
+        if (isNaN(targetDateObj.getTime())) {
+          return res.status(400).json({ success: false, message: "Invalid turnover date format." });
+        }
+        const now = new Date();
+        today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        selectedDay = new Date(targetDateObj.getFullYear(), targetDateObj.getMonth(), targetDateObj.getDate());
+
+        // Strict validation: Reject past dates when scheduling a date
+        if (!isTurnoverNow && selectedDay < today) {
+          return res.status(400).json({
+            success: false,
+            message: "Past dates cannot be selected for turnover. Please select today or a future date.",
+          });
+        }
+      }
+
+      const isScheduledForToday = Boolean(selectedDay && today && selectedDay.getTime() === today.getTime());
+
+      // Path A: Immediate Turn Over or Scheduled Date is strictly Today -> Promote to Stage 4 immediately
+      if (isTurnoverNow || isScheduledForToday) {
+        const advanced = await stageEngineService.advanceProjectStage({
+          projectId: proj.client_project_id,
+          targetStage: "COMPLETED",
+          adminUserId,
+          reason: isTurnoverNow
+            ? "100% Construction Accomplishment & Immediate Turnkey Handover to Stage 4"
+            : `Scheduled turnover date (${turnoverDate}) reached & formal ceremonial handover`,
+          metadata: {
+            turnoverDate: turnoverDate || new Date().toISOString().split("T")[0],
+            venue: venue || "On-site Build Site",
+            notes: notes || "Formal key turnover and project handover.",
+          },
+        });
+
+        const todayFormatted = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const resolvedTurnoverDate = turnoverDate ? formatTurnoverDate(turnoverDate) : todayFormatted;
+
+        await db.query(
+          `UPDATE public.site_projects
+           SET revised_turnover = COALESCE($1, revised_turnover, $2),
+               status = 'Completed & Handover',
+               progress_pct = 100
+           WHERE project_code = $3 OR client_project_id = $4`,
+          [resolvedTurnoverDate, todayFormatted, proj.project_code, proj.client_project_id]
+        );
+
+        return res.json({
+          success: true,
+          isStage4: true,
+          project: advanced,
+          revised_turnover: resolvedTurnoverDate,
+          message: "Project completed. Completion photos were synced to Showcase as a draft and the client's Wrapped is ready.",
+        });
+      }
+
+      // Path B: Scheduling or Rescheduling for a future date (selectedDay > today)
+      const formatted = formatTurnoverDate(turnoverDate);
+
+      await db.query(
+        `UPDATE public.site_projects
+         SET revised_turnover = $1,
+             original_turnover = COALESCE(original_turnover, $1)
+         WHERE project_code = $2 OR client_project_id = $3`,
+        [formatted, proj.project_code, proj.client_project_id]
+      );
+
+      return res.json({
+        success: true,
+        isStage4: false,
+        revised_turnover: formatted,
+        message: `Turnover ceremony successfully scheduled for ${formatted}. The project will automatically transition to Stage 4 on this date.`,
+      });
+    } catch (err) {
+      console.error("[ConstructionController.updateTurnoverSchedule] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to update turnover schedule: " + err.message });
+    }
+  }
+
+  // 16. GET COMPLETION MEDIA DOSSIER (STAGE 4 GATE & SHOWCASE)
+  async getCompletionMedia(req, res) {
+    try {
+      const code = req.params.code || req.query.projectCode;
+      if (!code) {
+        return res.status(400).json({ success: false, message: "projectCode is required." });
+      }
+
+      const result = await db.query(
+        "SELECT * FROM site_photo_logs WHERE project_code = $1 AND category = 'completion' ORDER BY log_id DESC",
+        [code]
+      );
+
+      const count = result.rows ? result.rows.length : 0;
+      return res.json({
+        success: true,
+        projectCode: code,
+        count,
+        required: 3,
+        isEligible: count >= 3,
+        media: result.rows || [],
+      });
+    } catch (err) {
+      console.error("[ConstructionController.getCompletionMedia] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to fetch completion media: " + err.message });
     }
   }
 }

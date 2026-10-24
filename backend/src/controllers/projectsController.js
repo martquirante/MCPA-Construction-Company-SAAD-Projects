@@ -1,6 +1,29 @@
 const db = require("../services/dbFailoverEngine");
 const storage = require("../services/storageService");
 
+/**
+ * Stage 4 auto-sync reuses the same cloud files that live in site_photo_logs
+ * (client progress photos) and project_wrapped (collage / before-after).
+ * A Showcase edit or delete must never remove a blob those records still point to.
+ */
+async function isReferencedByProgressRecords(url) {
+  try {
+    const logRef = await db.query("SELECT 1 FROM site_photo_logs WHERE image_url = $1 LIMIT 1", [url]);
+    if (logRef.rows.length > 0) return true;
+    const wrapRef = await db.query(
+      `SELECT 1 FROM project_wrapped
+        WHERE before_photo_url = $1 OR after_photo_url = $1 OR COALESCE(wrapped_payload::text, '') LIKE '%' || $1 || '%'
+        LIMIT 1`,
+      [url]
+    );
+    return wrapRef.rows.length > 0;
+  } catch (err) {
+    // If we cannot prove the file is unreferenced, keep it.
+    console.warn("[ProjectsController] Reference check failed, retaining file:", err.message);
+    return true;
+  }
+}
+
 class ProjectsController {
   async getAll(req, res) {
     try {
@@ -131,7 +154,7 @@ class ProjectsController {
                 "SELECT 1 FROM projects WHERE $1 = ANY(images) LIMIT 1",
                 [imgUrl]
               );
-              if (otherRef.rows.length === 0) {
+              if (otherRef.rows.length === 0 && !(await isReferencedByProgressRecords(imgUrl))) {
                 await storage.deleteFile(imgUrl, "portfolio");
               }
             } catch (storageErr) {
@@ -322,10 +345,10 @@ class ProjectsController {
                 "SELECT 1 FROM projects WHERE $1 = ANY(images) AND project_id != $2 LIMIT 1",
                 [imgUrl, targetProjectId]
               );
-              if (otherRef.rows.length === 0) {
+              if (otherRef.rows.length === 0 && !(await isReferencedByProgressRecords(imgUrl))) {
                 await storage.deleteFile(imgUrl, "portfolio");
               } else {
-                console.log(`[ProjectsController] Retaining image in cloud because another project references it: ${imgUrl}`);
+                console.log(`[ProjectsController] Retaining image in cloud because another record references it: ${imgUrl}`);
               }
             } catch (cleanErr) {
               console.warn(`[ProjectsController] Cloud cleanup warning for removed image ${imgUrl}:`, cleanErr.message);

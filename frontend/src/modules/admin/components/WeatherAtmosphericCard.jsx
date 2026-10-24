@@ -21,6 +21,41 @@ import {
   Calendar,
 } from "lucide-react";
 
+function getForecastSeverity(rainPercent, isAdverse) {
+  if (rainPercent >= 80) {
+    return {
+      card: "bg-rose-50/80 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-950 dark:text-rose-200 hover:border-rose-300 dark:hover:border-rose-400/50",
+      label: "text-rose-600 dark:text-rose-300",
+    };
+  }
+
+  if (rainPercent >= 60 || isAdverse) {
+    return {
+      card: "bg-orange-50/80 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-950 dark:text-orange-200 hover:border-orange-300 dark:hover:border-orange-400/50",
+      label: "text-orange-600 dark:text-orange-300",
+    };
+  }
+
+  if (rainPercent >= 40) {
+    return {
+      card: "bg-amber-50/80 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-950 dark:text-amber-200 hover:border-amber-300 dark:hover:border-amber-400/50",
+      label: "text-amber-600 dark:text-amber-300",
+    };
+  }
+
+  if (rainPercent >= 25) {
+    return {
+      card: "bg-sky-50/70 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-950 dark:text-sky-200 hover:border-sky-300 dark:hover:border-sky-400/50",
+      label: "text-sky-600 dark:text-sky-300",
+    };
+  }
+
+  return {
+    card: "bg-white/80 dark:bg-white/5 border-neutral-200/80 dark:border-white/10 text-neutral-800 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-white dark:hover:bg-white/[0.08]",
+    label: "text-neutral-600 dark:text-neutral-300",
+  };
+}
+
 /**
  * Mobile-grade Atmospheric Weather & 7-Day Engineering Outlook Card
  * Dynamically adapts between Light Theme (luminous daytime skies & frosted white glass)
@@ -354,13 +389,13 @@ export default function WeatherAtmosphericCard({
               {daily[0]?.maxTemp || "35°"} / {daily[0]?.minTemp || "25°"}
             </span>
             {isWindy && (
-              <span className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-teal-500/15 dark:bg-teal-500/20 border border-teal-500/30 dark:border-teal-400/30 text-teal-700 dark:text-teal-300">
+              <span className="inline-flex items-center gap-1 text-xs font-mono text-teal-700 dark:text-teal-300">
                 <Wind className="w-3 h-3" />
                 {current?.windSpeed || "11 km/h"}
               </span>
             )}
             {isHeavyRain && (
-              <span className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-rose-500/15 dark:bg-rose-500/25 border border-rose-500/30 dark:border-rose-400/40 text-rose-700 dark:text-rose-300 font-bold">
+              <span className="inline-flex items-center gap-1 text-xs font-mono text-rose-700 dark:text-rose-300 font-bold">
                 <Droplets className="w-3 h-3" />
                 Heavy Precipitation
               </span>
@@ -373,16 +408,16 @@ export default function WeatherAtmosphericCard({
           <div
             className={`p-4 rounded-[14px] backdrop-blur-md border transition-all ${
               isAdverse
-                ? "bg-rose-50/90 dark:bg-rose-950/40 border-rose-300/80 dark:border-rose-500/40 text-rose-950 dark:text-rose-100 shadow-xs"
-                : "bg-emerald-50/90 dark:bg-emerald-950/30 border-emerald-300/80 dark:border-emerald-500/30 text-emerald-950 dark:text-emerald-100 shadow-xs"
+                ? "bg-rose-100/20 dark:bg-rose-950/15 border-rose-300/70 dark:border-rose-500/40 text-rose-950 dark:text-rose-100 shadow-xs"
+                : "bg-emerald-100/20 dark:bg-emerald-950/15 border-emerald-300/70 dark:border-emerald-500/35 text-emerald-950 dark:text-emerald-100 shadow-xs"
             }`}
           >
             <div className="flex items-start gap-3">
               <div
                 className={`p-2 rounded-[8px] shrink-0 mt-0.5 ${
                   isAdverse
-                    ? "bg-rose-500/20 text-rose-700 dark:text-rose-400"
-                    : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                    ? "text-rose-700 dark:text-rose-400"
+                    : "text-emerald-700 dark:text-emerald-400"
                 }`}
               >
                 {isAdverse ? <ShieldAlert className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
@@ -390,10 +425,10 @@ export default function WeatherAtmosphericCard({
               <div className="space-y-1 text-xs">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
-                    className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
                       isAdverse
-                        ? "bg-rose-500/20 text-rose-800 dark:text-rose-300"
-                        : "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300"
+                        ? "text-rose-800 dark:text-rose-300"
+                        : "text-emerald-800 dark:text-emerald-300"
                     }`}
                   >
                     {advisory.level || (isAdverse ? "SAFETY WARNING" : "OPTIMAL WINDOW")}
@@ -427,6 +462,7 @@ export default function WeatherAtmosphericCard({
               const maxNum = parseInt(day.maxTemp, 10) || 32;
               const minNum = parseInt(day.minTemp, 10) || 24;
               const rainPercent = parseInt(day.rainProbability, 10) || 0;
+              const severity = getForecastSeverity(rainPercent, day.isAdverse);
               const isToday = idx === 0;
               const isTomorrow = idx === 1;
 
@@ -450,18 +486,16 @@ export default function WeatherAtmosphericCard({
                 <div
                   key={day.date || idx}
                   className={`p-3 rounded-[12px] border transition-all text-center flex flex-col justify-between ${
-                    day.isAdverse
-                      ? "bg-rose-50/80 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-950 dark:text-rose-200 hover:border-rose-300 dark:hover:border-rose-400/50"
-                      : isToday
-                      ? "bg-amber-50/90 dark:bg-white/15 border-amber-300/80 dark:border-white/25 shadow-xs"
-                      : "bg-white/80 dark:bg-white/5 border-neutral-200/80 dark:border-white/10 text-neutral-800 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-white dark:hover:bg-white/[0.08]"
+                    isToday && rainPercent < 40
+                      ? `${severity.card} shadow-xs`
+                      : severity.card
                   }`}
                 >
                   {/* Day Header */}
                   <div>
                     <span
                       className={`block text-[11px] font-mono font-bold uppercase truncate ${
-                        isToday ? "text-amber-600 dark:text-amber-400" : "text-neutral-600 dark:text-neutral-300"
+                        severity.label
                       }`}
                     >
                       {dayLabel}
@@ -498,14 +532,10 @@ export default function WeatherAtmosphericCard({
                     {/* Rain Probability Pill */}
                     <div className="flex items-center justify-center gap-1 text-[10px] font-mono">
                       <Droplets
-                        className={`w-3 h-3 ${rainPercent >= 50 ? "text-rose-500 dark:text-rose-400" : "text-sky-500 dark:text-sky-300"}`}
+                        className={`w-3 h-3 ${severity.label}`}
                       />
                       <span
-                        className={`font-semibold ${
-                          rainPercent >= 50
-                            ? "text-rose-600 dark:text-rose-300"
-                            : "text-neutral-600 dark:text-neutral-300"
-                        }`}
+                        className={`font-semibold ${severity.label}`}
                       >
                         {day.rainProbability}
                       </span>

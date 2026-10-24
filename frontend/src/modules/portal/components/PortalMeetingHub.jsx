@@ -45,7 +45,6 @@ import { getMeetingLifecycleState } from "@/modules/portal/utils/meetingTiming";
 import VenueCombobox from "@/modules/book/components/VenueCombobox";
 import { io } from "socket.io-client";
 import { getSignalingServerUrl } from "@/modules/portal/utils/signalingUrl";
-import { GoogleIcon } from "@/modules/shared/Icons";
 import {
   getConsultationHistory,
   fetchConsultationHistoryFromCloud,
@@ -754,7 +753,7 @@ export default function PortalMeetingHub({
               href="https://maps.app.goo.gl/hPB6X66NdhViSvCp7"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 rounded-[4px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+              className="px-4 py-2 rounded-[4px] text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer"
             >
               <MapPin className="w-3.5 h-3.5" />
               <span>View Venue &amp; Directions</span>
@@ -882,7 +881,7 @@ export default function PortalMeetingHub({
                     href="https://maps.app.goo.gl/hPB6X66NdhViSvCp7"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-4 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer"
+                    className="px-4 py-2 rounded-lg text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer"
                   >
                     <MapPin className="w-4 h-4" />
                     <span>View Venue &amp; Directions</span>
@@ -991,7 +990,7 @@ export default function PortalMeetingHub({
                 ) : null
               ) : (
                 /* Face-to-Face Meeting Details */
-                <div className="p-4 rounded-[8px] bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 space-y-3">
+                <div className="p-4 rounded-[8px] border border-emerald-500/20 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono uppercase text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1.5">
                       <Building className="w-3.5 h-3.5" />
@@ -1054,12 +1053,6 @@ export default function PortalMeetingHub({
                   >
                     RQ
                   </div>
-                  <span
-                    className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shadow-xs"
-                    title="Verified Google Account"
-                  >
-                    <GoogleIcon className="w-2.5 h-2.5" />
-                  </span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -1102,7 +1095,7 @@ export default function PortalMeetingHub({
                 )
               ) : (
                 <div className="pt-3 border-t border-neutral-200 dark:border-white/10 space-y-2">
-                  <div className="p-2.5 rounded-[6px] bg-emerald-500/10 border border-emerald-500/20 text-xs font-sans text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                  <div className="p-2.5 rounded-[6px] border border-emerald-500/20 text-xs font-sans text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                     <span>
                       {activeMeetingInfo.attendanceConfirmed
@@ -1125,7 +1118,7 @@ export default function PortalMeetingHub({
           {/* Section Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200 dark:border-white/10">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs">
+              <div className="p-2 text-amber-600 dark:text-amber-400">
                 <Archive className="w-4 h-4" />
               </div>
               <div>
@@ -1158,13 +1151,17 @@ export default function PortalMeetingHub({
                   onClick={() => setHistoryFilter(tab.key)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                     historyFilter === tab.key
-                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-xs"
+                      ? "bg-amber-400 text-neutral-950 border border-amber-400 shadow-xs"
                       : "bg-neutral-100 hover:bg-neutral-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-neutral-600 dark:text-neutral-400 border border-neutral-200/70 dark:border-white/5"
                   }`}
                 >
                   {tab.icon}
                   <span>{tab.label}</span>
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-neutral-200 dark:bg-white/10 text-neutral-700 dark:text-neutral-300">
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    historyFilter === tab.key
+                      ? "bg-black/10 text-neutral-950"
+                      : "bg-neutral-200 dark:bg-white/10 text-neutral-700 dark:text-neutral-300"
+                  }`}>
                     {tab.count}
                   </span>
                 </button>
@@ -1276,10 +1273,10 @@ export default function PortalMeetingHub({
                             <span
                               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
                                 isInstant
-                                  ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20"
+                                    ? "text-cyan-600 dark:text-cyan-400"
                                   : isSched
-                                  ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
-                                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                    ? "text-indigo-600 dark:text-indigo-400"
+                                    : "text-emerald-600 dark:text-emerald-400"
                               }`}
                             >
                               {isInstant ? (
@@ -1426,7 +1423,7 @@ export default function PortalMeetingHub({
                         <span className="text-xs font-mono font-bold text-neutral-800 dark:text-neutral-200">
                           {item.displayDate}
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400">
                           <Clock className="w-3 h-3 text-amber-500" />
                           <span>{item.duration || "< 1 min"}</span>
                         </span>
@@ -1434,12 +1431,12 @@ export default function PortalMeetingHub({
 
                       <div className="flex items-center justify-between gap-2">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
+                          className={`inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider ${
                             isInstant
-                              ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20"
+                              ? "text-cyan-600 dark:text-cyan-400"
                               : isSched
-                              ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
-                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                              ? "text-indigo-600 dark:text-indigo-400"
+                              : "text-emerald-600 dark:text-emerald-400"
                           }`}
                         >
                           {isInstant ? (

@@ -141,7 +141,7 @@ export default function ProjectCard({ project, onInquire, onDelete, onOpenDetail
 
         {/* Category — quiet label, no pill */}
         {project.category && !statusInfo && (
-          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-900 dark:text-white drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)] dark:drop-shadow-[0_1px_2px_rgba(0,0,0,0.65)]">
             {project.category}
           </span>
         )}

@@ -1059,9 +1059,7 @@ export default function InquiryPipelineTab({
               const clientAvatar = resolveClientAvatar(brief);
               const isGoogle =
                 brief.authProvider === "google" ||
-                brief.auth_provider === "google" ||
-                brief.clientEmail?.toLowerCase().endsWith("@gmail.com") ||
-                (clientAvatar && clientAvatar.includes("googleusercontent"));
+                brief.auth_provider === "google";
 
               return (
                 <div
@@ -1228,9 +1226,7 @@ export default function InquiryPipelineTab({
               const clientAvatar = resolveClientAvatar(brief);
               const isGoogle =
                 brief.authProvider === "google" ||
-                brief.auth_provider === "google" ||
-                brief.clientEmail?.toLowerCase().endsWith("@gmail.com") ||
-                (clientAvatar && clientAvatar.includes("googleusercontent"));
+                brief.auth_provider === "google";
 
               return (
                 <div
@@ -1486,9 +1482,7 @@ export default function InquiryPipelineTab({
                 const modalAvatar = resolveClientAvatar(selectedBrief);
                 const isGoogleAccount =
                   selectedBrief.authProvider === "google" ||
-                  selectedBrief.auth_provider === "google" ||
-                  selectedBrief.clientEmail?.toLowerCase().endsWith("@gmail.com") ||
-                  (modalAvatar && modalAvatar.includes("googleusercontent"));
+                  selectedBrief.auth_provider === "google";
 
                 // Clean formatting helpers
                 const rawProjectType = selectedBrief.projectType || "";
@@ -2018,8 +2012,8 @@ export default function InquiryPipelineTab({
                               },
                               {
                                 id: "COMPLETED",
-                                name: "Stage 4: Completed & Wrapped",
-                                desc: "100% turnkey completion: Construction Wrapped, before/after slider, and digital 15-year warranty vault.",
+                                name: "Stage 4: Finished Project & Wrapped",
+                                desc: "Completion: full inquiry-to-handover record, 90%+ photos synced to Showcase, and the client's Wrapped story.",
                               },
                             ].map((stage) => {
                               const currentRaw = resolveBriefCurrentStage(selectedBrief);

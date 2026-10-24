@@ -15,6 +15,7 @@ import {
   Send,
 } from "lucide-react";
 import Stage3CustomerSelector from "./Stage3CustomerSelector";
+import AdminEmptyState from "./AdminEmptyState";
 import WeatherAtmosphericCard from "./WeatherAtmosphericCard";
 
 export default function DelayManagementTab({
@@ -189,15 +190,16 @@ export default function DelayManagementTab({
       </div>
 
       {!project ? (
-        <div className="p-12 text-center rounded-[8px] bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-xs space-y-2">
-          <Clock className="w-8 h-8 text-neutral-400 mx-auto" />
-          <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-            No Stage 3 Client Project Selected
-          </h3>
-          <p className="text-xs text-neutral-500 max-w-md mx-auto font-mono">
-            Select a project above to inspect real-time weather telemetry, evaluate safety advisories, and manage critical path milestone schedule adjustments.
-          </p>
-        </div>
+        <AdminEmptyState
+          variant="card"
+          iconSrc="https://cdn.lordicon.com/kbtmbyzy.json"
+          fallback={Clock}
+          size={104}
+          colors="primary:#f59e0b,secondary:#64748b"
+          badgeText="Stage 3 • Schedule & Telemetry"
+          title="No Stage 3 Client Project Selected"
+          description="Select a project above to inspect real-time weather telemetry, evaluate safety advisories, and manage critical path milestone schedule adjustments."
+        />
       ) : (
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* 2. REAL-TIME WEATHER INTELLIGENCE CARD (OPEN-METEO FREE API) */}
