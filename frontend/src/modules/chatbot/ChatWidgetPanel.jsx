@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { io } from "socket.io-client";
+import { getSignalingServerUrl } from "../portal/utils/signalingUrl";
 import { useLanguage } from "../shared/LanguageContext";
 import { CHATBOT_TRANSLATIONS } from "./chatbotTranslations";
 import {
@@ -13,9 +16,60 @@ import {
   CheckIcon,
   MessengerIcon,
 } from "../shared/Icons";
-import { Send, AlertCircle, RefreshCw, Minus } from "lucide-react";
+import { Send, AlertCircle, RefreshCw, Minus, Video, UserCheck, MessageSquare, CheckCircle } from "lucide-react";
 
 const STORAGE_KEY = "mcpa_chatbot_session_v1";
+
+/**
+ * Resolves whether the current visitor has an authenticated client account
+ * and tracks their active project stage (Stage 1, Stage 2, or Stage 3).
+ */
+function getClientAndStage() {
+  if (typeof window === "undefined") {
+    return { clientUser: null, dashState: null, stageId: null, isStage2: false, isStage3: false, isStage2or3: false, stageName: "" };
+  }
+  try {
+    const clientUser = JSON.parse(localStorage.getItem("mcpa_client_user") || "null");
+    const dashState = JSON.parse(localStorage.getItem("mcpa_client_dashboard_state") || "null");
+    const briefs = JSON.parse(localStorage.getItem("mcpa_client_briefs") || "[]");
+
+    let stageId = dashState?.stage_id || dashState?.activeProject?.stage_id;
+    if (!stageId && briefs.length > 0) {
+      stageId = briefs[0]?.stage_id || briefs[0]?.stage || briefs[0]?.current_stage;
+    }
+
+    const isStage2 =
+      stageId === "CONSULTATION" ||
+      stageId === "PRE_CONSTRUCTION" ||
+      String(stageId).toLowerCase().includes("stage 2");
+
+    const isStage3 =
+      stageId === "ACTIVE_BUILD" ||
+      String(stageId).toLowerCase().includes("stage 3");
+
+    const isStage2or3 = isStage2 || isStage3;
+
+    const stageName = isStage3
+      ? "Stage 3 · Active Build"
+      : isStage2
+      ? "Stage 2 · Consultation & Planning"
+      : stageId === "PRE_INQUIRY"
+      ? "Stage 1 · Pre-Inquiry"
+      : "";
+
+    return {
+      clientUser,
+      dashState,
+      stageId,
+      isStage2,
+      isStage3,
+      isStage2or3,
+      stageName,
+    };
+  } catch (e) {
+    return { clientUser: null, dashState: null, stageId: null, isStage2: false, isStage3: false, isStage2or3: false, stageName: "" };
+  }
+}
 
 /**
  * Ensures clean paragraph breaks and list item spacing for bot responses,
@@ -228,6 +282,9 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
   const [nameError, setNameError] = useState("");
   const [isInitializing, setIsInitializing] = useState(true);
 
+  // Authenticated client & Stage 2 / 3 tracking
+  const [clientInfo, setClientInfo] = useState(() => getClientAndStage());
+
   // Chat conversation state
   const [messages, setMessages] = useState([]);
   const [questionInput, setQuestionInput] = useState("");
@@ -257,6 +314,21 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
   const suggestionsBoxRef = useRef(null);
   const pollingTimerRef = useRef(null);
 
+  // Sync client profile and project stage changes in real-time
+  useEffect(() => {
+    const handleSync = () => {
+      setClientInfo(getClientAndStage());
+    };
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("mcpa-project-stage-updated", handleSync);
+    window.addEventListener("mcpa-briefs-updated", handleSync);
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("mcpa-project-stage-updated", handleSync);
+      window.removeEventListener("mcpa-briefs-updated", handleSync);
+    };
+  }, []);
+
   // 1. Load initial config and existing session on mount
   useEffect(() => {
     let isMounted = true;
@@ -276,6 +348,8 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
 
         // Check local storage for existing session
         const stored = localStorage.getItem(STORAGE_KEY);
+        const { clientUser } = getClientAndStage();
+
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
@@ -307,21 +381,51 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
                     return;
                   }
                 }
-
-                // If unauthorized (401/403/404) or failed, purge invalid session immediately
-                localStorage.removeItem(STORAGE_KEY);
-                if (isMounted) setSession(null);
               } catch (sessionErr) {
-                // If timed out or network error, remove stale session and start fresh
                 clearTimeout(timeoutId);
-                localStorage.removeItem(STORAGE_KEY);
-                if (isMounted) setSession(null);
               }
-            } else {
-              localStorage.removeItem(STORAGE_KEY);
             }
-          } catch (e) {
-            localStorage.removeItem(STORAGE_KEY);
+          } catch (e) {}
+        }
+
+        // AUTO-LOGIN RECOGNITION: If user is logged in (has account), auto-initialize session!
+        // Client never needs to fill out the "What should I call you?" name prompt.
+        if (clientUser && (clientUser.fullName || clientUser.name)) {
+          const clientName = (clientUser.fullName || clientUser.name).trim();
+          const clientEmail = (clientUser.email || "").trim().toLowerCase();
+
+          try {
+            const autoRes = await fetch("/api/chatbot/session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                customerName: clientName,
+                customerEmail: clientEmail,
+                language: language === "fil" ? "fil" : "en",
+              }),
+            });
+
+            if (autoRes.ok) {
+              const autoData = await autoRes.json();
+              if (isMounted && autoData.success) {
+                const autoSession = {
+                  conversationId: autoData.conversationId,
+                  sessionToken: autoData.sessionToken,
+                  customerName: autoData.customerName,
+                  customerEmail: clientEmail,
+                  status: autoData.status,
+                };
+                setSession(autoSession);
+                setStatus(autoData.status || "BOT_ACTIVE");
+                setAssignedAdmin(autoData.assignedAdmin || null);
+                setMessages(autoData.messages || []);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(autoSession));
+                setIsInitializing(false);
+                return;
+              }
+            }
+          } catch (autoErr) {
+            console.warn("[ChatWidget] Auto-session recognition error:", autoErr);
           }
         }
       } catch (err) {
@@ -339,7 +443,7 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
       if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-  }, []);
+  }, [language]);
 
   // 2. Auto-scroll to bottom of conversation
   const scrollToBottom = useCallback((smooth = true) => {
@@ -407,10 +511,12 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
     };
   }, [session, status, messages]);
 
-  // 4. Handle Step 1 — Name Submission
-  const handleStartSession = async (e) => {
+  // 4. Handle Step 1 — Name Submission (Supports manual or programmatic override)
+  const handleStartSession = async (e, overrideData = null) => {
     e?.preventDefault();
-    const clean = nameInput.trim();
+    const clean = (overrideData?.customerName || nameInput).trim();
+    const cleanEmail = (overrideData?.customerEmail || "").trim().toLowerCase();
+
     if (!clean || clean.length < 1 || clean.length > 50) {
       setNameError(t.nameValidation);
       return;
@@ -429,6 +535,7 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerName: clean,
+          customerEmail: cleanEmail || undefined,
           language: language === "fil" ? "fil" : "en",
         }),
       });
@@ -446,16 +553,124 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
           conversationId: data.conversationId,
           sessionToken: data.sessionToken,
           customerName: data.customerName,
+          customerEmail: cleanEmail || data.customerEmail,
           status: data.status,
         };
         setSession(newSession);
         setStatus(data.status);
+        if (data.assignedAdmin) {
+          setAssignedAdmin(data.assignedAdmin);
+        }
         setMessages(data.messages || []);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
         setTimeout(() => inputRef.current?.focus(), 100);
       }
     } catch (err) {
       setNameError("Connection error. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // 4B. Handle Instant Video Call (Connected to Instant Meeting for Stage 2 & 3 Clients)
+  const handleStartInstantVideoCall = () => {
+    const { clientUser, dashState } = getClientAndStage();
+    const roomCodeBase =
+      dashState?.roomCode ||
+      dashState?.activeProject?.roomCode ||
+      (clientUser?.id ? `mcpa-instant-${String(clientUser.id).slice(-6)}` : `mcpa-instant-${Date.now().toString(36).slice(-6)}`);
+
+    const cleanRoomCode = roomCodeBase.startsWith("mcpa-") ? roomCodeBase : `mcpa-${roomCodeBase}`;
+
+    const clientAvatar =
+      clientUser?.avatar_url ||
+      clientUser?.avatarUrl ||
+      dashState?.activeProject?.client_avatar ||
+      "";
+
+    const instantCallPayload = {
+      active: true,
+      roomCode: cleanRoomCode,
+      clientName: clientUser?.fullName || clientUser?.name || session?.customerName || "Valued Client",
+      clientEmail: clientUser?.email || session?.customerEmail || "",
+      clientAvatar,
+      clientPhone: clientUser?.phone || clientUser?.phoneNumber || "",
+      projectCode: dashState?.activeProject?.project_code || "MCPA-CLIENT",
+      projectTitle: dashState?.activeProject?.project_title || "Instant Video Consultation",
+      startedAt: Date.now(),
+      answered: false,
+      adminJoined: false,
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate([150, 100, 150]);
+      }
+      localStorage.setItem("mcpa_instant_call_active", JSON.stringify(instantCallPayload));
+      window.dispatchEvent(new CustomEvent("mcpa-instant-call-alert", { detail: instantCallPayload }));
+
+      const socket = io(getSignalingServerUrl(), { transports: ["polling", "websocket"], reconnectionAttempts: 5 });
+      socket.on("connect", () => {
+        socket.emit("instant-call-start", instantCallPayload);
+      });
+      socket.emit("instant-call-start", instantCallPayload);
+      setTimeout(() => socket.disconnect(), 5000);
+    } catch (e) {
+      console.warn("[ChatWidget] Instant call signaling error:", e);
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        message_id: `call_${Date.now()}`,
+        sender_type: "SYSTEM",
+        message_text:
+          language === "fil"
+            ? `🎥 Sinimulan ang Instant Video Call (Room: ${cleanRoomCode}). Nag-riring na ito sa MCPA Engineering Team.`
+            : `🎥 Instant Video Call initiated (Room: ${cleanRoomCode}). Alerting MCPA Engineering Team.`,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    window.open(`/meet/${cleanRoomCode}`, "_blank");
+  };
+
+  // 4C. Handle Direct to Admin (Stage 2 & 3 Bypass FAQ Bot)
+  const handleDirectToAdmin = async () => {
+    if (!session?.conversationId) return;
+    const { clientUser } = getClientAndStage();
+    const verifiedEmail = (clientUser?.email || session?.customerEmail || "").trim();
+
+    if (!verifiedEmail) {
+      setIsEmailGateActive(true);
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const res = await fetch("/api/chatbot/escalate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Chat-Session-Token": session.sessionToken,
+        },
+        body: JSON.stringify({
+          conversationId: session.conversationId,
+          customerEmail: verifiedEmail,
+          language: language === "fil" ? "fil" : "en",
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setStatus("AWAITING_HUMAN");
+        setIsEmailGateActive(false);
+        if (data.botMessage) {
+          setMessages((prev) => [...prev, data.botMessage]);
+        }
+      }
+    } catch (err) {
+      console.warn("[ChatWidget] Direct to admin error:", err);
     } finally {
       setIsSending(false);
     }
@@ -509,6 +724,11 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
       setSuggestions([]);
       setQuestionInput("");
       setIsSending(true);
+
+      // If conversation was marked resolved, resume active conversation
+      if (status === "RESOLVED") {
+        setStatus("BOT_ACTIVE");
+      }
 
       const now = Date.now();
       // Optimistic customer bubble
@@ -577,7 +797,7 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
         setTimeout(() => inputRef.current?.focus(), 50);
       }
     },
-    [questionInput, isSending, session, language]
+    [questionInput, isSending, session, language, status]
   );
 
   // 7. Handle Suggestion Keyboard Navigation
@@ -694,13 +914,27 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
   // 10. Start a New Conversation (Step 4A Reset)
   const handleStartNewConversation = () => {
     localStorage.removeItem(STORAGE_KEY);
-    setSession(null);
-    setMessages([]);
-    setNameInput("");
-    setQuestionInput("");
-    setStatus("BOT_ACTIVE");
-    setAssignedAdmin(null);
-    setIsEmailGateActive(false);
+    const { clientUser } = getClientAndStage();
+
+    if (clientUser && (clientUser.fullName || clientUser.name)) {
+      setMessages([]);
+      setQuestionInput("");
+      setStatus("BOT_ACTIVE");
+      setAssignedAdmin(null);
+      setIsEmailGateActive(false);
+      handleStartSession(null, {
+        customerName: clientUser.fullName || clientUser.name,
+        customerEmail: clientUser.email,
+      });
+    } else {
+      setSession(null);
+      setMessages([]);
+      setNameInput("");
+      setQuestionInput("");
+      setStatus("BOT_ACTIVE");
+      setAssignedAdmin(null);
+      setIsEmailGateActive(false);
+    }
   };
 
   const isLiveSupportMode = ["AWAITING_HUMAN", "HUMAN_ASSIGNED", "HUMAN_ACTIVE"].includes(status);
@@ -745,6 +979,11 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
               <span className="font-bold text-xs uppercase tracking-wider truncate text-neutral-900 dark:text-white">
                 {t.headerTitle}
               </span>
+              {clientInfo?.isStage2or3 && (
+                <span className="px-1.5 py-0.2 rounded-[3px] bg-amber-500/15 border border-amber-500/30 text-[9px] font-mono font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 shrink-0">
+                  {clientInfo.isStage3 ? t.stage3Badge : t.stage2Badge}
+                </span>
+              )}
             </div>
 
             {/* Sub-status Indicator */}
@@ -755,13 +994,47 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
                   : t.statusAwaitingHuman
                 : isResolvedMode
                 ? t.statusResolved
+                : clientInfo?.clientUser?.fullName
+                ? `${(t.welcomeBack || "Welcome back, {name}!").replace("{name}", clientInfo.clientUser.fullName.split(" ")[0])}`
                 : t.headerSubtitle}
             </p>
           </div>
         </div>
 
-        {/* Action Controls: Minimize & Close */}
-        <div className="flex items-center gap-1 shrink-0">
+        {/* Action Controls: Instant Video Call (Stage 2 & 3), Direct Admin Chat (Stage 2 & 3), Minimize & Close */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {clientInfo?.isStage2or3 && (
+            <>
+              {/* Instant Video Call Button (Connected to Instant Meeting) */}
+              <button
+                type="button"
+                onClick={handleStartInstantVideoCall}
+                title={t.instantVideoCallTooltip}
+                aria-label={t.instantVideoCall}
+                className="group relative flex items-center gap-1 px-2 py-1 rounded-[4px] bg-amber-500/15 hover:bg-amber-500 text-amber-700 dark:text-amber-400 hover:text-neutral-950 border border-amber-500/35 hover:border-amber-500 transition-all cursor-pointer shadow-xs"
+              >
+                <Video className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400 group-hover:text-neutral-950 animate-pulse group-hover:animate-none" />
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider hidden sm:inline">
+                  Call
+                </span>
+              </button>
+
+              {/* Direct to Admin Shortcut (Bypasses Bot) */}
+              {!isLiveSupportMode && (
+                <button
+                  type="button"
+                  onClick={handleDirectToAdmin}
+                  title={t.directToAdminTooltip}
+                  aria-label={t.directToAdmin}
+                  className="flex items-center gap-1 px-2 py-1 rounded-[4px] bg-neutral-200/70 dark:bg-white/[0.06] hover:bg-amber-500 hover:text-neutral-950 text-neutral-700 dark:text-neutral-300 border border-neutral-300/80 dark:border-white/10 transition-all cursor-pointer text-[10px] font-mono font-bold uppercase tracking-wider"
+                >
+                  <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Admin</span>
+                </button>
+              )}
+            </>
+          )}
+
           <button
             type="button"
             onClick={onMinimize}
@@ -873,6 +1146,43 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
         {/* STEP 2 to 4: CONVERSATION MESSAGES */}
         {!isInitializing && session && (
           <>
+            {/* Stage 2 & Stage 3 Project Status & Instant Connection Card */}
+            {clientInfo?.isStage2or3 && !isLiveSupportMode && (
+              <div className="p-2.5 rounded-[6px] bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 mb-2 flex items-center justify-between gap-2 animate-fadeIn select-none">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                  <div className="truncate">
+                    <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 block truncate">
+                      {clientInfo.stageName}
+                    </span>
+                    <span className="text-[9.5px] text-neutral-500 dark:text-neutral-400">
+                      {language === "fil" ? "Konektado sa Engineering Team" : "Connected with Engineering Team"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleStartInstantVideoCall}
+                    title={t.instantVideoCallTooltip}
+                    className="flex items-center gap-1 px-2 py-1 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 font-mono text-[9.5px] font-bold uppercase transition-colors shadow-2xs cursor-pointer"
+                  >
+                    <Video className="w-3 h-3" />
+                    <span>Video Call</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDirectToAdmin}
+                    title={t.directToAdminTooltip}
+                    className="flex items-center gap-1 px-2 py-1 rounded-[4px] bg-neutral-200/80 dark:bg-white/10 hover:bg-amber-500 hover:text-neutral-950 text-neutral-800 dark:text-neutral-200 font-mono text-[9.5px] font-bold uppercase transition-colors cursor-pointer"
+                  >
+                    <UserCheck className="w-3 h-3" />
+                    <span>Admin</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {messages.map((msg, idx) => {
               const isCustomer = msg.sender_type === "CUSTOMER";
               const isBot = msg.sender_type === "BOT";
@@ -1136,16 +1446,23 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
               </div>
             )}
 
-            {/* STEP 4A RESOLVED STATE: Start a New Conversation Button */}
+            {/* STEP 4A RESOLVED STATE: Resolution Notice & Follow-up Prompt */}
             {isResolvedMode && (
-              <div className="pt-2 text-center space-y-2 animate-fadeIn">
+              <div className="p-3 my-2 rounded-[6px] bg-emerald-500/10 border border-emerald-500/25 text-center space-y-2 animate-fadeIn select-none">
+                <div className="flex items-center justify-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-mono text-xs font-semibold">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>{t.resolvedBadge || "Inquiry Resolved"}</span>
+                </div>
+                <p className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                  {t.resolvedFollowUpPrompt || "You can continue typing below anytime if you have more questions."}
+                </p>
                 <button
                   type="button"
                   onClick={handleStartNewConversation}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-wider font-mono transition-colors shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[10px] font-mono text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 underline underline-offset-2 cursor-pointer"
                 >
-                  <RefreshCw className="w-3 h-3" />
-                  <span>{t.startNewChat}</span>
+                  <RefreshCw className="w-2.5 h-2.5" />
+                  <span>{t.clearAndRestart || "Start a new conversation thread"}</span>
                 </button>
               </div>
             )}
@@ -1179,7 +1496,7 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
       {/* -------------------------------------------------------------------
           MESSAGE COMPOSER & SUGGESTION POPUP DOCK
       -------------------------------------------------------------------- */}
-      {session && !isResolvedMode && (
+      {session && (
         <div className="relative p-3 border-t border-neutral-200 dark:border-white/10 bg-white dark:bg-[#0c0e12] shrink-0">
           {/* STEP 2: LIVE QUESTION SUGGESTIONS POPUP (Appears ONLY while typing) */}
           {isSuggestionsOpen && suggestions.length > 0 && (

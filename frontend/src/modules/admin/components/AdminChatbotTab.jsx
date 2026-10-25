@@ -531,10 +531,10 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
         method: "PUT",
         body: JSON.stringify({
           general: {
-            min_match_threshold: parseFloat(settingsData.min_match_threshold),
-            ambiguity_delta: parseFloat(settingsData.ambiguity_delta),
-            max_suggestions: parseInt(settingsData.max_suggestions, 10),
-            debounce_ms: parseInt(settingsData.debounce_ms, 10),
+            min_match_threshold: 0.42,
+            ambiguity_delta: 0.06,
+            max_suggestions: 5,
+            debounce_ms: 250,
             messenger_url: settingsData.messenger_url,
             social_links: settingsData.social_links,
           },
@@ -1465,77 +1465,11 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
       )}
 
       {/* ===================================================================
-          SUB-TAB 4: SETTINGS & THRESHOLDS
+          SUB-TAB 4: SETTINGS (External Channels & Integrations)
       ==================================================================== */}
       {subTab === "settings" && settingsData && (
         <form onSubmit={handleSaveSettings} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            {/* Search Thresholds Card */}
-            <div className="p-4 sm:p-5 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-4">
-              <h3 className="font-mono font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                <Sliders className="w-4 h-4 shrink-0" />
-                <span>Matching Engine Thresholds</span>
-              </h3>
-
-              <div className="space-y-3.5 text-xs">
-                <div>
-                  <label className="block font-mono text-[11px] text-neutral-500 mb-1">
-                    Minimum Matching Threshold (Default: 0.42)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.10"
-                    max="0.95"
-                    value={settingsData.min_match_threshold}
-                    onChange={(e) =>
-                      setSettingsData((prev) => ({ ...prev, min_match_threshold: e.target.value }))
-                    }
-                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
-                  />
-                  <p className="text-[10px] text-neutral-400 mt-1">
-                    Questions scoring below this confidence value trigger the honest fallback.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block font-mono text-[11px] text-neutral-500 mb-1">
-                    Ambiguity Delta (Default: 0.06)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max="0.20"
-                    value={settingsData.ambiguity_delta}
-                    onChange={(e) =>
-                      setSettingsData((prev) => ({ ...prev, ambiguity_delta: e.target.value }))
-                    }
-                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
-                  />
-                  <p className="text-[10px] text-neutral-400 mt-1">
-                    If top 2 questions score within this difference, the bot offers clarifying options.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block font-mono text-[11px] text-neutral-500 mb-1">
-                    Max Live Suggestions (Default: 5)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={settingsData.max_suggestions}
-                    onChange={(e) =>
-                      setSettingsData((prev) => ({ ...prev, max_suggestions: e.target.value }))
-                    }
-                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
-                  />
-                </div>
-              </div>
-            </div>
-
+          <div className="max-w-2xl">
             {/* Official External Links Card */}
             <div className="p-4 sm:p-5 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-4">
               <h3 className="font-mono font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-2">
@@ -1550,7 +1484,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                   </label>
                   <input
                     type="text"
-                    value={settingsData.messenger_url}
+                    value={settingsData.messenger_url || ""}
                     onChange={(e) =>
                       setSettingsData((prev) => ({ ...prev, messenger_url: e.target.value }))
                     }
@@ -1586,6 +1520,23 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                       setSettingsData((prev) => ({
                         ...prev,
                         social_links: { ...prev.social_links, instagram: e.target.value },
+                      }))
+                    }
+                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-mono text-[11px] text-neutral-500 mb-1">
+                    TikTok URL
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsData.social_links?.tiktok || ""}
+                    onChange={(e) =>
+                      setSettingsData((prev) => ({
+                        ...prev,
+                        social_links: { ...prev.social_links, tiktok: e.target.value },
                       }))
                     }
                     className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"

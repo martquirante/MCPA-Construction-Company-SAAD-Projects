@@ -54,8 +54,8 @@ const CONCEPT_SYNONYMS = {
   warranty: ["warranty", "garantiya", "15 years", "15-year", "15 taon", "guarantee", "resilience", "matibay", "tibay", "civil code"],
   renovation: ["renovation", "renovations", "renobasyon", "extension", "second floor", "palapag", "dagdag", "repair", "remodel"],
   location: [
-    "location", "office", "address", "saan", "lugar", "opisina", "plaridel", "bulacan", "tabang",
-    "ncr", "metro manila", "pampanga", "central luzon", "coverage", "area", "areas",
+    "location", "located", "locate", "situated", "situate", "office", "address", "saan", "lugar", "opisina", "plaridel", "bulacan", "tabang",
+    "ncr", "metro manila", "pampanga", "central luzon", "coverage", "area", "areas", "directions", "map",
   ],
   hours: ["hours", "oras", "schedule", "open", "bukas", "sarado", "closed", "time", "operating"],
   contact: ["contact", "phone", "email", "number", "viber", "messenger", "tawag", "kontak", "reach"],
@@ -63,9 +63,7 @@ const CONCEPT_SYNONYMS = {
 
 // Words that indicate an exact price quotation request that requires custom engineering evaluation
 const UNANSWERABLE_PRICE_PATTERNS = [
-  /magkano.*(dalawang\s+palapag|2\s*storey|two\s*storey|isang\s+palapag|1\s*storey|bahay|square\s*meter|sqm|building)/i,
-  /how\s+much.*(two[- ]storey|2[- ]storey|one[- ]storey|single[- ]storey|house|sqm|square\s*meter|building|per\s*sqm)/i,
-  /(exact|fixed)\s+(price|cost)\s+(per\s+)?(sqm|square\s*meter)/i,
+  /(exact|fixed)\s+(price|cost)\s+(for|per|sa)/i,
   /(eksakto|fixed)\s+(na\s+)?(presyo|halaga|gastos)/i,
   /guarantee\s+completion\s+within\s+(two|2)\s+months/i,
   /tapos\s+ba\s+sa\s+loob\s+ng\s+(dalawang|2)\s+buwan/i,
@@ -442,7 +440,9 @@ class ChatbotSearchService {
     }
 
     // 6. Ambiguity Check: Are top 2 matches very close in score across different FAQs?
+    // If top match is an exact or near-exact string match (score >= 0.98), it is an unambiguous winner.
     if (
+      topMatch.score < 0.98 &&
       secondMatch &&
       secondMatch.score >= minThreshold &&
       topMatch.score - secondMatch.score <= ambiguityDelta &&
@@ -481,6 +481,7 @@ class ChatbotSearchService {
       answer: approvedAnswer,
       detectedLang: parsedQuery.detectedLang,
       usedLanguage: useFilipino ? "fil" : "en",
+      faq: winningFaq,
     };
   }
 

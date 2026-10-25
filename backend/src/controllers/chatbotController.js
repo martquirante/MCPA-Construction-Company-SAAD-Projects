@@ -169,7 +169,8 @@ class ChatbotController {
    */
   async createSession(req, res) {
     try {
-      const { customerName, nickname, language = "en", existingSessionToken } = req.body;
+      const { customerName, nickname, customerEmail, email, language = "en", existingSessionToken } = req.body;
+      const cleanEmail = (customerEmail || email || "").trim().toLowerCase() || null;
 
       // 1. Validate Customer Name / Nickname
       const cleanName = (customerName || nickname || "").trim();
@@ -192,6 +193,69 @@ class ChatbotController {
       const lang = language === "fil" ? "fil" : "en";
       const langMessages = settings.messages[lang] || settings.messages.en;
 
+      // 2. If client email is provided (logged-in user with account), check for existing conversation to resume
+      if (cleanEmail) {
+        try {
+          const existingConv = await db.query(
+            `SELECT conversation_id, customer_name, customer_email, language_pref, status, assigned_admin_id
+             FROM public.chatbot_conversations
+             WHERE LOWER(customer_email) = $1
+             ORDER BY last_message_at DESC LIMIT 1;`,
+            [cleanEmail]
+          );
+
+          if (existingConv?.rows?.length > 0) {
+            const row = existingConv.rows[0];
+            const rawSessionToken = crypto.randomBytes(32).toString("hex");
+            const tokenHash = hashToken(rawSessionToken);
+
+            await db.query(
+              `UPDATE public.chatbot_conversations
+               SET session_token_hash = $2, customer_name = $3, updated_at = CURRENT_TIMESTAMP
+               WHERE conversation_id = $1;`,
+              [row.conversation_id, tokenHash, cleanName]
+            );
+
+            const msgsRes = await db.query(
+              `SELECT message_id, sender_type, message_text, metadata, created_at
+               FROM public.chatbot_messages
+               WHERE conversation_id = $1
+               ORDER BY message_id ASC;`,
+              [row.conversation_id]
+            );
+
+            let assignedAdmin = null;
+            if (row.assigned_admin_id) {
+              const adminRes = await db.query(
+                `SELECT full_name, avatar_url FROM public.users WHERE user_id = $1;`,
+                [row.assigned_admin_id]
+              );
+              if (adminRes?.rows?.[0]) {
+                assignedAdmin = {
+                  fullName: adminRes.rows[0].full_name,
+                  avatarUrl: adminRes.rows[0].avatar_url,
+                };
+              }
+            }
+
+            return res.status(200).json({
+              success: true,
+              resumed: true,
+              conversationId: row.conversation_id,
+              sessionToken: rawSessionToken,
+              customerName: cleanName,
+              customerEmail: cleanEmail,
+              status: row.status,
+              assignedAdmin,
+              language: row.language_pref || lang,
+              messages: msgsRes?.rows || [],
+            });
+          }
+        } catch (resumeErr) {
+          console.warn("[chatbotController] Error checking existing conversation:", resumeErr);
+        }
+      }
+
       // Generate secure 32-byte session token
       const rawSessionToken = crypto.randomBytes(32).toString("hex");
       const tokenHash = hashToken(rawSessionToken);
@@ -203,9 +267,9 @@ class ChatbotController {
       // Create conversation row
       await db.query(
         `INSERT INTO public.chatbot_conversations 
-         (conversation_id, session_token_hash, customer_name, language_pref, status, last_message_preview, last_message_at)
-         VALUES ($1, $2, $3, $4, 'BOT_ACTIVE', $5, CURRENT_TIMESTAMP);`,
-        [conversationId, tokenHash, cleanName, lang, welcomeText]
+         (conversation_id, session_token_hash, customer_name, customer_email, language_pref, status, last_message_preview, last_message_at)
+         VALUES ($1, $2, $3, $4, $5, 'BOT_ACTIVE', $6, CURRENT_TIMESTAMP);`,
+        [conversationId, tokenHash, cleanName, cleanEmail, lang, welcomeText]
       );
 
       // Insert initial welcome message
@@ -222,6 +286,7 @@ class ChatbotController {
         conversationId,
         sessionToken: rawSessionToken,
         customerName: cleanName,
+        customerEmail: cleanEmail,
         greeting: welcomeText,
         status: "BOT_ACTIVE",
         language: lang,
@@ -322,6 +387,16 @@ class ChatbotController {
       }
 
       // 1. Insert customer message
+      // If conversation was resolved, reopen it to BOT_ACTIVE when customer asks a new question
+      if (conv.status === "RESOLVED") {
+        await db.query(
+          `UPDATE public.chatbot_conversations
+           SET status = 'BOT_ACTIVE', resolved_at = NULL, updated_at = CURRENT_TIMESTAMP
+           WHERE conversation_id = $1;`,
+          [conversationId]
+        );
+      }
+
       const custMsgRes = await db.query(
         `INSERT INTO public.chatbot_messages
          (conversation_id, sender_type, message_text, is_read, created_at)
@@ -660,8 +735,11 @@ class ChatbotController {
         return res.status(403).json({ success: false, message: "Unauthorized session." });
       }
 
-      // MANDATORY EMAIL VALIDATION
-      const rawEmail = (customerEmail || "").trim().toLowerCase();
+      // MANDATORY EMAIL VALIDATION - check body or existing conversation email
+      let rawEmail = (customerEmail || "").trim().toLowerCase();
+      if (!rawEmail && conv.customer_email) {
+        rawEmail = conv.customer_email.trim().toLowerCase();
+      }
       if (!rawEmail) {
         return res.status(400).json({
           success: false,
@@ -1221,6 +1299,14 @@ class ChatbotController {
       const userId = req.user?.userId || req.user?.user_id || null;
 
       if (general) {
+        // Enforce optimal matching engine threshold defaults permanently
+        const lockedGeneral = {
+          ...general,
+          min_match_threshold: 0.42,
+          ambiguity_delta: 0.06,
+          max_suggestions: 5,
+          debounce_ms: 250,
+        };
         await db.query(
           `INSERT INTO public.chatbot_settings (setting_key, setting_value, updated_by, updated_at)
            VALUES ('general', $1::jsonb, $2, CURRENT_TIMESTAMP)
@@ -1228,7 +1314,7 @@ class ChatbotController {
            SET setting_value = EXCLUDED.setting_value,
                updated_by = EXCLUDED.updated_by,
                updated_at = CURRENT_TIMESTAMP;`,
-          [JSON.stringify(general), userId]
+          [JSON.stringify(lockedGeneral), userId]
         );
       }
 

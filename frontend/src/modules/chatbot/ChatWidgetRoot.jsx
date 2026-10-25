@@ -19,11 +19,13 @@ export default function ChatWidgetRoot() {
   const { language } = useLanguage();
   const t = CHATBOT_TRANSLATIONS[language] || CHATBOT_TRANSLATIONS.en;
 
+  const isHome = pathname === "/";
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasModalOpen, setHasModalOpen] = useState(false);
+  const [scrolledPastHero, setScrolledPastHero] = useState(!isHome);
 
   // 1. Detect active session on mount and from storage events (hydration-safe)
   useEffect(() => {
@@ -57,7 +59,36 @@ export default function ChatWidgetRoot() {
     return () => observer.disconnect();
   }, []);
 
-  // 3. Hide on administrative or video consultation views
+  // 3. Hide floating launcher while on the scrollable video hero on the home page
+  useEffect(() => {
+    if (!isHome) {
+      setScrolledPastHero(true);
+      return;
+    }
+
+    const handleScroll = () => {
+      if (typeof window !== "undefined") {
+        const overviewEl = document.getElementById("overview");
+        if (overviewEl) {
+          const rect = overviewEl.getBoundingClientRect();
+          setScrolledPastHero(rect.top <= 120);
+        } else {
+          const heroThreshold = 3.5 * window.innerHeight;
+          setScrolledPastHero(window.scrollY >= heroThreshold);
+        }
+      }
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [isHome]);
+
+  // 4. Hide on administrative or video consultation views
   const isHiddenRoute =
     pathname?.startsWith("/admin") ||
     pathname?.startsWith("/meet") ||
@@ -69,6 +100,7 @@ export default function ChatWidgetRoot() {
 
   // Detect whether client is on portal view where floating bottom nav is active on mobile (< lg)
   const isPortal = pathname?.startsWith("/portal");
+  const showLauncher = !isHome || scrolledPastHero;
 
   return (
     <aside
@@ -99,15 +131,22 @@ export default function ChatWidgetRoot() {
       -------------------------------------------------------------------- */}
       {(!isOpen || isMinimized) && (
         <div
-          className={`fixed z-[60] flex items-center transition-all duration-300 ease-out right-4 sm:right-5 ${
+          className={`fixed z-[60] flex items-center transition-all duration-500 ease-out right-4 sm:right-5 ${
             isPortal
               ? "bottom-[5.25rem] lg:bottom-5"
               : "bottom-5"
+          } ${
+            showLauncher
+              ? "opacity-100 translate-y-0 pointer-events-auto"
+              : "opacity-0 translate-y-6 pointer-events-none"
           }`}
         >
           <button
             type="button"
+            tabIndex={showLauncher ? 0 : -1}
+            aria-hidden={!showLauncher}
             onClick={() => {
+              if (!showLauncher) return;
               setIsOpen(true);
               setIsMinimized(false);
             }}
