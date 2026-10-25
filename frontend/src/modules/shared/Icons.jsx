@@ -912,6 +912,33 @@ export function FacebookIcon({ className = "w-4 h-4", ...props }) {
   );
 }
 
+export function MessengerIcon({ className = "w-4 h-4", ...props }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      className={className}
+      {...props}
+    >
+      <defs>
+        <linearGradient id="mcpaMessengerGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#0084FF" />
+          <stop offset="50%" stopColor="#A033FF" />
+          <stop offset="100%" stopColor="#FF5E3A" />
+        </linearGradient>
+      </defs>
+      <path
+        fill="url(#mcpaMessengerGrad)"
+        d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.51 3.14 7.37.16.15.26.37.26.6v2.53c0 .54.58.88 1.05.61l2.87-1.63c.18-.1.38-.13.58-.08.67.18 1.37.28 2.1.28 5.64 0 10-4.13 10-9.7S17.64 2 12 2z"
+      />
+      <path
+        fill="#FFFFFF"
+        d="M6.8 14.1l3.52-5.59c.56-.89 1.8-.97 2.47-.16l2.76 3.32 3.65-3.32c.38-.35.94.13.67.56l-3.52 5.59c-.56.89-1.8.97-2.47.16l-2.76-3.32-3.65 3.32c-.38.35-.94-.13-.67-.56z"
+      />
+    </svg>
+  );
+}
+
 export function GoogleIcon({ className = "w-4 h-4", ...props }) {
   return (
     <svg
@@ -1195,4 +1222,97 @@ export function MessageSquareIcon({ className = "w-4 h-4", strokeWidth = 1.75, .
 export function PrinterIcon({ className = "w-4 h-4", strokeWidth = 1.75, ...props }) {
   return <Printer strokeWidth={strokeWidth} className={className} {...props} />;
 }
+
+export function TopicChatIcon({ className = "w-5 h-5", ...props }) {
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      fill="currentColor"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path d="M9 5h30a4 4 0 0 1 4 4v22a4 4 0 0 1-4 4H14.8L5 43V9a4 4 0 0 1 4-4z" />
+    </svg>
+  );
+}
+
+export function AnimatedChatDotsIcon({ className = "w-5 h-5", ...props }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...props}
+    >
+      {/* Crisp Speech Bubble Contour */}
+      <path
+        d="M20.5 11.5C20.5 15.6421 16.6944 19 12 19C10.7417 19 9.54419 18.7548 8.46824 18.3129L3.5 19.5L4.76798 15.7709C3.66699 14.5445 3 13.0903 3 11.5C3 7.35786 7.02944 4 12 4C16.9706 4 20.5 7.35786 20.5 11.5Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Animated Dot 1 */}
+      <circle cx="7.75" cy="11.5" r="1.35" fill="currentColor">
+        <animate
+          attributeName="cy"
+          values="11.5; 8.8; 11.5; 11.5"
+          keyTimes="0; 0.25; 0.5; 1"
+          dur="1.2s"
+          repeatCount="indefinite"
+          begin="0s"
+        />
+        <animate
+          attributeName="opacity"
+          values="0.35; 1; 0.35; 0.35"
+          keyTimes="0; 0.25; 0.5; 1"
+          dur="1.2s"
+          repeatCount="indefinite"
+          begin="0s"
+        />
+      </circle>
+      {/* Animated Dot 2 */}
+      <circle cx="12" cy="11.5" r="1.35" fill="currentColor">
+        <animate
+          attributeName="cy"
+          values="11.5; 8.8; 11.5; 11.5"
+          keyTimes="0; 0.25; 0.5; 1"
+          dur="1.2s"
+          repeatCount="indefinite"
+          begin="0.2s"
+        />
+        <animate
+          attributeName="opacity"
+          values="0.35; 1; 0.35; 0.35"
+          keyTimes="0; 0.25; 0.5; 1"
+          dur="1.2s"
+          repeatCount="indefinite"
+          begin="0.2s"
+        />
+      </circle>
+      {/* Animated Dot 3 */}
+      <circle cx="16.25" cy="11.5" r="1.35" fill="currentColor">
+        <animate
+          attributeName="cy"
+          values="11.5; 8.8; 11.5; 11.5"
+          keyTimes="0; 0.25; 0.5; 1"
+          dur="1.2s"
+          repeatCount="indefinite"
+          begin="0.4s"
+        />
+        <animate
+          attributeName="opacity"
+          values="0.35; 1; 0.35; 0.35"
+          keyTimes="0; 0.25; 0.5; 1"
+          dur="1.2s"
+          repeatCount="indefinite"
+          begin="0.4s"
+        />
+      </circle>
+    </svg>
+  );
+}
+
 

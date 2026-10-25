@@ -395,7 +395,7 @@ export default function ProjectsTab({
 
                     <div className="flex flex-col items-end gap-1.5">
                       {project.category && (
-                        <span className="text-neutral-600 dark:text-neutral-300 text-[10px] font-semibold uppercase tracking-wider">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider shadow-sm backdrop-blur-md border bg-black/50 text-white border-white/20">
                           {project.category}
                         </span>
                       )}

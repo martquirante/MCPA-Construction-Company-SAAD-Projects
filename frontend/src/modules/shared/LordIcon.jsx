@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, isValidElement } from "react";
 
 export default function LordIcon({
   src,
@@ -10,6 +10,7 @@ export default function LordIcon({
   className = "",
   style = {},
   fallback: FallbackIcon = null,
+  fallbackClassName = "text-amber-500 animate-pulse",
 }) {
   const [isClient, setIsClient] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
@@ -40,7 +41,21 @@ export default function LordIcon({
     document.body.appendChild(script);
   }, []);
 
-  const fallbackSize = Math.min(Math.round(size * 0.45), 52);
+  const fallbackSize = size <= 28 ? Math.round(size * 0.8) : Math.min(Math.round(size * 0.45), 52);
+
+  const renderFallback = () => {
+    if (!FallbackIcon) return null;
+    if (isValidElement(FallbackIcon)) {
+      return FallbackIcon;
+    }
+    const FallbackComponent = FallbackIcon;
+    return (
+      <FallbackComponent
+        style={{ width: `${fallbackSize}px`, height: `${fallbackSize}px` }}
+        className={fallbackClassName}
+      />
+    );
+  };
 
   if (!isClient) {
     return (
@@ -48,12 +63,7 @@ export default function LordIcon({
         className={`inline-flex items-center justify-center ${className}`}
         style={{ width: `${size}px`, height: `${size}px`, ...style }}
       >
-        {FallbackIcon && (
-          <FallbackIcon
-            style={{ width: `${fallbackSize}px`, height: `${fallbackSize}px` }}
-            className="text-amber-500 animate-pulse"
-          />
-        )}
+        {renderFallback()}
       </div>
     );
   }
@@ -71,10 +81,7 @@ export default function LordIcon({
       />
       {!scriptLoaded && FallbackIcon && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <FallbackIcon
-            style={{ width: `${fallbackSize}px`, height: `${fallbackSize}px` }}
-            className="text-amber-500 animate-pulse"
-          />
+          {renderFallback()}
         </div>
       )}
     </div>

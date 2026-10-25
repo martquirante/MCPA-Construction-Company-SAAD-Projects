@@ -1176,5 +1176,53 @@ body.mcpa-map-fullscreen-active .mcpa-paper-sheet {
   animation: weatherInfiniteDrift 45s linear infinite;
 }
 
+/* Chatbot Animated Avatar Keyframes */
+@keyframes botEyeBlink {
+  0%, 45%, 55%, 100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scaleY(0.1);
+    opacity: 0.4;
+  }
+}
+
+@keyframes botAntennaPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.7;
+  }
+}
+
+@keyframes botHeadFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+.animate-bot-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: botEyeBlink 3.6s ease-in-out infinite;
+}
+
+.animate-bot-antenna {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: botAntennaPulse 1.8s ease-in-out infinite;
+}
+
+.animate-bot-float {
+  animation: botHeadFloat 3s ease-in-out infinite;
+}
+
 
 

@@ -18,6 +18,11 @@ async function initializeDatabase() {
       const check = await db.query("SELECT 1 FROM users LIMIT 1;");
       if (check && check.rows) {
         console.log("[initDb] Schema already verified on Supabase. Skipping redundant migrations on serverless cold start.");
+        // Ensure chatbot schema is verified
+        try {
+          const { ensureChatbotSchema } = require("../services/chatbotSchema");
+          await ensureChatbotSchema();
+        } catch (_) {}
         isInitialized = true;
         return;
       }
@@ -483,6 +488,15 @@ async function initializeDatabase() {
       console.log("[OK] Stage 4 schema (photo progress, showcase link, wrapped payload) verified on all pools.");
     } catch (s4Err) {
       console.warn("[initDb] Stage 4 schema notice:", s4Err.message);
+    }
+
+    // Chatbot schema and seed data, applied to Supabase AND Neon explicitly
+    try {
+      const { ensureChatbotSchema } = require("../services/chatbotSchema");
+      await ensureChatbotSchema();
+      console.log("[OK] Chatbot schema & seed data verified on all pools.");
+    } catch (cbErr) {
+      console.warn("[initDb] Chatbot schema notice:", cbErr.message);
     }
 
     console.log("\n[SUCCESS] Database initialization completed successfully!\n");

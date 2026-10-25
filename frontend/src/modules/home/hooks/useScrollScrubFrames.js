@@ -94,6 +94,41 @@ export function useScrollScrubFrames(containerRef) {
     return `/assets/frames/${orientation}/part${partIdx + 1}`;
   }, [isPortrait]);
 
+  // Draw a specific frame from a specific part onto canvas (hoisted before useEffect hooks)
+  const drawFrame = useCallback((partIdx, frameIdx) => {
+    currentFrameRef.current = frameIdx;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const frames = framesRef.current[partIdx];
+    if (!frames || !frames[frameIdx]) return;
+    const img = frames[frameIdx];
+    if (!img.complete || img.naturalWidth === 0) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Ensure canvas resolution matches display dimensions (cap dpr at 1.5 to strictly prevent RAM bloat on mobile)
+    const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 1.5);
+    const targetW = Math.round((canvas.clientWidth || window.innerWidth) * dpr);
+    const targetH = Math.round((canvas.clientHeight || window.innerHeight) * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+
+    // Fit to canvas maintaining aspect ratio (cover)
+    const cw = canvas.width;
+    const ch = canvas.height;
+    const iw = img.naturalWidth;
+    const ih = img.naturalHeight;
+    const scale = Math.max(cw / iw, ch / ih);
+    const sw = iw * scale;
+    const sh = ih * scale;
+    const dx = (cw - sw) / 2;
+    const dy = (ch - sh) / 2;
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.drawImage(img, dx, dy, sw, sh);
+  }, []);
+
   // Preload Part 1 frames on mount, and eagerly prefetch Parts 2 & 3 in background on idle
   useEffect(() => {
     const loadPart = async (partIdx) => {
@@ -144,40 +179,6 @@ export function useScrollScrubFrames(containerRef) {
     };
   }, [drawFrame]);
 
-  // Draw a specific frame from a specific part onto canvas
-  const drawFrame = useCallback((partIdx, frameIdx) => {
-    currentFrameRef.current = frameIdx;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const frames = framesRef.current[partIdx];
-    if (!frames || !frames[frameIdx]) return;
-    const img = frames[frameIdx];
-    if (!img.complete || img.naturalWidth === 0) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Ensure canvas resolution matches display dimensions (cap dpr at 1.5 to strictly prevent RAM bloat on mobile)
-    const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 1.5);
-    const targetW = Math.round((canvas.clientWidth || window.innerWidth) * dpr);
-    const targetH = Math.round((canvas.clientHeight || window.innerHeight) * dpr);
-    if (canvas.width !== targetW || canvas.height !== targetH) {
-      canvas.width = targetW;
-      canvas.height = targetH;
-    }
-
-    // Fit to canvas maintaining aspect ratio (cover)
-    const cw = canvas.width;
-    const ch = canvas.height;
-    const iw = img.naturalWidth;
-    const ih = img.naturalHeight;
-    const scale = Math.max(cw / iw, ch / ih);
-    const sw = iw * scale;
-    const sh = ih * scale;
-    const dx = (cw - sw) / 2;
-    const dy = (ch - sh) / 2;
-    ctx.clearRect(0, 0, cw, ch);
-    ctx.drawImage(img, dx, dy, sw, sh);
-  }, []);
 
   // Animate frame transitions (smooth interpolation between frames)
   const animateToFrame = useCallback((partIdx, targetFrameIdx, startFrameIdx, durationMs, onDone) => {

@@ -1,7 +1,8 @@
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 
@@ -21,6 +22,7 @@ const { requireStage, STAGE_ORDER } = require("./middleware/stageGate");
 const initializeDatabase = require("./scripts/initDb");
 const { translateDictionary } = require("./services/translationService");
 const phLocationService = require("./services/phLocationService");
+const chatbotController = require("./controllers/chatbotController");
 
 const { rateLimit } = require("express-rate-limit");
 const { requireAuth, requireRole, optionalAuth } = require("./middleware/auth");
@@ -77,7 +79,7 @@ app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Chat-Session-Token", "X-Chat-Conversation-Id"],
   })
 );
 app.use(express.json({ limit: "50mb" }));
@@ -696,6 +698,62 @@ app.get("/api/time", (req, res) => {
 app.get("/api/admin/realtime-stream", (req, res) => {
   realtimeService.handleSseConnection(req, res);
 });
+
+// -----------------------------------------------------------------------------
+// SMART CUSTOMER SUPPORT CHATBOT API (PUBLIC & ADMIN)
+// -----------------------------------------------------------------------------
+const chatbotSuggestLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many search requests. Please slow down." },
+});
+
+const chatbotMessageLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many chat messages. Please wait a moment." },
+});
+
+// Public Customer Chatbot Routes
+app.get("/api/chatbot/config", (req, res) => chatbotController.getConfig(req, res));
+app.post("/api/chatbot/session", chatbotMessageLimiter, (req, res) => chatbotController.createSession(req, res));
+app.get("/api/chatbot/suggestions", chatbotSuggestLimiter, (req, res) => chatbotController.getSuggestions(req, res));
+app.post("/api/chatbot/ask", chatbotMessageLimiter, (req, res) => chatbotController.askQuestion(req, res));
+app.post("/api/chatbot/feedback", (req, res) => chatbotController.submitFeedback(req, res));
+app.post("/api/chatbot/escalate", (req, res) => chatbotController.requestHumanSupport(req, res));
+app.get("/api/chatbot/conversations/:id/messages", (req, res) => chatbotController.getConversationMessages(req, res));
+app.post("/api/chatbot/conversations/:id/messages", chatbotMessageLimiter, (req, res) => chatbotController.sendCustomerSupportMessage(req, res));
+
+// Admin Chatbot & Live Support Management Routes (RBAC: admin / super_admin)
+app.get("/api/admin/chatbot/summary", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.getAdminSummary(req, res));
+app.get("/api/admin/chatbot/categories", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.getCategories(req, res));
+app.post("/api/admin/chatbot/categories", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.createCategory(req, res));
+app.put("/api/admin/chatbot/categories/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.updateCategory(req, res));
+app.delete("/api/admin/chatbot/categories/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.deleteCategory(req, res));
+
+app.get("/api/admin/chatbot/faqs", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.getFaqs(req, res));
+app.post("/api/admin/chatbot/faqs", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.createFaq(req, res));
+app.put("/api/admin/chatbot/faqs/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.updateFaq(req, res));
+app.patch("/api/admin/chatbot/faqs/:id/status", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.toggleFaqStatus(req, res));
+app.delete("/api/admin/chatbot/faqs/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.deleteFaq(req, res));
+
+app.get("/api/admin/chatbot/settings", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.getAdminSettings(req, res));
+app.put("/api/admin/chatbot/settings", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.updateAdminSettings(req, res));
+
+app.get("/api/admin/chatbot/unanswered", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.getUnansweredQuestions(req, res));
+app.post("/api/admin/chatbot/unanswered/:id/convert", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.convertUnansweredToFaq(req, res));
+app.post("/api/admin/chatbot/unanswered/:id/link", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.linkUnansweredToFaq(req, res));
+app.patch("/api/admin/chatbot/unanswered/:id/status", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.updateUnansweredStatus(req, res));
+
+app.get("/api/admin/chatbot/conversations", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.getAdminConversations(req, res));
+app.get("/api/admin/chatbot/conversations/:id", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.getAdminConversationDetails(req, res));
+app.post("/api/admin/chatbot/conversations/:id/assign", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.assignAdminConversation(req, res));
+app.post("/api/admin/chatbot/conversations/:id/reply", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.sendAdminReply(req, res));
+app.patch("/api/admin/chatbot/conversations/:id/status", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.updateConversationStatus(req, res));
 
 // Startup & Database Sync
 if (!process.env.VERCEL) {

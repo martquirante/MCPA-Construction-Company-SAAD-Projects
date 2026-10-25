@@ -18,6 +18,15 @@ export function normalizeProjectName(name = "") {
 }
 
 /**
+ * Repairs known legacy category typos before categories are displayed or filtered.
+ */
+export function normalizeProjectCategory(category = "") {
+  const value = String(category).trim();
+  if (/^resenditail$/i.test(value)) return "Residential";
+  return value;
+}
+
+/**
  * Ensures a list of projects has strictly distinct keys and normalized entries.
  */
 export function deduplicateProjects(primaryProjects = []) {
@@ -43,6 +52,7 @@ export function deduplicateProjects(primaryProjects = []) {
     result.push({
       ...project,
       id: rawId ?? `proj-${result.length + 1}`,
+      category: normalizeProjectCategory(project.category),
       images: Array.isArray(project.images) ? project.images : [],
       month: project.month || "January",
       status: project.status || "completed",

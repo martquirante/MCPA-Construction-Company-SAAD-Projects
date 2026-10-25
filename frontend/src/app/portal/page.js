@@ -404,6 +404,20 @@ function ClientPortalContent() {
           });
         }
       } else {
+        // Auto-heal stale sessions: If account was deleted/purged from database, clear orphaned credentials
+        if (dashRes.status === 404 && (dashData?.error === "USER_NOT_FOUND" || dashData?.message?.toLowerCase().includes("user"))) {
+          console.warn("[Portal] Stale purged user session detected. Clearing orphaned credentials.");
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("mcpa_client_user");
+            localStorage.removeItem("mcpa_client_token");
+            localStorage.removeItem("mcpa_client_dashboard_state");
+          }
+          setCurrentUser(null);
+          setAuthToken(null);
+          setDashboardState(null);
+          return;
+        }
+
         // Fallback default state so UI NEVER gets trapped in infinite skeleton
         setDashboardState((prev) => prev || {
           success: true,

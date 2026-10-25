@@ -18,6 +18,7 @@ import SiteProgressTab from "@/modules/admin/components/SiteProgressTab";
 import DelayManagementTab from "@/modules/admin/components/DelayManagementTab";
 import BillingLedgerTab from "@/modules/admin/components/BillingLedgerTab";
 import FinishedProjectsTab from "@/modules/admin/components/FinishedProjectsTab";
+import AdminChatbotTab from "@/modules/admin/components/AdminChatbotTab";
 import AdminIncomingCallManager from "@/modules/admin/components/AdminIncomingCallManager";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
 import AdminNotificationCenter from "@/modules/admin/components/AdminNotificationCenter";
@@ -33,6 +34,7 @@ import {
   CreditCard as CreditCardIcon,
   Sparkles as SparklesIcon,
   Archive as ArchiveIcon,
+  MessageSquare as MessageSquareIcon,
 } from "lucide-react";
 import { loadDocumentRequests } from "@/modules/portal/utils/documentRequestsHelper";
 import {
@@ -113,6 +115,7 @@ export const TAB_ROLE_PERMISSIONS = {
   briefs: ["admin", "super_admin"],
   billing: ["admin", "super_admin"],
   accounts: ["admin", "super_admin"],
+  chatbot: ["admin", "super_admin"],
 };
 
 export function getRoleBadgeMeta(role) {
@@ -327,6 +330,25 @@ export default function AdminPage() {
     fetchPendingContracts();
     window.addEventListener("mcpa-contract-updated", fetchPendingContracts);
     return () => window.removeEventListener("mcpa-contract-updated", fetchPendingContracts);
+  }, []);
+
+  // Chatbot Live Support & Unanswered questions badge counter
+  const [chatbotBadgeCount, setChatbotBadgeCount] = useState(0);
+  useEffect(() => {
+    const fetchChatbotSummary = async () => {
+      try {
+        const res = await authFetch("/api/admin/chatbot/summary");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setChatbotBadgeCount((data.awaitingHumanCount || 0) + (data.openUnansweredCount || 0));
+          }
+        }
+      } catch (e) {}
+    };
+    fetchChatbotSummary();
+    const interval = setInterval(fetchChatbotSummary, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Notification Center flyout & read state tracking (Declared unconditionally at top of AdminPage)
@@ -1999,6 +2021,12 @@ export default function AdminPage() {
         },
         { id: "projects", label: "Projects Showcase", icon: FolderKanbanIcon },
         { id: "accounts", label: "Accounts & Roles", icon: UserIcon },
+        {
+          id: "chatbot",
+          label: "Chatbot Knowledge Base",
+          icon: MessageSquareIcon,
+          badge: chatbotBadgeCount > 0 ? chatbotBadgeCount : undefined,
+        },
       ],
     },
     {
@@ -2112,6 +2140,7 @@ export default function AdminPage() {
     delays: "DELAYS",
     groundbreaking: "GROUND BREAKING",
     billing: "BILLING",
+    chatbot: "CHATBOT",
     "finished-projects": "FINISHED",
   }[currentTabInfo.id] || currentTabInfo.label;
 
@@ -2744,6 +2773,16 @@ export default function AdminPage() {
         {activeTab === "accounts" && (
           <AccountsTab
             clientBriefs={clientBriefs}
+          />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: CHATBOT KNOWLEDGE BASE & LIVE SUPPORT                        */}
+        {/* ================================================================= */}
+        {activeTab === "chatbot" && (
+          <AdminChatbotTab
+            currentUser={currentUser}
+            onShowToast={showToast}
           />
         )}
 
