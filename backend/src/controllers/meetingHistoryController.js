@@ -78,19 +78,66 @@ class MeetingHistoryController {
    */
   async getAll(req, res) {
     try {
-      const { clientEmail, limit = 100 } = req.query;
+      const user = req.user;
+      const isAdmin = user && (user.role === "admin" || user.role === "super_admin");
+      const clientEmail = (req.query.clientEmail || (!isAdmin && user?.email ? user.email : "") || "").trim().toLowerCase();
+      const roomCode = (req.query.roomCode || "").trim().toLowerCase();
+      const projectCode = (req.query.projectCode || "").trim().toLowerCase();
+
+      // Privacy Gate: If NOT admin and no client ownership filters provided, return empty list (prevent global leak)
+      if (!isAdmin && !clientEmail && !roomCode && !projectCode) {
+        return res.json({
+          success: true,
+          count: 0,
+          history: [],
+        });
+      }
 
       let queryText = "SELECT * FROM meeting_history_logs";
       const queryParams = [];
+      const whereClauses = [];
 
-      if (clientEmail && clientEmail.trim()) {
-        queryParams.push(clientEmail.trim().toLowerCase());
-        queryText += ` WHERE LOWER(client_email) = $${queryParams.length}`;
+      if (!isAdmin) {
+        // Enforce strict client ownership: only records matching the client's email, room code, or project code
+        const ownershipConditions = [];
+        if (clientEmail) {
+          queryParams.push(clientEmail);
+          ownershipConditions.push(`LOWER(client_email) = $${queryParams.length}`);
+        }
+        if (roomCode) {
+          queryParams.push(roomCode);
+          ownershipConditions.push(`LOWER(room_code) = $${queryParams.length}`);
+        }
+        if (projectCode) {
+          queryParams.push(projectCode);
+          ownershipConditions.push(`LOWER(project_code) = $${queryParams.length}`);
+        }
+        if (ownershipConditions.length > 0) {
+          whereClauses.push(`(${ownershipConditions.join(" OR ")})`);
+        }
+      } else {
+        // Admin view: optionally filter by client if specified, or view all
+        if (clientEmail) {
+          queryParams.push(clientEmail);
+          whereClauses.push(`LOWER(client_email) = $${queryParams.length}`);
+        }
+        if (roomCode) {
+          queryParams.push(roomCode);
+          whereClauses.push(`LOWER(room_code) = $${queryParams.length}`);
+        }
+        if (projectCode) {
+          queryParams.push(projectCode);
+          whereClauses.push(`LOWER(project_code) = $${queryParams.length}`);
+        }
+      }
+
+      if (whereClauses.length > 0) {
+        queryText += ` WHERE ${whereClauses.join(" AND ")}`;
       }
 
       queryText += " ORDER BY created_at DESC, history_id DESC";
 
-      const maxLimit = Math.min(200, Math.max(1, parseInt(limit, 10) || 100));
+      const maxLimit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 100));
       queryParams.push(maxLimit);
       queryText += ` LIMIT $${queryParams.length}`;
 

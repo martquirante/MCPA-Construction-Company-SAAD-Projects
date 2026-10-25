@@ -785,6 +785,16 @@ export default function AdminPage() {
           return {
             id: b.brief_id || b.id,
             submissionId: b.submission_id || b.submissionId,
+            brief_id: b.brief_id || b.id,
+            submission_id: b.submission_id || b.submissionId,
+            client_project_id: b.client_project_id || null,
+            current_project_stage: b.current_project_stage || b.current_stage_status || b.stage_id || "PRE_INQUIRY",
+            current_stage_status: b.current_stage_status || b.current_project_stage || b.stage_id || "PRE_INQUIRY",
+            project_code: b.project_code || null,
+            is_rejected: Boolean(b.is_rejected || (b.status || "").toLowerCase().includes("reject")),
+            is_archived: Boolean(b.is_archived || (b.status || "").toLowerCase().includes("archive")),
+            rejection_reason: b.rejection_reason || null,
+            rejection_notes: b.rejection_notes || null,
             clientName: b.client_name || b.clientName,
             clientEmail: b.client_email || b.clientEmail,
             clientPhone: b.client_phone || b.clientPhone,
@@ -1401,6 +1411,9 @@ export default function AdminPage() {
                 venueDetails: data.brief.venue_details || b.venueDetails,
                 quotationAmount: data.brief.quotation_amount || b.quotationAmount,
                 quotationNotes: data.brief.quotation_notes || b.quotationNotes,
+                current_project_stage: data.brief.current_project_stage || data.brief.current_stage_status || extraData.current_project_stage || b.current_project_stage,
+                current_stage_status: data.brief.current_stage_status || data.brief.current_project_stage || extraData.current_stage_status || b.current_stage_status,
+                client_project_id: data.brief.client_project_id || extraData.client_project_id || b.client_project_id,
               }
             : b
         );

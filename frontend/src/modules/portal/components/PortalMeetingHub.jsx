@@ -61,6 +61,21 @@ export default function PortalMeetingHub({
   showToast = () => {},
   onRefreshState,
 }) {
+  const clientEmail = (currentUser?.email || "").trim().toLowerCase();
+  const clientRoomCode = (
+    meetingRoom?.code ||
+    activeProject?.room_code ||
+    activeProject?.meeting_room_code ||
+    (inquiries?.[0]?.meeting_room_code) ||
+    (inquiries?.[0]?.submission_id) ||
+    ""
+  ).trim().toLowerCase();
+  const clientProjectCode = (
+    activeProject?.project_code ||
+    (inquiries?.[0]?.submission_id) ||
+    ""
+  ).trim().toLowerCase();
+
   // Mode: 'schedule' (hub) vs 'in_call' (google meet)
   const [viewState, setViewState] = useState("schedule"); // 'schedule' | 'in_call'
 
@@ -207,22 +222,15 @@ export default function PortalMeetingHub({
   const [historyFilter, setHistoryFilter] = useState("all"); // 'all' | 'instant' | 'scheduled' | 'f2f'
   const [historySearch, setHistorySearch] = useState("");
 
-  // Stored meeting history from service & localStorage
-  const [consultationHistoryList, setConsultationHistoryList] = useState(() => getConsultationHistory());
+  // Stored meeting history from service & localStorage (strictly client-isolated)
+  const [consultationHistoryList, setConsultationHistoryList] = useState(() => getConsultationHistory(clientEmail));
 
-  // Purge any legacy dummy consultation records on mount
+  // Purge any legacy dummy consultation records and cross-account leaks on mount
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("mcpa_consultation_history");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          const purged = parsed.filter((item) => !isDummyConsultationSession(item));
-          if (purged.length !== parsed.length) {
-            localStorage.setItem("mcpa_consultation_history", JSON.stringify(purged));
-            setConsultationHistoryList(purged);
-          }
-        }
+      if (clientEmail) {
+        const scopedHistory = getConsultationHistory(clientEmail);
+        setConsultationHistoryList(scopedHistory);
       }
       const shared = localStorage.getItem("mcpa_shared_meeting_schedule");
       if (shared) {
@@ -234,20 +242,28 @@ export default function PortalMeetingHub({
       }
     } catch (e) {}
 
-    // Pull fresh meeting history from PostgreSQL Cloud Database (Neon / Supabase)
-    fetchConsultationHistoryFromCloud()
-      .then((items) => {
-        if (Array.isArray(items)) {
-          setConsultationHistoryList(items);
-        }
+    // Pull fresh meeting history strictly for this client from PostgreSQL Cloud Database (Neon / Supabase)
+    if (clientEmail || clientRoomCode || clientProjectCode) {
+      fetchConsultationHistoryFromCloud(clientEmail, {
+        roomCode: clientRoomCode,
+        projectCode: clientProjectCode,
       })
-      .catch(() => {});
-  }, []);
+        .then((items) => {
+          if (Array.isArray(items)) {
+            setConsultationHistoryList(items);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [clientEmail, clientRoomCode, clientProjectCode]);
 
   // Listen for meeting history updates across tabs and events
   useEffect(() => {
-    const syncHistory = () => {
-      setConsultationHistoryList(getConsultationHistory());
+    const syncHistory = (e) => {
+      if (e?.detail?.clientEmail && clientEmail && e.detail.clientEmail !== clientEmail) {
+        return;
+      }
+      setConsultationHistoryList(getConsultationHistory(clientEmail));
     };
     window.addEventListener("mcpa-meeting-history-updated", syncHistory);
     window.addEventListener("storage", syncHistory);
@@ -255,7 +271,7 @@ export default function PortalMeetingHub({
       window.removeEventListener("mcpa-meeting-history-updated", syncHistory);
       window.removeEventListener("storage", syncHistory);
     };
-  }, []);
+  }, [clientEmail]);
 
   // Modals for History: Details Modal & Rating Modal
   const [detailsModalSession, setDetailsModalSession] = useState(null);
@@ -264,11 +280,31 @@ export default function PortalMeetingHub({
   const [activeRateHover, setActiveRateHover] = useState(0);
   const [activeRateNote, setActiveRateNote] = useState("");
 
-  // Synthesize complete meeting history and past consultations (real concluded meetings only)
+  // Synthesize complete meeting history and past consultations (real concluded meetings strictly for this client)
   const meetingHistory = useMemo(() => {
     if (!Array.isArray(consultationHistoryList)) return [];
-    return consultationHistoryList.filter((item) => !isDummyConsultationSession(item));
-  }, [consultationHistoryList]);
+    return consultationHistoryList.filter((item) => {
+      if (!item || isDummyConsultationSession(item)) return false;
+      if (!clientEmail) return true; // Fallback if no email context
+      const itemEmail = (item.clientEmail || "").trim().toLowerCase();
+      const itemRoom = (item.roomCode || "").trim().toLowerCase();
+      const itemProject = (item.projectCode || "").trim().toLowerCase();
+
+      // 1. Exact email match
+      if (itemEmail) {
+        return itemEmail === clientEmail;
+      }
+      // 2. Room code match (e.g. instant room belonging to client)
+      if (clientRoomCode && itemRoom && itemRoom === clientRoomCode) {
+        return true;
+      }
+      // 3. Project code match
+      if (clientProjectCode && itemProject && itemProject === clientProjectCode) {
+        return true;
+      }
+      return false;
+    });
+  }, [consultationHistoryList, clientEmail, clientRoomCode, clientProjectCode]);
 
   // Filtered and searched history
   const filteredMeetingHistory = useMemo(() => {
@@ -320,7 +356,7 @@ export default function PortalMeetingHub({
 
   const handleSaveRating = () => {
     if (!ratingModalSession) return;
-    const updated = updateMeetingRatingAndNote(ratingModalSession.id, activeRateStars, activeRateNote);
+    const updated = updateMeetingRatingAndNote(ratingModalSession.id, activeRateStars, activeRateNote, clientEmail);
     setConsultationHistoryList(updated);
     setRatingModalSession(null);
     showToast("Rating & consultation note updated successfully!");

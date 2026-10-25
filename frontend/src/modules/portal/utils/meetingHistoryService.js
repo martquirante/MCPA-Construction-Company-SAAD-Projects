@@ -108,12 +108,38 @@ export function isDummyConsultationSession(item) {
 }
 
 /**
- * Retrieve consultation history from localStorage with fallback defaults
+ * Retrieve consultation history from localStorage with fallback defaults (Strictly isolated by clientEmail)
  */
-export function getConsultationHistory() {
+export function getConsultationHistory(clientEmail) {
   if (typeof window === "undefined") return [];
+  const normalizedEmail = (clientEmail || "").trim().toLowerCase();
+  const scopedKey = normalizedEmail
+    ? `${STORAGE_KEY_CONSULTATION_HISTORY}_${normalizedEmail}`
+    : STORAGE_KEY_CONSULTATION_HISTORY;
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_CONSULTATION_HISTORY);
+    let raw = localStorage.getItem(scopedKey);
+    // If scoped key is empty but global legacy key exists, extract only sessions matching this client
+    if (!raw && normalizedEmail) {
+      const globalRaw = localStorage.getItem(STORAGE_KEY_CONSULTATION_HISTORY);
+      if (globalRaw) {
+        try {
+          const globalParsed = JSON.parse(globalRaw);
+          if (Array.isArray(globalParsed)) {
+            const clientOnly = globalParsed.filter((item) => {
+              if (!item || isDummyConsultationSession(item)) return false;
+              const em = (item.clientEmail || "").trim().toLowerCase();
+              return em === normalizedEmail;
+            });
+            if (clientOnly.length > 0) {
+              localStorage.setItem(scopedKey, JSON.stringify(clientOnly));
+              raw = JSON.stringify(clientOnly);
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
     if (!raw) {
       return [];
     }
@@ -121,10 +147,18 @@ export function getConsultationHistory() {
     if (!Array.isArray(parsed) || parsed.length === 0) {
       return [];
     }
-    // Cleanse out any legacy or seeded dummy records from earlier development
-    const cleaned = parsed.filter((item) => item && !isDummyConsultationSession(item));
+    // Cleanse out dummy sessions and strictly enforce email isolation if clientEmail is present
+    const cleaned = parsed.filter((item) => {
+      if (!item || isDummyConsultationSession(item)) return false;
+      if (normalizedEmail) {
+        const itemEmail = (item.clientEmail || "").trim().toLowerCase();
+        if (itemEmail && itemEmail !== normalizedEmail) return false;
+      }
+      return true;
+    });
+
     if (cleaned.length !== parsed.length) {
-      localStorage.setItem(STORAGE_KEY_CONSULTATION_HISTORY, JSON.stringify(cleaned));
+      localStorage.setItem(scopedKey, JSON.stringify(cleaned));
       try {
         window.dispatchEvent(new CustomEvent("mcpa-meeting-history-updated", { detail: cleaned }));
       } catch (err) {}
@@ -137,42 +171,84 @@ export function getConsultationHistory() {
 }
 
 /**
- * Save updated list to localStorage and broadcast event across local tabs
+ * Save updated list to localStorage (isolated by client) and broadcast event across local tabs
  */
-export function saveConsultationHistory(items) {
+export function saveConsultationHistory(items, clientEmail) {
   if (typeof window === "undefined") return;
+  const normalizedEmail = (clientEmail || "").trim().toLowerCase();
+  const scopedKey = normalizedEmail
+    ? `${STORAGE_KEY_CONSULTATION_HISTORY}_${normalizedEmail}`
+    : STORAGE_KEY_CONSULTATION_HISTORY;
+
   try {
-    const safeItems = Array.isArray(items) ? items : [];
-    localStorage.setItem(STORAGE_KEY_CONSULTATION_HISTORY, JSON.stringify(safeItems));
-    window.dispatchEvent(new CustomEvent("mcpa-meeting-history-updated", { detail: safeItems }));
-    window.dispatchEvent(new CustomEvent("mcpa-meeting-updated", { detail: safeItems }));
+    const safeItems = Array.isArray(items)
+      ? items.filter((item) => {
+          if (!item || isDummyConsultationSession(item)) return false;
+          if (normalizedEmail) {
+            const itemEmail = (item.clientEmail || "").trim().toLowerCase();
+            if (itemEmail && itemEmail !== normalizedEmail) return false;
+          }
+          return true;
+        })
+      : [];
+
+    localStorage.setItem(scopedKey, JSON.stringify(safeItems));
+    window.dispatchEvent(new CustomEvent("mcpa-meeting-history-updated", { detail: safeItems, clientEmail: normalizedEmail }));
+    window.dispatchEvent(new CustomEvent("mcpa-meeting-updated", { detail: safeItems, clientEmail: normalizedEmail }));
   } catch (e) {
     console.warn("[MCPA] Failed to save consultation history:", e);
   }
 }
 
 /**
- * Fetch consultation history from Cloud Database (Neon / Supabase)
+ * Fetch consultation history from Cloud Database (Neon / Supabase) with strict client isolation
  * Merges with local storage and notifies components
  */
-export async function fetchConsultationHistoryFromCloud() {
+export async function fetchConsultationHistoryFromCloud(clientEmail, { roomCode, projectCode } = {}) {
   if (typeof window === "undefined") return [];
+  const normalizedEmail = (clientEmail || "").trim().toLowerCase();
+
   try {
-    const res = await fetch("/api/meetings/history", {
+    const params = new URLSearchParams();
+    if (normalizedEmail) params.set("clientEmail", normalizedEmail);
+    if (roomCode) params.set("roomCode", roomCode.trim());
+    if (projectCode) params.set("projectCode", projectCode.trim());
+    const queryString = params.toString() ? `?${params.toString()}` : "";
+
+    const headers = { "Content-Type": "application/json" };
+    const token = localStorage.getItem("mcpa_client_token") || localStorage.getItem("mcpa_admin_token");
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`/api/meetings/history${queryString}`, {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
+      headers,
     });
 
     if (!res.ok) {
-      return getConsultationHistory();
+      return getConsultationHistory(normalizedEmail);
     }
 
     const data = await res.json();
     if (data.success && Array.isArray(data.history)) {
-      const cloudItems = data.history.filter((item) => item && !isDummyConsultationSession(item));
+      const cloudItems = data.history.filter((item) => {
+        if (!item || isDummyConsultationSession(item)) return false;
+        if (normalizedEmail) {
+          const itemEmail = (item.clientEmail || "").trim().toLowerCase();
+          const itemRoom = (item.roomCode || "").trim().toLowerCase();
+          const itemProject = (item.projectCode || "").trim().toLowerCase();
+          if (itemEmail && itemEmail === normalizedEmail) return true;
+          if (roomCode && itemRoom && itemRoom === roomCode.trim().toLowerCase()) return true;
+          if (projectCode && itemProject && itemProject === projectCode.trim().toLowerCase()) return true;
+          // If neither matched and item has an email, it's not ours
+          if (itemEmail && itemEmail !== normalizedEmail) return false;
+        }
+        return true;
+      });
 
-      // Merge with existing local items (preserving any pending uploads)
-      const localItems = getConsultationHistory();
+      // Merge with existing local items for this client only
+      const localItems = getConsultationHistory(normalizedEmail);
       const sessionMap = new Map();
 
       // Cloud items take precedence
@@ -190,13 +266,13 @@ export async function fetchConsultationHistoryFromCloud() {
       });
 
       const merged = Array.from(sessionMap.values());
-      saveConsultationHistory(merged);
+      saveConsultationHistory(merged, normalizedEmail);
       return merged;
     }
   } catch (err) {
     console.warn("[MCPA] Cloud meeting history fetch fallback:", err.message);
   }
-  return getConsultationHistory();
+  return getConsultationHistory(normalizedEmail);
 }
 
 /**
@@ -220,7 +296,7 @@ export function recordConcludedMeeting({
   projectTitle = "Modern Tropical Residence",
   roomCode = null,
 }) {
-  const current = getConsultationHistory();
+  const current = getConsultationHistory(clientEmail);
   const now = new Date();
 
   const phDateStr = now.toLocaleDateString("en-US", {
@@ -278,7 +354,7 @@ export function recordConcludedMeeting({
 
   // 1. Optimistic local cache update for instant UI feedback
   const updated = [newSession, ...current.filter((item) => (item.id || item.sessionId) !== sessionId)];
-  saveConsultationHistory(updated);
+  saveConsultationHistory(updated, clientEmail);
 
   // 2. Cloud Database persistence to PostgreSQL (Neon / Supabase)
   if (typeof window !== "undefined") {
@@ -291,10 +367,10 @@ export function recordConcludedMeeting({
       .then((data) => {
         if (data.success && data.session) {
           // Replace optimistic item with server verified record
-          const latest = getConsultationHistory().map((item) =>
+          const latest = getConsultationHistory(clientEmail).map((item) =>
             (item.id || item.sessionId) === sessionId ? { ...item, ...data.session } : item
           );
-          saveConsultationHistory(latest);
+          saveConsultationHistory(latest, clientEmail);
         }
       })
       .catch((err) => {
@@ -309,8 +385,9 @@ export function recordConcludedMeeting({
  * Update rating and note for an existing meeting session
  * Updates local cache + PATCHes to Cloud Database (Neon / Supabase)
  */
-export function updateMeetingRatingAndNote(sessionId, rating, clientNote) {
-  const current = getConsultationHistory();
+export function updateMeetingRatingAndNote(sessionId, rating, clientNote, clientEmail) {
+  const normalizedEmail = (clientEmail || "").trim().toLowerCase();
+  const current = getConsultationHistory(normalizedEmail);
   const safeRating = typeof rating === "number" ? Math.max(1, Math.min(5, rating)) : 5;
   const safeNote = typeof clientNote === "string" ? clientNote.trim() : "";
 
@@ -325,7 +402,7 @@ export function updateMeetingRatingAndNote(sessionId, rating, clientNote) {
     return item;
   });
 
-  saveConsultationHistory(updated);
+  saveConsultationHistory(updated, normalizedEmail);
 
   // Sync update to Cloud Database
   if (typeof window !== "undefined") {
@@ -337,10 +414,10 @@ export function updateMeetingRatingAndNote(sessionId, rating, clientNote) {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.session) {
-          const synced = getConsultationHistory().map((item) =>
+          const synced = getConsultationHistory(normalizedEmail).map((item) =>
             (item.id || item.sessionId) === sessionId ? { ...item, ...data.session } : item
           );
-          saveConsultationHistory(synced);
+          saveConsultationHistory(synced, normalizedEmail);
         }
       })
       .catch((err) => {
@@ -349,11 +426,4 @@ export function updateMeetingRatingAndNote(sessionId, rating, clientNote) {
   }
 
   return updated;
-}
-
-// Auto-sync with cloud on client initial load if in browser
-if (typeof window !== "undefined") {
-  setTimeout(() => {
-    fetchConsultationHistoryFromCloud().catch(() => {});
-  }, 1000);
 }

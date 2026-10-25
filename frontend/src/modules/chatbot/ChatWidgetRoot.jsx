@@ -92,7 +92,8 @@ export default function ChatWidgetRoot() {
   const isHiddenRoute =
     pathname?.startsWith("/admin") ||
     pathname?.startsWith("/meet") ||
-    pathname?.startsWith("/wrapped");
+    pathname?.startsWith("/wrapped") ||
+    pathname === "/portal";
 
   if (isHiddenRoute || hasModalOpen) {
     return null;

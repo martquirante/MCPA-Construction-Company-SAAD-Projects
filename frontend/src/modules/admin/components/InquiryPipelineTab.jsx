@@ -382,7 +382,7 @@ export default function InquiryPipelineTab({
   };
 
   const resolveBriefCurrentStage = (brief) => {
-    const explicitStage = brief?.current_project_stage || brief?.currentProjectStage || brief?.current_stage_status;
+    const explicitStage = brief?.current_project_stage || brief?.currentProjectStage || brief?.current_stage_status || brief?.stage_id;
     if (explicitStage) {
       return explicitStage === "PRE_CONSTRUCTION" ? "CONSULTATION" : explicitStage;
     }
@@ -390,7 +390,6 @@ export default function InquiryPipelineTab({
     const isApprovedStatus =
       statusLower.includes("approve") ||
       statusLower.includes("accept") ||
-      statusLower.includes("scheduled") ||
       statusLower.includes("quotation") ||
       statusLower.includes("contract");
     return isApprovedStatus ? "CONSULTATION" : "PRE_INQUIRY";
@@ -609,7 +608,8 @@ export default function InquiryPipelineTab({
       }
 
       const combinedNotes = `[Rescheduled by Admin]: ${rescheduleReason}${rescheduleNotes ? ` — ${rescheduleNotes}` : ""}`;
-      await onUpdateStatus(selectedBrief.id, "Meeting Scheduled", {
+      const targetRef = selectedBrief.submissionId || selectedBrief.submission_id || selectedBrief.id || selectedBrief.brief_id;
+      await onUpdateStatus(targetRef, "Meeting Scheduled", {
         meetingDate: rescheduleDate,
         meetingTime: rescheduleTime,
         meetingMode: rescheduleMode,
@@ -2223,6 +2223,25 @@ export default function InquiryPipelineTab({
                             <RotateCcw className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500 transition-colors" />
                             <span>Reschedule</span>
                           </button>
+
+                          {/* Advance to Stage 2 (Consultation & Planning) */}
+                          {resolveBriefCurrentStage(selectedBrief) === "PRE_INQUIRY" ? (
+                            <button
+                              type="button"
+                              onClick={() => handleAdvanceStage("CONSULTATION")}
+                              disabled={isAdvancingStage}
+                              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 text-neutral-950 font-sans font-semibold text-xs transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+                              title="Advance project to Stage 2: Consultation & Planning (Unlocks Blueprints, BOQ, Permits, Contracts)"
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                              <span>{isAdvancingStage ? "Advancing..." : "Advance to Stage 2"}</span>
+                            </button>
+                          ) : (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-mono font-bold select-none">
+                              <Layers className="w-3.5 h-3.5" />
+                              <span>Stage 2 Active</span>
+                            </div>
+                          )}
                         </>
                       ) : (
                         /* When Pending Review: Single Master Confirm Consultation Button */

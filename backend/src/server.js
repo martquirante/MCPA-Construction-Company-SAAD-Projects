@@ -518,7 +518,7 @@ app.post("/api/portal/consultation/withdraw", requireAuth, (req, res) => briefsC
 // -----------------------------------------------------------------------------
 // CONCLUDED CONSULTATION SESSIONS & INSTANT MEETING HISTORY (NEON / SUPABASE)
 // -----------------------------------------------------------------------------
-app.get("/api/meetings/history", (req, res) => meetingHistoryController.getAll(req, res));
+app.get("/api/meetings/history", optionalAuth, (req, res) => meetingHistoryController.getAll(req, res));
 app.post("/api/meetings/history", (req, res) => meetingHistoryController.recordConcluded(req, res));
 app.patch("/api/meetings/history/:sessionId", (req, res) => meetingHistoryController.updateRatingAndNote(req, res));
 app.put("/api/meetings/history/:sessionId/rating", (req, res) => meetingHistoryController.updateRatingAndNote(req, res));
