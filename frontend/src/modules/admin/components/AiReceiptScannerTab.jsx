@@ -118,7 +118,7 @@ export default function AiReceiptScannerTab({
 
           <div className="relative aspect-video w-full rounded-[4px] overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-950 flex items-center justify-center group">
             {receiptImage ? (
-              <Image src={receiptImage} alt="Hardware Receipt" fill className="object-cover opacity-80" />
+              <Image src={receiptImage} alt="Hardware Receipt" fill unoptimized className="object-cover opacity-80" />
             ) : (
               <div className="flex flex-col items-center justify-center p-6 text-center text-neutral-400 text-xs font-mono space-y-2">
                 <UploadCloudIcon className="w-8 h-8 text-neutral-500" />

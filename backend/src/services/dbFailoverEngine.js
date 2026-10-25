@@ -93,7 +93,7 @@ class DbFailoverEngine {
       const pool = new Pool({
         connectionString: cleanConnStr,
         ssl: isSsl ? { rejectUnauthorized: false } : false,
-        connectionTimeoutMillis: 10000,
+        connectionTimeoutMillis: 4000,
         idleTimeoutMillis: 10000,
         max: this.isProduction ? 2 : 5,
       });

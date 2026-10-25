@@ -260,41 +260,65 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
   // 1. Load initial config and existing session on mount
   useEffect(() => {
     let isMounted = true;
+    const abortController = new AbortController();
 
     async function init() {
       try {
-        // Fetch public config
-        const confRes = await fetch("/api/chatbot/config");
-        if (confRes.ok) {
-          const confData = await confRes.json();
-          if (isMounted && confData.success) {
-            setConfig(confData);
-          }
-        }
+        // Fetch public config in background (non-blocking)
+        fetch("/api/chatbot/config", { signal: abortController.signal })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((confData) => {
+            if (isMounted && confData?.success) {
+              setConfig(confData);
+            }
+          })
+          .catch(() => {});
 
         // Check local storage for existing session
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
-            if (parsed.conversationId && parsed.sessionToken) {
-              // Verify session by fetching latest messages
-              const msgRes = await fetch(`/api/chatbot/conversations/${parsed.conversationId}/messages`, {
-                headers: {
-                  "X-Chat-Session-Token": parsed.sessionToken,
-                },
-              });
-              if (msgRes.ok) {
-                const msgData = await msgRes.json();
-                if (isMounted && msgData.success) {
-                  setSession(parsed);
-                  setStatus(msgData.status || "BOT_ACTIVE");
-                  setAssignedAdmin(msgData.assignedAdmin || null);
-                  setMessages(msgData.messages || []);
-                  setIsInitializing(false);
-                  return;
+            if (parsed?.conversationId && parsed?.sessionToken) {
+              // Verify session by fetching latest messages with a strict 3-second timeout
+              const sessionAbort = new AbortController();
+              const timeoutId = setTimeout(() => sessionAbort.abort(), 3000);
+
+              try {
+                const msgRes = await fetch(
+                  `/api/chatbot/conversations/${parsed.conversationId}/messages`,
+                  {
+                    headers: {
+                      "X-Chat-Session-Token": parsed.sessionToken,
+                    },
+                    signal: sessionAbort.signal,
+                  }
+                );
+                clearTimeout(timeoutId);
+
+                if (msgRes.ok) {
+                  const msgData = await msgRes.json();
+                  if (isMounted && msgData.success) {
+                    setSession(parsed);
+                    setStatus(msgData.status || "BOT_ACTIVE");
+                    setAssignedAdmin(msgData.assignedAdmin || null);
+                    setMessages(msgData.messages || []);
+                    setIsInitializing(false);
+                    return;
+                  }
                 }
+
+                // If unauthorized (401/403/404) or failed, purge invalid session immediately
+                localStorage.removeItem(STORAGE_KEY);
+                if (isMounted) setSession(null);
+              } catch (sessionErr) {
+                // If timed out or network error, remove stale session and start fresh
+                clearTimeout(timeoutId);
+                localStorage.removeItem(STORAGE_KEY);
+                if (isMounted) setSession(null);
               }
+            } else {
+              localStorage.removeItem(STORAGE_KEY);
             }
           } catch (e) {
             localStorage.removeItem(STORAGE_KEY);
@@ -311,6 +335,7 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
 
     return () => {
       isMounted = false;
+      abortController.abort();
       if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
@@ -346,6 +371,14 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
             },
           }
         );
+
+        if (res.status === 401 || res.status === 403 || res.status === 404) {
+          // Session expired or revoked; clear stale state
+          localStorage.removeItem(STORAGE_KEY);
+          setSession(null);
+          return;
+        }
+
         if (res.ok) {
           const data = await res.json();
           if (data.success) {
@@ -685,15 +718,25 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
       -------------------------------------------------------------------- */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-white/10 bg-neutral-50/80 dark:bg-white/[0.02] shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          {/* Header Icon: Yellow Icons8 Topic Icon (No background box/border) */}
+          {/* Header Icon: Official MCPA Company Logo */}
           <div className="flex items-center justify-center shrink-0">
             <Image
-              src="/assets/icons/chat-topic-yellow.png"
-              alt="MCPA Support"
-              width={22}
-              height={22}
-              className="object-contain"
+              src="/assets/mcpa-logo.svg"
+              alt="MCPA Logo"
+              width={28}
+              height={18}
+              className="h-5 w-auto object-contain block dark:hidden"
               priority
+              unoptimized
+            />
+            <Image
+              src="/assets/logo-white.svg"
+              alt="MCPA Logo"
+              width={28}
+              height={18}
+              className="h-5 w-auto object-contain hidden dark:block"
+              priority
+              unoptimized
             />
           </div>
 

@@ -3,10 +3,9 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
-import Image from "next/image";
-import { ChevronDown } from "lucide-react";
 import { useLanguage } from "../shared/LanguageContext";
 import { CHATBOT_TRANSLATIONS } from "./chatbotTranslations";
+import { AnimatedChatDotsIcon } from "../shared/Icons";
 
 // Lazy-load the chat panel for zero initial page-load performance overhead
 const ChatWidgetPanel = dynamic(() => import("./ChatWidgetPanel"), {
@@ -119,15 +118,9 @@ export default function ChatWidgetRoot() {
               shadow-[0_8px_24px_rgba(245,158,11,0.35)] dark:shadow-[0_8px_24px_rgba(245,158,11,0.2)] 
               transition-all duration-200 cursor-pointer select-none`}
           >
-            {/* MCPA company logo */}
-            <span className="relative flex items-center justify-center w-6 h-6 text-neutral-950 shrink-0 group-hover:scale-110 transition-transform duration-200">
-              <Image
-                src="/assets/mcpa-logo.svg"
-                alt=""
-                width={28}
-                height={10}
-                className="w-6 h-auto object-contain"
-              />
+            {/* Animated Message Dots Icon (Directly on amber button, zero background box) */}
+            <span className="relative flex items-center justify-center shrink-0 text-neutral-950 group-hover:scale-110 transition-transform duration-200">
+              <AnimatedChatDotsIcon className="w-5 h-5 text-neutral-950" />
               {hasActiveSession && (
                 <span
                   aria-label="Active conversation"
@@ -142,9 +135,6 @@ export default function ChatWidgetRoot() {
             <span className="font-bold whitespace-nowrap">
               {t.launcherLabel}
             </span>
-
-            {/* Subtle Chevron indicator */}
-            <ChevronDown className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
           </button>
         </div>
       )}

@@ -297,7 +297,6 @@ export const PORTAL_TRANSLATIONS = {
 
     // Forgot Password Modal (Client & Homeowner Portal Access)
     forgotPasswordModal: {
-      clientBadge: "CLIENT ACCOUNT RECOVERY",
       title: "Reset your password",
       subtitle: "Enter the email associated with your client account to receive a secure 6-digit verification code.",
       emailLabel: "Registered Client Email",
@@ -629,7 +628,6 @@ export const PORTAL_TRANSLATIONS = {
 
     // Forgot Password Modal (Client & Homeowner Portal Access)
     forgotPasswordModal: {
-      clientBadge: "PAGBAWI NG CLIENT ACCOUNT",
       title: "I-reset ang Iyong Password",
       subtitle: "Ilagay ang iyong rehistradong email ng kliyente o homeowner upang makatanggap ng 6-digit na verification code.",
       emailLabel: "Rehistradong Email ng Kliyente",

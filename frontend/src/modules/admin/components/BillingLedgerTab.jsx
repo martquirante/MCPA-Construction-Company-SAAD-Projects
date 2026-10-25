@@ -1298,6 +1298,7 @@ export default function BillingLedgerTab({
                 alt="Proof of Payment"
                 fill
                 sizes="100vw"
+                unoptimized
                 className="object-contain"
               />
             </div>

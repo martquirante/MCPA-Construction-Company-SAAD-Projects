@@ -339,14 +339,6 @@ export default function ForgotPasswordModal({
           <CloseIcon className="w-4 h-4" />
         </button>
 
-        {/* Eyebrow Category Tag */}
-        <div className="flex items-center gap-1.5 mb-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10.5px] font-mono font-semibold tracking-wider uppercase bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-            <LockIcon className="w-3 h-3 text-amber-500" />
-            <span>{t.clientBadge || "CLIENT ACCOUNT RECOVERY"}</span>
-          </span>
-        </div>
-
         {/* ================================================================= */}
         {/* STEP 1: EMAIL REQUEST */}
         {/* ================================================================= */}

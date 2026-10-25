@@ -16,6 +16,7 @@ const nextConfig = {
     "127.0.0.1:3000",
   ],
   images: {
+    dangerouslyAllowLocalIP: true,
     remotePatterns: [
       {
         protocol: "https",

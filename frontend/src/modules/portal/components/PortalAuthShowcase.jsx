@@ -592,6 +592,7 @@ export default function PortalAuthShowcase() {
                         alt={item.title}
                         fill
                         sizes="56px"
+                        unoptimized
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => {
                           e.currentTarget.src = item.fallbackImage;

@@ -32,11 +32,16 @@ import {
   Bot,
   Check,
   RefreshCw,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 export default function AdminChatbotTab({ currentUser, onShowToast }) {
   // Active sub-tab: 'faqs' | 'unanswered' | 'live' | 'settings'
   const [subTab, setSubTab] = useState("faqs");
+  // Mobile accordion state for inline FAQ preview
+  const [expandedFaqId, setExpandedFaqId] = useState(null);
 
   // Summary counts
   const [summary, setSummary] = useState({
@@ -549,21 +554,23 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
   return (
     <div className="space-y-6">
       {/* -------------------------------------------------------------------
-          TOP SUB-NAVIGATION BAR & BADGE COUNTS
+          TOP SUB-NAVIGATION BAR & BADGE COUNTS (Responsive for Mobile & Desktop)
       -------------------------------------------------------------------- */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs">
+        {/* Horizontal scrollable tab list on mobile */}
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0 -mx-1 px-1 sm:mx-0 sm:px-0">
           {/* Sub-tab: Knowledge Base */}
           <button
+            type="button"
             onClick={() => setSubTab("faqs")}
-            className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-2 sm:py-1.5 rounded-[4px] text-xs font-mono font-bold tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 select-none ${
               subTab === "faqs"
-                ? "bg-amber-500 text-neutral-950"
+                ? "bg-amber-500 text-neutral-950 shadow-xs"
                 : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Knowledge Base</span>
+            <span className="whitespace-nowrap">Knowledge Base</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded-[2px] bg-neutral-900/10 dark:bg-white/10 font-mono">
               {summary.activeFaqsCount}
             </span>
@@ -571,15 +578,16 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
 
           {/* Sub-tab: Unanswered Questions */}
           <button
+            type="button"
             onClick={() => setSubTab("unanswered")}
-            className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-2 sm:py-1.5 rounded-[4px] text-xs font-mono font-bold tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 select-none ${
               subTab === "unanswered"
-                ? "bg-amber-500 text-neutral-950"
+                ? "bg-amber-500 text-neutral-950 shadow-xs"
                 : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
             }`}
           >
             <HelpCircle className="w-3.5 h-3.5" />
-            <span>Unanswered Questions</span>
+            <span className="whitespace-nowrap">Unanswered</span>
             {summary.openUnansweredCount > 0 && (
               <span className="text-[10px] px-1.5 py-0.2 rounded-[2px] bg-rose-500 text-white font-mono font-bold animate-pulse">
                 {summary.openUnansweredCount}
@@ -589,15 +597,16 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
 
           {/* Sub-tab: Live Support Inbox */}
           <button
+            type="button"
             onClick={() => setSubTab("live")}
-            className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-2 sm:py-1.5 rounded-[4px] text-xs font-mono font-bold tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 select-none ${
               subTab === "live"
-                ? "bg-amber-500 text-neutral-950"
+                ? "bg-amber-500 text-neutral-950 shadow-xs"
                 : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>Live Human Support</span>
+            <span className="whitespace-nowrap">Live Support</span>
             {summary.awaitingHumanCount > 0 && (
               <span className="text-[10px] px-1.5 py-0.2 rounded-[2px] bg-amber-600 text-white font-mono font-bold animate-bounce">
                 {summary.awaitingHumanCount} waiting
@@ -607,31 +616,34 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
 
           {/* Sub-tab: Settings */}
           <button
+            type="button"
             onClick={() => setSubTab("settings")}
-            className={`px-3 py-1.5 rounded-[4px] text-xs font-mono font-bold tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-2 sm:py-1.5 rounded-[4px] text-xs font-mono font-bold tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 select-none ${
               subTab === "settings"
-                ? "bg-amber-500 text-neutral-950"
+                ? "bg-amber-500 text-neutral-950 shadow-xs"
                 : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>Settings &amp; Thresholds</span>
+            <span className="whitespace-nowrap">Settings</span>
           </button>
         </div>
 
-        {/* Global Action: Add Question */}
+        {/* Global Action: Categories & Add Question */}
         {subTab === "faqs" && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t border-neutral-150 dark:border-white/5 sm:border-0">
             <button
+              type="button"
               onClick={() => setIsCatModalOpen(true)}
-              className="px-3 py-1.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 border border-neutral-200 dark:border-white/10 cursor-pointer"
+              className="flex-1 sm:flex-none justify-center px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 border border-neutral-200 dark:border-white/10 cursor-pointer"
             >
               <FolderPlus className="w-3.5 h-3.5" />
               <span>Categories</span>
             </button>
             <button
+              type="button"
               onClick={openCreateFaqModal}
-              className="px-3 py-1.5 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="flex-1 sm:flex-none justify-center px-3 py-2 sm:py-1.5 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Question</span>
@@ -645,52 +657,68 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
       ==================================================================== */}
       {subTab === "faqs" && (
         <div className="space-y-4">
-          {/* Filters Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5">
+          {/* Filters Bar: Fully responsive */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:gap-3 p-3 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5">
             <div className="sm:col-span-6 relative">
               <input
                 type="text"
                 value={faqSearch}
                 onChange={(e) => setFaqSearch(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && loadFaqs()}
-                placeholder="Search stored questions and approved answers..."
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:outline-none text-neutral-900 dark:text-white"
+                placeholder="Search stored questions or approved answers..."
+                className="w-full pl-9 pr-8 py-2 sm:py-1.5 text-xs rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:outline-none text-neutral-900 dark:text-white"
               />
               <SearchIcon className="w-4 h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              {faqSearch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFaqSearch("");
+                    setTimeout(loadFaqs, 0);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-0.5"
+                  aria-label="Clear search"
+                >
+                  <CloseIcon className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
-            <div className="sm:col-span-3">
-              <select
-                value={selectedCatFilter}
-                onChange={(e) => setSelectedCatFilter(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none"
-              >
-                <option value="">All Categories</option>
-                {categories.map((c) => (
-                  <option key={c.category_id} value={c.category_id}>
-                    {c.name_en}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="grid grid-cols-2 sm:contents gap-2">
+              <div className="sm:col-span-3">
+                <select
+                  value={selectedCatFilter}
+                  onChange={(e) => setSelectedCatFilter(e.target.value)}
+                  className="w-full px-2.5 py-2 sm:py-1.5 text-xs rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none"
+                >
+                  <option value="">All Categories</option>
+                  {categories.map((c) => (
+                    <option key={c.category_id} value={c.category_id}>
+                      {c.name_en}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="sm:col-span-3">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none"
-              >
-                <option value="">All Statuses</option>
-                <option value="active">Active Only</option>
-                <option value="inactive">Disabled Only</option>
-              </select>
+              <div className="sm:col-span-3">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-2.5 py-2 sm:py-1.5 text-xs rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white focus:outline-none"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Disabled Only</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* FAQs List Table */}
+          {/* FAQs List: Desktop Data Table + Mobile Interactive Cards */}
           <div className="rounded-[6px] border border-neutral-200 dark:border-white/5 bg-white dark:bg-[#101218] overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+            {/* 1. Desktop Table View (>= lg) */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs min-w-[760px]">
                 <thead>
                   <tr className="border-b border-neutral-200 dark:border-white/10 bg-neutral-50/70 dark:bg-white/[0.02] text-neutral-500 dark:text-neutral-400 font-mono uppercase text-[10px] tracking-wider">
                     <th className="p-3 w-16">Status</th>
@@ -814,6 +842,160 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                 </tbody>
               </table>
             </div>
+
+            {/* 2. Mobile & Tablet Card View (< lg) */}
+            <div className="block lg:hidden divide-y divide-neutral-200 dark:divide-white/5">
+              {isLoadingFaqs ? (
+                <div className="p-8 text-center text-neutral-400 font-mono text-xs">
+                  Loading knowledge base entries...
+                </div>
+              ) : faqs.length === 0 ? (
+                <div className="p-8 text-center text-neutral-400 font-mono text-xs">
+                  No FAQ entries found matching the filter criteria.
+                </div>
+              ) : (
+                faqs.map((faq) => {
+                  const isExpanded = expandedFaqId === faq.faq_id;
+                  return (
+                    <div
+                      key={faq.faq_id}
+                      className="p-3.5 space-y-2.5 bg-white dark:bg-[#101218] hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors"
+                    >
+                      {/* Top Header: Status toggle + Category badge + Actions */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleFaqStatus(faq)}
+                            className={`px-2 py-0.5 rounded-[3px] font-mono text-[9.5px] font-bold uppercase transition-colors shrink-0 cursor-pointer ${
+                              faq.is_active
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                : "bg-neutral-200 dark:bg-white/10 text-neutral-500 border border-neutral-300 dark:border-white/10"
+                            }`}
+                          >
+                            {faq.is_active ? "Active" : "Disabled"}
+                          </button>
+
+                          <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-600 dark:text-neutral-400 truncate bg-neutral-100 dark:bg-white/5 px-1.5 py-0.5 rounded-[2px]">
+                            {faq.category_name_en || "General"}
+                          </span>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => openEditFaqModal(faq)}
+                            title="Edit FAQ"
+                            className="p-1.5 rounded-[4px] text-neutral-600 hover:text-amber-500 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-white/10 transition-colors"
+                            aria-label="Edit FAQ"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFaq(faq.faq_id)}
+                            title="Delete FAQ"
+                            className="p-1.5 rounded-[4px] text-neutral-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                            aria-label="Delete FAQ"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Primary Question (EN + TL) */}
+                      <div className="space-y-1">
+                        <p className="font-bold text-xs sm:text-sm text-neutral-900 dark:text-white leading-snug">
+                          {faq.question_en}
+                        </p>
+                        {faq.question_tl && (
+                          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug">
+                            {faq.question_tl}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Alt Question Chips */}
+                      {Array.isArray(faq.alt_questions) && faq.alt_questions.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {faq.alt_questions.slice(0, 3).map((alt, aIdx) => (
+                            <span
+                              key={aIdx}
+                              className="text-[9.5px] font-mono px-1.5 py-0.5 rounded-[2px] bg-neutral-100 dark:bg-white/[0.04] text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-white/5"
+                            >
+                              {alt}
+                            </span>
+                          ))}
+                          {faq.alt_questions.length > 3 && (
+                            <span className="text-[9.5px] font-mono text-neutral-400 self-center">
+                              +{faq.alt_questions.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Expandable Approved Answer Preview */}
+                      {isExpanded && (
+                        <div className="p-3 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 space-y-2 text-[11.5px] animate-fadeIn">
+                          {faq.answer_en && (
+                            <div>
+                              <span className="font-mono text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold block mb-0.5">
+                                Approved Answer (EN)
+                              </span>
+                              <p className="text-neutral-800 dark:text-neutral-200 whitespace-pre-line leading-relaxed">
+                                {faq.answer_en}
+                              </p>
+                            </div>
+                          )}
+                          {faq.answer_tl && (
+                            <div className="pt-1.5 border-t border-neutral-200/60 dark:border-white/5">
+                              <span className="font-mono text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold block mb-0.5">
+                                Approved Answer (FIL)
+                              </span>
+                              <p className="text-neutral-800 dark:text-neutral-200 whitespace-pre-line leading-relaxed">
+                                {faq.answer_tl}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Card Footer: Metrics & View Answer Toggle */}
+                      <div className="flex items-center justify-between pt-2 border-t border-neutral-150 dark:border-white/5 text-[10.5px] font-mono">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1 text-neutral-500 dark:text-neutral-400">
+                            <span>Matches:</span>
+                            <span className="font-bold text-neutral-900 dark:text-white">
+                              {faq.match_count || 0}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                              +{faq.helpful_count || 0}
+                            </span>
+                            <span className="text-neutral-400">/</span>
+                            <span className="text-rose-600 dark:text-rose-400 font-bold">
+                              -{faq.not_helpful_count || 0}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setExpandedFaqId(isExpanded ? null : faq.faq_id)}
+                          className="text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 text-[10px] font-bold cursor-pointer"
+                        >
+                          <span>{isExpanded ? "Hide Answer" : "View Answer"}</span>
+                          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -837,8 +1019,9 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
           </div>
 
           <div className="rounded-[6px] border border-neutral-200 dark:border-white/5 bg-white dark:bg-[#101218] overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+            {/* 1. Desktop Table View (>= lg) */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs min-w-[700px]">
                 <thead>
                   <tr className="border-b border-neutral-200 dark:border-white/10 bg-neutral-50/70 dark:bg-white/[0.02] text-neutral-500 dark:text-neutral-400 font-mono uppercase text-[10px] tracking-wider">
                     <th className="p-3">Customer Question</th>
@@ -941,6 +1124,105 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                 </tbody>
               </table>
             </div>
+
+            {/* 2. Mobile & Tablet Card View (< lg) */}
+            <div className="block lg:hidden divide-y divide-neutral-200 dark:divide-white/5">
+              {isLoadingUnanswered ? (
+                <div className="p-8 text-center text-neutral-400 font-mono text-xs">
+                  Loading unanswered questions...
+                </div>
+              ) : unanswered.length === 0 ? (
+                <div className="p-8 text-center text-neutral-400 font-mono text-xs">
+                  No open unanswered questions! All inquiries have been reviewed or answered.
+                </div>
+              ) : (
+                unanswered.map((item) => (
+                  <div
+                    key={item.unanswered_id}
+                    className="p-3.5 space-y-2.5 bg-white dark:bg-[#101218] hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors"
+                  >
+                    {/* Header: Occurrence count, Date, Dismiss button */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-[9.5px] font-bold px-1.5 py-0.5 rounded-[2px] bg-neutral-900/10 dark:bg-white/10 text-neutral-800 dark:text-neutral-200">
+                          {item.occurrence_count || 1}x asked
+                        </span>
+                        <span className="font-mono text-[10px] text-neutral-400">
+                          {new Date(item.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDismissUnanswered(item.unanswered_id)}
+                        title="Dismiss / Mark Reviewed"
+                        className="p-1 rounded-[3px] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
+                        aria-label="Dismiss question"
+                      >
+                        <CloseIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Original question */}
+                    <p className="font-bold text-xs sm:text-sm text-neutral-900 dark:text-white leading-snug">
+                      &ldquo;{item.original_question}&rdquo;
+                    </p>
+
+                    {/* Customer info & feedback tags */}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                        <span className="text-neutral-900 dark:text-white font-semibold">
+                          {item.customer_name || "Guest"}
+                        </span>
+                        {item.customer_email && (
+                          <span className="text-amber-600 dark:text-amber-400 truncate">
+                            · {item.customer_email}
+                          </span>
+                        )}
+                      </div>
+
+                      {(item.customer_feedback === "NOT_HELPFUL" || item.human_support_requested) && (
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {item.customer_feedback === "NOT_HELPFUL" && (
+                            <span className="text-[9.5px] font-mono px-1.5 py-0.5 rounded-[2px] bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                              Customer clicked &ldquo;No, I need more help&rdquo;
+                            </span>
+                          )}
+                          {item.human_support_requested && (
+                            <span className="text-[9.5px] font-mono px-1.5 py-0.5 rounded-[2px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                              Requested Human Support
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions: Add to FAQ & Link */}
+                    <div className="flex items-center gap-2 pt-1 border-t border-neutral-150 dark:border-white/5">
+                      <button
+                        type="button"
+                        onClick={() => handleConvertUnanswered(item)}
+                        className="flex-1 py-1.5 px-3 rounded-[3px] bg-amber-500 hover:bg-amber-600 text-neutral-950 font-mono text-[10.5px] font-bold uppercase transition-colors text-center cursor-pointer active:scale-95 shadow-xs"
+                      >
+                        Add to FAQ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLinkTargetModal({
+                            unansweredId: item.unanswered_id,
+                            phrasing: item.original_question,
+                          })
+                        }
+                        className="flex-1 py-1.5 px-3 rounded-[3px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 font-mono text-[10.5px] font-bold uppercase transition-colors text-center cursor-pointer active:scale-95"
+                      >
+                        Link Phrasing
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -949,11 +1231,11 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
           SUB-TAB 3: LIVE HUMAN SUPPORT INBOX
       ==================================================================== */}
       {subTab === "live" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[720px]">
-          {/* Left Column: Conversations List */}
-          <div className="lg:col-span-4 flex flex-col rounded-[6px] border border-neutral-200 dark:border-white/5 bg-white dark:bg-[#101218] overflow-hidden shadow-xs">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[520px] h-[calc(100dvh-13rem)] sm:h-[650px] lg:h-[720px]">
+          {/* Left Column: Conversations List (Hidden on mobile when conversation is open) */}
+          <div className={`${selectedConvId ? "hidden lg:flex" : "flex"} lg:col-span-4 flex-col rounded-[6px] border border-neutral-200 dark:border-white/5 bg-white dark:bg-[#101218] overflow-hidden shadow-xs h-full`}>
             {/* Filter Bar */}
-            <div className="p-3 border-b border-neutral-200 dark:border-white/10 flex items-center justify-between gap-2">
+            <div className="p-3 border-b border-neutral-200 dark:border-white/10 flex items-center justify-between gap-2 shrink-0">
               <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                 Support Queue
               </span>
@@ -1035,45 +1317,58 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
             </div>
           </div>
 
-          {/* Right Column: Active Conversation History & Reply Composer */}
-          <div className="lg:col-span-8 flex flex-col rounded-[6px] border border-neutral-200 dark:border-white/5 bg-white dark:bg-[#101218] overflow-hidden shadow-xs">
+          {/* Right Column: Active Conversation History & Reply Composer (Hidden on mobile when in queue view) */}
+          <div className={`${selectedConvId ? "flex" : "hidden lg:flex"} lg:col-span-8 flex-col rounded-[6px] border border-neutral-200 dark:border-white/5 bg-white dark:bg-[#101218] overflow-hidden shadow-xs h-full`}>
             {activeConvDetails ? (
               <>
                 {/* Thread Header */}
-                <div className="p-3 border-b border-neutral-200 dark:border-white/10 flex items-center justify-between gap-3 bg-neutral-50/50 dark:bg-white/[0.02]">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-neutral-900 dark:text-white">
+                <div className="p-3 border-b border-neutral-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-neutral-50/50 dark:bg-white/[0.02] shrink-0">
+                  <div className="min-w-0">
+                    {/* Mobile Back Button to return to conversation list */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedConvId(null);
+                        setActiveConvDetails(null);
+                      }}
+                      className="lg:hidden inline-flex items-center gap-1.5 text-xs font-mono font-bold text-amber-600 dark:text-amber-400 hover:underline mb-1.5 cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Back to Support Queue</span>
+                    </button>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-xs text-neutral-900 dark:text-white truncate">
                         {activeConvDetails.customer_name}
                       </span>
                       {activeConvDetails.customer_email && (
-                        <span className="font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                        <span className="font-mono text-[11px] text-amber-600 dark:text-amber-400 truncate">
                           ({activeConvDetails.customer_email})
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] font-mono text-neutral-400 mt-0.5">
+                    <p className="text-[10px] font-mono text-neutral-400 mt-0.5 truncate">
                       Status: <span className="text-amber-500 font-bold">{activeConvDetails.status}</span>
                       {activeConvDetails.assigned_admin_name && ` · Assigned to: ${activeConvDetails.assigned_admin_name}`}
                     </p>
                   </div>
 
                   {/* Actions: Claim / Resolve / Return to bot */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                     {activeConvDetails.status === "AWAITING_HUMAN" && (
                       <button
                         type="button"
                         onClick={() => handleClaimConversation(activeConvDetails.conversation_id)}
-                        className="px-2.5 py-1 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 font-mono text-xs font-bold uppercase transition-all shadow-xs cursor-pointer active:scale-95"
+                        className="px-2.5 py-1.5 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 font-mono text-xs font-bold uppercase transition-all shadow-xs cursor-pointer active:scale-95"
                       >
-                        Claim / Join Chat
+                        Claim Chat
                       </button>
                     )}
                     {activeConvDetails.status !== "RESOLVED" ? (
                       <button
                         type="button"
                         onClick={() => handleUpdateConvStatus("RESOLVED")}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-[4px] bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-bold uppercase transition-all cursor-pointer active:scale-95 shadow-xs"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-[4px] bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-bold uppercase transition-all cursor-pointer active:scale-95 shadow-xs"
                       >
                         <Check className="w-3.5 h-3.5" />
                         <span>Resolve</span>
@@ -1086,7 +1381,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     <button
                       type="button"
                       onClick={() => handleUpdateConvStatus("BOT_ACTIVE")}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-[4px] bg-neutral-200 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 text-neutral-900 dark:text-white font-mono text-xs font-medium uppercase transition-all cursor-pointer active:scale-95 border border-neutral-300 dark:border-white/15"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-[4px] bg-neutral-200 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 text-neutral-900 dark:text-white font-mono text-xs font-medium uppercase transition-all cursor-pointer active:scale-95 border border-neutral-300 dark:border-white/15"
                       title="Return control to automated chatbot"
                     >
                       <Bot className="w-3.5 h-3.5 text-amber-500" />
@@ -1174,15 +1469,15 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
       ==================================================================== */}
       {subTab === "settings" && settingsData && (
         <form onSubmit={handleSaveSettings} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Search Thresholds Card */}
-            <div className="p-5 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-4">
+            <div className="p-4 sm:p-5 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-4">
               <h3 className="font-mono font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                <Sliders className="w-4 h-4" />
+                <Sliders className="w-4 h-4 shrink-0" />
                 <span>Matching Engine Thresholds</span>
               </h3>
 
-              <div className="space-y-3 text-xs">
+              <div className="space-y-3.5 text-xs">
                 <div>
                   <label className="block font-mono text-[11px] text-neutral-500 mb-1">
                     Minimum Matching Threshold (Default: 0.42)
@@ -1196,7 +1491,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     onChange={(e) =>
                       setSettingsData((prev) => ({ ...prev, min_match_threshold: e.target.value }))
                     }
-                    className="w-full px-3 py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                   <p className="text-[10px] text-neutral-400 mt-1">
                     Questions scoring below this confidence value trigger the honest fallback.
@@ -1216,7 +1511,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     onChange={(e) =>
                       setSettingsData((prev) => ({ ...prev, ambiguity_delta: e.target.value }))
                     }
-                    className="w-full px-3 py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                   <p className="text-[10px] text-neutral-400 mt-1">
                     If top 2 questions score within this difference, the bot offers clarifying options.
@@ -1235,20 +1530,20 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     onChange={(e) =>
                       setSettingsData((prev) => ({ ...prev, max_suggestions: e.target.value }))
                     }
-                    className="w-full px-3 py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                 </div>
               </div>
             </div>
 
             {/* Official External Links Card */}
-            <div className="p-5 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-4">
+            <div className="p-4 sm:p-5 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-4">
               <h3 className="font-mono font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                <ExternalLinkIcon className="w-4 h-4" />
+                <ExternalLinkIcon className="w-4 h-4 shrink-0" />
                 <span>Official External Support Channels</span>
               </h3>
 
-              <div className="space-y-3 text-xs">
+              <div className="space-y-3.5 text-xs">
                 <div>
                   <label className="block font-mono text-[11px] text-neutral-500 mb-1">
                     Official Messenger Destination URL
@@ -1259,7 +1554,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     onChange={(e) =>
                       setSettingsData((prev) => ({ ...prev, messenger_url: e.target.value }))
                     }
-                    className="w-full px-3 py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                 </div>
 
@@ -1276,7 +1571,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                         social_links: { ...prev.social_links, facebook: e.target.value },
                       }))
                     }
-                    className="w-full px-3 py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                 </div>
 
@@ -1293,18 +1588,18 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                         social_links: { ...prev.social_links, instagram: e.target.value },
                       }))
                     }
-                    className="w-full px-3 py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-2">
             <button
               type="submit"
               disabled={isSavingSettings}
-              className="px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-wider font-mono transition-colors shadow-xs cursor-pointer"
+              className="w-full sm:w-auto px-5 py-2.5 sm:py-2 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-wider font-mono transition-colors shadow-xs cursor-pointer flex items-center justify-center gap-2"
             >
               {isSavingSettings ? "Saving Settings..." : "Save Configuration"}
             </button>
@@ -1316,25 +1611,25 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
           MODAL: CREATE / EDIT FAQ (With Live Answer Preview)
       ==================================================================== */}
       {isFaqModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-3xl rounded-[8px] bg-white dark:bg-[#0c0e12] border border-neutral-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-3xl rounded-[8px] bg-white dark:bg-[#0c0e12] border border-neutral-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="p-4 border-b border-neutral-200 dark:border-white/10 flex items-center justify-between bg-neutral-50 dark:bg-white/[0.02]">
+            <div className="p-3.5 sm:p-4 border-b border-neutral-200 dark:border-white/10 flex items-center justify-between bg-neutral-50 dark:bg-white/[0.02]">
               <span className="font-mono font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400">
                 {editingFaq ? "Edit Knowledge Base Entry" : "Create Approved Knowledge Base Entry"}
               </span>
               <button
                 type="button"
                 onClick={() => setIsFaqModalOpen(false)}
-                className="p-1 rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-white"
+                className="p-1 rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
               >
                 <CloseIcon className="w-4 h-4" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <form onSubmit={handleSaveFaq} className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <form onSubmit={handleSaveFaq} className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-3.5 sm:space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 items-start sm:items-center">
                 <div>
                   <label className="block font-mono text-[11px] text-neutral-500 mb-1">
                     Category *
@@ -1342,7 +1637,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                   <select
                     value={faqForm.categoryId}
                     onChange={(e) => setFaqForm((p) => ({ ...p, categoryId: e.target.value }))}
-                    className="w-full px-3 py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   >
                     {categories.map((c) => (
                       <option key={c.category_id} value={c.category_id}>
@@ -1352,22 +1647,22 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 pt-5">
+                <div className="flex items-center gap-2 pt-1 sm:pt-6">
                   <input
                     type="checkbox"
                     id="isActiveToggle"
                     checked={faqForm.isActive}
                     onChange={(e) => setFaqForm((p) => ({ ...p, isActive: e.target.checked }))}
-                    className="w-4 h-4 accent-amber-500 rounded"
+                    className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
                   />
-                  <label htmlFor="isActiveToggle" className="font-mono text-xs text-neutral-700 dark:text-neutral-300">
+                  <label htmlFor="isActiveToggle" className="font-mono text-xs text-neutral-700 dark:text-neutral-300 cursor-pointer">
                     Active (Searchable by customers)
                   </label>
                 </div>
               </div>
 
               {/* Primary Questions */}
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-1">
                 <div>
                   <label className="block font-mono text-[11px] text-neutral-500 mb-1">
                     Primary Question (English) *
@@ -1377,7 +1672,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     value={faqForm.questionEn}
                     onChange={(e) => setFaqForm((p) => ({ ...p, questionEn: e.target.value }))}
                     placeholder="e.g. What construction services does MCPA offer?"
-                    className="w-full px-3 py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                 </div>
 
@@ -1390,7 +1685,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     value={faqForm.questionTl}
                     onChange={(e) => setFaqForm((p) => ({ ...p, questionTl: e.target.value }))}
                     placeholder="e.g. Anong mga serbisyo sa konstruksyon ang iniaalok ng MCPA?"
-                    className="w-full px-3 py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -1415,7 +1710,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                       }
                     }}
                     placeholder="Type variation and press Enter..."
-                    className="flex-1 px-3 py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="flex-1 px-3 py-2 sm:py-1.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                   <button
                     type="button"
@@ -1425,7 +1720,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                         setNewAltInput("");
                       }
                     }}
-                    className="px-3 py-1.5 rounded-[4px] bg-neutral-200 dark:bg-white/10 font-mono text-xs cursor-pointer"
+                    className="px-3.5 py-2 sm:py-1.5 rounded-[4px] bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 font-mono text-xs cursor-pointer font-bold"
                   >
                     Add
                   </button>
@@ -1445,7 +1740,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                             altQuestions: p.altQuestions.filter((_, i) => i !== idx),
                           }))
                         }
-                        className="text-neutral-400 hover:text-rose-500"
+                        className="text-neutral-400 hover:text-rose-500 font-bold px-0.5 cursor-pointer"
                       >
                         ×
                       </button>
@@ -1455,7 +1750,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
               </div>
 
               {/* Approved Answers */}
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-1">
                 <div>
                   <label className="block font-mono text-[11px] text-neutral-500 mb-1">
                     Approved Answer (English) *
@@ -1465,7 +1760,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     value={faqForm.answerEn}
                     onChange={(e) => setFaqForm((p) => ({ ...p, answerEn: e.target.value }))}
                     placeholder="Official approved answer explaining MCPA services..."
-                    className="w-full p-2.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full p-2.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white leading-relaxed"
                   />
                 </div>
 
@@ -1478,13 +1773,13 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     value={faqForm.answerTl}
                     onChange={(e) => setFaqForm((p) => ({ ...p, answerTl: e.target.value }))}
                     placeholder="Opisyal na sagot sa wikang Tagalog..."
-                    className="w-full p-2.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="w-full p-2.5 rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white leading-relaxed"
                   />
                 </div>
               </div>
 
               {/* Live Widget Preview */}
-              <div className="p-3.5 rounded-[6px] bg-neutral-100 dark:bg-black/40 border border-neutral-200 dark:border-white/10 space-y-2">
+              <div className="p-3 sm:p-3.5 rounded-[6px] bg-neutral-100 dark:bg-black/40 border border-neutral-200 dark:border-white/10 space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-neutral-500">
                   <span className="flex items-center gap-1">
                     <Eye className="w-3.5 h-3.5" />
@@ -1494,14 +1789,14 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     <button
                       type="button"
                       onClick={() => setPreviewLang("en")}
-                      className={`px-1.5 py-0.2 rounded font-mono ${previewLang === "en" ? "bg-amber-500 text-neutral-950 font-bold" : "text-neutral-400"}`}
+                      className={`px-2 py-0.5 rounded font-mono cursor-pointer ${previewLang === "en" ? "bg-amber-500 text-neutral-950 font-bold" : "text-neutral-400"}`}
                     >
                       EN
                     </button>
                     <button
                       type="button"
                       onClick={() => setPreviewLang("fil")}
-                      className={`px-1.5 py-0.2 rounded font-mono ${previewLang === "fil" ? "bg-amber-500 text-neutral-950 font-bold" : "text-neutral-400"}`}
+                      className={`px-2 py-0.5 rounded font-mono cursor-pointer ${previewLang === "fil" ? "bg-amber-500 text-neutral-950 font-bold" : "text-neutral-400"}`}
                     >
                       FIL
                     </button>
@@ -1518,17 +1813,17 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
               </div>
 
               {/* Form Buttons */}
-              <div className="flex justify-end gap-2 pt-3 border-t border-neutral-200 dark:border-white/10">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-neutral-200 dark:border-white/10">
                 <button
                   type="button"
                   onClick={() => setIsFaqModalOpen(false)}
-                  className="px-3 py-1.5 rounded-[4px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 text-neutral-800 dark:text-neutral-200 font-mono text-xs cursor-pointer"
+                  className="w-full sm:w-auto px-4 py-2 sm:py-1.5 rounded-[4px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 text-neutral-800 dark:text-neutral-200 font-mono text-xs cursor-pointer text-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-wider font-mono transition-colors shadow-xs cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-2 sm:py-1.5 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs uppercase tracking-wider font-mono transition-colors shadow-xs cursor-pointer text-center"
                 >
                   Save Entry
                 </button>
@@ -1542,46 +1837,46 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
           MODAL: MANAGE CATEGORIES
       ==================================================================== */}
       {isCatModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-lg rounded-[8px] bg-white dark:bg-[#0c0e12] border border-neutral-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
-            <div className="p-4 border-b border-neutral-200 dark:border-white/10 flex items-center justify-between bg-neutral-50 dark:bg-white/[0.02]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-lg rounded-[8px] bg-white dark:bg-[#0c0e12] border border-neutral-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[85vh] overflow-hidden">
+            <div className="p-3.5 sm:p-4 border-b border-neutral-200 dark:border-white/10 flex items-center justify-between bg-neutral-50 dark:bg-white/[0.02]">
               <span className="font-mono font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400">
                 Knowledge Base Categories
               </span>
               <button
                 type="button"
                 onClick={() => setIsCatModalOpen(false)}
-                className="p-1 rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-white"
+                className="p-1 rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
               >
                 <CloseIcon className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 space-y-4 overflow-y-auto text-xs">
+            <div className="p-3.5 sm:p-4 space-y-4 overflow-y-auto text-xs">
               {/* Add category form */}
               <form onSubmit={handleCreateCategory} className="p-3 rounded-[4px] bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 space-y-2.5">
                 <p className="font-mono font-bold text-[11px] uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
                   Add New Category
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
                     type="text"
                     value={newCatNameEn}
                     onChange={(e) => setNewCatNameEn(e.target.value)}
-                    placeholder="Name (English)"
-                    className="px-2.5 py-1.5 text-xs rounded bg-white dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    placeholder="Name (English) *"
+                    className="px-2.5 py-2 sm:py-1.5 text-xs rounded bg-white dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                   <input
                     type="text"
                     value={newCatNameTl}
                     onChange={(e) => setNewCatNameTl(e.target.value)}
                     placeholder="Name (Tagalog)"
-                    className="px-2.5 py-1.5 text-xs rounded bg-white dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                    className="px-2.5 py-2 sm:py-1.5 text-xs rounded bg-white dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs font-mono uppercase tracking-wider"
+                  className="w-full py-2 sm:py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs font-mono uppercase tracking-wider cursor-pointer"
                 >
                   Create Category
                 </button>
@@ -1592,7 +1887,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                 {categories.map((c) => (
                   <div
                     key={c.category_id}
-                    className="flex items-center justify-between p-2 rounded bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5"
+                    className="flex items-center justify-between p-2.5 sm:p-2 rounded bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5"
                   >
                     <div>
                       <p className="font-bold text-neutral-900 dark:text-white">{c.name_en}</p>
@@ -1610,17 +1905,17 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
           MODAL: LINK QUESTION TO EXISTING FAQ
       ==================================================================== */}
       {linkTargetModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-md rounded-[8px] bg-white dark:bg-[#0c0e12] border border-neutral-200 dark:border-white/10 shadow-2xl p-5 space-y-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-md rounded-[8px] bg-white dark:bg-[#0c0e12] border border-neutral-200 dark:border-white/10 shadow-2xl p-4 sm:p-5 space-y-4">
             <span className="font-mono font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 block">
               Link Alternative Phrasing
             </span>
 
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
               Link the customer&apos;s question as a recognized variation of an existing approved FAQ:
             </p>
 
-            <div className="p-2.5 rounded bg-neutral-100 dark:bg-white/5 font-mono text-xs font-semibold text-neutral-900 dark:text-white">
+            <div className="p-3 rounded bg-neutral-100 dark:bg-white/5 font-mono text-xs font-semibold text-neutral-900 dark:text-white break-words">
               &ldquo;{linkTargetModal.phrasing}&rdquo;
             </div>
 
@@ -1631,7 +1926,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
               <select
                 value={selectedLinkFaqId}
                 onChange={(e) => setSelectedLinkFaqId(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
+                className="w-full px-3 py-2 sm:py-1.5 text-xs rounded bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
               >
                 <option value="">-- Choose an approved FAQ --</option>
                 {faqs.map((f) => (
@@ -1642,11 +1937,11 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
               </select>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setLinkTargetModal(null)}
-                className="px-3 py-1.5 rounded bg-neutral-200 dark:bg-white/10 font-mono text-xs"
+                className="w-full sm:w-auto px-4 py-2 sm:py-1.5 rounded bg-neutral-200 dark:bg-white/10 font-mono text-xs cursor-pointer text-center"
               >
                 Cancel
               </button>
@@ -1654,7 +1949,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                 type="button"
                 disabled={!selectedLinkFaqId}
                 onClick={handleLinkUnanswered}
-                className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider disabled:opacity-40"
+                className="w-full sm:w-auto px-4 py-2 sm:py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold font-mono text-xs uppercase tracking-wider disabled:opacity-40 cursor-pointer text-center"
               >
                 Link Phrasing
               </button>
