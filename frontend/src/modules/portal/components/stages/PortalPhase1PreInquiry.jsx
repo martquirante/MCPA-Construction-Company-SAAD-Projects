@@ -22,7 +22,6 @@ import {
   HardHat,
   ListChecks,
   Key,
-  Calculator,
   Calendar,
   Clock,
   Video,
@@ -37,205 +36,6 @@ import ProjectDetailsModal from "@/modules/home/components/ProjectDetailsModal";
 import { deduplicateProjects } from "@/modules/shared/projectsHelper";
 import { extractRoomCode, buildMeetingUrl } from "@/modules/portal/utils/roomCodeHelper";
 import GoogleMeetRoom from "../GoogleMeetRoom";
-
-/**
- * Interactive Dream Home Cost & Feasibility Calculator Widget
- */
-function DreamHomeCostCalculator({ onApplyEstimate }) {
-  const [lotArea, setLotArea] = useState(120);
-  const [storeys, setStoreys] = useState(2);
-  const [finishGrade, setFinishGrade] = useState("elegant"); // "standard" | "elegant" | "luxury"
-  const [location, setLocation] = useState("Bulacan");
-
-  // Approximate floor area based on standard 65-75% lot coverage ratio
-  const estimatedFloorArea = useMemo(() => {
-    if (storeys === 1) return Math.round(lotArea * 0.7);
-    if (storeys === 2) return Math.round(lotArea * 1.15);
-    return Math.round(lotArea * 1.6);
-  }, [lotArea, storeys]);
-
-  // Rate per sqm
-  const ratePerSqm = useMemo(() => {
-    if (finishGrade === "standard") return 25000;
-    if (finishGrade === "elegant") return 32000;
-    return 42000;
-  }, [finishGrade]);
-
-  const estimatedTotalCost = useMemo(() => {
-    return estimatedFloorArea * ratePerSqm;
-  }, [estimatedFloorArea, ratePerSqm]);
-
-  const estimatedDurationMonths = useMemo(() => {
-    if (storeys === 1) return "5 - 6 Months";
-    if (storeys === 2) return "6 - 8 Months";
-    return "8 - 10 Months";
-  }, [storeys]);
-
-  // Pag-IBIG 20-year loan estimate (approx ~₱7,300 per ₱1M borrowed at 6.25% fixed)
-  const estimatedMonthlyAmortization = useMemo(() => {
-    const loanableAmount = estimatedTotalCost * 0.8; // 80% loanable
-    return Math.round((loanableAmount / 1000000) * 7300);
-  }, [estimatedTotalCost]);
-
-  const formatPHP = (val) =>
-    "₱" + Number(val).toLocaleString("en-PH", { maximumFractionDigits: 0 });
-
-  return (
-    <div className="rounded-2xl p-6 sm:p-8 bg-gradient-to-br from-neutral-900 via-[#12141c] to-neutral-950 text-white border border-amber-500/30 shadow-xl space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
-        <div>
-          <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-amber-400 mb-1">
-            <Calculator className="w-4 h-4" />
-            <span>Interactive Feasibility Tool</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold font-mono uppercase text-white">
-            Dream Home Cost &amp; Amortization Calculator
-          </h2>
-          <p className="text-xs text-neutral-400 mt-1">
-            Estimate preliminary structural budget, floor area, and Pag-IBIG financing for your titled property.
-          </p>
-        </div>
-        <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono text-[11px] font-semibold shrink-0">
-          2026 Turnkey Scopes
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Input Parameters (8 cols) */}
-        <div className="lg:col-span-7 space-y-5">
-          {/* 1. Lot Area Slider */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-neutral-300 uppercase font-semibold">Titled Lot Area:</span>
-              <span className="text-amber-400 font-bold text-sm">{lotArea} sq.m.</span>
-            </div>
-            <input
-              type="range"
-              min="60"
-              max="400"
-              step="10"
-              value={lotArea}
-              onChange={(e) => setLotArea(Number(e.target.value))}
-              className="w-full accent-amber-500 cursor-pointer h-2 bg-neutral-800 rounded-lg"
-            />
-            <div className="flex justify-between text-[10px] font-mono text-neutral-500">
-              <span>60 sq.m.</span>
-              <span>200 sq.m.</span>
-              <span>400 sq.m.</span>
-            </div>
-          </div>
-
-          {/* 2. Storeys Selector */}
-          <div className="space-y-2">
-            <label className="block text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold">
-              Number of Storeys:
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { count: 1, label: "1-Storey Bungalow" },
-                { count: 2, label: "2-Storey Modern" },
-                { count: 3, label: "3-Storey Executive" },
-              ].map((s) => (
-                <button
-                  key={s.count}
-                  type="button"
-                  onClick={() => setStoreys(s.count)}
-                  className={`p-2.5 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer text-center border ${
-                    storeys === s.count
-                      ? "bg-amber-500 text-neutral-950 font-bold border-amber-400 shadow-md"
-                      : "bg-white/[0.04] text-neutral-300 border-white/10 hover:border-amber-500/40"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 3. Finishing Quality */}
-          <div className="space-y-2">
-            <label className="block text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold">
-              Finishing Grade:
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {[
-                { id: "standard", name: "Standard Turnkey", price: "₱25k/sqm", desc: "Solid concrete, steel roof, ceramic tiles" },
-                { id: "elegant", name: "Elegant / Modern", price: "₱32k/sqm", desc: "Porcelain tiles, cove lighting, modular kitchen" },
-                { id: "luxury", name: "High-End Luxury", price: "₱42k/sqm", desc: "High ceiling, quartz counters, smart provisions" },
-              ].map((g) => (
-                <div
-                  key={g.id}
-                  onClick={() => setFinishGrade(g.id)}
-                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                    finishGrade === g.id
-                      ? "bg-amber-500/15 border-amber-400 text-white shadow-md ring-1 ring-amber-400/50"
-                      : "bg-white/[0.03] border-white/10 text-neutral-300 hover:border-white/20"
-                  }`}
-                >
-                  <div className="text-xs font-bold text-white">{g.name}</div>
-                  <div className="text-amber-400 font-mono text-[11px] font-bold mt-0.5">{g.price}</div>
-                  <div className="text-[10px] text-neutral-400 mt-1 line-clamp-2">{g.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Estimated Output Panel (5 cols) */}
-        <div className="lg:col-span-5 p-5 rounded-2xl bg-neutral-950/80 border border-white/10 flex flex-col justify-between space-y-4">
-          <div className="space-y-3">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 font-bold block">
-              Calculated Feasibility Metrics
-            </span>
-
-            <div>
-              <div className="text-xs font-mono text-neutral-400">ESTIMATED TOTAL BUDGET:</div>
-              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-amber-400">
-                {formatPHP(estimatedTotalCost)}
-              </div>
-              <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
-                Approx. {estimatedFloorArea} sq.m. Total Usable Floor Area
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 font-mono text-xs">
-              <div>
-                <span className="text-neutral-500 text-[10px] block">BUILD DURATION:</span>
-                <span className="font-bold text-white">{estimatedDurationMonths}</span>
-              </div>
-              <div>
-                <span className="text-neutral-500 text-[10px] block">EST. PAG-IBIG / MO:</span>
-                <span className="font-bold text-emerald-400">{formatPHP(estimatedMonthlyAmortization)}</span>
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 font-sans leading-relaxed">
-              💡 Zero hidden costs: Includes structural engineering blueprints, building permit processing, and 15-Year Structural Warranty.
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              onApplyEstimate({
-                lotArea,
-                storeys,
-                finishGrade,
-                estimatedFloorArea,
-                estimatedTotalCost,
-              })
-            }
-            className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 active:scale-98"
-          >
-            <Compass className="w-4 h-4" />
-            <span>Lock Estimate &amp; Start Inquiry</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function PortalPhase1PreInquiry({
   currentUser,
@@ -611,7 +411,7 @@ export default function PortalPhase1PreInquiry({
         stage: "Stage 1",
         code: "PRE_INQUIRY",
         title: "Discovery & Pre-Inquiry",
-        desc: "Explore completed works, compute your preliminary budget via the Feasibility Calculator, and submit your Architectural Brief for initial engineering evaluation.",
+        desc: "Explore completed works and submit your Architectural Brief for initial engineering evaluation.",
         deliverables: ["Feasibility & Budget Estimate", "Site & Lot Verification", "Initial Consultation Booking"],
       },
       {
@@ -968,7 +768,7 @@ export default function PortalPhase1PreInquiry({
       ) : (
         /* =========================================================================
             STATE 1A: FRESH ACCOUNT (NO ACTIVE INQUIRY YET)
-            (Features Hero, Feasibility Calculator, and Start Inquiry Wizard)
+            (Features Hero and Start Inquiry Wizard)
             ========================================================================= */
         <div className="space-y-8">
           {/* 1. HERO ONBOARDING SECTION */}
@@ -1020,12 +820,6 @@ export default function PortalPhase1PreInquiry({
             </div>
           </div>
 
-          {/* 2. INTERACTIVE DREAM HOME COST & FEASIBILITY CALCULATOR */}
-          <DreamHomeCostCalculator
-            onApplyEstimate={(params) => {
-              if (onStartInquiry) onStartInquiry(params);
-            }}
-          />
         </div>
       )}
 
