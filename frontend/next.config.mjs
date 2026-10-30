@@ -81,8 +81,64 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "mcpa-construction.vercel.app",
+          },
+        ],
+        destination: "https://www.mcpaconstruction.com/:path*",
+        permanent: true,
+      },
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "mcpaconstruction.vercel.app",
+          },
+        ],
+        destination: "https://www.mcpaconstruction.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "mcpa-construction.vercel.app",
+          },
+        ],
+        headers: [
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive",
+          },
+        ],
+      },
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "mcpaconstruction.vercel.app",
+          },
+        ],
+        headers: [
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive",
+          },
+        ],
+      },
       {
         source: "/admin/:path*",
         headers: [
