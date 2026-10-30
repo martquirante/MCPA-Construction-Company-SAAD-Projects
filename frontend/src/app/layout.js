@@ -27,6 +27,9 @@ export const metadata = {
   },
   description:
     "MCPA Construction and Supply is a trusted Design & Build Contractor in Plaridel, Bulacan serving Metro Manila & Central Luzon. Specializing in custom residential homes, Build Now Pay Later (for titled lots), commercial warehouses, signed & sealed architectural plans, and construction supply.",
+  verification: {
+    google: "8LgSqeoLB_-J63YMp_uUZ2sy-p7DBmjIuTi2XCPoZqU",
+  },
   alternates: {
     canonical: "./",
   },
