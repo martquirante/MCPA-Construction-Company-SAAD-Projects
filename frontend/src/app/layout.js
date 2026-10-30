@@ -16,46 +16,76 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.mcpaconstruction.com";
+
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://mcpa-construction.vercel.app"),
+  metadataBase: new URL(SITE_URL),
+  applicationName: "MCPA Construction and Supply",
   title: {
-    default: "MCPA Construction and Supply | Design and Build Contractor Bulacan",
+    default: "MCPA Construction and Supply | Design & Build Contractor in Plaridel, Bulacan",
     template: "%s | MCPA Construction and Supply",
   },
   description:
-    "Looking to turn your ideas into reality? MCPA Construction and Supply is a premier design-and-build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, signed and sealed plans, and turnkey construction supply across Bulacan, Metro Manila, and Central Luzon.",
+    "MCPA Construction and Supply is a trusted Design & Build Contractor in Plaridel, Bulacan serving Metro Manila & Central Luzon. Specializing in custom residential homes, Build Now Pay Later (for titled lots), commercial warehouses, signed & sealed architectural plans, and construction supply.",
   alternates: {
-    canonical: "/",
+    canonical: "./",
   },
   robots: {
-    index: false,
-    follow: false,
-    nocache: true,
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
   openGraph: {
-    title: "MCPA Construction and Supply | Design and Build Contractor Bulacan",
+    title: "MCPA Construction and Supply | Design & Build Contractor in Plaridel, Bulacan",
     description:
-      "Full-service design and build contractor based in Plaridel, Bulacan. Specializing in residential homes, commercial buildings, and turnkey construction supply.",
-    url: "https://mcpa-construction.vercel.app",
+      "Full-service design and build contractor in Plaridel, Bulacan. Custom residential homes, Build Now Pay Later program, commercial buildings, signed & sealed plans, and turnkey construction supply.",
+    url: SITE_URL,
     siteName: "MCPA Construction and Supply",
+    images: [
+      {
+        url: "/assets/hero-residence-day-wide-v2.jpg",
+        width: 1200,
+        height: 630,
+        alt: "MCPA Construction and Supply — Custom Design & Build Residence in Bulacan",
+      },
+    ],
     locale: "en_PH",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "MCPA Construction and Supply",
+    title: "MCPA Construction and Supply | Design & Build Contractor Bulacan",
     description:
-      "Full-service design and build contractor based in Plaridel, Bulacan.",
+      "Full-service design and build contractor in Plaridel, Bulacan serving Metro Manila & Central Luzon.",
+    images: ["/assets/hero-residence-day-wide-v2.jpg"],
   },
   keywords: [
+    "MCPA",
+    "MCPA Construction",
     "MCPA Construction and Supply",
+    "MCPA Construction Bulacan",
+    "MCPA Plaridel",
     "Design and Build Contractor Bulacan",
     "Bulacan Construction Company",
     "Plaridel Bulacan Contractor",
-    "Build Now Pay Later Program",
-    "Signed and Sealed Architectural Plans",
+    "General Contractor Bulacan",
     "House Construction Bulacan",
+    "Build Now Pay Later Program",
+    "Build Now Pay Later House Construction Bulacan",
+    "Pag-IBIG Housing Loan Contractor Bulacan",
+    "Signed and Sealed Architectural Plans",
     "Commercial Building Contractor Bulacan",
+    "Warehouse Contractor Central Luzon",
+    "Home Renovation Contractor Bulacan",
+    "Construction Supply Plaridel Bulacan",
+    "Design and Build Metro Manila",
+    "Contractor Central Luzon",
   ],
   manifest: "/site.webmanifest",
   icons: {
@@ -96,29 +126,81 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
-              "@type": "GeneralContractor",
-              "name": "MCPA Construction and Supply",
-              "image": "https://mcpa-construction.vercel.app/icon.png",
-              "url": "https://mcpa-construction.vercel.app",
-              "telephone": "+63-917-123-4567",
-              "priceRange": "₱₱₱",
-              "address": {
-                "@type": "PostalAddress",
-                "streetAddress": "Plaridel",
-                "addressLocality": "Plaridel",
-                "addressRegion": "Bulacan",
-                "postalCode": "3004",
-                "addressCountry": "PH"
-              },
-              "geo": {
-                "@type": "GeoCoordinates",
-                "latitude": 14.8872,
-                "longitude": 120.8572
-              },
-              "sameAs": [
-                "https://www.facebook.com/MCPA.ConstructionandSupply/",
-                "https://www.instagram.com/mcpa.constructionandsupply/",
-                "https://www.tiktok.com/@mcpa.construction"
+              "@graph": [
+                {
+                  "@type": "WebSite",
+                  "@id": `${SITE_URL}/#website`,
+                  "url": SITE_URL,
+                  "name": "MCPA Construction and Supply",
+                  "alternateName": [
+                    "MCPA",
+                    "MCPA Construction",
+                    "MCPA Construction & Supply"
+                  ],
+                  "publisher": {
+                    "@id": `${SITE_URL}/#organization`
+                  },
+                  "inLanguage": "en-PH"
+                },
+                {
+                  "@type": "GeneralContractor",
+                  "@id": `${SITE_URL}/#organization`,
+                  "name": "MCPA Construction and Supply",
+                  "alternateName": [
+                    "MCPA",
+                    "MCPA Construction",
+                    "MCPA Construction & Supply"
+                  ],
+                  "url": SITE_URL,
+                  "logo": `${SITE_URL}/icon.png`,
+                  "image": `${SITE_URL}/assets/hero-residence-day-wide-v2.jpg`,
+                  "description":
+                    "Full-service design and build contractor based in Plaridel, Bulacan specializing in custom residential homes, Build Now Pay Later programs, commercial warehouses, signed and sealed architectural plans, and construction supply across Bulacan, Metro Manila, and Central Luzon.",
+                  "telephone": "+63-949-775-8239",
+                  "email": "mcpa.construction@gmail.com",
+                  "priceRange": "₱₱₱",
+                  "hasMap": "https://maps.app.goo.gl/hPB6X66NdhViSvCp7",
+                  "address": {
+                    "@type": "PostalAddress",
+                    "streetAddress": "2826 Le Cagayan Valley Rd, Tabang",
+                    "addressLocality": "Plaridel",
+                    "addressRegion": "Bulacan",
+                    "postalCode": "3004",
+                    "addressCountry": "PH"
+                  },
+                  "geo": {
+                    "@type": "GeoCoordinates",
+                    "latitude": 14.8872,
+                    "longitude": 120.8572
+                  },
+                  "openingHoursSpecification": [
+                    {
+                      "@type": "OpeningHoursSpecification",
+                      "dayOfWeek": [
+                        "Monday",
+                        "Tuesday",
+                        "Wednesday",
+                        "Thursday",
+                        "Friday",
+                        "Saturday"
+                      ],
+                      "opens": "08:00",
+                      "closes": "17:00"
+                    }
+                  ],
+                  "areaServed": [
+                    { "@type": "City", "name": "Plaridel" },
+                    { "@type": "City", "name": "Malolos" },
+                    { "@type": "AdministrativeArea", "name": "Bulacan" },
+                    { "@type": "AdministrativeArea", "name": "Metro Manila" },
+                    { "@type": "AdministrativeArea", "name": "Central Luzon" }
+                  ],
+                  "sameAs": [
+                    "https://www.facebook.com/MCPA.ConstructionandSupply/",
+                    "https://www.instagram.com/mcpa.constructionandsupply/",
+                    "https://www.tiktok.com/@mcpa.construction"
+                  ]
+                }
               ]
             })
           }}

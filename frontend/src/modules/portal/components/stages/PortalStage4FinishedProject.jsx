@@ -28,6 +28,7 @@ import LordIcon from "@/modules/shared/LordIcon";
 import { authFetch } from "@/modules/shared/authFetch";
 import FinishedProjectDossierCard from "@/modules/shared/FinishedProjectDossierCard";
 import WrappedStoryExperience from "@/modules/wrapped/WrappedStoryExperience";
+import { setThemePreference } from "@/modules/shared/SystemThemeSync";
 
 export default function PortalStage4FinishedProject({
   activeProject,
@@ -46,6 +47,23 @@ export default function PortalStage4FinishedProject({
   const [isOnboardingActive, setIsOnboardingActive] = useState(false);
   const [isWrappedModalOpen, setIsWrappedModalOpen] = useState(false);
   const [isLoadingDossier, setIsLoadingDossier] = useState(true);
+  const [portalTheme, setPortalTheme] = useState(() =>
+    typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+      ? "dark"
+      : "light"
+  );
+
+  useEffect(() => {
+    const handleThemeChange = (event) => {
+      setPortalTheme(event.detail?.isDark ? "dark" : "light");
+    };
+    window.addEventListener("mcpa-theme-change", handleThemeChange);
+    return () => window.removeEventListener("mcpa-theme-change", handleThemeChange);
+  }, []);
+
+  const handleWrappedThemeChange = (nextTheme) => {
+    setThemePreference(nextTheme);
+  };
 
   // Load Dossier & Wrapped Data
   useEffect(() => {
@@ -135,7 +153,7 @@ export default function PortalStage4FinishedProject({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[6px] border border-neutral-200 dark:border-white/10 bg-white dark:bg-[#101218]">
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider border border-amber-500/30">
+              <span className="px-2 py-0.5 rounded bg-transparent text-amber-700 dark:text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider border border-amber-500/30">
                 12-Chapter Retrospective
               </span>
               <span className="font-mono text-xs text-neutral-400">
@@ -174,7 +192,9 @@ export default function PortalStage4FinishedProject({
           <div className="w-full min-h-[750px] sm:min-h-[820px] rounded-[8px] overflow-hidden border border-neutral-200 dark:border-white/10 shadow-xl bg-black relative flex items-center justify-center p-2 sm:p-4">
             <WrappedStoryExperience
               payload={wrapped.wrapped_payload}
-              initialTheme="dark"
+              initialTheme={portalTheme}
+              controlledTheme={portalTheme}
+              onThemeChange={handleWrappedThemeChange}
               mode="embedded"
               shareToken={shareToken}
             />
@@ -209,7 +229,7 @@ export default function PortalStage4FinishedProject({
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-3 text-center md:text-left max-w-xl">
             <div className="flex items-center justify-center md:justify-start gap-2">
-              <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-wider border border-emerald-500/30">
+              <span className="px-2 py-0.5 rounded bg-transparent text-emerald-700 dark:text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-wider border border-emerald-500/30">
                 100% Commissioned & Handed Over
               </span>
               <span className="font-mono text-xs text-neutral-400">
@@ -492,7 +512,9 @@ export default function PortalStage4FinishedProject({
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center animate-in fade-in">
           <WrappedStoryExperience
             payload={wrapped.wrapped_payload}
-            initialTheme="dark"
+            initialTheme={portalTheme}
+            controlledTheme={portalTheme}
+            onThemeChange={handleWrappedThemeChange}
             onClose={handleCompleteOnboarding}
             mode="onboarding"
             onCompleteOnboarding={handleCompleteOnboarding}
@@ -506,7 +528,9 @@ export default function PortalStage4FinishedProject({
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center animate-in fade-in">
           <WrappedStoryExperience
             payload={wrapped.wrapped_payload}
-            initialTheme="dark"
+            initialTheme={portalTheme}
+            controlledTheme={portalTheme}
+            onThemeChange={handleWrappedThemeChange}
             onClose={() => setIsWrappedModalOpen(false)}
             mode="modal"
             shareToken={shareToken}

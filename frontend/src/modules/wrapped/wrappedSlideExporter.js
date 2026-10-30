@@ -85,6 +85,16 @@ function drawCoverImage(ctx, img, x, y, w, h) {
   ctx.restore();
 }
 
+function drawContainImage(ctx, img, x, y, w, h) {
+  if (!img || !img.naturalWidth || !img.naturalHeight) {
+    return;
+  }
+  const scale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+  const drawW = img.naturalWidth * scale;
+  const drawH = img.naturalHeight * scale;
+  ctx.drawImage(img, x + (w - drawW) / 2, y + (h - drawH) / 2, drawW, drawH);
+}
+
 /**
  * Renders a scene to an offscreen canvas at full 1080x1920 resolution.
  */
@@ -137,7 +147,11 @@ export async function renderSceneToCanvas(scene) {
       ctx.stroke();
     } else if (it.t === "image") {
       const img = loadedImagesMap.get(it.src);
-      drawCoverImage(ctx, img, it.x, it.y, it.w, it.h);
+      if (it.fit === "contain") {
+        drawContainImage(ctx, img, it.x, it.y, it.w, it.h);
+      } else {
+        drawCoverImage(ctx, img, it.x, it.y, it.w, it.h);
+      }
     } else if (it.t === "text") {
       const fontFamily = it.font === "mono" ? fonts.mono : fonts.display;
       ctx.font = `${it.weight || 600} ${it.size}px ${fontFamily}`;

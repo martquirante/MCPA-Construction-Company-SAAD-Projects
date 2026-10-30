@@ -108,7 +108,7 @@ export default function FinishedProjectDossierCard({
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-white/10">
           <div className="space-y-1.5 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded-[4px] bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 font-mono text-[10px] font-bold uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded-[4px] bg-transparent text-amber-700 dark:text-amber-300 border border-amber-500/20 font-mono text-[10px] font-bold uppercase tracking-wider">
                 COMPLETED RESIDENCE
               </span>
               <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400">

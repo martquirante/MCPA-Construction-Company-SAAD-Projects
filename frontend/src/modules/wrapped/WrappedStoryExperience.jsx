@@ -30,6 +30,8 @@ const SLIDE_DURATION_MS = 8000;
 export default function WrappedStoryExperience({
   payload,
   initialTheme = "dark",
+  controlledTheme = null,
+  onThemeChange = null,
   onClose = null,
   mode = "standalone", // "standalone" | "modal" | "onboarding" | "public"
   onCompleteOnboarding = null,
@@ -60,13 +62,16 @@ export default function WrappedStoryExperience({
     if (!payload) return [];
     return buildScenes({
       payload,
-      theme,
+      theme: controlledTheme || theme,
       fonts,
       seeds,
     });
-  }, [payload, theme, fonts, seeds]);
+  }, [payload, controlledTheme, theme, fonts, seeds]);
 
-  const currentScene = scenes[currentIdx] || null;
+  const safeCurrentIdx = scenes.length
+    ? Math.min(currentIdx, scenes.length - 1)
+    : 0;
+  const currentScene = scenes[safeCurrentIdx] || null;
 
   const showToast = useCallback((msg) => {
     setToastMessage(msg);
@@ -224,7 +229,8 @@ export default function WrappedStoryExperience({
     );
   }
 
-  const isDark = theme === "dark";
+  const activeTheme = controlledTheme || theme;
+  const isDark = activeTheme === "dark";
 
   return (
     <div
@@ -256,7 +262,14 @@ export default function WrappedStoryExperience({
           {/* Theme Toggle */}
           <button
             type="button"
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            onClick={() => {
+              const nextTheme = isDark ? "light" : "dark";
+              if (onThemeChange) {
+                onThemeChange(nextTheme);
+              } else {
+                setTheme(nextTheme);
+              }
+            }}
             className={`p-2 rounded-md border text-xs font-mono transition-colors cursor-pointer ${
               isDark
                 ? "bg-[#141820] border-white/15 text-neutral-300 hover:text-white"
@@ -429,7 +442,7 @@ export default function WrappedStoryExperience({
                     y={it.y}
                     width={it.w}
                     height={it.h}
-                    preserveAspectRatio="xMidYMid slice"
+                    preserveAspectRatio={it.fit === "contain" ? "xMidYMid meet" : "xMidYMid slice"}
                   />
                 );
               }

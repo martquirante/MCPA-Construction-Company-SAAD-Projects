@@ -148,7 +148,7 @@ const text = (s, x, y, o) => ({
   align: o.align || "left",
   ls: o.ls || 0,
 });
-const image = (src, x, y, w, h) => ({ t: "image", src, x, y, w, h });
+const image = (src, x, y, w, h, fit = "cover") => ({ t: "image", src, x, y, w, h, fit });
 
 function wrap(measure, str, opts, maxW) {
   const words = String(str || "").split(/\s+/).filter(Boolean);
@@ -595,7 +595,8 @@ export function buildScenes({ payload, theme = "light", fonts, seeds = [] }) {
     const sy = baseY - 190;
     items.push(rect(sx, sy, 250, 250, { stroke: P.accent, sw: 2 }));
     items.push(rect(sx + 10, sy + 10, 230, 230, { stroke: P.hair }));
-    items.push(text("MCPA", sx + 125, sy + 112, { size: 58, weight: 800, color: P.accent, align: "center" }));
+    const logoSrc = P.bg === PALETTES.dark.bg ? "/assets/logo-white.svg" : "/assets/mcpa-logo.svg";
+    items.push(image(logoSrc, sx + 28, sy + 48, 194, 72, "contain"));
     items.push(text("HANDED OVER", sx + 125, sy + 154, { font: "mono", size: 18, weight: 600, color: P.ink, ls: 3, align: "center" }));
     const t = D("turnover");
     if (t) items.push(text(t.full, sx + 125, sy + 190, { font: "mono", size: 18, weight: 500, color: P.muted, ls: 2, align: "center" }));

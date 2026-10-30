@@ -1,10 +1,23 @@
 export default function robots() {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.mcpaconstruction.com";
+
   return {
     rules: [
       {
         userAgent: "*",
-        disallow: "/",
+        allow: "/",
+        disallow: [
+          "/admin",
+          "/admin/",
+          "/admin/*",
+          "/portal",
+          "/portal/",
+          "/portal/*",
+          "/api/",
+          "/api/*",
+        ],
       },
     ],
+    sitemap: `${baseUrl}/sitemap.xml`,
   };
 }

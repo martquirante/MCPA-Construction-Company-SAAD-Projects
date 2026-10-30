@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Sparkles,
@@ -132,17 +133,14 @@ export default function PublicWrappedPage() {
       >
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-[4px] bg-amber-500 text-neutral-950 font-mono font-extrabold text-sm flex items-center justify-center transition-transform group-hover:scale-105">
-              M
-            </div>
-            <div className="flex flex-col">
-              <span className="font-mono text-xs font-bold tracking-wider uppercase">
-                MCPA Architectural
-              </span>
-              <span className="text-[9px] font-mono text-neutral-500 uppercase">
-                Project Monograph · Public Recap
-              </span>
-            </div>
+            <Image
+              src={isDark ? "/assets/logo-white.svg" : "/assets/mcpa-logo.svg"}
+              alt="MCPA Construction and Supply"
+              width={180}
+              height={48}
+              priority
+              className="h-9 sm:h-10 w-auto object-contain transition-transform group-hover:scale-[1.02]"
+            />
           </Link>
         </div>
 
@@ -178,6 +176,8 @@ export default function PublicWrappedPage() {
           <WrappedStoryExperience
             payload={payload}
             initialTheme={pageTheme}
+            controlledTheme={pageTheme}
+            onThemeChange={setPageTheme}
             mode="public"
             shareToken={token}
           />
