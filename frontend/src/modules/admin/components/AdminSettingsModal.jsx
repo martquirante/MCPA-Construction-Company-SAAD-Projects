@@ -22,6 +22,15 @@ import {
 } from "@/modules/shared/Icons";
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
 import { authFetch } from "@/modules/shared/authFetch";
+import { Pencil, ExternalLink, Check } from "lucide-react";
+
+// Safe external URL formatter (ensures protocol prefix so links open externally)
+function formatExternalUrl(url) {
+  if (!url) return "#";
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
 
 // Helper to compute age from birthdate
 function computeAge(birthDateStr) {
@@ -86,6 +95,9 @@ export default function AdminSettingsModal({
   const [facebookUrl, setFacebookUrl] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
+  const [isEditingFacebook, setIsEditingFacebook] = useState(false);
+  const [isEditingLinkedin, setIsEditingLinkedin] = useState(false);
+  const [isEditingInstagram, setIsEditingInstagram] = useState(false);
 
   // Location suggestions autocomplete
   const [locationSuggestions, setLocationSuggestions] = useState([]);
@@ -363,6 +375,9 @@ export default function AdminSettingsModal({
       const data = await res.json();
       if (res.ok && data.success) {
         triggerNotification("Your profile information has been saved successfully!");
+        setIsEditingFacebook(false);
+        setIsEditingLinkedin(false);
+        setIsEditingInstagram(false);
         if (onUserUpdate && data.user) {
           onUserUpdate(data.user);
         }
@@ -885,18 +900,59 @@ export default function AdminSettingsModal({
                     <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200 mb-1">
                       Facebook Profile URL
                     </label>
-                    <div className="relative flex items-center">
-                      <div className="w-8 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-                        <FacebookIcon className="w-4 h-4" />
+                    {facebookUrl && !isEditingFacebook ? (
+                      <div className="flex items-center justify-between gap-2.5 px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-5 h-5 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                            <FacebookIcon className="w-4 h-4" />
+                          </div>
+                          <a
+                            href={formatExternalUrl(facebookUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 dark:text-blue-400 font-mono text-xs hover:underline truncate inline-flex items-center gap-1.5 group cursor-pointer"
+                            title="Open Facebook Profile in new tab"
+                          >
+                            <span className="truncate">{facebookUrl}</span>
+                            <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 shrink-0" />
+                          </a>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingFacebook(true)}
+                          className="px-2.5 py-1 rounded-[3px] bg-neutral-200/70 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 text-neutral-800 dark:text-white font-mono text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                          title="Edit Facebook URL"
+                        >
+                          <Pencil className="w-3 h-3 text-amber-500" />
+                          <span>Edit</span>
+                        </button>
                       </div>
-                      <input
-                        type="url"
-                        value={facebookUrl}
-                        onChange={(e) => setFacebookUrl(e.target.value)}
-                        placeholder="https://facebook.com/your.name"
-                        className="flex-1 px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500 font-mono"
-                      />
-                    </div>
+                    ) : (
+                      <div className="relative flex items-center gap-2">
+                        <div className="w-8 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                          <FacebookIcon className="w-4 h-4" />
+                        </div>
+                        <input
+                          type="url"
+                          value={facebookUrl}
+                          onChange={(e) => setFacebookUrl(e.target.value)}
+                          placeholder="https://facebook.com/your.name"
+                          className="flex-1 px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500 font-mono"
+                          autoFocus={isEditingFacebook}
+                        />
+                        {isEditingFacebook && (
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingFacebook(false)}
+                            className="px-2.5 py-2 rounded-[4px] bg-amber-500/15 hover:bg-amber-500 text-amber-700 dark:text-amber-400 hover:text-neutral-950 font-mono text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 border border-amber-500/30"
+                            title="Done editing"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Done</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* LinkedIn Profile */}
@@ -904,18 +960,59 @@ export default function AdminSettingsModal({
                     <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200 mb-1">
                       LinkedIn Profile URL
                     </label>
-                    <div className="relative flex items-center">
-                      <div className="w-8 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
-                        <LinkedInIcon className="w-4 h-4" />
+                    {linkedinUrl && !isEditingLinkedin ? (
+                      <div className="flex items-center justify-between gap-2.5 px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-5 h-5 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
+                            <LinkedInIcon className="w-4 h-4" />
+                          </div>
+                          <a
+                            href={formatExternalUrl(linkedinUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sky-600 dark:text-sky-400 font-mono text-xs hover:underline truncate inline-flex items-center gap-1.5 group cursor-pointer"
+                            title="Open LinkedIn Profile in new tab"
+                          >
+                            <span className="truncate">{linkedinUrl}</span>
+                            <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 shrink-0" />
+                          </a>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingLinkedin(true)}
+                          className="px-2.5 py-1 rounded-[3px] bg-neutral-200/70 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 text-neutral-800 dark:text-white font-mono text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                          title="Edit LinkedIn URL"
+                        >
+                          <Pencil className="w-3 h-3 text-amber-500" />
+                          <span>Edit</span>
+                        </button>
                       </div>
-                      <input
-                        type="url"
-                        value={linkedinUrl}
-                        onChange={(e) => setLinkedinUrl(e.target.value)}
-                        placeholder="https://linkedin.com/in/your.profile"
-                        className="flex-1 px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500 font-mono"
-                      />
-                    </div>
+                    ) : (
+                      <div className="relative flex items-center gap-2">
+                        <div className="w-8 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
+                          <LinkedInIcon className="w-4 h-4" />
+                        </div>
+                        <input
+                          type="url"
+                          value={linkedinUrl}
+                          onChange={(e) => setLinkedinUrl(e.target.value)}
+                          placeholder="https://linkedin.com/in/your.profile"
+                          className="flex-1 px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500 font-mono"
+                          autoFocus={isEditingLinkedin}
+                        />
+                        {isEditingLinkedin && (
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingLinkedin(false)}
+                            className="px-2.5 py-2 rounded-[4px] bg-amber-500/15 hover:bg-amber-500 text-amber-700 dark:text-amber-400 hover:text-neutral-950 font-mono text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 border border-amber-500/30"
+                            title="Done editing"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Done</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Instagram / Professional Portfolio */}
@@ -923,18 +1020,59 @@ export default function AdminSettingsModal({
                     <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200 mb-1">
                       Instagram or Portfolio Link
                     </label>
-                    <div className="relative flex items-center">
-                      <div className="w-8 flex items-center justify-center text-pink-600 dark:text-pink-400 shrink-0">
-                        <InstagramIcon className="w-4 h-4" />
+                    {instagramUrl && !isEditingInstagram ? (
+                      <div className="flex items-center justify-between gap-2.5 px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-5 h-5 flex items-center justify-center text-pink-600 dark:text-pink-400 shrink-0">
+                            <InstagramIcon className="w-4 h-4" />
+                          </div>
+                          <a
+                            href={formatExternalUrl(instagramUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-pink-600 dark:text-pink-400 font-mono text-xs hover:underline truncate inline-flex items-center gap-1.5 group cursor-pointer"
+                            title="Open Instagram Profile in new tab"
+                          >
+                            <span className="truncate">{instagramUrl}</span>
+                            <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 shrink-0" />
+                          </a>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingInstagram(true)}
+                          className="px-2.5 py-1 rounded-[3px] bg-neutral-200/70 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 text-neutral-800 dark:text-white font-mono text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                          title="Edit Instagram URL"
+                        >
+                          <Pencil className="w-3 h-3 text-amber-500" />
+                          <span>Edit</span>
+                        </button>
                       </div>
-                      <input
-                        type="url"
-                        value={instagramUrl}
-                        onChange={(e) => setInstagramUrl(e.target.value)}
-                        placeholder="https://instagram.com/your.handle"
-                        className="flex-1 px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500 font-mono"
-                      />
-                    </div>
+                    ) : (
+                      <div className="relative flex items-center gap-2">
+                        <div className="w-8 flex items-center justify-center text-pink-600 dark:text-pink-400 shrink-0">
+                          <InstagramIcon className="w-4 h-4" />
+                        </div>
+                        <input
+                          type="url"
+                          value={instagramUrl}
+                          onChange={(e) => setInstagramUrl(e.target.value)}
+                          placeholder="https://instagram.com/your.handle"
+                          className="flex-1 px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500 font-mono"
+                          autoFocus={isEditingInstagram}
+                        />
+                        {isEditingInstagram && (
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingInstagram(false)}
+                            className="px-2.5 py-2 rounded-[4px] bg-amber-500/15 hover:bg-amber-500 text-amber-700 dark:text-amber-400 hover:text-neutral-950 font-mono text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 border border-amber-500/30"
+                            title="Done editing"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Done</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
