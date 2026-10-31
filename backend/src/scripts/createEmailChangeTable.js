@@ -31,3 +31,4 @@ run().catch(e => {
   console.error('Migration error:', e.message);
   process.exit(1);
 });
+

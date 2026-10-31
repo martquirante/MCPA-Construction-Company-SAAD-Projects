@@ -58,6 +58,7 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+.claude/
 scratch/
 __pycache__/
 # 8. Machine Learning & OCR Binary Weights

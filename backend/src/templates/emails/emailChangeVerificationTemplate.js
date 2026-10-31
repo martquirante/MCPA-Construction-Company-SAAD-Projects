@@ -191,3 +191,4 @@ function getEmailChangeVerificationTemplate({
 module.exports = {
   getEmailChangeVerificationTemplate,
 };
+
