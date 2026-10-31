@@ -171,13 +171,20 @@ class BriefsController {
       const matchedUserId = userRes.rows?.[0]?.user_id || parsedUserId || 0;
 
       if (!isMultiApproved) {
-        // Check active brief by user_id OR client_email
+        // Check active brief by user_id OR client_email (excluding completed/handed over projects or briefs already converted to projects)
         const activeCheck = await db.query(
-          `SELECT brief_id, submission_id, project_type, status, location, created_at 
-           FROM client_briefs 
-           WHERE ((user_id = $1 AND $1 > 0) OR LOWER(client_email) = LOWER($2)) 
-             AND (status NOT ILIKE '%reject%' AND status NOT ILIKE '%decline%' AND status NOT ILIKE '%discontinue%' AND status NOT ILIKE '%withdrawn%' AND status NOT ILIKE '%complet%')
-           ORDER BY brief_id DESC 
+          `SELECT cb.brief_id, cb.submission_id, cb.project_type, cb.status, cb.location, cb.created_at 
+           FROM client_briefs cb
+           LEFT JOIN client_projects cp ON cp.brief_id = cb.brief_id
+           LEFT JOIN site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
+           WHERE ((cb.user_id = $1 AND $1 > 0) OR LOWER(cb.client_email) = LOWER($2)) 
+             AND (cb.status NOT ILIKE '%reject%' AND cb.status NOT ILIKE '%decline%' AND cb.status NOT ILIKE '%discontinue%' AND cb.status NOT ILIKE '%withdrawn%' AND cb.status NOT ILIKE '%complet%')
+             AND NOT (
+               (cp.stage_id = 'COMPLETED' OR cp.is_archived = TRUE)
+               OR (sp.status ILIKE '%complete%' OR sp.status ILIKE '%handover%' OR COALESCE(sp.progress_pct, 0) >= 100)
+             )
+             AND cp.client_project_id IS NULL
+           ORDER BY cb.brief_id DESC 
            LIMIT 1`,
           [matchedUserId, normalizedEmail]
         );
@@ -200,13 +207,17 @@ class BriefsController {
           });
         }
 
-        // Check active project by user_id OR brief_id
+        // Check active project by user_id OR brief_id (completed or 100% finished builds do not block re-booking)
         const projectCheck = await db.query(
-          `SELECT client_project_id, project_code, project_title, project_type, target_location, stage_id, created_at 
-           FROM client_projects 
-           WHERE ((user_id = $1 AND $1 > 0) OR brief_id IN (SELECT brief_id FROM client_briefs WHERE LOWER(client_email) = LOWER($2)))
-             AND is_archived = FALSE AND stage_id != 'COMPLETED'
-           ORDER BY client_project_id DESC LIMIT 1`,
+          `SELECT cp.client_project_id, cp.project_code, cp.project_title, cp.project_type, cp.target_location, cp.stage_id, cp.created_at 
+           FROM client_projects cp
+           LEFT JOIN site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
+           WHERE ((cp.user_id = $1 AND $1 > 0) OR cp.brief_id IN (SELECT brief_id FROM client_briefs WHERE LOWER(client_email) = LOWER($2)))
+             AND cp.is_archived = FALSE 
+             AND cp.stage_id != 'COMPLETED'
+             AND (sp.progress_pct IS NULL OR sp.progress_pct < 100)
+             AND (sp.status IS NULL OR (sp.status NOT ILIKE '%complete%' AND sp.status NOT ILIKE '%handover%'))
+           ORDER BY cp.client_project_id DESC LIMIT 1`,
           [matchedUserId, normalizedEmail]
         );
         if (projectCheck.rows && projectCheck.rows.length > 0) {
@@ -1240,13 +1251,17 @@ class BriefsController {
         return res.json({ hasActiveInquiry: false, isMultiApproved: true });
       }
 
-      // 1. Check active project by user_id OR brief_id
+      // 1. Check active project by user_id OR brief_id (completed or 100% finished builds do not block re-booking)
       const projectRes = await db.query(
-        `SELECT client_project_id, project_code, project_title, project_type, target_location, stage_id, created_at 
-         FROM client_projects 
-         WHERE ((user_id = $1 AND $1 > 0) OR brief_id IN (SELECT brief_id FROM client_briefs WHERE LOWER(client_email) = LOWER($2)))
-           AND is_archived = FALSE AND stage_id != 'COMPLETED'
-         ORDER BY client_project_id DESC LIMIT 1`,
+        `SELECT cp.client_project_id, cp.project_code, cp.project_title, cp.project_type, cp.target_location, cp.stage_id, cp.created_at 
+         FROM client_projects cp
+         LEFT JOIN site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
+         WHERE ((cp.user_id = $1 AND $1 > 0) OR cp.brief_id IN (SELECT brief_id FROM client_briefs WHERE LOWER(client_email) = LOWER($2)))
+           AND cp.is_archived = FALSE 
+           AND cp.stage_id != 'COMPLETED'
+           AND (sp.progress_pct IS NULL OR sp.progress_pct < 100)
+           AND (sp.status IS NULL OR (sp.status NOT ILIKE '%complete%' AND sp.status NOT ILIKE '%handover%'))
+         ORDER BY cp.client_project_id DESC LIMIT 1`,
         [matchedUserId, normalizedEmail]
       );
 
@@ -1266,13 +1281,20 @@ class BriefsController {
         });
       }
 
-      // 2. Check active brief by user_id OR client_email
+      // 2. Check active brief by user_id OR client_email (excluding completed/handed over projects or briefs already converted to projects)
       const briefRes = await db.query(
-        `SELECT brief_id, submission_id, project_type, status, location, created_at 
-         FROM client_briefs 
-         WHERE ((user_id = $1 AND $1 > 0) OR LOWER(client_email) = LOWER($2)) 
-           AND (status NOT ILIKE '%reject%' AND status NOT ILIKE '%decline%' AND status NOT ILIKE '%discontinue%' AND status NOT ILIKE '%withdrawn%' AND status NOT ILIKE '%complet%')
-         ORDER BY brief_id DESC 
+        `SELECT cb.brief_id, cb.submission_id, cb.project_type, cb.status, cb.location, cb.created_at 
+         FROM client_briefs cb
+         LEFT JOIN client_projects cp ON cp.brief_id = cb.brief_id
+         LEFT JOIN site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
+         WHERE ((cb.user_id = $1 AND $1 > 0) OR LOWER(cb.client_email) = LOWER($2)) 
+           AND (cb.status NOT ILIKE '%reject%' AND cb.status NOT ILIKE '%decline%' AND cb.status NOT ILIKE '%discontinue%' AND cb.status NOT ILIKE '%withdrawn%' AND cb.status NOT ILIKE '%complet%')
+           AND NOT (
+             (cp.stage_id = 'COMPLETED' OR cp.is_archived = TRUE)
+             OR (sp.status ILIKE '%complete%' OR sp.status ILIKE '%handover%' OR COALESCE(sp.progress_pct, 0) >= 100)
+           )
+           AND cp.client_project_id IS NULL
+         ORDER BY cb.brief_id DESC 
          LIMIT 1`,
         [matchedUserId, normalizedEmail]
       );

@@ -37,9 +37,22 @@ export function evaluateSingleInquiryPolicy({
     return { isBlocked: false, activeInquiry: null };
   }
 
-  // Check 1: Active project in dashboardState
   const project = activeProject || dashboardState?.activeProject;
-  if (project && project.stage_id !== "COMPLETED" && !project.is_archived) {
+  const isProjectCompleted = Boolean(
+    dashboardState?.stage_id === "COMPLETED" ||
+    project?.stage_id === "COMPLETED" ||
+    Number(project?.progress_pct || 0) >= 100 ||
+    Number(project?.site_progress_pct || 0) >= 100 ||
+    (project?.status || "").toLowerCase().includes("complete") ||
+    (project?.status || "").toLowerCase().includes("handover") ||
+    (project?.status || "").toLowerCase().includes("turnover") ||
+    (project?.current_phase || "").toLowerCase().includes("turnover") ||
+    (project?.current_phase || "").toLowerCase().includes("handover")
+  );
+
+  // Check 1: Active project in dashboardState
+  // Completed / 100% finished projects do NOT block clients from starting a new build!
+  if (project && !isProjectCompleted && !project.is_archived) {
     return {
       isBlocked: true,
       activeInquiry: {
@@ -54,8 +67,36 @@ export function evaluateSingleInquiryPolicy({
   }
 
   // Check 2: Active brief in inquiries list
+  // If client has finished their house (Stage 4 / Completed / 100%), any past brief associated
+  // with that finished project must NOT block them from booking their next build!
   if (Array.isArray(inquiries) && inquiries.length > 0) {
-    const activeBrief = inquiries.find((inq) => isBriefActive(inq.status));
+    const activeBrief = inquiries.find((inq) => {
+      if (!isBriefActive(inq.status)) return false;
+
+      // If client has reached Stage 4 / Completed, previous briefs for that project do not block
+      if (isProjectCompleted) {
+        if (
+          inq.brief_id === project?.brief_id ||
+          inq.client_project_id === project?.client_project_id ||
+          inq.submission_id === project?.brief_submission_id
+        ) {
+          return false;
+        }
+        if ((inq.current_stage_status || inq.stage_id || "").toUpperCase() === "COMPLETED") {
+          return false;
+        }
+        if (project?.created_at && inq.created_at) {
+          const inqTime = new Date(inq.created_at).getTime();
+          const projTime = new Date(project.created_at).getTime();
+          if (inqTime <= projTime + 60000) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    });
+
     if (activeBrief) {
       return {
         isBlocked: true,

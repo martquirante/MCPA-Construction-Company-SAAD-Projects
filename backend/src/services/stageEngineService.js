@@ -40,12 +40,15 @@ class StageEngineService {
 
     const user = userRes.rows[0];
 
-    // 2. Query for any existing active project (not archived and not completed)
+    // 2. Query for any existing active project (not archived, not completed, and under 100% progress)
     const activeRes = await db.query(
-      `SELECT client_project_id, project_code, stage_id, project_title, project_type, target_location, created_at
-       FROM public.client_projects
-       WHERE user_id = $1 AND is_archived = FALSE AND stage_id != 'COMPLETED'
-       ORDER BY client_project_id DESC
+      `SELECT cp.client_project_id, cp.project_code, cp.stage_id, cp.project_title, cp.project_type, cp.target_location, cp.created_at
+       FROM public.client_projects cp
+       LEFT JOIN public.site_projects sp ON sp.project_code = cp.project_code OR sp.client_project_id = cp.client_project_id
+       WHERE cp.user_id = $1 AND cp.is_archived = FALSE AND cp.stage_id != 'COMPLETED'
+         AND (sp.progress_pct IS NULL OR sp.progress_pct < 100)
+         AND (sp.status IS NULL OR (sp.status NOT ILIKE '%complete%' AND sp.status NOT ILIKE '%handover%'))
+       ORDER BY cp.client_project_id DESC
        LIMIT 1;`,
       [userId]
     );
@@ -2026,10 +2029,11 @@ class StageEngineService {
     // 5. Synchronize client_briefs bridge if linked
     const linkedBriefId = project.brief_id;
     if (linkedBriefId) {
+      const briefUpdateSql = targetStage === "COMPLETED"
+        ? `UPDATE public.client_briefs SET current_stage_status = $1, status = 'Completed', client_project_id = $2 WHERE brief_id = $3;`
+        : `UPDATE public.client_briefs SET current_stage_status = $1, client_project_id = $2 WHERE brief_id = $3;`;
       await db.query(
-        `UPDATE public.client_briefs 
-         SET current_stage_status = $1, client_project_id = $2 
-         WHERE brief_id = $3;`,
+        briefUpdateSql,
         [targetStage, resolvedProjectId, linkedBriefId]
       ).catch(() => {});
     }

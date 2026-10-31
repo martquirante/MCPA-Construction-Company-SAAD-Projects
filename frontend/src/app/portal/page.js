@@ -482,10 +482,20 @@ function ClientPortalContent() {
     });
   }, [inquiries, dashboardState]);
 
+  const isProjectCompleted = Boolean(
+    dashboardState?.stage_id === "COMPLETED" ||
+    dashboardState?.activeProject?.stage_id === "COMPLETED" ||
+    Number(dashboardState?.activeProject?.progress_pct || 0) >= 100 ||
+    Number(dashboardState?.activeProject?.site_progress_pct || 0) >= 100 ||
+    (dashboardState?.activeProject?.status || "").toLowerCase().includes("complete") ||
+    (dashboardState?.activeProject?.status || "").toLowerCase().includes("handover") ||
+    (dashboardState?.activeProject?.status || "").toLowerCase().includes("turnover")
+  );
+
   const isMultiProjectBlocked = Boolean(
-    singleInquiryPolicy.isBlocked ||
+    (!isProjectCompleted && singleInquiryPolicy.isBlocked) ||
     (dashboardState?.hasActiveProject &&
-      dashboardState?.stage_id !== "COMPLETED" &&
+      !isProjectCompleted &&
       !dashboardState?.is_multi_project_approved)
   );
 

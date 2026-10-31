@@ -193,10 +193,40 @@ export default function DashboardTab({
     const list = [];
     const seenCodes = new Set();
 
+    const isFinished = (status = "", stage = "", progress = 0, stageId = "") => {
+      const s = (status || "").toLowerCase();
+      const st = (stage || "").toLowerCase();
+      const sid = (stageId || "").toUpperCase();
+      const pct = typeof progress === "number" ? progress : parseFloat(progress) || 0;
+      return (
+        sid === "COMPLETED" ||
+        s === "completed" ||
+        s.includes("complete") ||
+        s.includes("handover") ||
+        s.includes("turnover") ||
+        st.includes("complete") ||
+        st.includes("turned over") ||
+        st.includes("turnover") ||
+        st.includes("handover") ||
+        pct >= 100
+      );
+    };
+
     // 1. Live Stage 3 Construction Site Execution Projects (Primary Live Builds)
     (stage3Projects || []).forEach((sp) => {
       const code = sp.project_code || sp.client_project_id;
       if (code) seenCodes.add(code);
+
+      const status = sp.status || "";
+      const currentPhase = sp.current_phase || "";
+      const progress = typeof sp.progress_pct === "number" ? sp.progress_pct : 0;
+      const stageId = sp.stage_id || "";
+
+      // Exclude projects that are 100% or completed/handed over
+      if (isFinished(status, currentPhase, progress, stageId)) {
+        return;
+      }
+
       list.push({
         id: sp.site_project_id || sp.client_project_id || sp.project_code,
         name: sp.project_title || sp.name || `${sp.client_name}'s Build`,
@@ -207,7 +237,7 @@ export default function DashboardTab({
         location: sp.target_location || sp.location || "Central Luzon",
         category: sp.project_type || "Commercial & Mixed-Use",
         stage: sp.current_phase || "Site Mobilization & Earthworks",
-        progress: typeof sp.progress_pct === "number" ? sp.progress_pct : 0,
+        progress: progress,
         lead_engineer: sp.lead_engineer || "Engr. Raymart Quirante",
         isStage3Build: true,
         milestones: Array.isArray(sp.milestones) ? sp.milestones : [],
@@ -222,12 +252,7 @@ export default function DashboardTab({
       const status = (p.status || "").toLowerCase();
       const stage = (p.stage || "").toLowerCase();
       const progress = typeof p.progress === "number" ? p.progress : 0;
-      if (
-        status === "completed" ||
-        stage.includes("complete") ||
-        stage.includes("turned over") ||
-        progress >= 100
-      ) {
+      if (isFinished(status, stage, progress)) {
         return;
       }
       if (
