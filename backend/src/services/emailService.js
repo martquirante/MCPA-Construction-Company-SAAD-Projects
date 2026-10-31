@@ -30,7 +30,7 @@ class EmailService {
     this.smtpHost = process.env.SMTP_HOST || "";
     this.smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
     this.resendApiKey = process.env.RESEND_API_KEY || "";
-    this.resendFromEmail = process.env.RESEND_FROM_EMAIL || "MCPA Construction <contact@mcpaconstruction.com>";
+    this.resendFromEmail = process.env.RESEND_FROM_EMAIL || "MCPA Construction and Supply <contact@mcpaconstruction.com>";
     this.primaryProvider = (process.env.EMAIL_PRIMARY_PROVIDER || "resend").toLowerCase();
     this.transporter = null;
 
