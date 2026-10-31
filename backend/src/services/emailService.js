@@ -30,8 +30,8 @@ class EmailService {
     this.smtpHost = process.env.SMTP_HOST || "";
     this.smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
     this.resendApiKey = process.env.RESEND_API_KEY || "";
-    this.resendFromEmail = process.env.RESEND_FROM_EMAIL || "MCPA Construction <onboarding@resend.dev>";
-    this.primaryProvider = (process.env.EMAIL_PRIMARY_PROVIDER || "gmail").toLowerCase();
+    this.resendFromEmail = process.env.RESEND_FROM_EMAIL || "MCPA Construction <contact@mcpaconstruction.com>";
+    this.primaryProvider = (process.env.EMAIL_PRIMARY_PROVIDER || "resend").toLowerCase();
     this.transporter = null;
 
     if (this.smtpEmail && this.smtpPass && !this.smtpEmail.includes("YOUR_")) {
@@ -446,7 +446,7 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
     const meetingDate = brief.meeting_date || brief.meetingDate || "Pending Scheduling";
     const meetingTime = brief.meeting_time || brief.meetingTime || "To be confirmed";
     const meetingMode = brief.meeting_mode || brief.meetingMode || "Online Video Call";
-    const websiteUrl = process.env.FRONTEND_URL || "https://mcpa.ph";
+    const websiteUrl = process.env.FRONTEND_URL || "https://www.mcpaconstruction.com";
 
     const subject = `MCPA Consultation Brief Received — Ref: ${subId}`;
     const htmlContent = getInquiryReceiptTemplate(brief);
@@ -571,7 +571,7 @@ Please review and confirm this adjustment in the Admin Consultation Pipeline.`;
     const meetingMode = brief.meeting_mode || brief.meetingMode || "Online Video Call";
     const meetingNotes = brief.meeting_notes || brief.meetingNotes || "";
     const isF2F = (meetingMode || "").toLowerCase().includes("in-person");
-    const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
+    const websiteUrl = process.env.FRONTEND_URL || "https://www.mcpaconstruction.com";
     const portalMeetingUrl = `${websiteUrl}/portal?tab=meeting`;
     const venueAddress = isF2F ? (brief.venue_details || brief.venue_type || "MCPA Head Office") : "MCPA Online Meeting Room (Client Portal)";
 
@@ -630,7 +630,7 @@ Dear ${meetingData.clientName || "Valued Client"},
 Your scheduled consultation (${meetingData.date || "Upcoming"} at ${meetingData.time || "Scheduled Time"}) is approaching in ${leadHours}.
 Please confirm your attendance in the MCPA Client Portal to guarantee our engineering team and lounge/room availability.
 
-Visit your Client Appointments Hub: ${process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app"}/portal?tab=meeting&confirm_attendance=true
+Visit your Client Appointments Hub: ${process.env.FRONTEND_URL || "https://www.mcpaconstruction.com"}/portal?tab=meeting&confirm_attendance=true
 
 MCPA Construction & Supply • Building Better Tomorrows`;
 
@@ -652,7 +652,7 @@ MCPA Construction & Supply • Building Better Tomorrows`;
     const notes = rescheduleMeta.rescheduleNotes || "";
     const meetingMode = rescheduleMeta.meetingMode || brief.meeting_mode || brief.meetingMode || "Online Video Call";
     const isF2F = (meetingMode || "").toLowerCase().includes("in-person");
-    const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
+    const websiteUrl = process.env.FRONTEND_URL || "https://www.mcpaconstruction.com";
     const portalMeetingUrl = `${websiteUrl}/portal?tab=meeting`;
     const venueAddress = isF2F ? (brief.venue_details || brief.venue_type || "MCPA Head Office") : "MCPA Online Meeting Room (Client Portal)";
 
@@ -737,7 +737,7 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
     const clientName = brief.client_name || brief.clientName || "Valued Client";
     const newStatus = statusMeta.status || brief.status || "Status Update";
     const notes = statusMeta.notes || brief.meeting_notes || brief.meetingNotes || "";
-    const websiteUrl = process.env.FRONTEND_URL || "https://mcpa.ph";
+    const websiteUrl = process.env.FRONTEND_URL || "https://www.mcpaconstruction.com";
 
     const subject = `Inquiry Status Update: ${newStatus} — Ref: ${subId}`;
     const htmlContent = getInquiryStatusUpdateTemplate(brief, statusMeta);
@@ -779,7 +779,7 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
    */
   async sendWelcomeClientEmail(toEmail, user = {}, options = {}) {
     const clientName = user.full_name || user.firstName || "Valued Client";
-    const websiteUrl = process.env.FRONTEND_URL || "https://mcpa-construction.vercel.app";
+    const websiteUrl = process.env.FRONTEND_URL || "https://www.mcpaconstruction.com";
     const clientRef = (user.user_id || user.id || Date.now().toString(36).slice(-5)).toString().toUpperCase();
     const subject = options.subject || `Welcome to MCPA Construction & Supply — Your Vision. Our Foundation. [#MCPA-${clientRef}]`;
     const currentYear = new Date().getFullYear();
@@ -942,7 +942,7 @@ Building Better Tomorrows • © ${currentYear} MCPA Construction and Supply. Al
     const frontendUrl = (
       process.env.FRONTEND_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.NODE_ENV === "production" ? "https://mcpa.ph" : "http://localhost:3000")
+      (process.env.NODE_ENV === "production" ? "https://www.mcpaconstruction.com" : "http://localhost:3000")
     ).replace(/\/+$/, "");
 
     const verificationUrl = `${frontendUrl}/portal?verify_email_token=${encodeURIComponent(token)}&email=${encodeURIComponent(toEmail)}`;
@@ -1075,7 +1075,7 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
     const frontendUrl = (
       process.env.FRONTEND_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.NODE_ENV === "production" ? "https://mcpa.ph" : "http://localhost:3000")
+      (process.env.NODE_ENV === "production" ? "https://www.mcpaconstruction.com" : "http://localhost:3000")
     ).replace(/\/+$/, "");
 
     const setupUrl = `${frontendUrl}/admin/setup-password?token=${encodeURIComponent(inviteToken)}&email=${encodeURIComponent(email)}`;
