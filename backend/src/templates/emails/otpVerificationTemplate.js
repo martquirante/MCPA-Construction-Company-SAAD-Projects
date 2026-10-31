@@ -171,7 +171,7 @@ function getOtpVerificationTemplate({
                 <tr>
                   <td align="center" class="text-footer" style="font-size: 10px; color: #94a3b8; text-align: center; letter-spacing: 0.08em; line-height: 1.6; text-transform: uppercase; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                     MCPA CONSTRUCTION AND SUPPLY &middot; PLARIDEL, BULACAN, PHILIPPINES<br />
-                    OFFICIAL HOTLINE: (0949) 775 8239 &bull; MCPA.CONSTRUCTION@GMAIL.COM
+                    OFFICIAL EMAIL: CONTACT@MCPACONSTRUCTION.COM
                   </td>
                 </tr>
               </table>

@@ -16,7 +16,7 @@ function getWelcomeEmailTemplate({
   currentYear = new Date().getFullYear(),
   companyPhone = "+63 949 775 8239",
   companyPhoneDisplay = "(0949) 775 8239",
-  companyEmail = "mcpa.construction@gmail.com",
+  companyEmail = "contact@mcpaconstruction.com",
   companyAddress = "2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines",
   companyMapsUrl = "https://maps.app.goo.gl/hPB6X66NdhViSvCp7",
   companyFacebook = "https://www.facebook.com/MCPA.ConstructionandSupply/",

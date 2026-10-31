@@ -124,18 +124,10 @@ class EmailService {
    * @returns {string}
    */
   resolveSafeReplyTo(customReplyTo) {
-    if (process.env.ALLOW_OFFICIAL_EMAIL_DISPATCH === "true") {
-      return customReplyTo || "mcpa.construction@gmail.com";
+    if (customReplyTo && !this.isProtectedOfficialEmail(customReplyTo) && customReplyTo !== this.smtpEmail) {
+      return customReplyTo;
     }
-    const clean = customReplyTo ? String(customReplyTo).trim().toLowerCase() : "";
-    if (!clean || this.isProtectedOfficialEmail(clean)) {
-      const devEmail = (process.env.ADMIN_ALERT_EMAIL || this.smtpEmail || "").trim();
-      if (devEmail && !this.isProtectedOfficialEmail(devEmail)) {
-        return devEmail;
-      }
-      return "noreply@mcpa.com";
-    }
-    return customReplyTo;
+    return "contact@mcpaconstruction.com";
   }
 
   /**
@@ -269,7 +261,7 @@ SITE OFFICE & CONTACT:
 MCPA Construction & Supply
 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
 Hotline: (0949) 775 8239
-Official Email: mcpa.construction@gmail.com
+Official Email: contact@mcpaconstruction.com
 
 Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
 
@@ -475,7 +467,7 @@ SITE OFFICE & CONTACT:
 MCPA Construction & Supply
 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
 Hotline: (0949) 775 8239
-Official Email: mcpa.construction@gmail.com
+Official Email: contact@mcpaconstruction.com
 
 Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
 
@@ -605,7 +597,7 @@ SITE OFFICE & CONTACT:
 MCPA Construction & Supply
 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
 Hotline: (0949) 775 8239
-Official Email: mcpa.construction@gmail.com
+Official Email: contact@mcpaconstruction.com
 
 Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
 
@@ -681,7 +673,7 @@ SITE OFFICE & CONTACT:
 MCPA Construction & Supply
 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
 Hotline: (0949) 775 8239
-Official Email: mcpa.construction@gmail.com
+Official Email: contact@mcpaconstruction.com
 
 Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
 
@@ -722,7 +714,7 @@ SITE OFFICE & CONTACT:
 MCPA Construction & Supply
 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
 Hotline: (0949) 775 8239
-Official Email: mcpa.construction@gmail.com
+Official Email: contact@mcpaconstruction.com
 
 Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
 
@@ -760,7 +752,7 @@ SITE OFFICE & CONTACT:
 MCPA Construction & Supply
 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
 Hotline: (0949) 775 8239
-Official Email: mcpa.construction@gmail.com
+Official Email: contact@mcpaconstruction.com
 
 Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
 
@@ -787,7 +779,7 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
     // Authentic company contact details directly from website (Footer.jsx)
     const companyPhone = "+63 949 775 8239";
     const companyPhoneDisplay = "(0949) 775 8239";
-    const companyEmail = "mcpa.construction@gmail.com";
+    const companyEmail = "contact@mcpaconstruction.com";
     const companyAddress = "2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines";
     const companyMapsUrl = "https://maps.app.goo.gl/hPB6X66NdhViSvCp7";
     const companyFacebook = "https://www.facebook.com/MCPA.ConstructionandSupply/";
@@ -979,7 +971,7 @@ If you didn't request this, you can safely disregard this email.
 CONTACT & SITE OFFICE:
 Address: 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
 Phone / Viber: (0949) 775 8239
-Official Email: mcpa.construction@gmail.com
+Official Email: contact@mcpaconstruction.com
 
 Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
 
@@ -1109,7 +1101,7 @@ If you did not expect this invitation, please contact your MCPA Systems Administ
 CONTACT & SITE OFFICE:
 Address: 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
 Phone / Viber: (0949) 775 8239
-Official Email: mcpa.construction@gmail.com
+Official Email: contact@mcpaconstruction.com
 
 Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
 
