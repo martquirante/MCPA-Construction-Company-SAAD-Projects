@@ -570,7 +570,7 @@ export default function AdminSettingsModal({
           {/* TAB 1: PROFILE & PERSONAL INFORMATION                          */}
           {/* ============================================================== */}
           {activeTab === "profile" && (
-            <form onSubmit={handleSaveProfile} className="space-y-6">
+            <form id="admin-profile-form" onSubmit={handleSaveProfile} className="space-y-6">
               {/* Photo Upload Section */}
               <div className="p-4 rounded-[4px] border border-neutral-200 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02]">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -938,27 +938,6 @@ export default function AdminSettingsModal({
                   </div>
                 </div>
               </div>
-
-              {/* Submit Button */}
-              <div className="pt-2 flex items-center justify-end gap-3">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-5 py-2 rounded-[4px] bg-amber-500 text-neutral-950 font-mono font-bold text-xs hover:bg-amber-400 transition-colors cursor-pointer flex items-center gap-2 shadow-xs disabled:opacity-50"
-                >
-                  {isSaving ? (
-                    <>
-                      <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving Changes...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckIcon className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Save Profile Information</span>
-                    </>
-                  )}
-                </button>
-              </div>
             </form>
           )}
 
@@ -968,7 +947,7 @@ export default function AdminSettingsModal({
           {activeTab === "security" && (
             <div className="space-y-6">
               {/* Password Change Form */}
-              <form onSubmit={handleSavePassword} className="space-y-4">
+              <form id="admin-password-form" onSubmit={handleSavePassword} className="space-y-4">
                 <div className="border-b border-neutral-200 dark:border-white/5 pb-1">
                   <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-amber-600 dark:text-amber-400">
                     Change Password
@@ -1061,26 +1040,6 @@ export default function AdminSettingsModal({
                       placeholder="Type your new password again"
                       className="w-full px-3 py-2 rounded-[4px] bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-amber-500"
                     />
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isSaving}
-                      className="px-4 py-2 rounded-[4px] bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-mono font-bold text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {isSaving ? (
-                        <>
-                          <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" />
-                          <span>Updating...</span>
-                        </>
-                      ) : (
-                        <>
-                          <KeyRoundIcon className="w-3.5 h-3.5" />
-                          <span>Update Password</span>
-                        </>
-                      )}
-                    </button>
                   </div>
                 </div>
               </form>
@@ -1297,13 +1256,58 @@ export default function AdminSettingsModal({
               </span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-[4px] bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-white font-mono font-semibold text-xs transition-colors cursor-pointer"
-          >
-            Done
-          </button>
+          {/* Action Button: Unified single action replacing duplicate button and 'Done' */}
+          {activeTab === "profile" && (
+            <button
+              type="submit"
+              form="admin-profile-form"
+              disabled={isSaving}
+              className="px-5 py-2 rounded-[4px] bg-amber-500 text-neutral-950 font-mono font-bold text-xs hover:bg-amber-400 transition-colors cursor-pointer flex items-center gap-2 shadow-xs disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving Changes...</span>
+                </>
+              ) : (
+                <>
+                  <CheckIcon className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Save Profile Information</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {activeTab === "security" && (
+            <button
+              type="submit"
+              form="admin-password-form"
+              disabled={isSaving}
+              className="px-5 py-2 rounded-[4px] bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-mono font-bold text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-50 shadow-xs"
+            >
+              {isSaving ? (
+                <>
+                  <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" />
+                  <span>Updating...</span>
+                </>
+              ) : (
+                <>
+                  <KeyRoundIcon className="w-3.5 h-3.5" />
+                  <span>Update Password</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {activeTab === "display" && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-1.5 rounded-[4px] bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-white font-mono font-semibold text-xs transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          )}
         </div>
       </div>
     </div>
