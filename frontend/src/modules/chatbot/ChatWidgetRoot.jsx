@@ -20,7 +20,6 @@ export default function ChatWidgetRoot() {
   const t = CHATBOT_TRANSLATIONS[language] || CHATBOT_TRANSLATIONS.en;
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasModalOpen, setHasModalOpen] = useState(false);
@@ -80,25 +79,23 @@ export default function ChatWidgetRoot() {
       {/* -------------------------------------------------------------------
           OPEN CHAT PANEL
       -------------------------------------------------------------------- */}
-      {isOpen && !isMinimized && (
+      {isOpen && (
         <div
           className={`fixed z-[70] transition-all duration-300 ease-out 
             inset-x-0 bottom-0 h-[100dvh] sm:inset-auto sm:bottom-5 sm:right-5 sm:w-[400px] sm:h-[620px] sm:max-h-[calc(100vh-2rem)]
             sm:rounded-[8px] sm:border sm:border-neutral-200 sm:dark:border-white/10
-            sm:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] bg-white dark:bg-[#0c0e12] overflow-hidden`}
+            sm:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] mcpa-dot-grid bg-white dark:bg-[#0c0e12] overflow-hidden`}
         >
           <ChatWidgetPanel
             onClose={() => setIsOpen(false)}
-            onMinimize={() => setIsMinimized(true)}
-            isMinimized={isMinimized}
           />
         </div>
       )}
 
       {/* -------------------------------------------------------------------
-          MINIMIZED BAR / FLOATING LAUNCHER ("Chat With Us")
+          FLOATING LAUNCHER ("Chat With Us")
       -------------------------------------------------------------------- */}
-      {(!isOpen || isMinimized) && (
+      {!isOpen && (
         <div
           className={`fixed z-[60] flex items-center transition-all duration-500 ease-out right-4 sm:right-5 opacity-100 translate-y-0 pointer-events-auto ${
             isPortal
@@ -111,7 +108,6 @@ export default function ChatWidgetRoot() {
             tabIndex={0}
             onClick={() => {
               setIsOpen(true);
-              setIsMinimized(false);
             }}
             aria-label={t.launcherTooltip}
             className={`group relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-[6px] 

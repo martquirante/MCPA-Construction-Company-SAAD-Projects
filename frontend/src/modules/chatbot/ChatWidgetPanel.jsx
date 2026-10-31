@@ -16,7 +16,7 @@ import {
   CheckIcon,
   MessengerIcon,
 } from "../shared/Icons";
-import { Send, AlertCircle, RefreshCw, Minus, Video, UserCheck, MessageSquare, CheckCircle } from "lucide-react";
+import { Send, AlertCircle, RefreshCw, Video, UserCheck, MessageSquare, CheckCircle } from "lucide-react";
 
 const STORAGE_KEY = "mcpa_chatbot_session_v1";
 
@@ -272,7 +272,7 @@ function TypewriterMessage({ text, onComplete, onCharTyped }) {
   );
 }
 
-export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
+export default function ChatWidgetPanel({ onClose }) {
   const { language } = useLanguage();
   const t = CHATBOT_TRANSLATIONS[language] || CHATBOT_TRANSLATIONS.en;
 
@@ -945,7 +945,7 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
       role="dialog"
       aria-modal="true"
       aria-label="MCPA Construction Customer Support"
-      className="flex flex-col h-full w-full bg-white dark:bg-[#0c0e12] text-neutral-900 dark:text-neutral-100 select-text overflow-hidden font-sans border-0 shadow-none sm:rounded-[8px]"
+      className="flex flex-col h-full w-full mcpa-dot-grid bg-white dark:bg-[#0c0e12] text-neutral-900 dark:text-neutral-100 select-text overflow-hidden font-sans border-0 shadow-none sm:rounded-[8px]"
     >
       {/* -------------------------------------------------------------------
           HEADER BAR: Architectural styling with company emblem & status pill
@@ -1037,14 +1037,6 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
 
           <button
             type="button"
-            onClick={onMinimize}
-            aria-label={t.minimize}
-            className="p-1.5 rounded-[4px] text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
-          >
-            <Minus className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
             onClick={onClose}
             aria-label={t.close}
             className="p-1.5 rounded-[4px] text-neutral-500 hover:text-rose-600 dark:text-neutral-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
@@ -1058,7 +1050,7 @@ export default function ChatWidgetPanel({ onClose, onMinimize, isMinimized }) {
           CONVERSATION VIEWPORT: Scrollable messages container
       -------------------------------------------------------------------- */}
       <div
-        className={`flex-1 overflow-y-auto overscroll-contain p-4 bg-[#F8F9FA] dark:bg-[#080a0e] text-xs ${
+        className={`flex-1 overflow-y-auto overscroll-contain p-4 mcpa-dot-grid bg-[#F8F9FA] dark:bg-[#080a0e] text-xs ${
           !session ? "flex flex-col justify-center items-center" : "space-y-3.5"
         }`}
       >
