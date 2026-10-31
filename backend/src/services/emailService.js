@@ -13,6 +13,7 @@ const {
   getInquiryRejectedTemplate,
   getInquiryStatusUpdateTemplate,
   getEmailVerificationLinkTemplate,
+  getEmailChangeVerificationTemplate,
   getMeetingAttendanceReminderTemplate,
   getAdminInviteLinkTemplate,
 } = require("../templates/emails");
@@ -1044,6 +1045,137 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
     console.log(`  Verify URL:   ${verificationUrl}`);
     console.log(`  Expires:      15 Minutes`);
     console.log(`  Delivered:    ${delivered ? "Delivered to Mailbox" : "Dev Console Mode"}`);
+    console.log("=".repeat(66) + "\n");
+
+    return { delivered, verificationUrl };
+  }
+
+  /**
+   * Dispatches Email Change Authentication Link to the Client's NEW email address.
+   *
+   * @param {string} newEmail The new email address requesting to be authenticated
+   * @param {string} oldEmail The current registered email address of the client
+   * @param {string} token Cryptographic verification token
+   * @param {object} [options] Optional parameters: { fullName?: string, subject?: string }
+   */
+  async sendEmailChangeVerification(newEmail, oldEmail, token, options = {}) {
+    const frontendUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.NODE_ENV === "production" ? "https://www.mcpaconstruction.com" : "http://localhost:3000")
+    ).replace(/\/+$/, "");
+
+    const verificationUrl = `${frontendUrl}/portal?verify_email_change_token=${encodeURIComponent(token)}&email=${encodeURIComponent(newEmail)}&old_email=${encodeURIComponent(oldEmail)}`;
+    const subject = options.subject || "Confirm Your New Email Address — MCPA Client Portal";
+    const recipientName = options.fullName || "Valued Client";
+
+    const htmlContent = getEmailChangeVerificationTemplate({
+      verificationUrl,
+      recipientName,
+      oldEmail,
+      newEmail,
+      subject,
+      logoLightUrl: "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png",
+      logoDarkUrl: "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_white_v1.png",
+      mailIconUrl: "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/icons/mail_white.png",
+    });
+
+    const plainText = `MCPA CONSTRUCTION & SUPPLY
+CLIENT PORTAL • EMAIL CHANGE AUTHENTICATION
+
+CONFIRM YOUR NEW EMAIL ADDRESS
+
+Hello ${recipientName},
+
+We received a request to update the primary contact email for your MCPA Client Portal account from ${oldEmail} to:
+${newEmail}
+
+Please confirm and authenticate this change by clicking the link below:
+
+${verificationUrl}
+
+(Note: This security link expires in 15 minutes.)
+
+If you didn't request this email change, please disregard this email or notify MCPA Support immediately to secure your account.
+
+CONTACT & SITE OFFICE:
+Address: 2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines
+Phone / Viber: (0949) 775 8239
+Official Email: contact@mcpaconstruction.com
+
+Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction and Supply. All rights reserved.`;
+
+    let toEmail = newEmail;
+    const safeRecipient = this.resolveSafeRecipient(toEmail, "Email Change Verification Link");
+    if (!safeRecipient) {
+      console.log(`[EmailService] Email Change Verification delivery bypassed for protected email ${toEmail}`);
+      return { delivered: false, verificationUrl };
+    }
+    toEmail = safeRecipient;
+    const safeReplyTo = this.resolveSafeReplyTo(options.replyTo);
+
+    let delivered = false;
+
+    // 1. Try Primary Gmail / SMTP
+    if (this.transporter && this.primaryProvider === "gmail") {
+      try {
+        await this.transporter.sendMail({
+          from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
+          replyTo: safeReplyTo,
+          to: toEmail,
+          subject,
+          text: plainText,
+          html: htmlContent,
+          headers: {
+            "X-Mailer": "MCPA Dispatch Engine",
+            "X-Entity-Ref-ID": `mcpa-email-change-${Date.now()}`,
+            "X-Auto-Response-Suppress": "OOF, AutoReply",
+          },
+        });
+        delivered = true;
+        console.log(`\x1b[32m[EmailService] Primary Gmail SMTP Email Change Verification delivered to ${toEmail}\x1b[0m`);
+      } catch (err) {
+        console.warn(`\x1b[33m[EmailService] Primary Gmail SMTP failed (${err.message}). Trying Resend API...\x1b[0m`);
+      }
+    }
+
+    // 2. Try Resend API (Failover)
+    if (!delivered && this.resendApiKey) {
+      delivered = await this.sendViaResend(toEmail, subject, htmlContent, { replyTo: safeReplyTo });
+    }
+
+    // 3. Fallback to Transporter if primary was not gmail
+    if (!delivered && this.transporter) {
+      try {
+        await this.transporter.sendMail({
+          from: `"MCPA Construction & Supply" <${this.smtpEmail}>`,
+          replyTo: safeReplyTo,
+          to: toEmail,
+          subject,
+          text: plainText,
+          html: htmlContent,
+          headers: {
+            "X-Mailer": "MCPA Dispatch Engine",
+            "X-Entity-Ref-ID": `mcpa-email-change-${Date.now()}`,
+            "X-Auto-Response-Suppress": "OOF, AutoReply",
+          },
+        });
+        delivered = true;
+        console.log(`\x1b[32m[EmailService] Fallback SMTP Email Change Verification delivered to ${toEmail}\x1b[0m`);
+      } catch (smtpErr) {
+        console.warn("[EmailService] Final SMTP email change verification fallback failed:", smtpErr.message);
+      }
+    }
+
+    // Terminal logger
+    console.log("\n" + "=".repeat(66));
+    console.log("  MCPA — EMAIL CHANGE AUTHENTICATION LINK DISPATCHED");
+    console.log(`  To (New Email): ${toEmail}`);
+    console.log(`  Current Email:  ${oldEmail}`);
+    console.log(`  Recipient:      ${recipientName}`);
+    console.log(`  Verify URL:     ${verificationUrl}`);
+    console.log(`  Expires:        15 Minutes`);
+    console.log(`  Delivered:      ${delivered ? "Delivered to Mailbox" : "Dev Console Mode"}`);
     console.log("=".repeat(66) + "\n");
 
     return { delivered, verificationUrl };

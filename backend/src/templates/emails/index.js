@@ -7,6 +7,7 @@ const { getInquiryRescheduledTemplate } = require("./inquiryRescheduledTemplate"
 const { getInquiryRejectedTemplate } = require("./inquiryRejectedTemplate");
 const { getInquiryStatusUpdateTemplate } = require("./inquiryStatusUpdateTemplate");
 const { getEmailVerificationLinkTemplate } = require("./emailVerificationLinkTemplate");
+const { getEmailChangeVerificationTemplate } = require("./emailChangeVerificationTemplate");
 const { getMeetingAttendanceReminderTemplate } = require("./attendanceReminderTemplate");
 const { getAdminInviteLinkTemplate } = require("./adminInviteLinkTemplate");
 
@@ -20,6 +21,7 @@ module.exports = {
   getInquiryRejectedTemplate,
   getInquiryStatusUpdateTemplate,
   getEmailVerificationLinkTemplate,
+  getEmailChangeVerificationTemplate,
   getMeetingAttendanceReminderTemplate,
   getAdminInviteLinkTemplate,
 };

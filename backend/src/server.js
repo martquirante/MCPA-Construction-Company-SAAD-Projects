@@ -377,7 +377,11 @@ app.post("/api/auth/reset-password-with-otp", otpLimiter, (req, res) => authCont
 app.get("/api/auth/me", requireAuth, (req, res) => authController.me(req, res));
 app.get("/api/admin/profile", requireAuth, requireRole("admin", "super_admin"), (req, res) => authController.getAdminProfile(req, res));
 app.put("/api/admin/profile", requireAuth, requireRole("admin", "super_admin"), (req, res) => authController.updateAdminProfile(req, res));
-app.put("/api/client/profile", requireAuth, (req, res) => authController.updateClientProfile(req, res));
+app.put("/api/client/profile", optionalAuth, (req, res) => authController.updateClientProfile(req, res));
+app.post("/api/client/request-email-change", optionalAuth, (req, res) => authController.requestEmailChange(req, res));
+app.post("/api/client/verify-email-change", (req, res) => authController.verifyEmailChange(req, res));
+app.post("/api/auth/request-email-change", optionalAuth, (req, res) => authController.requestEmailChange(req, res));
+app.post("/api/auth/verify-email-change", (req, res) => authController.verifyEmailChange(req, res));
 
 // -----------------------------------------------------------------------------
 // PROJECTS ROUTES (PORTFOLIO SHOWCASE)

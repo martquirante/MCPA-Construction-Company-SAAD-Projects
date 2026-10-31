@@ -50,7 +50,10 @@ import {
   Hammer,
   ListChecks,
   FileCheck,
+  Edit3,
+  AlertCircle,
 } from "lucide-react";
+import ClientProfileEditModal from "@/modules/portal/components/ClientProfileEditModal";
 import PortalHeroFinancialCard from "@/modules/portal/components/PortalHeroFinancialCard";
 import PortalOverallProgressCard from "@/modules/portal/components/PortalOverallProgressCard";
 import PortalOnSiteWeatherCard from "@/modules/portal/components/PortalOnSiteWeatherCard";
@@ -89,6 +92,15 @@ function ClientPortalContent() {
 
   const verifyEmailTokenParam = searchParams?.get("verify_email_token");
   const verifyEmailParam = searchParams?.get("email");
+  const verifyEmailChangeTokenParam = searchParams?.get("verify_email_change_token");
+  const verifyEmailChangeEmailParam = searchParams?.get("email");
+  const verifyEmailChangeOldEmailParam = searchParams?.get("old_email");
+
+  const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
+  const [profileEditInitialTab, setProfileEditInitialTab] = useState("personal");
+  const [emailChangeVerifying, setEmailChangeVerifying] = useState(false);
+  const [emailChangeVerificationBanner, setEmailChangeVerificationBanner] = useState(null);
+
   const initialAuthMode =
     searchParams?.get("mode") === "signup" || Boolean(verifyEmailTokenParam)
       ? "signup"
@@ -106,6 +118,80 @@ function ClientPortalContent() {
       setPortalTab(tabParam);
     }
   }, [tabParam]);
+
+  // Live handler for Email Change Verification Action Links
+  useEffect(() => {
+    if (!verifyEmailChangeTokenParam) return;
+
+    let isMounted = true;
+    const verifyToken = async () => {
+      setEmailChangeVerifying(true);
+      try {
+        const res = await fetch("/api/client/verify-email-change", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: verifyEmailChangeTokenParam,
+            email: verifyEmailChangeEmailParam,
+            oldEmail: verifyEmailChangeOldEmailParam,
+          }),
+        });
+
+        const data = await res.json();
+        if (!isMounted) return;
+
+        if (res.ok && data.success) {
+          setEmailChangeVerificationBanner({
+            success: true,
+            message: data.message || "Email address successfully verified and updated!",
+            newEmail: data.newEmail || verifyEmailChangeEmailParam,
+            oldEmail: data.oldEmail || verifyEmailChangeOldEmailParam,
+          });
+
+          if (data.user) {
+            setCurrentUser(data.user);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("mcpa_client_user", JSON.stringify(data.user));
+              if (data.token) {
+                localStorage.setItem("mcpa_client_token", data.token);
+                setAuthToken(data.token);
+              }
+            }
+            fetchClientData(data.newEmail || data.user.email);
+          }
+
+          showToast(
+            language === "fil"
+              ? `Matagumpay na na-update ang email sa ${data.newEmail || data.user?.email}!`
+              : `Email address successfully updated to ${data.newEmail || data.user?.email}!`
+          );
+
+          if (typeof window !== "undefined" && window.history?.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } else {
+          setEmailChangeVerificationBanner({
+            success: false,
+            message: data.message || "Invalid or expired email change verification link.",
+          });
+          showToast(data.message || "Email change link failed or expired.");
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        setEmailChangeVerificationBanner({
+          success: false,
+          message: "Network error occurred while verifying your email change link.",
+        });
+      } finally {
+        if (isMounted) setEmailChangeVerifying(false);
+      }
+    };
+
+    verifyToken();
+    return () => {
+      isMounted = false;
+    };
+  }, [verifyEmailChangeTokenParam, verifyEmailChangeEmailParam, verifyEmailChangeOldEmailParam, language]);
 
   // Progressive Disclosure Lifecycle States
   const [dashboardState, setDashboardState] = useState(null);
@@ -760,6 +846,33 @@ function ClientPortalContent() {
       <div className="min-h-screen min-[920px]:h-screen min-[920px]:overflow-hidden mcpa-dot-grid bg-[#f8f7f5] dark:bg-[#080a0e] text-neutral-900 dark:text-neutral-100 flex flex-col justify-between font-sans transition-colors duration-500 scroll-smooth">
         <UtilityBar show={true} />
 
+        {/* Email Change Verification Notice (Unauthenticated) */}
+        {emailChangeVerifying && (
+          <div className="w-full max-w-7xl mx-auto px-4 pt-3 z-20">
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-mono text-xs flex items-center gap-2.5">
+              <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0" />
+              <span>Authenticating your new email address and updating your project dossier...</span>
+            </div>
+          </div>
+        )}
+        {emailChangeVerificationBanner && !emailChangeVerificationBanner.success && (
+          <div className="w-full max-w-7xl mx-auto px-4 pt-3 z-20">
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 font-mono text-xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span>{emailChangeVerificationBanner.message}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEmailChangeVerificationBanner(null)}
+                className="text-xs hover:underline cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 flex flex-col justify-between p-2.5 sm:p-3 min-[920px]:px-8 min-[920px]:py-1.5 max-w-7xl mx-auto w-full min-h-0">
           <header className="w-full flex items-center justify-start py-0.5 shrink-0 z-10">
             <Link
@@ -1277,6 +1390,54 @@ function ClientPortalContent() {
 
         {/* Main Content Body */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto pb-24 md:pb-8">
+          {/* Email Change Status Banner (if verified or in verification) */}
+          {emailChangeVerificationBanner && (
+            <div
+              className={`p-4 sm:p-5 rounded-[18px] border transition-all animate-in fade-in slide-in-from-top-2 duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                emailChangeVerificationBanner.success
+                  ? "bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-transparent border-emerald-500/30 text-emerald-900 dark:text-emerald-100"
+                  : "bg-gradient-to-r from-rose-500/15 via-rose-500/10 to-transparent border-rose-500/30 text-rose-900 dark:text-rose-100"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                    emailChangeVerificationBanner.success
+                      ? "bg-emerald-500 text-white shadow-xs shadow-emerald-500/30"
+                      : "bg-rose-500 text-white shadow-xs shadow-rose-500/30"
+                  }`}
+                >
+                  {emailChangeVerificationBanner.success ? (
+                    <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 stroke-[2.5]" />
+                  )}
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="text-xs sm:text-sm font-bold tracking-tight">
+                    {emailChangeVerificationBanner.success
+                      ? "Account Email Successfully Authenticated & Synchronized"
+                      : "Email Change Verification Failed"}
+                  </h4>
+                  <p className="text-xs font-mono opacity-90 leading-relaxed">
+                    {emailChangeVerificationBanner.message}
+                  </p>
+                  {emailChangeVerificationBanner.newEmail && (
+                    <p className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold pt-0.5">
+                      New Primary Account Email: {emailChangeVerificationBanner.newEmail}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEmailChangeVerificationBanner(null)}
+                className="px-3.5 py-1.5 rounded-lg border border-neutral-300 dark:border-white/20 text-xs font-mono font-bold hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors self-end sm:self-center shrink-0 cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           {/* ========================================================================= */}
           {/* TAB 1: EXECUTIVE DASHBOARD OVERVIEW — 5-STAGE PROGRESSIVE DISCLOSURE      */}
           {/* ========================================================================= */}
@@ -1946,8 +2107,20 @@ function ClientPortalContent() {
                     </div>
                   </div>
 
-                  {/* Right Actions: Clean Sign Out Button */}
-                  <div className="flex items-center gap-3 shrink-0 self-start md:self-center">
+                  {/* Right Actions: Edit Profile & Sign Out Button */}
+                  <div className="flex items-center gap-2.5 shrink-0 self-start md:self-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileEditInitialTab("personal");
+                        setIsProfileEditModalOpen(true);
+                      }}
+                      className="px-4 py-2 rounded-[10px] bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-mono font-bold text-xs inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs shadow-amber-500/20"
+                      title="Edit Profile Dossier"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit Profile</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setIsLogoutConfirmOpen(true)}
@@ -1973,7 +2146,17 @@ function ClientPortalContent() {
                         Personal &amp; Demographic Profile
                       </h3>
                     </div>
-                    <span className="text-[10px] font-mono text-neutral-400">Step 1 &amp; 2 Onboarding</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileEditInitialTab("personal");
+                        setIsProfileEditModalOpen(true);
+                      }}
+                      className="text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:text-amber-500 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
@@ -2049,16 +2232,45 @@ function ClientPortalContent() {
                         Contact &amp; Telemetry Channels
                       </h3>
                     </div>
-                    <span className="text-[10px] font-mono text-emerald-500 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Live Verified
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-mono text-emerald-500 font-bold hidden sm:flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Live Verified
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileEditInitialTab("contact");
+                          setIsProfileEditModalOpen(true);
+                        }}
+                        className="text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:text-amber-500 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
-                    <div className="space-y-1 sm:col-span-2">
-                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider block">Official Email Address</span>
-                      <div className="flex items-center gap-2 flex-wrap">
+                    <div className="space-y-1.5 sm:col-span-2 p-3 rounded-xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-100 dark:border-white/5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-neutral-400 uppercase tracking-wider block font-semibold">
+                          Official Account Email (Primary)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileEditInitialTab("security");
+                            setIsProfileEditModalOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-500/25 transition-all cursor-pointer"
+                          title="Authenticate & Change Email"
+                        >
+                          <Lock className="w-3 h-3 text-amber-500" />
+                          <span>Change Email</span>
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap pt-0.5">
                         {isGoogleAccount && (
                           <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -2072,6 +2284,10 @@ function ClientPortalContent() {
                         </p>
                         <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
                           {isGoogleAccount ? "(Google Verified Account)" : "(Primary Inquiries)"}
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400 flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5 text-amber-500" />
+                          Locked
                         </span>
                       </div>
                     </div>
@@ -2117,7 +2333,17 @@ function ClientPortalContent() {
                         Permanent Residential Address
                       </h3>
                     </div>
-                    <span className="text-[10px] font-mono text-neutral-400">Civil Registry Record</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileEditInitialTab("contact");
+                        setIsProfileEditModalOpen(true);
+                      }}
+                      className="text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:text-amber-500 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
                   </div>
 
                   <div className="space-y-1">
@@ -2143,7 +2369,17 @@ function ClientPortalContent() {
                         Architectural Build &amp; Lot Baseline
                       </h3>
                     </div>
-                    <span className="text-[10px] font-mono text-amber-500 font-bold">Step 4 Parameters</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileEditInitialTab("project");
+                        setIsProfileEditModalOpen(true);
+                      }}
+                      className="text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:text-amber-500 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
@@ -2191,7 +2427,17 @@ function ClientPortalContent() {
                         Overseas Filipino Worker (OFW) Station &amp; Local Representative
                       </h3>
                     </div>
-                    <span className="text-[10px] font-mono text-neutral-400">On-Site Inspection Proxy</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileEditInitialTab("project");
+                        setIsProfileEditModalOpen(true);
+                      }}
+                      className="text-[11px] font-mono text-amber-600 dark:text-amber-400 hover:text-amber-500 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
@@ -2348,6 +2594,19 @@ function ClientPortalContent() {
           showToast={showToast}
         />
       )}
+      {/* CLIENT EXECUTIVE DOSSIER & PROFILE EDIT MODAL */}
+      <ClientProfileEditModal
+        isOpen={isProfileEditModalOpen}
+        onClose={() => setIsProfileEditModalOpen(false)}
+        currentUser={currentUser}
+        initialTab={profileEditInitialTab}
+        language={language}
+        onProfileUpdated={(updatedUser) => {
+          setCurrentUser(updatedUser);
+          showToast("Profile details updated successfully.");
+          if (updatedUser?.email) fetchClientData(updatedUser.email);
+        }}
+      />
     </div>
   );
 }

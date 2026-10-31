@@ -1812,6 +1812,10 @@ class AuthController {
         targetBuildLocation,
         targetProjectType,
         locationAddress,
+        ofwCountry,
+        phRepName,
+        phRepRelationship,
+        phRepPhone,
       } = req.body;
 
       const targetEmail = (req.user?.email || email || "").trim().toLowerCase();
@@ -1842,8 +1846,13 @@ class AuthController {
           subdivision_lot_details = COALESCE($15, subdivision_lot_details),
           target_build_location = COALESCE($16, target_build_location),
           target_project_type = COALESCE($17, target_project_type),
-          location_address = COALESCE($18, location_address)
-        WHERE LOWER(email) = LOWER($19)
+          location_address = COALESCE($18, location_address),
+          ofw_country = COALESCE($19, ofw_country),
+          ph_rep_name = COALESCE($20, ph_rep_name),
+          ph_rep_relationship = COALESCE($21, ph_rep_relationship),
+          ph_rep_phone = COALESCE($22, ph_rep_phone),
+          updated_at = NOW()
+        WHERE LOWER(email) = LOWER($23)
         RETURNING *;
       `;
 
@@ -1852,7 +1861,7 @@ class AuthController {
         phoneNumber ? phoneNumber.trim() : null,
         avatarUrl ? avatarUrl.trim() : null,
         kycPhotoUrl ? kycPhotoUrl.trim() : null,
-        hasViberWhatsapp !== undefined ? Boolean(hasViberWhatsapp) : null,
+        hasViberWhatsapp !== undefined && hasViberWhatsapp !== null ? Boolean(hasViberWhatsapp) : null,
         occupation ? occupation.trim() : null,
         employerName ? employerName.trim() : null,
         monthlyIncome ? monthlyIncome.trim() : null,
@@ -1866,6 +1875,10 @@ class AuthController {
         targetBuildLocation ? targetBuildLocation.trim() : null,
         targetProjectType ? targetProjectType.trim() : null,
         locationAddress ? locationAddress.trim() : null,
+        ofwCountry ? ofwCountry.trim() : null,
+        phRepName ? phRepName.trim() : null,
+        phRepRelationship ? phRepRelationship.trim() : null,
+        phRepPhone ? phRepPhone.trim() : null,
         normalizedEmail,
       ];
 
@@ -1900,27 +1913,347 @@ class AuthController {
           kycVerifiedAt: updated.kyc_verified_at,
           kyc_verified_at: updated.kyc_verified_at,
           phoneNumber: updated.phone_number,
+          phone_number: updated.phone_number,
           hasViberWhatsapp: updated.has_viber_whatsapp,
+          has_viber_whatsapp: updated.has_viber_whatsapp,
           occupation: updated.occupation,
           employerName: updated.employer_name,
+          employer_name: updated.employer_name,
           monthlyIncome: updated.monthly_income,
+          monthly_income: updated.monthly_income,
           civilStatus: updated.civil_status,
+          civil_status: updated.civil_status,
           spouseName: updated.spouse_name,
+          spouse_name: updated.spouse_name,
           birthDate: updated.birth_date,
+          birth_date: updated.birth_date,
           emergencyContact: updated.emergency_contact,
+          emergency_contact: updated.emergency_contact,
           preferredContactTime: updated.preferred_contact_time,
+          preferred_contact_time: updated.preferred_contact_time,
           lotOwnershipStatus: updated.lot_ownership_status,
+          lot_ownership_status: updated.lot_ownership_status,
           subdivisionLotDetails: updated.subdivision_lot_details,
+          subdivision_lot_details: updated.subdivision_lot_details,
           targetBuildLocation: updated.target_build_location,
+          target_build_location: updated.target_build_location,
           targetProjectType: updated.target_project_type,
+          target_project_type: updated.target_project_type,
           locationAddress: updated.location_address,
+          location_address: updated.location_address,
+          ofwCountry: updated.ofw_country,
+          ofw_country: updated.ofw_country,
+          phRepName: updated.ph_rep_name,
+          ph_rep_name: updated.ph_rep_name,
+          phRepRelationship: updated.ph_rep_relationship,
+          ph_rep_relationship: updated.ph_rep_relationship,
+          phRepPhone: updated.ph_rep_phone,
+          ph_rep_phone: updated.ph_rep_phone,
           clientType: updated.client_type,
+          client_type: updated.client_type,
           authProvider: updated.auth_provider,
         },
       });
     } catch (err) {
       console.error("[AuthController.updateClientProfile] Error:", err);
       return res.status(500).json({ success: false, message: "Failed to update profile: " + err.message });
+    }
+  }
+
+  /**
+   * POST /api/client/request-email-change
+   * Dispatches email change verification link to client's NEW email address.
+   */
+  async requestEmailChange(req, res) {
+    try {
+      const { currentEmail, newEmail } = req.body;
+      const clientEmail = (req.user?.email || currentEmail || "").trim().toLowerCase();
+
+      if (!clientEmail) {
+        return res.status(400).json({ success: false, message: "Current account email is required." });
+      }
+
+      const cleanNewEmail = (newEmail || "").trim().toLowerCase();
+      if (!cleanNewEmail) {
+        return res.status(400).json({ success: false, message: "New email address is required." });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanNewEmail)) {
+        return res.status(400).json({ success: false, message: "Please provide a valid email address format." });
+      }
+
+      if (cleanNewEmail === clientEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "The new email address cannot be the same as your current registered email.",
+        });
+      }
+
+      // Check current user exists
+      const userRes = await db.query(
+        "SELECT user_id, email, full_name, role FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
+        [clientEmail]
+      );
+      if (!userRes.rows || userRes.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "No active client account found for current email." });
+      }
+      const user = userRes.rows[0];
+
+      // Check new email collision
+      const existingCheck = await db.query(
+        "SELECT user_id FROM users WHERE LOWER(email) = LOWER($1) AND user_id != $2 LIMIT 1",
+        [cleanNewEmail, user.user_id]
+      );
+      if (existingCheck.rows && existingCheck.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "This email address is already associated with another MCPA account. Please use a different email.",
+        });
+      }
+
+      // Generate 32-byte secure hex token
+      const token = crypto.randomBytes(32).toString("hex");
+
+      // Invalidate existing unverified requests
+      await db.query(
+        "DELETE FROM public.email_change_requests WHERE (LOWER(old_email) = LOWER($1) OR user_id = $2) AND is_verified = FALSE",
+        [clientEmail, String(user.user_id)]
+      );
+      if (db.neonPool) {
+        try {
+          await db.neonPool.query(
+            "DELETE FROM public.email_change_requests WHERE (LOWER(old_email) = LOWER($1) OR user_id = $2) AND is_verified = FALSE",
+            [clientEmail, String(user.user_id)]
+          );
+        } catch (neonErr) {
+          console.warn("[Neon Sync] Delete stale email change requests:", neonErr.message);
+        }
+      }
+
+      // Insert new request expiring in 15 minutes
+      const insertSql = `
+        INSERT INTO public.email_change_requests (
+          user_id, old_email, new_email, token, expires_at, is_verified, created_at
+        ) VALUES (
+          $1, $2, $3, $4, NOW() + INTERVAL '15 minutes', FALSE, NOW()
+        ) RETURNING request_id, expires_at;
+      `;
+      const insertVals = [String(user.user_id), clientEmail, cleanNewEmail, token];
+      await db.query(insertSql, insertVals);
+      if (db.neonPool) {
+        try {
+          await db.neonPool.query(insertSql, insertVals);
+        } catch (neonErr) {
+          console.warn("[Neon Sync] Insert email change request warning:", neonErr.message);
+        }
+      }
+
+      // Dispatch verification link to new email
+      const emailResult = await emailService.sendEmailChangeVerification(
+        cleanNewEmail,
+        clientEmail,
+        token,
+        { fullName: user.full_name }
+      );
+
+      return res.json({
+        success: true,
+        message: `An authentication link has been dispatched to ${cleanNewEmail}. Please open the email and click the confirmation link within 15 minutes.`,
+        emailSent: emailResult.delivered,
+        newEmail: cleanNewEmail,
+        expiresInMinutes: 15,
+      });
+    } catch (err) {
+      console.error("[AuthController.requestEmailChange] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to request email change: " + err.message });
+    }
+  }
+
+  /**
+   * POST /api/client/verify-email-change
+   * Cryptographically verifies token and updates client email across all database tables.
+   */
+  async verifyEmailChange(req, res) {
+    try {
+      const { token, email, oldEmail } = req.body;
+      const cleanToken = (token || "").trim();
+
+      if (!cleanToken) {
+        return res.status(400).json({ success: false, message: "Verification token is required." });
+      }
+
+      const reqRes = await db.query(
+        `SELECT request_id, user_id, old_email, new_email, is_verified, expires_at
+         FROM public.email_change_requests
+         WHERE token = $1 LIMIT 1`,
+        [cleanToken]
+      );
+
+      if (!reqRes.rows || reqRes.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Invalid or unrecognized email verification token. Please initiate a new change request.",
+        });
+      }
+
+      const changeReq = reqRes.rows[0];
+
+      if (changeReq.is_verified) {
+        return res.status(400).json({
+          success: false,
+          message: "This verification link has already been used and verified.",
+        });
+      }
+
+      if (new Date(changeReq.expires_at) < new Date()) {
+        return res.status(410).json({
+          success: false,
+          message: "This email change verification link has expired (15-minute window). Please request a new link.",
+        });
+      }
+
+      const targetOldEmail = changeReq.old_email.toLowerCase().trim();
+      const targetNewEmail = changeReq.new_email.toLowerCase().trim();
+
+      // Update users table
+      const updateUsersSql = `
+        UPDATE users 
+        SET email = $1, email_verified = TRUE, updated_at = NOW() 
+        WHERE LOWER(email) = LOWER($2) 
+        RETURNING *;
+      `;
+      const userUpdateRes = await db.query(updateUsersSql, [targetNewEmail, targetOldEmail]);
+      if (db.neonPool) {
+        try {
+          await db.neonPool.query(updateUsersSql, [targetNewEmail, targetOldEmail]);
+        } catch (neonErr) {
+          console.warn("[Neon Sync] Update users email:", neonErr.message);
+        }
+      }
+
+      if (!userUpdateRes.rows || userUpdateRes.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "The original account associated with this request could not be located.",
+        });
+      }
+
+      const updatedUser = userUpdateRes.rows[0];
+
+      // Synchronize related tables
+      const relatedTables = [
+        { table: "client_briefs", col: "client_email" },
+        { table: "site_projects", col: "client_email" },
+        { table: "warranty_tickets", col: "client_email" },
+        { table: "meeting_history_logs", col: "client_email" },
+        { table: "client_quotations", col: "client_email" },
+        { table: "chatbot_conversations", col: "customer_email" },
+      ];
+
+      for (const rel of relatedTables) {
+        const q = `UPDATE ${rel.table} SET ${rel.col} = $1 WHERE LOWER(${rel.col}) = LOWER($2);`;
+        try {
+          await db.query(q, [targetNewEmail, targetOldEmail]);
+          if (db.neonPool) {
+            await db.neonPool.query(q, [targetNewEmail, targetOldEmail]);
+          }
+        } catch (relErr) {
+          console.warn(`[AuthController.verifyEmailChange] Non-critical sync warning on ${rel.table}:`, relErr.message);
+        }
+      }
+
+      // Mark request as verified
+      const markVerifiedSql = `UPDATE public.email_change_requests SET is_verified = TRUE, verified_at = NOW() WHERE token = $1;`;
+      await db.query(markVerifiedSql, [cleanToken]);
+      if (db.neonPool) {
+        try {
+          await db.neonPool.query(markVerifiedSql, [cleanToken]);
+        } catch (neonErr) {
+          console.warn("[Neon Sync] Mark email_change_requests verified:", neonErr.message);
+        }
+      }
+
+      // Issue refreshed JWT token
+      const tokenPayload = {
+        userId: updatedUser.user_id,
+        email: updatedUser.email,
+        fullName: updatedUser.full_name,
+        role: updatedUser.role,
+      };
+      const newToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+      const safeUser = {
+        userId: updatedUser.user_id,
+        user_id: updatedUser.user_id,
+        email: updatedUser.email,
+        fullName: updatedUser.full_name,
+        full_name: updatedUser.full_name,
+        name: updatedUser.full_name,
+        firstName: updatedUser.first_name || (updatedUser.full_name ? updatedUser.full_name.split(" ")[0] : ""),
+        phoneNumber: updatedUser.phone_number,
+        phone_number: updatedUser.phone_number,
+        avatarUrl: updatedUser.avatar_url,
+        avatar_url: updatedUser.avatar_url,
+        kycPhotoUrl: updatedUser.kyc_photo_url,
+        kyc_photo_url: updatedUser.kyc_photo_url,
+        kycVerifiedAt: updatedUser.kyc_verified_at,
+        kyc_verified_at: updatedUser.kyc_verified_at,
+        hasViberWhatsapp: updatedUser.has_viber_whatsapp,
+        has_viber_whatsapp: updatedUser.has_viber_whatsapp,
+        occupation: updatedUser.occupation,
+        employerName: updatedUser.employer_name,
+        employer_name: updatedUser.employer_name,
+        monthlyIncome: updatedUser.monthly_income,
+        monthly_income: updatedUser.monthly_income,
+        civilStatus: updatedUser.civil_status,
+        civil_status: updatedUser.civil_status,
+        spouseName: updatedUser.spouse_name,
+        spouse_name: updatedUser.spouse_name,
+        birthDate: updatedUser.birth_date,
+        birth_date: updatedUser.birth_date,
+        emergencyContact: updatedUser.emergency_contact,
+        emergency_contact: updatedUser.emergency_contact,
+        preferredContactTime: updatedUser.preferred_contact_time,
+        preferred_contact_time: updatedUser.preferred_contact_time,
+        lotOwnershipStatus: updatedUser.lot_ownership_status,
+        lot_ownership_status: updatedUser.lot_ownership_status,
+        subdivisionLotDetails: updatedUser.subdivision_lot_details,
+        subdivision_lot_details: updatedUser.subdivision_lot_details,
+        targetBuildLocation: updatedUser.target_build_location,
+        target_build_location: updatedUser.target_build_location,
+        targetProjectType: updatedUser.target_project_type,
+        target_project_type: updatedUser.target_project_type,
+        locationAddress: updatedUser.location_address,
+        location_address: updatedUser.location_address,
+        ofwCountry: updatedUser.ofw_country,
+        ofw_country: updatedUser.ofw_country,
+        phRepName: updatedUser.ph_rep_name,
+        ph_rep_name: updatedUser.ph_rep_name,
+        phRepRelationship: updatedUser.ph_rep_relationship,
+        ph_rep_relationship: updatedUser.ph_rep_relationship,
+        phRepPhone: updatedUser.ph_rep_phone,
+        ph_rep_phone: updatedUser.ph_rep_phone,
+        clientType: updatedUser.client_type,
+        client_type: updatedUser.client_type,
+        authProvider: updatedUser.auth_provider,
+        emailVerified: true,
+        email_verified: true,
+      };
+
+      console.log(`\x1b[32m[AuthController] Client email updated from ${targetOldEmail} to ${targetNewEmail} across all project records.\x1b[0m`);
+
+      return res.json({
+        success: true,
+        message: "Email address successfully authenticated and updated across all project records.",
+        token: newToken,
+        user: safeUser,
+        oldEmail: targetOldEmail,
+        newEmail: targetNewEmail,
+      });
+    } catch (err) {
+      console.error("[AuthController.verifyEmailChange] Error:", err);
+      return res.status(500).json({ success: false, message: "Failed to verify email change: " + err.message });
     }
   }
 
