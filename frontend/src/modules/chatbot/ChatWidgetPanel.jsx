@@ -17,6 +17,12 @@ import {
   MessengerIcon,
 } from "../shared/Icons";
 import { Send, AlertCircle, RefreshCw, Video, UserCheck, MessageSquare, CheckCircle } from "lucide-react";
+import {
+  syncConversationToFirebase,
+  saveMessageToFirebase,
+  recoverUserConversationFromFirebase,
+  subscribeToFirebaseMessages,
+} from "./firebaseChatSync";
 
 const STORAGE_KEY = "mcpa_chatbot_session_v1";
 
@@ -378,6 +384,11 @@ export default function ChatWidgetPanel({ onClose }) {
                     setAssignedAdmin(msgData.assignedAdmin || null);
                     setMessages(msgData.messages || []);
                     setIsInitializing(false);
+                    // Sync to Firebase in background
+                    syncConversationToFirebase(parsed.conversationId, parsed);
+                    if (Array.isArray(msgData.messages)) {
+                      msgData.messages.forEach((m) => saveMessageToFirebase(parsed.conversationId, m));
+                    }
                     return;
                   }
                 }
@@ -388,11 +399,37 @@ export default function ChatWidgetPanel({ onClose }) {
           } catch (e) {}
         }
 
-        // AUTO-LOGIN RECOGNITION: If user is logged in (has account), auto-initialize session!
-        // Client never needs to fill out the "What should I call you?" name prompt.
+        // AUTO-LOGIN RECOGNITION & CROSS-DEVICE FIREBASE RECOVERY:
+        // If user is logged in (has account), check Firebase for cross-device conversation recovery!
         if (clientUser && (clientUser.fullName || clientUser.name)) {
           const clientName = (clientUser.fullName || clientUser.name).trim();
           const clientEmail = (clientUser.email || "").trim().toLowerCase();
+
+          // 1. Cross-Device Firebase Recovery check
+          if (clientEmail) {
+            try {
+              const recovered = await recoverUserConversationFromFirebase(clientEmail);
+              if (recovered?.conversationId && Array.isArray(recovered.messages) && recovered.messages.length > 0) {
+                const recoveredSession = {
+                  conversationId: recovered.conversationId,
+                  sessionToken: recovered.conversation?.sessionToken || `fb_sync_${Date.now()}`,
+                  customerName: recovered.conversation?.customerName || clientName,
+                  customerEmail: clientEmail,
+                  status: recovered.conversation?.status || "BOT_ACTIVE",
+                };
+                if (isMounted) {
+                  setSession(recoveredSession);
+                  setStatus(recoveredSession.status);
+                  setMessages(recovered.messages);
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify(recoveredSession));
+                  setIsInitializing(false);
+                  return;
+                }
+              }
+            } catch (fbErr) {
+              console.warn("[ChatWidget] Firebase recovery check note:", fbErr.message);
+            }
+          }
 
           try {
             const autoRes = await fetch("/api/chatbot/session", {
@@ -420,6 +457,11 @@ export default function ChatWidgetPanel({ onClose }) {
                 setAssignedAdmin(autoData.assignedAdmin || null);
                 setMessages(autoData.messages || []);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(autoSession));
+                // Sync to Firebase
+                syncConversationToFirebase(autoSession.conversationId, autoSession);
+                if (Array.isArray(autoData.messages)) {
+                  autoData.messages.forEach((m) => saveMessageToFirebase(autoSession.conversationId, m));
+                }
                 setIsInitializing(false);
                 return;
               }
@@ -511,6 +553,46 @@ export default function ChatWidgetPanel({ onClose }) {
     };
   }, [session, status, messages]);
 
+  // 3B. Real-time Message Synchronization via Firebase Firestore onSnapshot
+  useEffect(() => {
+    if (!session?.conversationId) return;
+
+    const unsubscribe = subscribeToFirebaseMessages(
+      session.conversationId,
+      (firebaseMsgs) => {
+        if (!Array.isArray(firebaseMsgs) || firebaseMsgs.length === 0) return;
+
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => String(m.message_id || m.id)));
+          const incomingNew = [];
+
+          firebaseMsgs.forEach((fm) => {
+            const id = String(fm.message_id || fm.messageId || fm.id);
+            if (!existingIds.has(id)) {
+              incomingNew.push({
+                message_id: id,
+                sender_type: fm.sender_type || fm.senderType || "bot",
+                sender_id: fm.sender_id || fm.senderId,
+                message_text: fm.message_text || fm.messageText || "",
+                created_at: fm.created_at || new Date().toISOString(),
+                metadata: fm.metadata || null,
+              });
+            }
+          });
+
+          if (incomingNew.length === 0) return prev;
+          return [...prev, ...incomingNew].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        });
+      }
+    );
+
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [session?.conversationId]);
+
   // 4. Handle Step 1 — Name Submission (Supports manual or programmatic override)
   const handleStartSession = async (e, overrideData = null) => {
     e?.preventDefault();
@@ -563,6 +645,11 @@ export default function ChatWidgetPanel({ onClose }) {
         }
         setMessages(data.messages || []);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
+        // Sync to Firebase
+        syncConversationToFirebase(newSession.conversationId, newSession);
+        if (Array.isArray(data.messages)) {
+          data.messages.forEach((m) => saveMessageToFirebase(newSession.conversationId, m));
+        }
         setTimeout(() => inputRef.current?.focus(), 100);
       }
     } catch (err) {
@@ -668,6 +755,13 @@ export default function ChatWidgetPanel({ onClose }) {
         if (data.botMessage) {
           setMessages((prev) => [...prev, data.botMessage]);
         }
+        syncConversationToFirebase(session.conversationId, {
+          status: "AWAITING_HUMAN",
+          customerEmail: verifiedEmail,
+        });
+        if (data.botMessage) {
+          saveMessageToFirebase(session.conversationId, data.botMessage);
+        }
       }
     } catch (err) {
       console.warn("[ChatWidget] Direct to admin error:", err);
@@ -765,6 +859,9 @@ export default function ChatWidgetPanel({ onClose }) {
             setMessages((prev) =>
               prev.map((m) => (m.message_id === tempCustomerMsg.message_id ? data.customerMessage : m))
             );
+            if (data.customerMessage) {
+              saveMessageToFirebase(session.conversationId, data.customerMessage);
+            }
           } else {
             // Replace temp customer message with confirmed and append bot message with typewriter effect
             const botMsg = data.botMessage;
@@ -776,6 +873,12 @@ export default function ChatWidgetPanel({ onClose }) {
               data.customerMessage,
               botMsg,
             ]);
+            if (data.customerMessage) {
+              saveMessageToFirebase(session.conversationId, data.customerMessage);
+            }
+            if (botMsg) {
+              saveMessageToFirebase(session.conversationId, botMsg);
+            }
           }
         }
       } catch (err) {
@@ -903,6 +1006,13 @@ export default function ChatWidgetPanel({ onClose }) {
       setEmailInput("");
       if (data.botMessage) {
         setMessages((prev) => [...prev, data.botMessage]);
+      }
+      syncConversationToFirebase(session.conversationId, {
+        status: "AWAITING_HUMAN",
+        customerEmail: cleanEmail,
+      });
+      if (data.botMessage) {
+        saveMessageToFirebase(session.conversationId, data.botMessage);
       }
     } catch (err) {
       setEmailError("Failed to connect. Please check your network and try again.");

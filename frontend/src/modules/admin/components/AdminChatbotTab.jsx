@@ -36,6 +36,10 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import {
+  saveMessageToFirebase,
+  syncConversationToFirebase,
+} from "@/modules/chatbot/firebaseChatSync";
 
 export default function AdminChatbotTab({ currentUser, onShowToast }) {
   // Active sub-tab: 'faqs' | 'unanswered' | 'live' | 'settings'
@@ -451,6 +455,11 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
         headers: { "Content-Type": "application/json" },
       });
       if (res.ok) {
+        syncConversationToFirebase(convId, {
+          assignedAdminId: currentUser?.id,
+          assignedAdminName: currentUser?.fullName || currentUser?.name || "Support Engineer",
+          status: "HUMAN_ACTIVE",
+        });
         onShowToast?.("You have claimed this support conversation.", "success");
         loadConversationDetails(convId);
         loadConversations();
@@ -476,8 +485,12 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
         body: JSON.stringify({ message: adminReplyInput.trim() }),
       });
       if (res.ok) {
+        const replyData = await res.json().catch(() => ({}));
         setAdminReplyInput("");
         onShowToast?.("Reply sent to customer.", "success");
+        if (replyData?.message) {
+          saveMessageToFirebase(selectedConvId, replyData.message);
+        }
         loadConversationDetails(selectedConvId);
         loadConversations();
       } else {
@@ -500,6 +513,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
+        syncConversationToFirebase(selectedConvId, { status });
         const label =
           status === "BOT_ACTIVE"
             ? "Conversation returned to bot."

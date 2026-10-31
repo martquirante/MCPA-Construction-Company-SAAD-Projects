@@ -597,12 +597,13 @@ html.dark .architectural-cta-card,
 }
 
 .mcpa-dot-grid {
-  background-image: radial-gradient(rgba(0, 0, 0, 0.08) 1.2px, transparent 1.2px);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.12) 1.5px, transparent 1.5px);
   background-size: 20px 20px;
 }
 
-.dark .mcpa-dot-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1.2px, transparent 1.2px);
+.dark .mcpa-dot-grid,
+html.dark .mcpa-dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.20) 1.5px, transparent 1.5px);
   background-size: 20px 20px;
 }
 

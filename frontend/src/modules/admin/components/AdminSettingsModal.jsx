@@ -1437,7 +1437,7 @@ export default function AdminSettingsModal({
             </button>
           )}
 
-          {activeTab === "display" && (
+          {activeTab === "appearance" && (
             <button
               type="button"
               onClick={onClose}
