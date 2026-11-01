@@ -268,12 +268,16 @@ export default function AdminBlueprintsTab({
   }, [isPanningPreview, previewPanStart]);
 
   // Fetch all clients with blueprint status from DB
-  const fetchOverview = async (silent = false) => {
+  const fetchOverview = async (silent = false, retries = 1) => {
     if (!silent) setIsLoadingClients(true);
     try {
       const res = await authFetch("/api/admin/blueprints/overview");
+      if (!res.ok) {
+        if (!silent) setIsLoadingClients(false);
+        return;
+      }
       const data = await res.json();
-      if (res.ok && data.success && Array.isArray(data.clients)) {
+      if (data.success && Array.isArray(data.clients)) {
         setClients(data.clients);
         // Only refresh selected client if one has already been chosen by admin
         if (selectedClient) {
@@ -282,7 +286,11 @@ export default function AdminBlueprintsTab({
         }
       }
     } catch (e) {
-      console.warn("Could not fetch blueprints overview:", e);
+      if (retries > 0 && e?.name !== "AbortError") {
+        setTimeout(() => fetchOverview(true, retries - 1), 1200);
+      } else {
+        console.warn("Could not fetch blueprints overview:", e?.message || e);
+      }
     } finally {
       if (!silent) setIsLoadingClients(false);
     }
