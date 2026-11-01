@@ -173,9 +173,9 @@ BuildSync was built for **IT303: Systems Analysis and Design** and has been succ
 
 | Member | Role |
 | :--- | :--- |
-| Cabreros, Amos Joel | Group member |
-| Calangi, Justin Raven | Group member |
-| Guimayen, Edgar L. | Group member |
+| Calangi, Justin Raven | Project Manager |
+| Guimayen, Edgar L. | QA and Documentation |
+| Cabreros, Amos Joel | Documentation |
 | [Quirante, Raymart](https://github.com/martquirante) | Full Stack Developer |
 
 <div align="center">
