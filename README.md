@@ -146,24 +146,81 @@ The palette comes straight from the site's stylesheet: safety amber on near-blac
 
 ## System Design
 
-The Level 1 data flow diagram breaks BuildSync into six processes, each with its own data store.
+BuildSync was modeled with data flow diagrams during IT303. The context diagram shows the system as one process talking to three external entities: **Client**, **Staff**, and **Administrator**.
 
-| # | Process | Data store |
+### Context Diagram (Level 0)
+
+<div align="center">
+
+[![Context Diagram, Level 0 DFD](docs/diagrams/dfd-level-0-context.png)](docs/diagrams/dfd-level-0-context.png)
+
+</div>
+
+### Level 1 Diagram
+
+The Level 1 diagram breaks the system into eight processes and thirteen data stores.
+
+<div align="center">
+
+[![Level 1 DFD](docs/diagrams/dfd-level-1.png)](docs/diagrams/dfd-level-1.png)
+
+</div>
+
+| # | Process | Main data stores |
 | :--- | :--- | :--- |
-| 1.0 | User authentication and account management | User accounts |
-| 2.0 | Project inquiry and site feasibility | Inquiries and site data |
-| 3.0 | Consultation and meeting scheduling | Consultation schedules |
-| 4.0 | Design blueprint, costing, and quotation | Blueprints and quotations |
-| 5.0 | Construction tracking and LGU compliance | Construction progress |
-| 6.0 | Project showcase and portfolio | Project showcase |
-
-External entities: **Client**, **Staff**, and **Administrator**.
+| 1.0 | Manage user accounts and registration | Users, OTP Codes, Email Verification |
+| 2.0 | Manage client inquiry and project briefs | Client Briefs, Projects |
+| 3.0 | Manage feasibility and cost estimation | Cost Estimates, Client Quotation |
+| 4.0 | Manage consultation and meetings | Meeting Rooms |
+| 5.0 | Manage blueprints and technical plans | Blueprints |
+| 6.0 | Manage documents and LGU compliance | Project Documents |
+| 7.0 | Manage project execution and site progress | Site Projects, Site Milestone, Site Photo Logs |
+| 8.0 | Manage client accounts and project showcase | Projects |
 
 ---
 
 ## Academic Context
 
-BuildSync was built for **IT303: Systems Analysis and Design** and has been successfully defended and passed. It continues as our **Capstone Project**, using the analysis and design work from IT303 as its foundation.
+BuildSync was built for **IT303: Systems Analysis and Design** at Bulacan State University (BSIT - 3D1) and has been successfully defended and passed. It continues as our **Capstone Project**, using the analysis and design work from IT303 as its foundation.
+
+### Business Case
+
+MCPA handles every booking and inquiry by hand through Facebook Messenger, text, and email. There is no central record, no way to verify who is booking, and clients who live far from the site have no steady way to see progress. Our business case compared three options and recommended the third.
+
+| Option | Verdict |
+| :--- | :--- |
+| 1. Do nothing | Free, but leaves manual intake and remote monitoring unsolved, and gets worse as inquiries grow. |
+| 2. Do the minimum (a free booking form) | Reduces sorting work, but does not verify identity or intent to pay. |
+| 3. Dedicated booking website with client verification | **Recommended.** The only option that solves both problems. |
+
+| | |
+| :--- | :--- |
+| **Estimated timeline** | 1 to 3 months |
+| **One-time cost** | PHP 160,500 (development, user training, software and hardware) |
+| **Estimated annual benefit** | PHP 324,000 (reduced labor cost and recovered revenue) |
+| **Main risks** | Staff and client adoption, drop-off from the verification step, and security of client data |
+
+<details>
+<summary><strong>Read the full Business Case</strong></summary>
+
+<br/>
+
+<table>
+  <tr>
+    <td><a href="docs/business-case/page-00-cover.jpg"><img src="docs/business-case/page-00-cover.jpg" alt="Cover page"></a></td>
+    <td><a href="docs/business-case/page-01.jpg"><img src="docs/business-case/page-01.jpg" alt="Business Case page 1"></a></td>
+    <td><a href="docs/business-case/page-02.jpg"><img src="docs/business-case/page-02.jpg" alt="Business Case page 2"></a></td>
+    <td><a href="docs/business-case/page-03.jpg"><img src="docs/business-case/page-03.jpg" alt="Business Case page 3"></a></td>
+  </tr>
+  <tr>
+    <td><a href="docs/business-case/page-04.jpg"><img src="docs/business-case/page-04.jpg" alt="Business Case page 4"></a></td>
+    <td><a href="docs/business-case/page-05.jpg"><img src="docs/business-case/page-05.jpg" alt="Business Case page 5"></a></td>
+    <td><a href="docs/business-case/page-06.jpg"><img src="docs/business-case/page-06.jpg" alt="Business Case page 6"></a></td>
+    <td><a href="docs/business-case/page-07.jpg"><img src="docs/business-case/page-07.jpg" alt="Business Case page 7"></a></td>
+  </tr>
+</table>
+
+</details>
 
 ---
 
