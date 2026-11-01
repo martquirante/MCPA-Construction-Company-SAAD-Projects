@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useLanguage } from "../shared/LanguageContext";
 import { CHATBOT_TRANSLATIONS } from "./chatbotTranslations";
 import { AnimatedChatDotsIcon } from "../shared/Icons";
+import { getReturnToCompletedHome } from "../home/homeState";
 
 // Lazy-load the chat panel for zero initial page-load performance overhead
 const ChatWidgetPanel = dynamic(() => import("./ChatWidgetPanel"), {
@@ -23,6 +24,33 @@ export default function ChatWidgetRoot() {
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasModalOpen, setHasModalOpen] = useState(false);
+
+  // Track hero video completion on home page ("/") to keep launcher hidden during 3-scroll video build
+  const isHome = pathname === "/";
+  const [isHeroCompleted, setIsHeroCompleted] = useState(false);
+
+  useEffect(() => {
+    if (pathname !== "/") {
+      setIsHeroCompleted(true);
+      return;
+    }
+
+    const isCompleted =
+      typeof getReturnToCompletedHome === "function"
+        ? getReturnToCompletedHome()
+        : false;
+    setIsHeroCompleted(Boolean(isCompleted));
+
+    const handleCompletion = (e) => {
+      setIsHeroCompleted(Boolean(e.detail?.isCompleted));
+    };
+
+    window.addEventListener("mcpa-hero-completion", handleCompletion);
+    return () =>
+      window.removeEventListener("mcpa-hero-completion", handleCompletion);
+  }, [pathname]);
+
+  const isLauncherVisible = !isHome || isHeroCompleted;
 
   // 1. Detect active session on mount and from storage events (hydration-safe)
   useEffect(() => {
@@ -97,7 +125,11 @@ export default function ChatWidgetRoot() {
       -------------------------------------------------------------------- */}
       {!isOpen && (
         <div
-          className={`fixed z-[60] flex items-center transition-all duration-500 ease-out right-4 sm:right-5 opacity-100 translate-y-0 pointer-events-auto ${
+          className={`fixed z-[60] flex items-center transition-all duration-500 ease-out right-4 sm:right-5 ${
+            isLauncherVisible
+              ? "opacity-100 translate-y-0 pointer-events-auto"
+              : "opacity-0 translate-y-6 pointer-events-none"
+          } ${
             isPortal
               ? "bottom-[5.25rem] lg:bottom-5"
               : "bottom-5"

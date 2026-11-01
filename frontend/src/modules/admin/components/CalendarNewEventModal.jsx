@@ -231,3 +231,4 @@ export default function CalendarNewEventModal({ isOpen, onClose, onSave }) {
     </div>
   );
 }
+

@@ -241,3 +241,4 @@ export function getCompanyPayrollDates(year, month) {
 
   return [midMonth, endMonth];
 }
+
