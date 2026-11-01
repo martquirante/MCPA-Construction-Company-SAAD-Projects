@@ -987,12 +987,12 @@ export default function AdminDocumentRequestsTab({
         </div>
       </div>
 
-      {/* Notice Banner for Construction Master Contracts */}
-      <div className="p-3.5 rounded-[8px] bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
-        <div className="flex items-center gap-2.5 text-neutral-800 dark:text-neutral-200">
+      {/* Notice Callout for Construction Master Contracts */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono text-neutral-600 dark:text-neutral-400 py-1">
+        <div className="flex items-center gap-2">
           <FileCheck className="w-4 h-4 text-amber-500 shrink-0" />
           <span>
-            Looking for <strong>Turnkey Construction Master Agreements</strong>? Legal contracts and dual e-signatures are managed under <strong>Stage 2: Contracts &amp; Groundbreaking</strong>.
+            Looking for <strong className="text-neutral-900 dark:text-neutral-200 font-semibold">Turnkey Construction Master Agreements</strong>? Legal contracts and dual e-signatures are managed under <strong className="text-neutral-900 dark:text-neutral-200 font-semibold">Stage 2: Contracts &amp; Groundbreaking</strong>.
           </span>
         </div>
       </div>

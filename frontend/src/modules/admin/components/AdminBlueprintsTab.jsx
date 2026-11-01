@@ -910,8 +910,8 @@ export default function AdminBlueprintsTab({
             </select>
             <ChevronDown className="w-4 h-4 text-neutral-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
           </div>
-          <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-[6px] bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 shrink-0">
-            {filteredBlueprints.length} {filteredBlueprints.length === 1 ? "Sheet" : "Sheets"}
+          <span className="text-xs font-mono text-neutral-600 dark:text-neutral-400 shrink-0">
+            <strong className="text-neutral-900 dark:text-white font-bold">{filteredBlueprints.length}</strong> {filteredBlueprints.length === 1 ? "Sheet" : "Sheets"}
           </span>
         </div>
 
