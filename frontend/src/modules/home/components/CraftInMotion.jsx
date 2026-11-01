@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRightIcon } from "../../shared/Icons";
 import { useLanguage } from "../../shared/LanguageContext";
@@ -11,36 +12,42 @@ const CRAFT_VIDEOS = [
     title: "Modern Tropical Bungalow",
     phase: "Ground-Up Construction Timelapse",
     src: "/videos/craft-motion/timelapse-tropical-bungalow.mp4",
+    poster: "/videos/craft-motion/poster-tropical-bungalow.webp",
   },
   {
     id: "luxury-2storey-timelapse",
     title: "2-Storey Luxury Residence",
     phase: "Structural Elevation Timelapse",
     src: "/videos/craft-motion/timelapse-2storey-luxury.mp4",
+    poster: "/videos/craft-motion/poster-2storey-luxury.webp",
   },
   {
     id: "wide-estate-timelapse",
     title: "Single-Storey Modern Estate",
     phase: "Foundation & Framing Timelapse",
     src: "/videos/craft-motion/timelapse-wide-estate.mp4",
+    poster: "/videos/craft-motion/poster-wide-estate.webp",
   },
   {
     id: "flickertech-timelapse",
     title: "Flickertech Commercial Facility",
     phase: "Industrial Steel Canopy Build",
     src: "/videos/craft-motion/timelapse-flickertech-commercial.mp4",
+    poster: "/videos/craft-motion/poster-flickertech-commercial.webp",
   },
   {
     id: "tropical-interior",
     title: "Tropical Open-Concept Living",
     phase: "Interior Architectural Walkthrough",
     src: "/videos/craft-motion/interior-tropical-living.mp4",
+    poster: "/videos/craft-motion/poster-tropical-living.webp",
   },
   {
     id: "courtyard-interior",
     title: "Courtyard Villa & Grand Suite",
     phase: "Interior Architectural Montage",
     src: "/videos/craft-motion/interior-courtyard-villa.mp4",
+    poster: "/videos/craft-motion/poster-courtyard-villa.webp",
   },
 ];
 
@@ -53,7 +60,7 @@ export default function CraftInMotion() {
   const videoRefs = useRef([]);
   const sectionRef = useRef(null);
 
-  // Lazy-mount videos only when section enters viewport
+  // Prime and play videos before section fully enters viewport
   useEffect(() => {
     const section = sectionRef.current;
     if (!section) return;
@@ -62,7 +69,7 @@ export default function CraftInMotion() {
       ([entry]) => {
         setIsInView(entry.isIntersecting);
       },
-      { threshold: 0.05, rootMargin: "100px 0px 100px 0px" }
+      { threshold: 0.01, rootMargin: "400px 0px 400px 0px" }
     );
 
     observer.observe(section);
@@ -83,14 +90,15 @@ export default function CraftInMotion() {
   useEffect(() => {
     if (!isInView) return;
 
-    // 1. Play the current video
+    // 1. Play the current video if not already playing
     const currentVid = videoRefs.current[activeIndex];
     if (currentVid) {
-      currentVid.currentTime = 0;
-      currentVid.play().catch(() => {});
+      if (currentVid.paused) {
+        currentVid.play().catch(() => {});
+      }
     }
 
-    // 2. Pre-start the next video 1.5s ahead so it is already playing and rendering frames
+    // 2. Pre-start the next video 1.5s ahead so frames are decoded and playing
     const nextIdx = (activeIndex + 1) % CRAFT_VIDEOS.length;
     const preloadTimer = setTimeout(() => {
       const nextVid = videoRefs.current[nextIdx];
@@ -106,41 +114,57 @@ export default function CraftInMotion() {
       setActiveIndex(nextIdx);
     }, 5500);
 
-    // 4. Pause idle videos (not active, not next, not fading out) to save GPU/CPU
-    videoRefs.current.forEach((vid, idx) => {
-      if (vid && idx !== activeIndex && idx !== nextIdx && idx !== prevIndex) {
-        vid.pause();
-      }
-    });
+    // 4. Safely pause previous video once crossfade transition completes (1500ms)
+    const cleanupTimer = setTimeout(() => {
+      videoRefs.current.forEach((vid, idx) => {
+        if (vid && idx !== activeIndex && idx !== nextIdx) {
+          vid.pause();
+          vid.currentTime = 0;
+        }
+      });
+    }, 1600);
 
     return () => {
       clearTimeout(preloadTimer);
       clearTimeout(transitionTimer);
+      clearTimeout(cleanupTimer);
     };
-  }, [activeIndex, prevIndex, isInView]);
+  }, [activeIndex, isInView]);
 
   return (
     <section
       ref={sectionRef}
       className="relative overflow-hidden w-full h-[60vh] min-h-[460px] max-h-[650px] border-y border-neutral-200 dark:border-neutral-800 bg-neutral-950"
     >
-      {/* Multi-Layer Video Dissolve Engine — only mounts current, previous, and incoming videos to keep GPU decoders minimal */}
-      {isInView && CRAFT_VIDEOS.map((video, idx) => {
+      {/* Instant Zero-Delay Architectural Poster Layer — Guarantees no black screen before or during video load */}
+      <div className="absolute inset-0 z-0">
+        <Image
+          src={CRAFT_VIDEOS[activeIndex]?.poster || CRAFT_VIDEOS[0].poster}
+          alt="MCPA Construction Craft in Motion"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover select-none pointer-events-none md:contrast-[1.06] md:saturate-[1.12] md:brightness-[1.03]"
+        />
+      </div>
+
+      {/* Multi-Layer Video Dissolve Engine — Preloaded with FastStart MP4 and matching Poster Fallbacks */}
+      {CRAFT_VIDEOS.map((video, idx) => {
         const isActive = idx === activeIndex;
         const isPrev = idx === prevIndex;
         const isNext = idx === (activeIndex + 1) % CRAFT_VIDEOS.length;
-        // Keep at most 2-3 videos in DOM at any time instead of all 6
-        if (!isActive && !isPrev && !isNext) return null;
 
         return (
           <video
             key={video.id}
             ref={(el) => (videoRefs.current[idx] = el)}
             src={video.src}
+            poster={video.poster}
+            autoPlay={idx === 0}
             muted
             loop
             playsInline
-            preload="none"
+            preload={idx === 0 || idx === 1 ? "auto" : "metadata"}
             className={`absolute inset-0 w-full h-full object-cover select-none pointer-events-none transition-opacity duration-[1500ms] ease-in-out md:contrast-[1.06] md:saturate-[1.12] md:brightness-[1.03] ${
               isActive
                 ? "opacity-100 z-[2]"
@@ -151,11 +175,6 @@ export default function CraftInMotion() {
           />
         );
       })}
-
-      {/* Poster fallback shown while videos haven't loaded yet */}
-      {!isInView && (
-        <div className="absolute inset-0 bg-neutral-950" />
-      )}
 
       {/* Cinematic Precision Gradient Overlay - Protects left text while letting the 4K video shine on the right */}
       <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/90 via-neutral-950/45 to-neutral-950/15 pointer-events-none z-10" />
