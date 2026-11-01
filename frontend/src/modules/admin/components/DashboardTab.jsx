@@ -306,7 +306,7 @@ export default function DashboardTab({
             onClick={() => onNavigateTab?.("calendar")}
             className="px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-100 text-white dark:text-neutral-950 text-xs font-semibold transition-colors cursor-pointer"
           >
-            Master Calendar
+            Calendar
           </button>
           <button
             type="button"

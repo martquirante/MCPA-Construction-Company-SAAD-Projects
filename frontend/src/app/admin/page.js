@@ -2029,7 +2029,7 @@ export default function AdminPage() {
       stageBadge: null,
       items: [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
-        { id: "calendar", label: "Master Calendar", icon: CalendarDaysIcon },
+        { id: "calendar", label: "Calendar", icon: CalendarDaysIcon },
         {
           id: "meetings",
           label: "Meetings",

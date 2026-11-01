@@ -458,7 +458,7 @@ export default function AdminMasterCalendarTab({
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
-                Company Master Calendar
+                Company Calendar
               </h1>
               <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-sans">
                 Unified Operations, Client Consultations, Concrete Pourings & Corporate Schedules
