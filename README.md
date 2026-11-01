@@ -193,12 +193,7 @@ MCPA handles every booking and inquiry by hand through Facebook Messenger, text,
 | 2. Do the minimum (a free booking form) | Reduces sorting work, but does not verify identity or intent to pay. |
 | 3. Dedicated booking website with client verification | **Recommended.** The only option that solves both problems. |
 
-| | |
-| :--- | :--- |
-| **Estimated timeline** | 1 to 3 months |
-| **One-time cost** | PHP 160,500 (development, user training, software and hardware) |
-| **Estimated annual benefit** | PHP 324,000 (reduced labor cost and recovered revenue) |
-| **Main risks** | Staff and client adoption, drop-off from the verification step, and security of client data |
+**Main risks:** staff and client adoption, drop-off from the verification step, and security of client data.
 
 <details>
 <summary><strong>Read the full Business Case</strong></summary>
@@ -216,7 +211,6 @@ MCPA handles every booking and inquiry by hand through Facebook Messenger, text,
     <td><a href="docs/business-case/page-04.jpg"><img src="docs/business-case/page-04.jpg" alt="Business Case page 4"></a></td>
     <td><a href="docs/business-case/page-05.jpg"><img src="docs/business-case/page-05.jpg" alt="Business Case page 5"></a></td>
     <td><a href="docs/business-case/page-06.jpg"><img src="docs/business-case/page-06.jpg" alt="Business Case page 6"></a></td>
-    <td><a href="docs/business-case/page-07.jpg"><img src="docs/business-case/page-07.jpg" alt="Business Case page 7"></a></td>
   </tr>
 </table>
 
