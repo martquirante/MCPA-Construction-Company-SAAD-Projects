@@ -346,6 +346,22 @@ export default function UtilityBar({ show = true, scrolledPastHero = false }) {
                       <CheckIcon className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                     )}
                   </button>
+
+                  {/* Full Visual Theme Selector Trigger */}
+                  <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setThemeDropdownOpen(false);
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(new CustomEvent("mcpa-open-theme-selector"));
+                      }
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left text-neutral-600 dark:text-neutral-400 hover:text-amber-500 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer text-[11px] font-medium"
+                  >
+                    <span>Theme Cards...</span>
+                    <span className="text-[10px] text-amber-500 font-bold font-mono">Visual</span>
+                  </button>
                 </div>
               )}
             </div>

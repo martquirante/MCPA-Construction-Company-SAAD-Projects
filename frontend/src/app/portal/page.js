@@ -1354,36 +1354,26 @@ function ClientPortalContent() {
               </button>
             </div>
 
-            {/* Dark & Light Theme Architectural Toggle Switch (Strictly Non-Curved / Sharp Geometric Box) */}
+            {/* Dark & Light Theme Switcher with Human-Crafted Customizer Modal Trigger */}
             <button
               type="button"
-              role="switch"
-              aria-checked={isDarkMode}
-              onClick={toggleTheme}
-              className="relative inline-flex items-center h-7 w-14 rounded-none bg-neutral-200 dark:bg-[#141722] border border-neutral-300 dark:border-white/15 p-0.5 transition-colors cursor-pointer select-none focus:outline-none focus:ring-1 focus:ring-amber-500"
-              title={`Switch to ${isDarkMode ? "Light" : "Dark"} Mode`}
-              aria-label="Toggle Dark and Light Mode"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("mcpa-open-theme-selector"));
+                }
+              }}
+              className="relative inline-flex items-center gap-2 h-7 px-2.5 rounded-[4px] bg-neutral-100 dark:bg-[#141722] border border-neutral-300 dark:border-white/15 text-xs font-mono transition-colors cursor-pointer select-none hover:border-amber-500"
+              title="Change Display Theme"
+              aria-label="Change Display Theme"
             >
-              {/* Stationary Background Track Icons */}
-              <div className="w-full flex items-center justify-between px-1.5 pointer-events-none">
-                <Sun className={`w-3 h-3 transition-opacity duration-200 ${!isDarkMode ? "opacity-0" : "text-neutral-400 opacity-60"}`} />
-                <Moon className={`w-3 h-3 transition-opacity duration-200 ${isDarkMode ? "opacity-0" : "text-neutral-500 opacity-60"}`} />
-              </div>
-
-              {/* Sliding Angular / Non-Curved Thumb */}
-              <div
-                className={`absolute top-0.5 bottom-0.5 w-6 rounded-none flex items-center justify-center transition-transform duration-200 ease-out shadow-xs ${
-                  isDarkMode
-                    ? "translate-x-7 bg-amber-500 text-neutral-950 border border-amber-400"
-                    : "translate-x-0 bg-white text-amber-600 border border-neutral-300"
-                }`}
-              >
-                {isDarkMode ? (
-                  <Moon className="w-3.5 h-3.5 stroke-[2.5]" />
-                ) : (
-                  <Sun className="w-3.5 h-3.5 stroke-[2.5]" />
-                )}
-              </div>
+              {isDarkMode ? (
+                <Moon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              ) : (
+                <Sun className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              )}
+              <span className="hidden sm:inline font-bold text-[11px] text-neutral-800 dark:text-neutral-200">
+                {themeMode === "system" ? "Auto" : isDarkMode ? "Midnight" : "Daylight"}
+              </span>
             </button>
           </div>
         </header>

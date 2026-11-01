@@ -109,6 +109,7 @@ import SystemThemeSync from "@/modules/shared/SystemThemeSync";
 import NetworkStatusBar from "@/modules/shared/NetworkStatusBar";
 import { LanguageProvider } from "@/modules/shared/LanguageContext";
 import ChatWidgetRoot from "@/modules/chatbot/ChatWidgetRoot";
+import ThemeSelectorModal from "@/modules/shared/ThemeSelectorModal";
 
 export default function RootLayout({ children }) {
   return (
@@ -217,6 +218,7 @@ export default function RootLayout({ children }) {
           <ScrollToTop />
           {children}
           <ChatWidgetRoot />
+          <ThemeSelectorModal />
           <Analytics />
         </LanguageProvider>
       </body>

@@ -23,6 +23,7 @@ import {
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
 import { authFetch } from "@/modules/shared/authFetch";
 import { Pencil, ExternalLink, Check } from "lucide-react";
+import ThemeSelectorCards from "@/modules/shared/ThemeSelectorCards";
 
 // Safe external URL formatter (ensures protocol prefix so links open externally)
 function formatExternalUrl(url) {
@@ -493,7 +494,7 @@ export default function AdminSettingsModal({
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Modal Dialog Card */}
-      <div className="relative w-full max-w-2xl rounded-[6px] bg-white dark:bg-[#121418] border border-neutral-200 dark:border-white/[0.08] shadow-2xl overflow-hidden transition-all duration-200 z-10 flex flex-col max-h-[92vh]">
+      <div className="relative w-full max-w-3xl rounded-[8px] bg-white dark:bg-[#121418] border border-neutral-200 dark:border-white/[0.08] shadow-2xl overflow-hidden transition-all duration-200 z-10 flex flex-col max-h-[92vh]">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-neutral-200 dark:border-white/5 bg-neutral-50/70 dark:bg-white/[0.02]">
           <div className="flex items-center gap-3">
@@ -1263,97 +1264,13 @@ export default function AdminSettingsModal({
                   </div>
                 </div>
 
-                {/* THREE THEME SELECTION CARDS */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                  {/* Option 1: Light Theme */}
-                  <button
-                    type="button"
-                    onClick={() => handleSelectMode("light")}
-                    className={`p-3.5 rounded-[4px] border text-left transition-colors cursor-pointer flex flex-col justify-between h-28 relative ${
-                      themePref === "light"
-                        ? "border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/30"
-                        : "border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900/60 hover:border-amber-500/40"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <SunIcon className="w-5 h-5 text-amber-500" />
-                      {themePref === "light" && (
-                        <span className="w-4 h-4 rounded-[2px] bg-amber-500 text-neutral-950 flex items-center justify-center text-[10px] font-bold">
-                          <CheckIcon className="w-3 h-3 stroke-[3]" />
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-neutral-900 dark:text-white">
-                        Light Theme
-                      </p>
-                      <p className="text-[10px] font-mono text-neutral-500">
-                        Clean daytime view
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Option 2: Dark Theme */}
-                  <button
-                    type="button"
-                    onClick={() => handleSelectMode("dark")}
-                    className={`p-3.5 rounded-[4px] border text-left transition-colors cursor-pointer flex flex-col justify-between h-28 relative ${
-                      themePref === "dark"
-                        ? "border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/30"
-                        : "border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900/60 hover:border-amber-500/40"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <MoonIcon className="w-5 h-5 text-amber-400" />
-                      {themePref === "dark" && (
-                        <span className="w-4 h-4 rounded-[2px] bg-amber-500 text-neutral-950 flex items-center justify-center text-[10px] font-bold">
-                          <CheckIcon className="w-3 h-3 stroke-[3]" />
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-neutral-900 dark:text-white">
-                        Dark Theme
-                      </p>
-                      <p className="text-[10px] font-mono text-neutral-500">
-                        Deep industrial dark view
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Option 3: System Default Sync */}
-                  <button
-                    type="button"
-                    onClick={() => handleSelectMode("system")}
-                    className={`p-3.5 rounded-[4px] border text-left transition-colors cursor-pointer flex flex-col justify-between h-28 relative ${
-                      themePref === "system"
-                        ? "border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/30"
-                        : "border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900/60 hover:border-amber-500/40"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <MonitorIcon className="w-5 h-5 text-sky-500" />
-                      {themePref === "system" && (
-                        <span className="w-4 h-4 rounded-[2px] bg-amber-500 text-neutral-950 flex items-center justify-center text-[10px] font-bold">
-                          <CheckIcon className="w-3 h-3 stroke-[3]" />
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1">
-                        <p className="text-xs font-bold text-neutral-900 dark:text-white">
-                          Automatic
-                        </p>
-                        <span className="px-1 py-0.2 rounded-[2px] bg-neutral-200 dark:bg-white/10 text-[9px] font-mono text-neutral-600 dark:text-neutral-400">
-                          Auto
-                        </span>
-                      </div>
-                      <p className="text-[10px] font-mono text-neutral-500">
-                        Follows your computer or phone
-                      </p>
-                    </div>
-                  </button>
-                </div>
+                {/* WORLD-CLASS EXECUTIVE THEME CARDS */}
+                <ThemeSelectorCards
+                  currentTheme={themePref}
+                  onSelectTheme={handleSelectMode}
+                  systemIsDark={systemIsDark}
+                  className="pt-2"
+                />
 
                 {/* SYSTEM STATUS ROW */}
                 <div className="pt-2 border-t border-neutral-200/80 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] font-mono">
