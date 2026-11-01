@@ -1237,11 +1237,6 @@ export default function ChatWidgetPanel({ onClose }) {
                 </button>
               </form>
             </div>
-
-            {/* Micro Reassurance Footer */}
-            <p className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 select-none">
-              Instant Answers · Official Knowledge · Live Human Support
-            </p>
           </div>
         )}
 
