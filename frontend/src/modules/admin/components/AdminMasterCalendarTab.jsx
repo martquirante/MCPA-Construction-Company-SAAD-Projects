@@ -453,12 +453,10 @@ export default function AdminMasterCalendarTab({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-neutral-200/80 dark:border-white/[0.08]">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500">
-              <CalendarDays className="w-5 h-5" />
-            </div>
+            <CalendarDays className="w-6 h-6 text-amber-500 shrink-0" />
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
-                Company Calendar
+                Calendar
               </h1>
               <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-sans">
                 Unified Operations, Client Consultations, Concrete Pourings & Corporate Schedules
@@ -466,23 +464,26 @@ export default function AdminMasterCalendarTab({
             </div>
           </div>
 
-          {/* Quick Metrics Chips */}
-          <div className="flex flex-wrap items-center gap-2 mt-3 pt-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-              Today: {metrics.todayCount} Scheduled
+          {/* Quick Metrics Text (Clean inline status indicators without button-like background or borders) */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2.5 text-xs text-neutral-600 dark:text-neutral-400 font-sans">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+              <span>Today: <strong className="text-neutral-900 dark:text-neutral-200 font-semibold">{metrics.todayCount} Scheduled</strong></span>
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/30">
-              <Flame className="w-3.5 h-3.5" />
-              {metrics.criticalCount} Critical Pourings
+            <span className="text-neutral-300 dark:text-neutral-700 select-none">•</span>
+            <span className="inline-flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+              <span><strong className="text-neutral-900 dark:text-neutral-200 font-semibold">{metrics.criticalCount}</strong> Critical Pourings</span>
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/30">
-              <Video className="w-3.5 h-3.5" />
-              {metrics.meetingsCount} Client Consultations
+            <span className="text-neutral-300 dark:text-neutral-700 select-none">•</span>
+            <span className="inline-flex items-center gap-1.5">
+              <Video className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+              <span><strong className="text-neutral-900 dark:text-neutral-200 font-semibold">{metrics.meetingsCount}</strong> Client Consultations</span>
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-              <HardHat className="w-3.5 h-3.5" />
-              {metrics.siteOpsCount} Active Site Builds
+            <span className="text-neutral-300 dark:text-neutral-700 select-none">•</span>
+            <span className="inline-flex items-center gap-1.5">
+              <HardHat className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <span><strong className="text-neutral-900 dark:text-neutral-200 font-semibold">{metrics.siteOpsCount}</strong> Active Site Builds</span>
             </span>
           </div>
         </div>
