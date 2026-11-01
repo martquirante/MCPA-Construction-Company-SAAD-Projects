@@ -6,6 +6,7 @@ import Link from "next/link";
 import { setReturnToCompletedHome } from "@/modules/home/homeState";
 import ResetPasswordModal from "@/modules/admin/components/ResetPasswordModal";
 import DashboardTab from "@/modules/admin/components/DashboardTab";
+import AdminMasterCalendarTab from "@/modules/admin/components/AdminMasterCalendarTab";
 import InquiryPipelineTab from "@/modules/admin/components/InquiryPipelineTab";
 import ProjectsTab from "@/modules/admin/components/ProjectsTab";
 import AccountsTab from "@/modules/admin/components/AccountsTab";
@@ -27,6 +28,7 @@ import { useAuthoritativeClock } from "@/modules/admin/hooks/useAuthoritativeClo
 import { getThemePreference, setThemePreference } from "@/modules/shared/SystemThemeSync";
 import {
   CalendarCheck as CalendarIcon,
+  CalendarDays as CalendarDaysIcon,
   FileText as FileTextIcon,
   Layers as LayersIcon,
   HardHat as HardHatIcon,
@@ -103,6 +105,7 @@ export function resolveAdminAvatar(user) {
 
 export const TAB_ROLE_PERMISSIONS = {
   dashboard: ["admin", "super_admin", "architect", "engineer"],
+  calendar: ["admin", "super_admin", "architect", "engineer"],
   blueprints: ["admin", "super_admin", "architect", "engineer"],
   meetings: ["admin", "super_admin", "architect", "engineer"],
   documents: ["admin", "super_admin", "architect", "engineer"],
@@ -2026,6 +2029,7 @@ export default function AdminPage() {
       stageBadge: null,
       items: [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
+        { id: "calendar", label: "Master Calendar", icon: CalendarDaysIcon },
         {
           id: "meetings",
           label: "Meetings",
@@ -2145,6 +2149,7 @@ export default function AdminPage() {
     briefs: "INQUIRIES",
     meetings: "MEETINGS",
     dashboard: "DASHBOARD",
+    calendar: "CALENDAR",
     projects: "PROJECTS",
     accounts: "ACCOUNTS",
     blueprints: "PLANS",
@@ -2722,6 +2727,19 @@ export default function AdminPage() {
             onSelectProject={handleSelectSiteProject}
             onNavigateTab={setActiveTab}
             isLoading={isLoadingData}
+          />
+        )}
+
+        {/* Master Company Calendar Tab */}
+        {activeTab === "calendar" && (
+          <AdminMasterCalendarTab
+            clientBriefs={clientBriefs}
+            allProjects={allProjects}
+            stage3Projects={stage3Projects}
+            currentUser={currentUser}
+            onNavigateTab={setActiveTab}
+            onSelectProject={handleSelectSiteProject}
+            showToast={showToast}
           />
         )}
 

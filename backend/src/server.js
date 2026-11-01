@@ -23,6 +23,7 @@ const initializeDatabase = require("./scripts/initDb");
 const { translateDictionary } = require("./services/translationService");
 const phLocationService = require("./services/phLocationService");
 const chatbotController = require("./controllers/chatbotController");
+const calendarController = require("./controllers/calendarController");
 
 const { rateLimit } = require("express-rate-limit");
 const { requireAuth, requireRole, optionalAuth } = require("./middleware/auth");
@@ -758,6 +759,14 @@ app.get("/api/admin/chatbot/conversations/:id", requireAuth, requireRole("admin"
 app.post("/api/admin/chatbot/conversations/:id/assign", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.assignAdminConversation(req, res));
 app.post("/api/admin/chatbot/conversations/:id/reply", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.sendAdminReply(req, res));
 app.patch("/api/admin/chatbot/conversations/:id/status", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.updateConversationStatus(req, res));
+
+// Admin Company Master Calendar Routes (RBAC: admin / super_admin / architect / engineer)
+app.get("/api/admin/calendar/events", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => calendarController.getEvents(req, res));
+app.post("/api/admin/calendar/events", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => calendarController.createEvent(req, res));
+app.patch("/api/admin/calendar/events/:id", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => calendarController.updateEvent(req, res));
+app.delete("/api/admin/calendar/events/:id", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => calendarController.deleteEvent(req, res));
+app.get("/api/admin/calendar/ph-holidays", optionalAuth, (req, res) => calendarController.getPhilippineHolidays(req, res));
+app.get("/api/admin/calendar/birthdays", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => calendarController.getBirthdays(req, res));
 
 // Startup & Database Sync
 if (!process.env.VERCEL) {

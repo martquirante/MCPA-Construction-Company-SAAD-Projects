@@ -141,15 +141,6 @@ export default function DashboardTab({
   onNavigateTab,
   isLoading = false,
 }) {
-  if (
-    isLoading &&
-    (!clientBriefs || clientBriefs.length === 0) &&
-    (!allProjects || allProjects.length === 0) &&
-    (!stage3Projects || stage3Projects.length === 0)
-  ) {
-    return <DashboardOverviewSkeleton />;
-  }
-
   const getInitials = (name = "") => {
     if (!name) return "CL";
     const parts = name.trim().split(" ");
@@ -285,6 +276,15 @@ export default function DashboardTab({
 
   const featuredProjects = inProgressProjects.slice(0, 6);
 
+  if (
+    isLoading &&
+    (!clientBriefs || clientBriefs.length === 0) &&
+    (!allProjects || allProjects.length === 0) &&
+    (!stage3Projects || stage3Projects.length === 0)
+  ) {
+    return <DashboardOverviewSkeleton />;
+  }
+
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
       {/* Executive Header */}
@@ -301,6 +301,13 @@ export default function DashboardTab({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => onNavigateTab?.("calendar")}
+            className="px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-100 text-white dark:text-neutral-950 text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Master Calendar
+          </button>
           <button
             type="button"
             onClick={() => onNavigateTab?.("briefs")}
