@@ -46,7 +46,7 @@ BuildSync puts that whole journey in one place. A client sends an inquiry and pi
 | **Consultations** | Book a face-to-face meeting or an in-browser video consultation. No third-party meeting link needed. |
 | **Quotations and contracts** | Receive itemized quotations and contract documents as downloadable PDFs. |
 | **Build progress** | Follow each construction stage with photo logs, milestone updates, weather delays, and LGU permit status. |
-| **Account security** | Email verification, Google and Facebook sign-in, and optional face verification for sensitive actions. |
+| **Account security** | Email verification, Google sign-in, and optional face verification for sensitive actions. |
 | **Bilingual interface** | Switch the whole site between English and Filipino. |
 | **Project assistant** | A chatbot that answers common questions about services, process, and permits, with chat history that follows you across devices. |
 | **Project recap** | A story-style summary of a finished build that can be exported as shareable slides. |
