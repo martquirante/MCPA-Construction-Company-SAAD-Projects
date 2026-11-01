@@ -9,7 +9,11 @@
 <br/>
 <br/>
 
-**BuildSync** is the client and site management platform we built for MCPA Construction and Supply, a design-and-build firm in Bulacan, Philippines.
+# BuildSync
+
+### A Web-Based Construction Tracking and Client Management System
+
+Built for MCPA Construction and Supply, a design-and-build firm in Bulacan, Philippines.
 
 <br/>
 
@@ -163,10 +167,16 @@ BuildSync was built for **IT303: Systems Analysis and Design** and has been succ
 
 ---
 
-## Author
+## Project Team
 
-**Raymart Quirante**
-[github.com/martquirante](https://github.com/martquirante)
+**BSIT - 3D1**
+
+| Member | Role |
+| :--- | :--- |
+| Cabreros, Amos Joel | Group member |
+| Calangi, Justin Raven | Group member |
+| Guimayen, Edgar L. | Group member |
+| [Quirante, Raymart](https://github.com/martquirante) | Full Stack Developer |
 
 <div align="center">
 <br/>
