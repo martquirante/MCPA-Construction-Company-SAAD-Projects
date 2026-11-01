@@ -146,25 +146,109 @@ The palette comes straight from the site's stylesheet: safety amber on near-blac
 
 ## System Design
 
-BuildSync was modeled with data flow diagrams during IT303. The context diagram shows the system as one process talking to three external entities: **Client**, **Staff**, and **Administrator**.
+BuildSync was modeled with data flow diagrams during IT303. The context diagram shows the whole system as one process talking to three external entities: **Client**, **Staff**, and **Administrator**.
 
 ### Context Diagram (Level 0)
 
-<div align="center">
+```mermaid
+flowchart LR
+    CLIENT["Client"]
+    STAFF["Staff"]
+    ADMIN["Administrator"]
+    SYS(["0.0<br/>BuildSync: A Web-Based Construction<br/>Tracking and Client Management System"])
 
-[![Context Diagram, Level 0 DFD](docs/diagrams/dfd-level-0-context.png)](docs/diagrams/dfd-level-0-context.png)
+    CLIENT -->|"Account Registration Details<br/>Email Verification Code<br/>Login Credentials<br/>Project Inquiry Details<br/>Project Site Details<br/>Project Requirements and Budget<br/>Consultation Booking Details"| SYS
+    SYS -->|"Account Registration Status<br/>Verification Status<br/>Authentication Status<br/>Inquiry Submission Status<br/>Site Feasibility Report<br/>Preliminary Cost Estimation<br/>Booking Confirmation and Schedule"| CLIENT
 
-</div>
+    STAFF -->|"Staff Login Credentials<br/>Task Completion Details<br/>LGU Clearance Submissions<br/>Site Photos and Progress Logs<br/>Meeting and Consultation Details<br/>Material and Quantity Takeoff Data<br/>Blueprint and Technical Plan Updates"| SYS
+    SYS -->|"Staff Authentication Status<br/>Submission Confirmation and Status<br/>LGU Compliance Status View<br/>Project Information and Status<br/>Consultation Schedule Confirmation<br/>Itemized BOQ Draft<br/>Blueprint and Technical Plan Information"| STAFF
+
+    ADMIN -->|"Administrator Login Credentials<br/>Inquiry Review and Status Update<br/>Client Account Management Data<br/>Project Showcase Management Data<br/>Budget and Quotation Data<br/>Document and Permit Management Data<br/>Project and Site Progress Updates"| SYS
+    SYS -->|"Admin Authentication Status<br/>Updated Inquiry Pipeline Data<br/>Client Account Information<br/>Project Showcase Information<br/>Budget and Quotation Records<br/>LGU Compliance Records<br/>Updated Site Logs and Progress Reports"| ADMIN
+
+    classDef entity fill:#121620,stroke:#F59E0B,stroke-width:2px,color:#F3F3F3;
+    classDef process fill:#F59E0B,stroke:#B45309,stroke-width:2px,color:#121212;
+    class CLIENT,STAFF,ADMIN entity;
+    class SYS process;
+```
 
 ### Level 1 Diagram
 
-The Level 1 diagram breaks the system into eight processes and thirteen data stores.
+The Level 1 diagram breaks the system into eight processes and thirteen data stores. To keep it readable, the arrows between an entity and a process are grouped, with the full list of flows in the table below.
 
-<div align="center">
+```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 40, "rankSpacing": 70, "curve": "linear"}}}%%
+flowchart TB
+    CLIENT["Client"]
+    STAFF["Staff"]
+    ADMIN["Administrator"]
 
-[![Level 1 DFD](docs/diagrams/dfd-level-1.png)](docs/diagrams/dfd-level-1.png)
+    P1(["1.0<br/>Manage User Accounts<br/>and Registration"])
+    P2(["2.0<br/>Manage Clients Inquiry<br/>and Project Briefs"])
+    P3(["3.0<br/>Manage Feasibility<br/>and Cost Estimation"])
+    P4(["4.0<br/>Manage Consultation<br/>and Meetings"])
+    P5(["5.0<br/>Manage Blueprints<br/>and Technical Plans"])
+    P6(["6.0<br/>Manage Documents<br/>and LGU Compliance"])
+    P7(["7.0<br/>Manage Project Execution<br/>and Site Progress"])
+    P8(["8.0<br/>Manage Clients Account<br/>and Project Showcase"])
 
-</div>
+    D1[("D1 Users")]
+    D2[("D2 OTP Codes")]
+    D3[("D3 Projects")]
+    D4[("D4 Client Briefs")]
+    D5[("D5 Site Projects")]
+    D6[("D6 Site Milestone")]
+    D7[("D7 Site Photo Logs")]
+    D8[("D8 Email Verification")]
+    D9[("D9 Cost Estimates")]
+    D10[("D10 Client Quotation")]
+    D11[("D11 Blueprints")]
+    D12[("D12 Meeting Rooms")]
+    D13[("D13 Project Documents")]
+
+    CLIENT <-->|"registration, verification, login"| P1
+    CLIENT <-->|"inquiry details"| P2
+    CLIENT <-->|"requirements, budget, feasibility, estimate"| P3
+    CLIENT <-->|"booking, schedule"| P4
+
+    STAFF <-->|"login"| P1
+    STAFF <-->|"takeoff data, BOQ draft"| P3
+    STAFF <-->|"meeting details, confirmation"| P4
+    STAFF <-->|"plan updates, plan information"| P5
+    STAFF <-->|"LGU clearances, compliance status"| P6
+    STAFF <-->|"site photos, task logs, status"| P7
+
+    ADMIN <-->|"login"| P1
+    ADMIN <-->|"inquiry review, pipeline data"| P2
+    ADMIN <-->|"budget, quotation data"| P3
+    ADMIN <-->|"permit data, LGU records"| P6
+    ADMIN <-->|"progress updates, site reports"| P7
+    ADMIN <-->|"account and showcase data"| P8
+
+    P1 <--> D1
+    P1 <--> D2
+    P1 <--> D8
+    P2 <--> D4
+    P2 --> D3
+    D3 --> P3
+    P3 <--> D9
+    P3 <--> D10
+    P4 <--> D12
+    P5 <--> D11
+    P6 <--> D13
+    P7 <--> D5
+    P7 <--> D6
+    P7 <--> D7
+    P8 <--> D1
+    P8 <--> D3
+
+    classDef entity fill:#121620,stroke:#F59E0B,stroke-width:2px,color:#F3F3F3;
+    classDef process fill:#F59E0B,stroke:#B45309,stroke-width:2px,color:#121212;
+    classDef store fill:#5B6770,stroke:#121620,stroke-width:1px,color:#FFFFFF;
+    class CLIENT,STAFF,ADMIN entity;
+    class P1,P2,P3,P4,P5,P6,P7,P8 process;
+    class D1,D2,D3,D4,D5,D6,D7,D8,D9,D10,D11,D12,D13 store;
+```
 
 | # | Process | Main data stores |
 | :--- | :--- | :--- |
@@ -175,7 +259,23 @@ The Level 1 diagram breaks the system into eight processes and thirteen data sto
 | 5.0 | Manage blueprints and technical plans | Blueprints |
 | 6.0 | Manage documents and LGU compliance | Project Documents |
 | 7.0 | Manage project execution and site progress | Site Projects, Site Milestone, Site Photo Logs |
-| 8.0 | Manage client accounts and project showcase | Projects |
+| 8.0 | Manage client accounts and project showcase | Users, Projects |
+
+<details>
+<summary><strong>Full data flows per process</strong></summary>
+
+| Process | From entity | To entity |
+| :--- | :--- | :--- |
+| 1.0 | Client: Account Registration Details, Email Verification Code, Login Credentials. Staff: Staff Login Credentials. Administrator: Administrator Login Credentials. | Client: Account Registration Status, Verification Status, Authentication Status. Staff: Staff Authentication Status. Administrator: Admin Authentication Status. |
+| 2.0 | Client: Project Inquiry Details. Administrator: Inquiry Review and Status Update. | Client: Inquiry Submission Status. Administrator: Updated Inquiry Pipeline Data. |
+| 3.0 | Client: Project Requirements and Budget. Staff: Material and Quantity Takeoff Data. Administrator: Budget and Quotation Data. | Client: Site Feasibility Report, Preliminary Cost Estimation. Staff: Itemized BOQ Draft. Administrator: Budget and Quotation Records. |
+| 4.0 | Client: Consultation Booking Details. Staff: Meeting and Consultation Details. | Client: Booking Confirmation and Schedule. Staff: Consultation Schedule Confirmation. |
+| 5.0 | Staff: Blueprint and Technical Plan Updates. | Staff: Blueprint and Technical Plan Information. |
+| 6.0 | Staff: LGU Clearance Submissions. Administrator: Document and Permit Management Data. | Staff: LGU Compliance Status View. Administrator: LGU Compliance Records. |
+| 7.0 | Staff: Site Photos and Progress Logs, Task Completion Details. Administrator: Project and Site Progress Updates. | Staff: Submission Confirmation and Status, Project Information and Status. Administrator: Updated Site Logs and Progress Reports. |
+| 8.0 | Administrator: Client Account Management Data, Project Showcase Management Data. | Administrator: Client Account Information, Project Showcase Information. |
+
+</details>
 
 ---
 
@@ -215,6 +315,16 @@ MCPA handles every booking and inquiry by hand through Facebook Messenger, text,
 </table>
 
 </details>
+
+### Defense Day
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/photos/defense-1.jpg" alt="BSIT 3D1 after the BuildSync defense"></td>
+    <td width="50%"><img src="docs/photos/defense-2.jpg" alt="BSIT 3D1 with the BuildSync title slide"></td>
+  </tr>
+</table>
+
 
 ---
 
