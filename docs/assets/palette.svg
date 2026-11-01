@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="380" viewBox="0 0 1000 380" role="img" aria-label="MCPA brand color palette">
+<rect width="1000" height="380" rx="6" fill="#0D1017" stroke="#222838"/>
+<text x="24" y="44" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="20" font-weight="700" fill="#F3F3F3">Brand Palette</text>
+<text x="24" y="68" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="13" fill="#94A3B8">Extracted from the production stylesheet. Amber on near-black, drawn from construction safety gear and drafting ink.</text>
+<g transform="translate(24,96)">
+<rect width="232" height="124" rx="4" fill="#F59E0B" stroke="#374158"/>
+<text x="16" y="34" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#121212">Safety Amber</text>
+<text x="16" y="56" font-family="Consolas,Menlo,monospace" font-size="13" fill="#121212">#F59E0B</text>
+<text x="16" y="106" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#121212" opacity="0.85">Primary brand, actions</text>
+</g>
+<g transform="translate(264,96)">
+<rect width="232" height="124" rx="4" fill="#B45309" stroke="#374158"/>
+<text x="16" y="34" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#FFFFFF">Deep Amber</text>
+<text x="16" y="56" font-family="Consolas,Menlo,monospace" font-size="13" fill="#FFFFFF">#B45309</text>
+<text x="16" y="106" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#FFFFFF" opacity="0.85">Hover, emphasis</text>
+</g>
+<g transform="translate(504,96)">
+<rect width="232" height="124" rx="4" fill="#121212" stroke="#374158"/>
+<text x="16" y="34" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#FFFFFF">Brand Black</text>
+<text x="16" y="56" font-family="Consolas,Menlo,monospace" font-size="13" fill="#FFFFFF">#121212</text>
+<text x="16" y="106" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#FFFFFF" opacity="0.85">Light-mode text</text>
+</g>
+<g transform="translate(744,96)">
+<rect width="232" height="124" rx="4" fill="#080A0E" stroke="#374158"/>
+<text x="16" y="34" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#F3F3F3">Obsidian</text>
+<text x="16" y="56" font-family="Consolas,Menlo,monospace" font-size="13" fill="#F3F3F3">#080A0E</text>
+<text x="16" y="106" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#F3F3F3" opacity="0.85">Dark-mode canvas</text>
+</g>
+<g transform="translate(24,236)">
+<rect width="232" height="124" rx="4" fill="#121620" stroke="#374158"/>
+<text x="16" y="34" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#F3F3F3">Slate Paper</text>
+<text x="16" y="56" font-family="Consolas,Menlo,monospace" font-size="13" fill="#F3F3F3">#121620</text>
+<text x="16" y="106" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#F3F3F3" opacity="0.85">Dark surfaces</text>
+</g>
+<g transform="translate(264,236)">
+<rect width="232" height="124" rx="4" fill="#5B6770" stroke="#374158"/>
+<text x="16" y="34" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#FFFFFF">Brand Slate</text>
+<text x="16" y="56" font-family="Consolas,Menlo,monospace" font-size="13" fill="#FFFFFF">#5B6770</text>
+<text x="16" y="106" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#FFFFFF" opacity="0.85">Secondary text</text>
+</g>
+<g transform="translate(504,236)">
+<rect width="232" height="124" rx="4" fill="#0284C7" stroke="#374158"/>
+<text x="16" y="34" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#FFFFFF">Surveyor Cyan</text>
+<text x="16" y="56" font-family="Consolas,Menlo,monospace" font-size="13" fill="#FFFFFF">#0284C7</text>
+<text x="16" y="106" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#FFFFFF" opacity="0.85">Maps, telemetry</text>
+</g>
+<g transform="translate(744,236)">
+<rect width="232" height="124" rx="4" fill="#10B981" stroke="#374158"/>
+<text x="16" y="34" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#121212">Verified Green</text>
+<text x="16" y="56" font-family="Consolas,Menlo,monospace" font-size="13" fill="#121212">#10B981</text>
+<text x="16" y="106" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#121212" opacity="0.85">Confirmed states</text>
+</g>
+</svg>

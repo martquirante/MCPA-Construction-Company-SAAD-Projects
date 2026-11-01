@@ -1,206 +1,176 @@
 <div align="center">
 
-# MCPA Architectural & Construction System
-### BuildSync Enterprise Platform
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark-mode.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light-mode.png">
+  <img alt="MCPA Construction and Supply" src="docs/assets/logo-light-mode.png" width="420">
+</picture>
 
-[![Production Deployment](https://img.shields.io/badge/Production%20Website-mcpaconstruction.com-d97706?style=for-the-badge&logo=googlechrome&logoColor=white)](https://www.mcpaconstruction.com)
-[![Vercel Deployment](https://img.shields.io/badge/Vercel%20Mirror-mcpa--construction.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://mcpa-construction.vercel.app)
-[![Academic Certification](https://img.shields.io/badge/Academic%20Course-IT303%20Systems%20Analysis%20%26%20Design-0f172a?style=for-the-badge)](https://www.mcpaconstruction.com)
-[![Course Status](https://img.shields.io/badge/Defense%20Status-Completed%20%2F%20Passed-059669?style=for-the-badge)](https://www.mcpaconstruction.com)
-[![Progression Track](https://img.shields.io/badge/Next%20Phase-Capstone%20Project%20Continuity-2563eb?style=for-the-badge)](https://www.mcpaconstruction.com)
+<br/>
+<br/>
+
+**BuildSync** is the client and site management platform we built for MCPA Construction and Supply, a design-and-build firm in Bulacan, Philippines.
 
 <br/>
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│ FIRM: MCPA CONSTRUCTION & SUPPLY (BULACAN, PHILIPPINES)                         │
-│ SYSTEM: BUILDSYNC — INTEGRATED CLIENT MANAGEMENT & SITE TELEMETRY PLATFORM      │
-│ SPECIFICATION: IT303 SYSTEMS ANALYSIS & DESIGN (COMPLETED & CAPSTONE-READY)     │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
+[![Website](https://img.shields.io/badge/Visit%20the%20website-mcpaconstruction.com-F59E0B?style=for-the-badge&logo=googlechrome&logoColor=121212&labelColor=121212)](https://www.mcpaconstruction.com)
+[![IT303](https://img.shields.io/badge/IT303-Systems%20Analysis%20%26%20Design-121620?style=for-the-badge&labelColor=5B6770)](#academic-context)
+[![Status](https://img.shields.io/badge/IT303-Passed-10B981?style=for-the-badge&labelColor=121212)](#academic-context)
+[![Next](https://img.shields.io/badge/Next-Capstone-0284C7?style=for-the-badge&labelColor=121212)](#academic-context)
 
 </div>
 
 ---
 
-## 1. System Overview
+## Overview
 
-**BuildSync** is a purpose-built, web-based architectural project management, telemetry tracking, and client collaboration portal engineered specifically for **MCPA Construction & Supply**, a premier architectural design, structural drafting, and civil engineering firm operating in Bulacan, Philippines.
+Building a house in the Philippines usually means a lot of back-and-forth: messages scattered across chat apps, plans sent as photos, cost estimates in spreadsheets, and a site that clients only see when they drive out to it.
 
-Traditional Philippine residential and commercial construction workflows frequently suffer from fragmented communication channels, delayed material transparency, manual drafting approvals, and opaque physical site progress updates. BuildSync unifies the entire architectural lifecycle into an authoritative **Digital Architectural Dossier**. From initial land title inspection and GPS-bounded site feasibility assessments to real-time client consultations, Bill of Quantities (BOQ) cost calculations, LGU clearance monitoring, and milestone-by-milestone photo telemetry, the platform serves as the single source of truth for clients, site engineers, and executive management.
+BuildSync puts that whole journey in one place. A client sends an inquiry and pins their lot on a map, books a consultation, reviews the quotation, and then follows the build through site photos, milestones, weather delays, and permit status. The MCPA team runs the other side of it from an admin dashboard: reviewing inquiries, issuing quotations, logging site progress, and publishing finished projects to the public showcase.
 
-### Live Production Deployments
-
-* **Primary Domain**: [https://www.mcpaconstruction.com](https://www.mcpaconstruction.com)
-* **High-Availability Cloud Mirror**: [https://mcpa-construction.vercel.app](https://mcpa-construction.vercel.app)
+**Live site:** [www.mcpaconstruction.com](https://www.mcpaconstruction.com)
 
 ---
 
-## 2. Academic Milestone & Capstone Progression
+## Features
 
-This system represents the primary capstone-track software artifact submitted and defended for **IT303: Systems Analysis and Design (SAAD)**. 
+### For clients
 
-* **Defense & Assessment Status**: Successfully completed, evaluated, and cleared for academic compliance.
-* **System Balancing**: Built upon rigorous Systems Analysis and Design methodologies, featuring a balanced Level 0 Context Diagram and Level 1 Data Flow Diagram (DFD) decomposition across six discrete operational subsystems and normalized transactional data stores.
-* **Capstone Continuity**: The underlying microservice architecture, dual-database replication strategy, and client-portal infrastructure have been structured from the ground up for turnkey continuation into the upcoming **Senior Capstone Project**, providing a verified operational baseline for future field deployment and enterprise expansion.
+| | |
+| :--- | :--- |
+| **Inquiry and lot pinning** | Describe the project, budget, and requirements, then drop a pin on the lot using an interactive map with Philippine province, city, and barangay lookup. |
+| **Consultations** | Book a face-to-face meeting or an in-browser video consultation. No third-party meeting link needed. |
+| **Quotations and contracts** | Receive itemized quotations and contract documents as downloadable PDFs. |
+| **Build progress** | Follow each construction stage with photo logs, milestone updates, weather delays, and LGU permit status. |
+| **Account security** | Email verification, Google and Facebook sign-in, and optional face verification for sensitive actions. |
+| **Bilingual interface** | Switch the whole site between English and Filipino. |
+| **Project assistant** | A chatbot that answers common questions about services, process, and permits, with chat history that follows you across devices. |
+| **Project recap** | A story-style summary of a finished build that can be exported as shareable slides. |
 
----
+### For the MCPA team
 
-## 3. Core Functional Capabilities
-
-```text
-+---------------------------------------------------------------------------------+
-|                              BUILDSYNC MODULE MATRIX                            |
-+---------------------------------------------------------------------------------+
-| 01. Client Dossier & Portal         | 04. Technical BOQ & Blueprint Engine      |
-| 02. Lot Feasibility & GIS Surveyor  | 05. Site Telemetry & LGU Compliance Logs  |
-| 03. Native Video Consultation Room  | 06. Executive Project Portfolio Showcase  |
-+---------------------------------------------------------------------------------+
-```
-
-### 3.1. Client Portal & Digital Dossier
-* **Interactive Client Workspace**: A consolidated dashboard where verified property owners can review project phases, active blueprints, and project milestone approvals.
-* **Biometric & Credentialed Authentication**: Layered access control backed by JWT token lifecycles and Google MediaPipe computer vision face-liveness verification for identity validation.
-* **Multi-Language Support**: Seamless runtime switching between International English and Filipino / Tagalog across all customer-facing inquiry forms and contracts.
-* **Document Vault**: Immediate client access to downloadable project milestone receipts, inspection reports, and formal legal PDF covenants rendered on-the-fly.
-
-### 3.2. Site Feasibility & Geographic Lot Surveying
-* **Geospatial Terrain Plotting**: Integrated Leaflet GIS mapping engine permitting clients and surveyors to delineate property boundaries and geodetic coordinate points across Philippine municipalities.
-* **Land Title & Zoning Ingestion**: Secure upload pipelines for transfer certificates of title (TCT), zoning certifications, and topography imagery.
-* **Automated OCR Verification**: Integrated Tesseract.js optical character recognition engine extracts critical property identification numbers directly from submitted registry documents.
-
-### 3.3. Consultation & Virtual Meeting Chambers
-* **Unified Booking Schedule**: Real-time calendar synchronization for coordinating on-site visits and lead architect technical interviews.
-* **Native WebRTC Consultation Suite**: In-browser real-time video conference rooms with encrypted peer connections, interactive whiteboard reviews, and screen-sharing for architectural drawing revisions without third-party meeting dependencies.
-
-### 3.4. CAD Blueprints, BOQ & Cost Estimation Engine
-* **Interactive Schematic Inspection**: High-definition architectural sheet viewer equipped with pan, zoom, layer isolation, and revision tracking.
-* **Itemized Bill of Quantities (BOQ)**: Automated cost calculation calculating material takeoff requirements, labor allocation, and equipment rentals based on current Philippine construction market indexes.
-* **Formal Quotation Generation**: Dynamic rendering of binding cost estimates with breakdown of preliminary site work, substructure, framing, finishes, and MEP installations.
-
-### 3.5. Construction Site Telemetry & LGU Clearance Tracker
-* **Milestone-Based Visual Progress**: 0% to 100% project lifecycle tracking populated by verified site engineer photo logs, drone orthomosaics, and inspection checklists.
-* **Weather & Delay Telemetry**: Built-in weather event logging to record force majeure delays and schedule adjustments transparently.
-* **LGU Regulatory Compliance**: Granular tracking of Philippine municipal permits, including Barangay Clearances, Locational Clearances, Building Permits, Fire Safety Inspection Certificates (FSIC), and Occupancy Certificates.
-
-### 3.6. Curated Project Showcase & Catalog
-* **Architectural Showcase**: Public portfolio detailing completed luxury residential estates, modern minimalist bungalows, and commercial facilities.
-* **Technical Specification Overviews**: Detailed structural profiles including total floor area ($m^2$), structural framing type, lot dimensions, and design style taxonomy.
+| | |
+| :--- | :--- |
+| **Inquiry pipeline** | Review, filter, and move inquiries through each stage from first contact to contract. |
+| **Costing and documents** | Prepare quotations, inquiry summaries, receipts, and legal documents, generated as PDFs. |
+| **Receipt scanning** | Upload a payment receipt and have the key details read automatically with OCR. |
+| **Site tracking** | Log progress photos, milestones, and delay events per project. |
+| **Showcase management** | Publish completed projects to the public portfolio with photos, videos, and specifications. |
+| **Role separation** | Clients, staff, and administrators each see only what they should. |
 
 ---
 
-## 4. UI/UX Architecture & Design Philosophy
+## Brand Colors
 
-The user interface of BuildSync is governed by the **MCPA Architectural Dossier Design System**. It deliberately avoids ephemeral web trends, colorful neon drop-shadows, rounded bubbly pill buttons, and cartoon construction iconography in favor of structural editorial clarity and genuine human craftsmanship.
-
-```text
-┌───────────────────────────────────────────────────────────────────────────────┐
-│ DESIGN SYSTEM TOKENS                                                          │
-├─────────────────────┬─────────────────────────────────────────────────────────┤
-│ Canvas Obsidian     │ #0a0c10 (Deep structural backdrop)                     │
-│ Slate Paper         │ #121620 (Technical dossier card surface)                │
-│ Construction Amber  │ #f59e0b (Primary safety accent & verified highlight)   │
-│ Surveyor Cyan       │ #0284c7 (Geodetic reticle & GIS telemetry)             │
-│ Bone White          │ #f8fafc (High-contrast typography)                     │
-│ Hairline Border     │ #222838 (Crisp 1px drafting separator)                 │
-└─────────────────────┴─────────────────────────────────────────────────────────┘
-```
-
-* **Architectural Materiality**: Visual containers mimic precision drafting tables and physical executive binders with razor-thin 1px borders, subtle drafting tick marks, and zero generic blur artifacts.
-* **Disciplined Typographic Hierarchy**: Structural UI elements are typeset in `Inter` / `Plus Jakarta Sans`, while geodetic coordinates, financial figures, lot dimensions, and drawing sheet identifiers are strictly typeset in `JetBrains Mono`.
-* **Zero-Emoji Discipline**: Communication and status indicators are rendered strictly through standardized SVG icons, technical badges, or precise vector state indicators.
-
----
-
-## 5. System Architecture & Level 1 DFD Decomposition
-
-The platform decomposes the primary System Analysis & Design context into six core transactional processes with 100% boundary balancing:
-
-```text
-+-------------------+       +---------------------------------------------+       +-------------------+
-|                   | ----> | 1.0 User Authentication & Account Subsystem | <---> | D1: User Accounts |
-|                   |       +---------------------------------------------+       +-------------------+
-|                   |       +---------------------------------------------+       +-------------------+
-|      CLIENT       | ----> | 2.0 Project Inquiry & Site Feasibility      | <---> | D2: Inquiries     |
-|     (Entity)      |       +---------------------------------------------+       +-------------------+
-|                   |       +---------------------------------------------+       +-------------------+
-|                   | <---> | 3.0 Consultation & Virtual Meeting Chamber  | <---> | D3: Consultation  |
-|                   |       +---------------------------------------------+       +-------------------+
-+-------------------+                                                                                   
-                                                                                                        
-+-------------------+       +---------------------------------------------+       +-------------------+
-|    STAFF / LEAD   | <---> | 4.0 CAD Blueprint, BOQ & Quotation Engine   | <---> | D4: Blueprints    |
-|     ARCHITECT     |       +---------------------------------------------+       +-------------------+
-|     (Entity)      |       +---------------------------------------------+       +-------------------+
-|                   | <---> | 5.0 Construction Tracking & LGU Compliance  | <---> | D5: Site Progress |
-+-------------------+       +---------------------------------------------+       +-------------------+
-                                                                                                        
-+-------------------+       +---------------------------------------------+       +-------------------+
-|   ADMINISTRATOR   | <---> | 6.0 Project Showcase & Catalog Management   | <---> | D6: Showcases     |
-|     (Entity)      |       +---------------------------------------------+       +-------------------+
-+-------------------+                                                                                   
-```
-
-### High-Availability Dual Database Topology
-To ensure zero data loss during site operations in variable network conditions, the platform implements an active dual-database topology:
-1. **Primary OLTP**: Cloud PostgreSQL hosted via Supabase for high-throughput relational transactions, row-level security (RLS), and identity management.
-2. **Replication & Recovery Engine**: Neon Serverless PostgreSQL providing real-time data replication, branch isolation for structural migrations, and automated disaster recovery failover.
-3. **Real-Time Synchronizer**: Google Firebase Firestore handling low-latency chat messaging and live client notifications alongside WebSockets.
-
----
-
-## 6. Complete Technology Stack
-
-| Domain | Technology | Implementation Scope |
-| :--- | :--- | :--- |
-| **Frontend Framework** | `Next.js 16 (App Router)` | Server-side rendering, client hydration, route layouts, and streaming |
-| **User Interface Library** | `React 19` | Declarative UI state trees, concurrent rendering, and custom hooks |
-| **Styling & Design System** | `Tailwind CSS v4` | PostCSS-driven styling, zero-runtime CSS tokens, hairline boundaries |
-| **Vector Motion Engine** | `GSAP (GreenSock)` | High-precision micro-interactions, timeline choreography, and viewport transitions |
-| **Iconography** | `Lucide React` & SVG | Pure vector SVG iconography across administrative and portal screens |
-| **Geospatial GIS** | `Leaflet` & `OpenStreetMap` | Interactive Philippine site boundary selection and coordinate capture |
-| **Micro-Animations** | `Lottie React` | Lightweight, vector-rendered loading state animations |
-| **Client-Side PDF Engine** | `jsPDF` | In-browser synthesis of printable client dossiers and receipts |
-| **Biometric Computer Vision** | `Google MediaPipe Vision` | Real-time face-liveness detection and biometric KYC identity verification |
-| **Backend Runtime** | `Node.js` (LTS) | Asynchronous backend runtime environment |
-| **Application Server** | `Express.js 5` | RESTful API endpoints, request routing, rate limiting, and middleware chains |
-| **Real-Time Communication** | `Socket.io` & `WebSockets` | Bidirectional telemetry pushes, live status broadcasts, and WebRTC signalling |
-| **Primary Relational DB** | `PostgreSQL (Supabase)` | Core relational transactions, foreign-key relationships, and schema integrity |
-| **Serverless Failover DB** | `Neon PostgreSQL` | Branchable cloud PostgreSQL cluster utilized for automated data replication |
-| **Document Data Store** | `Firebase Firestore` | Real-time chat history persistence and unread notification queues |
-| **Document OCR** | `Tesseract.js` | Optical character recognition on land titles and municipal clearance permits |
-| **Server-Side PDF Engine** | `PDFKit` | Dynamic compilation of legal service contracts and itemized BOQ sheets |
-| **Cryptographic Security** | `bcryptjs` & `jsonwebtoken` | Salted credential hashing and stateless signed bearer token authorization |
-| **Media & Binary Storage** | `Azure Blob Storage` | Scalable cloud container storage for high-resolution project photos and documents |
-| **Cloud Compute Hosting** | `Microsoft Azure App Service`| Containerized production Linux backend deployed in the East Japan region |
-| **Edge CDN & Web Hosting** | `Vercel Platform` | Global edge distribution, asset compression, and Next.js frontend deployment |
-| **Mail Transmission** | `Nodemailer` & SMTP | Automated dispatch of 6-digit verification codes and status notifications |
-
----
-
-## 7. Security, Privacy & Philippine Regulatory Standards
-
-* **Data Privacy Act of 2012 (RA 10173)**: Full compliance with National Privacy Commission (NPC) mandates regarding client personal identifying information (PII), secure document processing, and transparent consent protocols.
-* **Role-Based Access Control (RBAC)**: Complete operational isolation separating `Client`, `Staff`, and `Administrator` privileges across database queries and API endpoints.
-* **Asset Integrity & Defense-in-Depth**: Direct document uploads are validated through strict MIME verification, size quotas, and encrypted Azure cloud storage buckets with presigned access tokens.
-* **Auditability**: All milestone approvals, financial adjustments, and consultation bookings generate immutable database log entries with timestamped user IDs and IP footprints.
-
----
-
-## 8. Academic Attribution & Project Credits
-
-* **Course**: Systems Analysis and Design (IT303)
-* **Lead Developer & System Architect**: [Raymart Quirante](https://github.com/martquirante)
-* **Partner Enterprise**: MCPA Construction & Supply
-* **Institutional Context**: Academic software deliverable successfully defended for IT303; approved for ongoing evolution into the Senior Capstone Project.
-
----
+The palette comes straight from the site's stylesheet: safety amber on near-black, with slate for secondary text and two functional accents for maps and confirmations.
 
 <div align="center">
 
-```text
-MCPA CONSTRUCTION & SUPPLY • BULACAN, PHILIPPINES
-Built with precision engineering, structural discipline, and architectural clarity.
-```
+![MCPA brand color palette](docs/assets/palette.svg)
+
+</div>
+
+| Role | Name | Hex |
+| :--- | :--- | :--- |
+| Primary | Safety Amber | `#F59E0B` |
+| Emphasis | Deep Amber | `#B45309` |
+| Text, light mode | Brand Black | `#121212` |
+| Canvas, dark mode | Obsidian | `#080A0E` |
+| Surface, dark mode | Slate Paper | `#121620` |
+| Secondary text | Brand Slate | `#5B6770` |
+| Maps and telemetry | Surveyor Cyan | `#0284C7` |
+| Confirmed states | Verified Green | `#10B981` |
+
+**Type:** Plus Jakarta Sans for the interface, Geist Mono for coordinates, amounts, and reference numbers.
+
+**Icons:** SVG only. No emoji anywhere in the product.
+
+---
+
+## Tech Stack
+
+### Frontend
+
+![Next.js](https://img.shields.io/badge/Next.js%2016-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React%2019-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS%204-0F172A?style=for-the-badge&logo=tailwindcss&logoColor=38BDF8)
+![GSAP](https://img.shields.io/badge/GSAP-0AE448?style=for-the-badge&logo=greensock&logoColor=black)
+![Lucide](https://img.shields.io/badge/Lucide%20Icons-F56565?style=for-the-badge&logo=lucide&logoColor=white)
+![Lottie](https://img.shields.io/badge/Lottie-00DDB3?style=for-the-badge&logo=lottiefiles&logoColor=black)
+![Leaflet](https://img.shields.io/badge/Leaflet-199900?style=for-the-badge&logo=leaflet&logoColor=white)
+![OpenStreetMap](https://img.shields.io/badge/OpenStreetMap-7EBC6F?style=for-the-badge&logo=openstreetmap&logoColor=white)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-0097A7?style=for-the-badge&logo=google&logoColor=white)
+![jsPDF](https://img.shields.io/badge/jsPDF-E34F26?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)
+
+### Backend
+
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express%205-000000?style=for-the-badge&logo=express&logoColor=white)
+![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=for-the-badge&logo=socketdotio&logoColor=white)
+![WebRTC](https://img.shields.io/badge/WebRTC-333333?style=for-the-badge&logo=webrtc&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+![Tesseract](https://img.shields.io/badge/Tesseract%20OCR-3F6FA0?style=for-the-badge&logo=google&logoColor=white)
+![PDFKit](https://img.shields.io/badge/PDFKit-E34F26?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)
+![Nodemailer](https://img.shields.io/badge/Nodemailer-22B573?style=for-the-badge&logo=gmail&logoColor=white)
+
+### Data
+
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=black)
+![Neon](https://img.shields.io/badge/Neon-00E599?style=for-the-badge&logo=neon&logoColor=black)
+![Firebase](https://img.shields.io/badge/Firebase%20Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
+![Azure Blob Storage](https://img.shields.io/badge/Azure%20Blob%20Storage-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)
+
+### Hosting and delivery
+
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
+![Azure App Service](https://img.shields.io/badge/Azure%20App%20Service-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)
+
+### How the pieces fit
+
+| Layer | What it does |
+| :--- | :--- |
+| Next.js on Vercel | Serves the public site, client portal, and admin dashboard. |
+| Express on Azure | REST API, real-time events, document generation, and OCR. |
+| PostgreSQL (Supabase, with Neon as standby) | Main relational data. The API fails over to Neon if the primary becomes unreachable. |
+| Firestore | Chat history and live message sync. |
+| Azure Blob Storage | Site photos, videos, and uploaded documents. |
+
+---
+
+## System Design
+
+The Level 1 data flow diagram breaks BuildSync into six processes, each with its own data store.
+
+| # | Process | Data store |
+| :--- | :--- | :--- |
+| 1.0 | User authentication and account management | User accounts |
+| 2.0 | Project inquiry and site feasibility | Inquiries and site data |
+| 3.0 | Consultation and meeting scheduling | Consultation schedules |
+| 4.0 | Design blueprint, costing, and quotation | Blueprints and quotations |
+| 5.0 | Construction tracking and LGU compliance | Construction progress |
+| 6.0 | Project showcase and portfolio | Project showcase |
+
+External entities: **Client**, **Staff**, and **Administrator**.
+
+---
+
+## Academic Context
+
+BuildSync was built for **IT303: Systems Analysis and Design** and has been successfully defended and passed. It continues as our **Capstone Project**, using the analysis and design work from IT303 as its foundation.
+
+---
+
+## Author
+
+**Raymart Quirante**
+[github.com/martquirante](https://github.com/martquirante)
+
+<div align="center">
+<br/>
+
+MCPA Construction and Supply · Bulacan, Philippines
 
 </div>
