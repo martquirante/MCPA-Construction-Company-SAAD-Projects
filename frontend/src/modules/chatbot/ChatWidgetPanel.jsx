@@ -111,6 +111,116 @@ function formatMessageTime(isoString) {
 }
 
 /**
+ * Renders structured Markdown with safe bolding, bulleted lists, numbered steps, and links
+ */
+function MarkdownMessage({ content }) {
+  if (!content) return null;
+
+  const paragraphs = String(content).split(/\n{2,}/);
+
+  return (
+    <div className="space-y-2 select-text text-[13px] leading-relaxed">
+      {paragraphs.map((p, pIdx) => {
+        const trimmed = p.trim();
+        if (!trimmed) return null;
+
+        const lines = trimmed.split("\n");
+        const isBulletList = lines.length > 0 && lines.every((l) => /^[*\-•]\s+/.test(l.trim()));
+        const isNumberedList = lines.length > 0 && lines.every((l) => /^\d+\.\s+/.test(l.trim()));
+
+        if (isBulletList) {
+          return (
+            <ul key={pIdx} className="space-y-1.5 my-1.5 pl-1 list-none">
+              {lines.map((l, lIdx) => {
+                const itemText = l.replace(/^[*\-•]\s+/, "");
+                return (
+                  <li key={lIdx} className="flex items-start gap-2">
+                    <span className="text-amber-500 font-bold mt-0.5 select-none shrink-0">•</span>
+                    <span>{renderInlineMarkdown(itemText)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          );
+        }
+
+        if (isNumberedList) {
+          return (
+            <ol key={pIdx} className="space-y-1.5 my-1.5 pl-1 list-none">
+              {lines.map((l, lIdx) => {
+                const match = l.match(/^(\d+)\.\s+(.*)/);
+                const num = match ? match[1] : lIdx + 1;
+                const itemText = match ? match[2] : l;
+                return (
+                  <li key={lIdx} className="flex items-start gap-2">
+                    <span className="font-mono text-amber-600 dark:text-amber-400 font-bold text-[11px] mt-0.5 select-none shrink-0">
+                      {num}.
+                    </span>
+                    <span>{renderInlineMarkdown(itemText)}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          );
+        }
+
+        return (
+          <p key={pIdx} className="whitespace-pre-line">
+            {renderInlineMarkdown(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function renderInlineMarkdown(text) {
+  if (!text) return "";
+  const tokenRegex = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\)|\*[^*]+\*)/g;
+  const parts = String(text).split(tokenRegex);
+
+  return parts.map((part, idx) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={idx} className="font-semibold text-neutral-950 dark:text-white">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={idx}
+          className="px-1 py-0.5 rounded bg-neutral-200/70 dark:bg-white/10 font-mono text-[11px] text-amber-700 dark:text-amber-300"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    if (part.startsWith("[") && part.includes("](") && part.endsWith(")")) {
+      const match = part.match(/\[([^\]]+)\]\(([^)]+)\)/);
+      if (match) {
+        return (
+          <a
+            key={idx}
+            href={match[2]}
+            target={match[2].startsWith("http") ? "_blank" : undefined}
+            rel="noopener noreferrer"
+            className="text-amber-600 dark:text-amber-400 font-medium underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-300"
+          >
+            {match[1]}
+          </a>
+        );
+      }
+    }
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return <em key={idx}>{part.slice(1, -1)}</em>;
+    }
+    return part;
+  });
+}
+
+/**
  * Animated AI Chatbot Mascot Avatar
  * Features:
  * - Pure vector icon (no background box, border, or tile)
@@ -1347,24 +1457,77 @@ export default function ChatWidgetPanel({ onClose }) {
                           onComplete={() => setAnimatingMessageId(null)}
                           onCharTyped={() => scrollToBottom(false)}
                         />
-                      ) : (
+                      ) : isCustomer ? (
                         <p className="whitespace-pre-line select-text">
-                          {formatBotResponse(msg.message_text)}
+                          {msg.message_text}
                         </p>
+                      ) : (
+                        <MarkdownMessage content={formatBotResponse(msg.message_text)} />
                       )}
 
-                      {/* Message Timestamp */}
-                      {timeFormatted && (
-                        <div
-                          className={`text-[9px] font-mono mt-1.5 select-none ${
-                            isCustomer
-                              ? "text-neutral-900/60 text-right font-medium"
-                              : "text-neutral-400 dark:text-neutral-500 text-left"
-                          }`}
-                        >
-                          {timeFormatted}
+                      {/* Source Citations from Company Knowledge Base */}
+                      {msg.metadata?.sources && Array.isArray(msg.metadata.sources) && msg.metadata.sources.length > 0 && (
+                        <div className="pt-2 border-t border-neutral-200/60 dark:border-white/5 mt-2.5 flex flex-wrap gap-1.5 items-center">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">
+                            Sources:
+                          </span>
+                          {msg.metadata.sources.map((src, sIdx) => (
+                            <a
+                              key={sIdx}
+                              href={src.sourceUrl || "#"}
+                              target={src.sourceUrl?.startsWith("http") ? "_blank" : undefined}
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-[10px] font-mono transition-colors"
+                            >
+                              <span>📄 {src.source || src.title}</span>
+                            </a>
+                          ))}
                         </div>
                       )}
+
+                      {/* Message Footer: Timestamp, AI Provider Tag & Copy Button */}
+                      <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-neutral-100 dark:border-white/[0.04]">
+                        <div className="flex items-center gap-2">
+                          {timeFormatted && (
+                            <span
+                              className={`text-[9px] font-mono select-none ${
+                                isCustomer
+                                  ? "text-neutral-900/60 font-medium"
+                                  : "text-neutral-400 dark:text-neutral-500"
+                              }`}
+                            >
+                              {timeFormatted}
+                            </span>
+                          )}
+
+                          {msg.metadata?.sourceType === "ai_hybrid" && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-mono text-emerald-600 dark:text-emerald-400 select-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <span>AI ({msg.metadata.providerName || msg.metadata.aiProvider || "Hybrid"})</span>
+                              {msg.metadata.latencyMs && (
+                                <span className="text-neutral-400 dark:text-neutral-500">
+                                  · {(msg.metadata.latencyMs / 1000).toFixed(1)}s
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </div>
+
+                        {!isCustomer && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try {
+                                navigator.clipboard.writeText(msg.message_text);
+                              } catch (_) {}
+                            }}
+                            title="Copy response"
+                            className="text-[9px] font-mono text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer select-none px-1 py-0.5 rounded"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Clarifying Options Buttons (if engine returned ambiguous matches) */}

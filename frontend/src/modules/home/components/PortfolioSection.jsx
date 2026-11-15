@@ -10,12 +10,14 @@ import { ArrowRightIcon } from "../../shared/Icons";
 import LordIcon from "../../shared/LordIcon";
 import { deduplicateProjects, subscribeProjectsChange } from "../../shared/projectsHelper";
 import { PortfolioGridSkeleton } from "../../shared/Skeleton";
+import { useCms } from "../../cms/CmsContext";
 
 export default function PortfolioSection({
   isHomePage = false,
   onSelectProjectForInquiry,
 }) {
   const router = useRouter();
+  const { getContent } = useCms();
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
@@ -174,16 +176,28 @@ export default function PortfolioSection({
       <ScrollMorph variant="fade-up" className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div className="max-w-2xl">
           <div className="inline-flex items-center text-[10px] sm:text-xs uppercase tracking-[0.2em] font-mono font-bold text-amber-600 dark:text-amber-400 mb-3 select-none">
-            <span>{isHomePage ? "Portfolio · Selected Works" : "Portfolio · Full Architecture Catalog"}</span>
+            <span>
+              {getContent(
+                "projects",
+                "portfolio",
+                "portfolioBadge",
+                isHomePage ? "Portfolio · Selected Works" : "Portfolio · Full Architecture Catalog"
+              )}
+            </span>
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
-            Built to{" "}
+            {getContent("projects", "portfolio", "portfolioHeading", "Built to")}{" "}
             <span className="text-amber-500 dark:text-amber-400">
-              Last Centuries
+              {getContent("projects", "portfolio", "portfolioHighlight", "Last Centuries")}
             </span>
           </h2>
           <p className="mt-4 text-sm md:text-base text-neutral-600 dark:text-neutral-400 font-light leading-relaxed">
-            Real structures built across Bulacan and Central Luzon. Each project reflects our commitment to structural excellence and transparent execution.
+            {getContent(
+              "projects",
+              "portfolio",
+              "portfolioSubtitle",
+              "Real structures built across Bulacan and Central Luzon. Each project reflects our commitment to structural excellence and transparent execution."
+            )}
           </p>
         </div>
 

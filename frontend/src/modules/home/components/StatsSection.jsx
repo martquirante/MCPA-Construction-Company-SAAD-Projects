@@ -2,14 +2,18 @@
 
 import ScrollMorph from "../../shared/ScrollMorph";
 import { useLanguage } from "../../shared/LanguageContext";
+import { useCms } from "../../cms/CmsContext";
 
 export default function StatsSection() {
   const { language } = useLanguage();
+  const { getContent } = useCms();
   const isFil = language === "fil";
 
+  const stat1Title = getContent("home", "stats", "stat1_title", "");
   const stats = [
     {
-      custom: true,
+      custom: !stat1Title,
+      value: stat1Title,
       render: () => (
         <div className="flex flex-col leading-tight">
           <span className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-neutral-900 dark:text-white">
@@ -23,34 +27,54 @@ export default function StatsSection() {
           </span>
         </div>
       ),
-      label: isFil ? "Tibay ng Istruktura" : "Structural Resilience",
-      desc: isFil
-        ? "Idinisenyo para sa lindol at lakas ng hanging dala ng bagyo"
-        : "Engineered for major faults & super typhoon wind loads",
+      label: getContent("home", "stats", "stat1_label", isFil ? "Tibay ng Istruktura" : "Structural Resilience"),
+      desc: getContent(
+        "home",
+        "stats",
+        "stat1_desc",
+        isFil
+          ? "Idinisenyo para sa lindol at lakas ng hanging dala ng bagyo"
+          : "Engineered for major faults & super typhoon wind loads"
+      ),
     },
     {
-      value: isFil ? "Direktang" : "Direct",
-      suffix: isFil ? "Suplay" : "Supply",
-      label: isFil ? "Sariling Materyales" : "In-House Materials",
-      desc: isFil
-        ? "Buhangin, graba, semento, at bakal na nakalaan sa proyekto"
-        : "Project-dedicated aggregates, cement & structural steel",
+      value: getContent("home", "stats", "stat2_title", isFil ? "Direktang" : "Direct"),
+      suffix: stat1Title ? "" : isFil ? "Suplay" : "Supply",
+      label: getContent("home", "stats", "stat2_label", isFil ? "Sariling Materyales" : "In-House Materials"),
+      desc: getContent(
+        "home",
+        "stats",
+        "stat2_desc",
+        isFil
+          ? "Buhangin, graba, semento, at bakal na nakalaan sa proyekto"
+          : "Project-dedicated aggregates, cement & structural steel"
+      ),
     },
     {
-      value: "100",
-      suffix: "%",
-      label: isFil ? "May Pirma at Tatak" : "Signed & Sealed",
-      desc: isFil
-        ? "Mga Lisensyadong Arkitekto at Civil Engineer"
-        : "Licensed Architects & Civil Engineers",
+      value: getContent("home", "stats", "stat3_title", "100"),
+      suffix: getContent("home", "stats", "stat3_title", "100").includes("%") ? "" : "%",
+      label: getContent("home", "stats", "stat3_label", isFil ? "May Pirma at Tatak" : "Signed & Sealed"),
+      desc: getContent(
+        "home",
+        "stats",
+        "stat3_desc",
+        isFil
+          ? "Mga Lisensyadong Arkitekto at Civil Engineer"
+          : "Licensed Architects & Civil Engineers"
+      ),
     },
     {
-      value: "BNPL",
-      suffix: isFil ? "Programa" : "Program",
-      label: "Build Now, Pay Later",
-      desc: isFil
-        ? "Financing sa tituladong lote at tulong sa Pag-IBIG"
-        : "Titled lot financing & Pag-IBIG assistance",
+      value: getContent("home", "stats", "stat4_title", "BNPL"),
+      suffix: getContent("home", "stats", "stat4_title", "BNPL").includes("Program") ? "" : isFil ? "Programa" : "Program",
+      label: getContent("home", "stats", "stat4_label", "Build Now, Pay Later"),
+      desc: getContent(
+        "home",
+        "stats",
+        "stat4_desc",
+        isFil
+          ? "Financing sa tituladong lote at tulong sa Pag-IBIG"
+          : "Titled lot financing & Pag-IBIG assistance"
+      ),
     },
   ];
 

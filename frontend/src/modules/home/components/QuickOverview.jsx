@@ -147,7 +147,6 @@ export default function QuickOverview() {
             <PillarCard
               key={idx}
               idx={idx}
-              number={pillar.number}
               icon={pillar.icon}
               title={pillar.title}
               description={pillar.description}

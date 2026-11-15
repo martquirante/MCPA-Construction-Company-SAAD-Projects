@@ -20,6 +20,8 @@ import DelayManagementTab from "@/modules/admin/components/DelayManagementTab";
 import BillingLedgerTab from "@/modules/admin/components/BillingLedgerTab";
 import FinishedProjectsTab from "@/modules/admin/components/FinishedProjectsTab";
 import AdminChatbotTab from "@/modules/admin/components/AdminChatbotTab";
+import AdminCmsTab from "@/modules/admin/components/AdminCmsTab";
+import AdminAnalyticsTab from "@/modules/admin/components/AdminAnalyticsTab";
 import AdminIncomingCallManager from "@/modules/admin/components/AdminIncomingCallManager";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
 import AdminNotificationCenter from "@/modules/admin/components/AdminNotificationCenter";
@@ -37,6 +39,11 @@ import {
   Sparkles as SparklesIcon,
   Archive as ArchiveIcon,
   MessageSquare as MessageSquareIcon,
+  Newspaper as NewspaperIcon,
+  Globe as GlobeIcon,
+  Image as ImageLibIcon,
+  Palette as PaletteIcon,
+  BarChart3 as BarChart3Icon,
 } from "lucide-react";
 import { loadDocumentRequests } from "@/modules/portal/utils/documentRequestsHelper";
 import {
@@ -78,26 +85,16 @@ export function resolveAdminAvatar(user) {
     return direct.trim();
   }
 
-  if (typeof window !== "undefined") {
+  const email = (user.email || "").toLowerCase().trim();
+
+  // Check user-scoped local storage cache if explicitly uploaded
+  if (typeof window !== "undefined" && email) {
     try {
-      const stored = localStorage.getItem("mcpa_admin_avatar");
+      const stored = localStorage.getItem(`mcpa_admin_avatar_${email}`);
       if (stored && stored.trim() && stored !== "null" && stored !== "undefined") {
         return stored.trim();
       }
     } catch {}
-  }
-
-  const email = (user.email || "").toLowerCase().trim();
-  const name = (user.fullName || user.name || "").toLowerCase().trim();
-  if (
-    email.includes("quirante") ||
-    email === "dbprojectmartquirante@gmail.com" ||
-    email === "martquirante@gmail.com" ||
-    email === "martquirante04@gmail.com" ||
-    name.includes("raymart") ||
-    name.includes("quirante")
-  ) {
-    return "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
   }
 
   return null;
@@ -119,6 +116,11 @@ export const TAB_ROLE_PERMISSIONS = {
   billing: ["admin", "super_admin"],
   accounts: ["admin", "super_admin"],
   chatbot: ["admin", "super_admin"],
+  "cms-blog": ["admin", "super_admin", "content_manager", "editor"],
+  "cms-content": ["admin", "super_admin", "content_manager"],
+  "cms-media": ["admin", "super_admin", "content_manager", "editor"],
+  "cms-appearance": ["admin", "super_admin"],
+  analytics: ["admin", "super_admin"],
 };
 
 export function getRoleBadgeMeta(role) {
@@ -151,6 +153,36 @@ export function getRoleBadgeMeta(role) {
 }
 
 function AdminAvatar({ user, sizeClasses = "w-8 h-8", textClasses = "text-xs" }) {
+  const role = (user?.role || "admin").toLowerCase();
+  const isAdmin = role === "admin" || role === "super_admin";
+
+  // For admins, strictly use the official MCPA brand logo
+  if (isAdmin) {
+    return (
+      <div
+        className={`${sizeClasses} rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold ${textClasses} flex items-center justify-center shrink-0 font-mono overflow-hidden shadow-xs relative p-1`}
+        title="MCPA Construction and Supply"
+      >
+        <Image
+          src="/assets/mcpa-logo.svg"
+          alt="MCPA Logo"
+          fill
+          unoptimized
+          className="object-contain p-0.5 block dark:hidden"
+          sizes="36px"
+        />
+        <Image
+          src="/assets/logo-white.svg"
+          alt="MCPA Logo"
+          fill
+          unoptimized
+          className="object-contain p-0.5 hidden dark:block"
+          sizes="36px"
+        />
+      </div>
+    );
+  }
+
   const resolvedUrl = useMemo(() => resolveAdminAvatar(user), [user]);
   const [currentSrc, setCurrentSrc] = useState(resolvedUrl);
   const [hasFailed, setHasFailed] = useState(false);
@@ -162,55 +194,39 @@ function AdminAvatar({ user, sizeClasses = "w-8 h-8", textClasses = "text-xs" })
     setHasFailed(false);
   }
 
-  const initials = useMemo(() => {
-    const rawName = user?.fullName || user?.name || "Raymart Quirante";
-    return (
-      rawName
-        .replace(/^(Engr\.|Arch\.|Dr\.|Atty\.|Mr\.|Ms\.|Mrs\.)\s+/i, "")
-        .trim()
-        .split(/\s+/)
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase() || "RQ"
-    );
-  }, [user?.fullName, user?.name]);
-
-  const handleError = () => {
-    const googleFallback =
-      "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
-    if (currentSrc && currentSrc !== googleFallback) {
-      const email = (user?.email || "").toLowerCase().trim();
-      const name = (user?.fullName || user?.name || "").toLowerCase().trim();
-      if (
-        email.includes("quirante") ||
-        email === "dbprojectmartquirante@gmail.com" ||
-        name.includes("raymart") ||
-        name.includes("quirante")
-      ) {
-        setCurrentSrc(googleFallback);
-        return;
-      }
-    }
-    setHasFailed(true);
-  };
-
   return (
     <div
-      className={`${sizeClasses} rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold ${textClasses} flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs`}
+      className={`${sizeClasses} rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold ${textClasses} flex items-center justify-center shrink-0 font-mono overflow-hidden group-hover:border-amber-500 transition-colors shadow-xs relative`}
     >
       {currentSrc && !hasFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={currentSrc}
-          alt={user?.fullName || user?.name || "Admin Avatar"}
+          alt={user?.fullName || user?.name || "MCPA Staff"}
           className="w-full h-full object-cover"
           referrerPolicy="no-referrer"
           crossOrigin="anonymous"
-          onError={handleError}
+          onError={() => setHasFailed(true)}
         />
       ) : (
-        <span>{initials}</span>
+        <div className="relative w-full h-full p-1 flex items-center justify-center">
+          <Image
+            src="/assets/mcpa-logo.svg"
+            alt="MCPA Logo"
+            fill
+            unoptimized
+            className="object-contain p-0.5 block dark:hidden"
+            sizes="36px"
+          />
+          <Image
+            src="/assets/logo-white.svg"
+            alt="MCPA Logo"
+            fill
+            unoptimized
+            className="object-contain p-0.5 hidden dark:block"
+            sizes="36px"
+          />
+        </div>
       )}
     </div>
   );
@@ -941,8 +957,13 @@ export default function AdminPage() {
                           localStorage.setItem("mcpa_admin_user", JSON.stringify(refreshed));
                           sessionStorage.setItem("mcpa_admin_user", JSON.stringify(refreshed));
                           if (refreshed.avatar_url || refreshed.avatarUrl) {
-                            localStorage.setItem("mcpa_admin_avatar", refreshed.avatar_url || refreshed.avatarUrl);
+                            if (refreshed.email) {
+                              localStorage.setItem(`mcpa_admin_avatar_${refreshed.email.toLowerCase()}`, refreshed.avatar_url || refreshed.avatarUrl);
+                            }
+                          } else if (refreshed.email) {
+                            localStorage.removeItem(`mcpa_admin_avatar_${refreshed.email.toLowerCase()}`);
                           }
+                          localStorage.removeItem("mcpa_admin_avatar");
                         }
                       })
                       .catch(() => {});
@@ -1132,8 +1153,13 @@ export default function AdminPage() {
         localStorage.setItem("mcpa_admin_user", JSON.stringify(loggedUser));
         sessionStorage.setItem("mcpa_admin_user", JSON.stringify(loggedUser));
         if (loggedUser.avatar_url || loggedUser.avatarUrl) {
-          localStorage.setItem("mcpa_admin_avatar", loggedUser.avatar_url || loggedUser.avatarUrl);
+          if (loggedUser.email) {
+            localStorage.setItem(`mcpa_admin_avatar_${loggedUser.email.toLowerCase()}`, loggedUser.avatar_url || loggedUser.avatarUrl);
+          }
+        } else if (loggedUser.email) {
+          localStorage.removeItem(`mcpa_admin_avatar_${loggedUser.email.toLowerCase()}`);
         }
+        localStorage.removeItem("mcpa_admin_avatar");
 
         if (data.token) {
           localStorage.setItem("mcpa_admin_token", data.token);
@@ -1164,10 +1190,13 @@ export default function AdminPage() {
       localStorage.setItem("mcpa_admin_user", JSON.stringify(formatted));
       sessionStorage.setItem("mcpa_admin_user", JSON.stringify(formatted));
       if (formatted.avatar_url || formatted.avatarUrl) {
-        localStorage.setItem("mcpa_admin_avatar", formatted.avatar_url || formatted.avatarUrl);
-      } else {
-        localStorage.removeItem("mcpa_admin_avatar");
+        if (formatted.email) {
+          localStorage.setItem(`mcpa_admin_avatar_${formatted.email.toLowerCase()}`, formatted.avatar_url || formatted.avatarUrl);
+        }
+      } else if (formatted.email) {
+        localStorage.removeItem(`mcpa_admin_avatar_${formatted.email.toLowerCase()}`);
       }
+      localStorage.removeItem("mcpa_admin_avatar");
     } catch (e) {}
   };
 
@@ -1184,6 +1213,10 @@ export default function AdminPage() {
     sessionStorage.removeItem("mcpa_admin_token");
     localStorage.removeItem("mcpa_admin_user");
     sessionStorage.removeItem("mcpa_admin_user");
+    if (currentUser?.email) {
+      localStorage.removeItem(`mcpa_admin_avatar_${currentUser.email.toLowerCase()}`);
+    }
+    localStorage.removeItem("mcpa_admin_avatar");
     setPasswordInput("");
     setCurrentUser(null);
     setIsMobileSidebarOpen(false);
@@ -2029,6 +2062,7 @@ export default function AdminPage() {
       stageBadge: null,
       items: [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
+        { id: "analytics", label: "Analytics & Visitors", icon: BarChart3Icon },
         { id: "calendar", label: "Calendar", icon: CalendarDaysIcon },
         {
           id: "meetings",
@@ -2037,6 +2071,10 @@ export default function AdminPage() {
           badge: meetingsCount > 0 ? meetingsCount : undefined,
         },
         { id: "projects", label: "Projects Showcase", icon: FolderKanbanIcon },
+        { id: "cms-blog", label: "Blog & Posts", icon: NewspaperIcon },
+        { id: "cms-content", label: "Website Content (CMS)", icon: GlobeIcon },
+        { id: "cms-media", label: "Media Library", icon: ImageLibIcon },
+        { id: "cms-appearance", label: "Website Appearance", icon: PaletteIcon },
         { id: "accounts", label: "Accounts & Roles", icon: UserIcon },
         {
           id: "chatbot",
@@ -2159,6 +2197,7 @@ export default function AdminPage() {
     groundbreaking: "GROUND BREAKING",
     billing: "BILLING",
     chatbot: "CHATBOT",
+    analytics: "ANALYTICS",
     "finished-projects": "FINISHED",
   }[currentTabInfo.id] || currentTabInfo.label;
 
@@ -2460,7 +2499,7 @@ export default function AdminPage() {
               <AdminAvatar user={currentUser} sizeClasses="w-9 h-9" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                  {currentUser?.fullName || currentUser?.name || "Raymart Quirante"}
+                  {(currentUser?.role === "admin" || currentUser?.role === "super_admin") ? "MCPA Construction and Supply" : (currentUser?.fullName || currentUser?.name || currentUser?.email || "MCPA Administrator")}
                 </p>
                 <div className="flex items-center mt-0.5">
                   <span className={`text-[9.5px] font-mono px-1.5 py-0.5 rounded-[3px] border uppercase font-bold tracking-wider ${roleMeta.badgeClass}`}>
@@ -2500,15 +2539,15 @@ export default function AdminPage() {
                   type="button"
                   onClick={() => setIsSettingsModalOpen(true)}
                   className="relative group cursor-pointer focus:outline-none"
-                  title={`${currentUser?.fullName || currentUser?.name || "Raymart Quirante"} (${currentUser?.role || "ADMIN"})`}
+                  title={`${(currentUser?.role === "admin" || currentUser?.role === "super_admin") ? "MCPA Construction and Supply" : (currentUser?.fullName || currentUser?.name || currentUser?.email || "MCPA Administrator")} (${currentUser?.role || "ADMIN"})`}
                 >
                   <AdminAvatar user={currentUser} sizeClasses="w-8 h-8" />
 
                   {/* Tooltip */}
                   <div className="hidden lg:block absolute left-full bottom-0 ml-2 px-2.5 py-1 rounded-[4px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                    <p className="font-bold">{currentUser?.fullName || currentUser?.name || "Raymart Quirante"}</p>
+                    <p className="font-bold">{(currentUser?.role === "admin" || currentUser?.role === "super_admin") ? "MCPA Construction and Supply" : (currentUser?.fullName || currentUser?.name || currentUser?.email || "MCPA Administrator")}</p>
                     <p className="text-[10px] text-neutral-400 uppercase">{currentUser?.role || "ADMIN"}</p>
-                    <p className="text-[9px] text-amber-400 mt-0.5 font-medium">Click to edit Profile & PFP</p>
+                    <p className="text-[9px] text-amber-400 mt-0.5 font-medium">MCPA Administrator</p>
                   </div>
                 </button>
 
@@ -2542,7 +2581,7 @@ export default function AdminPage() {
                   <AdminAvatar user={currentUser} sizeClasses="w-8 h-8" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                      {currentUser?.fullName || currentUser?.name || "Raymart Quirante"}
+                      {(currentUser?.role === "admin" || currentUser?.role === "super_admin") ? "MCPA Construction and Supply" : (currentUser?.fullName || currentUser?.name || currentUser?.email || "MCPA Administrator")}
                     </p>
                     <div className="flex items-center mt-0.5">
                       <span className={`text-[9.5px] font-mono px-1.5 py-0.5 rounded-[3px] border uppercase font-bold tracking-wider ${roleMeta.badgeClass}`}>
@@ -2815,6 +2854,32 @@ export default function AdminPage() {
             currentUser={currentUser}
             onShowToast={showToast}
           />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: SOCIAL MEDIA BLOG, DYNAMIC CMS & WEBSITE APPEARANCE          */}
+        {/* ================================================================= */}
+        {["cms-blog", "cms-content", "cms-media", "cms-appearance"].includes(activeTab) && (
+          <AdminCmsTab
+            key={activeTab}
+            initialSection={
+              activeTab === "cms-content"
+                ? "website-content"
+                : activeTab === "cms-media"
+                ? "media-library"
+                : activeTab === "cms-appearance"
+                ? "appearance"
+                : "blog"
+            }
+            showToast={showToast}
+          />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: REAL-TIME WEBSITE VISITOR ANALYTICS & ADVANCED STATISTICS    */}
+        {/* ================================================================= */}
+        {activeTab === "analytics" && (
+          <AdminAnalyticsTab showToast={showToast} />
         )}
 
         {/* ================================================================= */}

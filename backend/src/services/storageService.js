@@ -170,12 +170,19 @@ class StorageService {
     }
 
     if (isVercel && buffer.length < 4 * 1024 * 1024) {
-      const mime = uniqueFileName.endsWith(".png") ? "image/png" : "image/jpeg";
-      return `data:${mime};base64,${buffer.toString("base64")}`;
+      const resolvedMime =
+        mimeType ||
+        (uniqueFileName.endsWith(".mp4")
+          ? "video/mp4"
+          : uniqueFileName.endsWith(".webm")
+          ? "video/webm"
+          : uniqueFileName.endsWith(".png")
+          ? "image/png"
+          : "image/jpeg");
+      return `data:${resolvedMime};base64,${buffer.toString("base64")}`;
     }
 
-    const port = process.env.PORT || 5000;
-    const localUrl = `http://localhost:${port}/uploads/${category}/${uniqueFileName}`;
+    const localUrl = `/uploads/${category}/${uniqueFileName}`;
     console.log(`\x1b[36m[StorageService] Stored locally (Dev Fallback): ${localUrl}\x1b[0m`);
     return localUrl;
   }

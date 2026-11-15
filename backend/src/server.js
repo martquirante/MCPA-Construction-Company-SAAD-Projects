@@ -24,6 +24,8 @@ const { translateDictionary } = require("./services/translationService");
 const phLocationService = require("./services/phLocationService");
 const chatbotController = require("./controllers/chatbotController");
 const calendarController = require("./controllers/calendarController");
+const cmsController = require("./controllers/cmsController");
+const analyticsController = require("./controllers/analyticsController");
 
 const { rateLimit } = require("express-rate-limit");
 const { requireAuth, requireRole, optionalAuth } = require("./middleware/auth");
@@ -67,11 +69,12 @@ const otpLimiter = rateLimit({
   },
 });
 
-// Setup Multer for memory buffering (Unlimited file size for large 3D walkthrough videos & high-res CAD sets)
+// Setup Multer for memory buffering (Unlimited file size & unlimited file count for blog photos, videos & CAD sets)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fieldSize: 100 * 1024 * 1024, // 100MB for text/form fields; no fileSize limit for videos/blueprints
+    fieldSize: 500 * 1024 * 1024, // 500MB for fields; no fileSize or files count limit
+    files: Infinity,
   },
 });
 
@@ -83,8 +86,8 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "X-Chat-Session-Token", "X-Chat-Conversation-Id"],
   })
 );
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "200mb" }));
+app.use(express.urlencoded({ extended: true, limit: "200mb" }));
 
 // -----------------------------------------------------------------------------
 // STATIC ASSETS & ICONS API ENDPOINTS
@@ -760,6 +763,12 @@ app.post("/api/admin/chatbot/conversations/:id/assign", requireAuth, requireRole
 app.post("/api/admin/chatbot/conversations/:id/reply", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.sendAdminReply(req, res));
 app.patch("/api/admin/chatbot/conversations/:id/status", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.updateConversationStatus(req, res));
 
+// Admin AI Model Providers & Knowledge Retrieval Management
+app.get("/api/admin/chatbot/ai-providers", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.getAiProvidersStatus(req, res));
+app.post("/api/admin/chatbot/ai-providers/reset-cooldown", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.resetAiCooldown(req, res));
+app.post("/api/admin/chatbot/reindex-knowledge", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.reindexKnowledge(req, res));
+app.get("/api/admin/chatbot/analytics", requireAuth, requireRole("admin", "super_admin"), (req, res) => chatbotController.getChatbotAnalytics(req, res));
+
 // Admin Company Master Calendar Routes (RBAC: admin / super_admin / architect / engineer)
 app.get("/api/admin/calendar/events", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => calendarController.getEvents(req, res));
 app.post("/api/admin/calendar/events", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => calendarController.createEvent(req, res));
@@ -767,6 +776,74 @@ app.patch("/api/admin/calendar/events/:id", requireAuth, requireRole("admin", "s
 app.delete("/api/admin/calendar/events/:id", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => calendarController.deleteEvent(req, res));
 app.get("/api/admin/calendar/ph-holidays", optionalAuth, (req, res) => calendarController.getPhilippineHolidays(req, res));
 app.get("/api/admin/calendar/birthdays", requireAuth, requireRole("admin", "super_admin", "architect", "engineer"), (req, res) => calendarController.getBirthdays(req, res));
+
+// -----------------------------------------------------------------------------
+// SOCIAL MEDIA BLOG, DYNAMIC WEBSITE CMS & THEME CUSTOMIZATION ROUTES
+// -----------------------------------------------------------------------------
+const cmsAdminRoles = ["admin", "super_admin", "content_manager", "editor"];
+const cmsPublishRoles = ["admin", "super_admin", "content_manager"];
+
+// Public Blog & Feed Routes
+app.get("/api/blog/posts", optionalAuth, (req, res) => cmsController.getPosts(req, res));
+app.get("/api/blog/posts/:slug", optionalAuth, (req, res) => cmsController.getPostBySlug(req, res));
+app.post("/api/blog/posts/:id/react", (req, res) => cmsController.reactToPost(req, res));
+app.get("/api/blog/categories", (req, res) => cmsController.getCategories(req, res));
+app.get("/api/blog/hashtags", (req, res) => cmsController.getHashtags(req, res));
+
+// Public Website Dynamic Content & Theme Routes
+app.get("/api/cms/content", (req, res) => cmsController.getWebsiteContent(req, res));
+app.get("/api/cms/theme", (req, res) => cmsController.getThemeSettings(req, res));
+
+// Admin CMS Overview & Activity Logs
+app.get("/api/admin/cms/overview", requireAuth, requireRole(...cmsAdminRoles), (req, res) => cmsController.getCmsOverview(req, res));
+app.post("/api/admin/cms/link-preview", requireAuth, requireRole(...cmsAdminRoles), (req, res) => cmsController.parseLinkPreview(req, res));
+
+// Admin Blog Post Management
+app.post("/api/admin/blog/posts", requireAuth, requireRole(...cmsAdminRoles), (req, res) => cmsController.createPost(req, res));
+app.put("/api/admin/blog/posts/:id", requireAuth, requireRole(...cmsAdminRoles), (req, res) => cmsController.updatePost(req, res));
+app.delete("/api/admin/blog/posts/:id", requireAuth, requireRole(...cmsPublishRoles), (req, res) => cmsController.deletePost(req, res));
+app.post("/api/admin/blog/posts/:id/duplicate", requireAuth, requireRole(...cmsAdminRoles), (req, res) => cmsController.duplicatePost(req, res));
+
+// Admin Categories & Hashtags Management
+app.post("/api/admin/blog/categories", requireAuth, requireRole(...cmsPublishRoles), (req, res) => cmsController.createCategory(req, res));
+app.put("/api/admin/blog/categories/:id", requireAuth, requireRole(...cmsPublishRoles), (req, res) => cmsController.updateCategory(req, res));
+app.delete("/api/admin/blog/categories/:id", requireAuth, requireRole(...cmsPublishRoles), (req, res) => cmsController.deleteCategory(req, res));
+
+app.post("/api/admin/blog/hashtags", requireAuth, requireRole(...cmsAdminRoles), (req, res) => cmsController.createHashtag(req, res));
+app.delete("/api/admin/blog/hashtags/:id", requireAuth, requireRole(...cmsPublishRoles), (req, res) => cmsController.deleteHashtag(req, res));
+
+// Admin Centralized Media Library (Unlimited multiple image & video file uploads)
+app.get("/api/admin/cms/media", requireAuth, requireRole(...cmsAdminRoles), (req, res) => cmsController.getMediaLibrary(req, res));
+app.post("/api/admin/cms/media/upload", requireAuth, requireRole(...cmsAdminRoles), upload.any(), (req, res) => cmsController.uploadMediaFiles(req, res));
+app.delete("/api/admin/cms/media/:id", requireAuth, requireRole(...cmsPublishRoles), (req, res) => cmsController.deleteMediaItem(req, res));
+
+// Admin Website-Wide Content Management
+app.put("/api/admin/cms/content", requireAuth, requireRole("admin", "super_admin", "content_manager"), (req, res) => cmsController.updateWebsiteContent(req, res));
+
+// Admin Website Appearance & Theme Customization
+app.put("/api/admin/cms/theme", requireAuth, requireRole("admin", "super_admin"), (req, res) => cmsController.updateThemeSettings(req, res));
+app.post("/api/admin/cms/theme/reset", requireAuth, requireRole("admin", "super_admin"), (req, res) => cmsController.resetThemeSettings(req, res));
+
+// -----------------------------------------------------------------------------
+// REAL-TIME WEBSITE VISITOR ANALYTICS & ADVANCED STATISTICS ROUTES
+// -----------------------------------------------------------------------------
+const analyticsIngestionLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute window
+  max: 180, // Up to 180 events/heartbeats per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Analytics rate limit exceeded." },
+});
+
+// Public Website Analytics Collection (Rate-limited, anonymous, privacy-preserving)
+app.post("/api/analytics/collect", analyticsIngestionLimiter, (req, res) => analyticsController.collectAnalytics(req, res));
+
+// Authorized Administrator Analytics Dashboard, Live Stream, Exports & Privacy Settings
+app.get("/api/admin/analytics/dashboard", requireAuth, requireRole("admin", "super_admin"), (req, res) => analyticsController.getDashboardAnalytics(req, res));
+app.get("/api/admin/analytics/live", requireAuth, requireRole("admin", "super_admin"), (req, res) => analyticsController.getLiveVisitors(req, res));
+app.get("/api/admin/analytics/export", requireAuth, requireRole("admin", "super_admin"), (req, res) => analyticsController.exportReport(req, res));
+app.get("/api/admin/analytics/settings", requireAuth, requireRole("admin", "super_admin"), (req, res) => analyticsController.getSettings(req, res));
+app.put("/api/admin/analytics/settings", requireAuth, requireRole("admin", "super_admin"), (req, res) => analyticsController.updateSettings(req, res));
 
 // Startup & Database Sync
 if (!process.env.VERCEL) {

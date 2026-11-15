@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
+import { CmsProvider, useCms } from "@/modules/cms/CmsContext";
 
 
 // Curated UI key translations (for direct t(key) calls)
@@ -37,6 +38,7 @@ export const translations = {
     navProjects: "Projects",
     navServices: "Services",
     navProcess: "Process",
+    navBlog: "Updates & Blog",
     bookAppointment: "Inquire Now!",
     clientPortal: "Client Portal",
     bookingTitle: "Booking",
@@ -166,6 +168,7 @@ export const translations = {
     navProjects: "Mga Proyekto",
     navServices: "Mga Serbisyo",
     navProcess: "Proseso",
+    navBlog: "Mga Update at Blog",
     bookAppointment: "Mag-inquire Na!",
     clientPortal: "Portal ng Kliyente",
     bookingTitle: "Pag-book",
@@ -1286,7 +1289,8 @@ const LanguageContext = createContext({
   t: (key) => key,
 });
 
-export function LanguageProvider({ children }) {
+function LanguageProviderInner({ children }) {
+  const { flatKeyMap } = useCms();
   // Always initialize with default "en" so SSR output matches client hydration
   const [language, setLanguageState] = useState("en");
 
@@ -1338,10 +1342,17 @@ export function LanguageProvider({ children }) {
     }
   };
 
-  const t = useCallback((key) => {
-    const langDict = translations[language] || translations.en;
-    return langDict[key] ?? translations.en[key] ?? key;
-  }, [language]);
+  const t = useCallback(
+    (key) => {
+      // Dynamic CMS database override takes top priority when in English or when custom edited
+      if (language === "en" && flatKeyMap && flatKeyMap[key] !== undefined) {
+        return flatKeyMap[key];
+      }
+      const langDict = translations[language] || translations.en;
+      return langDict[key] ?? flatKeyMap?.[key] ?? translations.en[key] ?? key;
+    },
+    [language, flatKeyMap]
+  );
 
   const contextValue = useMemo(
     () => ({ language, setLanguage, t }),
@@ -1352,6 +1363,14 @@ export function LanguageProvider({ children }) {
     <LanguageContext.Provider value={contextValue}>
       {children}
     </LanguageContext.Provider>
+  );
+}
+
+export function LanguageProvider({ children }) {
+  return (
+    <CmsProvider>
+      <LanguageProviderInner>{children}</LanguageProviderInner>
+    </CmsProvider>
   );
 }
 

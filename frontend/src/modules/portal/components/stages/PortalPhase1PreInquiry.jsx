@@ -36,6 +36,7 @@ import ProjectDetailsModal from "@/modules/home/components/ProjectDetailsModal";
 import { deduplicateProjects } from "@/modules/shared/projectsHelper";
 import { extractRoomCode, buildMeetingUrl } from "@/modules/portal/utils/roomCodeHelper";
 import GoogleMeetRoom from "../GoogleMeetRoom";
+import ClientConsultationNotesCard from "../ClientConsultationNotesCard";
 
 export default function PortalPhase1PreInquiry({
   currentUser,
@@ -754,6 +755,12 @@ export default function PortalPhase1PreInquiry({
               </div>
             )}
           </div>
+
+          {/* Asynchronous Consultation Notes for Night & Daytime Communication */}
+          <ClientConsultationNotesCard
+            projectId={activeInquiry.client_project_id || activeInquiry.brief_id || activeInquiry.id}
+            currentUser={currentUser}
+          />
 
           {/* Strict 1 Active Inquiry Lock Notice */}
           <div className="p-3.5 rounded-xl bg-neutral-100 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 flex items-center justify-between gap-3 text-xs">

@@ -10,6 +10,7 @@ import {
   MilestoneIcon,
   ListChecksIcon,
 } from "../../shared/Icons";
+import { useCms } from "../../cms/CmsContext";
 
 const STAGES = [
   {
@@ -95,6 +96,7 @@ const STAGES = [
 ];
 
 export default function ProcessSection() {
+  const { getContent } = useCms();
   const containerRef = useRef(null);
   const [activeStage, setActiveStage] = useState(0);
   const isTransitioningRef = useRef(false);
@@ -215,7 +217,15 @@ export default function ProcessSection() {
     };
   }, [activeStage, goToStage]);
 
-  const currentStage = STAGES[activeStage];
+  const resolvedStages = STAGES.map((stage, idx) => {
+    const n = idx + 1;
+    return {
+      ...stage,
+      title: getContent("process", "stages", `stage${n}_title`, stage.title),
+      desc: getContent("process", "stages", `stage${n}_desc`, stage.desc),
+    };
+  });
+  const currentStage = resolvedStages[activeStage];
   const IconComponent = currentStage.icon;
 
   return (
@@ -233,12 +243,12 @@ export default function ProcessSection() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-3 mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-neutral-200 dark:border-neutral-900 shrink-0">
           <div>
             <div className="inline-flex items-center text-[10px] sm:text-xs font-mono font-bold tracking-[0.2em] uppercase text-amber-600 dark:text-amber-400 mb-1 sm:mb-2 select-none">
-              <span>Our 4-Step Building Journey</span>
+              <span>{getContent("process", "stages", "processBadge", "Our 4-Step Building Journey")}</span>
             </div>
             <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
-              The{" "}
+              {getContent("process", "stages", "processHeading", "The")}{" "}
               <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
-                MCPA
+                {getContent("process", "stages", "processHighlight", "MCPA")}
               </span>{" "}
               Process
             </h2>

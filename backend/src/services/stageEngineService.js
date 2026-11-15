@@ -966,24 +966,70 @@ class StageEngineService {
   }
 
   /**
+   * Helper to resolve project ID whether passed as client_project_id or brief_id
+   */
+  async resolveProjectId(rawId, fallbackUserId = null) {
+    const id = parseInt(rawId, 10);
+    if (!id || isNaN(id)) return null;
+
+    // 1. Direct check in client_projects
+    const proj = await db.query(
+      "SELECT client_project_id FROM public.client_projects WHERE client_project_id = $1 LIMIT 1;",
+      [id]
+    );
+    if (proj.rows && proj.rows.length > 0) {
+      return proj.rows[0].client_project_id;
+    }
+
+    // 2. Check if it's a brief_id
+    const brief = await db.query(
+      "SELECT brief_id, client_project_id, user_id, project_type, client_name FROM public.client_briefs WHERE brief_id = $1 LIMIT 1;",
+      [id]
+    );
+    if (brief.rows && brief.rows.length > 0) {
+      const b = brief.rows[0];
+      if (b.client_project_id) {
+        return b.client_project_id;
+      }
+      const targetUserId = b.user_id || fallbackUserId;
+      if (targetUserId) {
+        try {
+          const newProj = await this.createClientProject({
+            userId: targetUserId,
+            briefId: b.brief_id,
+            projectType: b.project_type || "Residential",
+            projectTitle: `${b.project_type || "Consultation"} Project (${b.client_name || "Client"})`,
+            bypassAntiSpam: true,
+          });
+          await db.query(
+            "UPDATE public.client_briefs SET client_project_id = $1, user_id = COALESCE(user_id, $2) WHERE brief_id = $3;",
+            [newProj.client_project_id, targetUserId, b.brief_id]
+          );
+          return newProj.client_project_id;
+        } catch (err) {
+          console.warn("[resolveProjectId] Error auto-creating project from brief:", err.message);
+        }
+      }
+    }
+
+    return id;
+  }
+
+  /**
    * IN-APP LIVE CHAT: Get message history
    */
   async getProjectMessages(projectId, limit = 50) {
+    const resolvedId = await this.resolveProjectId(projectId);
+    if (!resolvedId) return [];
+
     const res = await db.query(
       `SELECT cm.*, u.full_name as sender_name, u.role as sender_role, u.avatar_url as sender_avatar
        FROM public.chat_messages cm
        JOIN public.users u ON cm.sender_user_id = u.user_id
-       WHERE (
-         cm.client_project_id = $1
-         OR cm.client_project_id IN (
-           SELECT cp.client_project_id 
-           FROM public.client_projects cp 
-           WHERE cp.user_id = (SELECT user_id FROM public.client_projects WHERE client_project_id = $1)
-         )
-       )
+       WHERE cm.client_project_id = $1
        ORDER BY cm.created_at ASC
        LIMIT $2;`,
-      [projectId, limit]
+      [resolvedId, limit]
     );
     return res.rows || [];
   }
@@ -992,12 +1038,13 @@ class StageEngineService {
    * IN-APP LIVE CHAT: Send message
    */
   async sendProjectMessage({ projectId, senderUserId, messageText, attachments = [] }) {
+    const resolvedId = await this.resolveProjectId(projectId, senderUserId);
     const res = await db.query(
       `INSERT INTO public.chat_messages (
         client_project_id, sender_user_id, message_text, attachments, created_at
       ) VALUES ($1, $2, $3, $4, NOW())
       RETURNING *;`,
-      [projectId, senderUserId, messageText, JSON.stringify(attachments)]
+      [resolvedId, senderUserId, messageText, JSON.stringify(attachments)]
     );
 
     // Return with sender user details

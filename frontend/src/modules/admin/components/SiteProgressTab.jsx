@@ -138,17 +138,18 @@ export function resolveAdminAvatar(user) {
     return direct.trim();
   }
 
-  if (typeof window !== "undefined") {
+  const email = (user.email || "").toLowerCase().trim();
+  const name = (user.full_name || user.fullName || user.name || "").toLowerCase().trim();
+
+  if (typeof window !== "undefined" && email) {
     try {
-      const stored = localStorage.getItem("mcpa_admin_avatar");
+      const stored = localStorage.getItem(`mcpa_admin_avatar_${email}`);
       if (stored && stored.trim() && stored !== "null" && stored !== "undefined") {
         return stored.trim();
       }
     } catch {}
   }
 
-  const email = (user.email || "").toLowerCase().trim();
-  const name = (user.full_name || user.fullName || user.name || "").toLowerCase().trim();
   if (
     email.includes("quirante") ||
     email === "dbprojectmartquirante@gmail.com" ||

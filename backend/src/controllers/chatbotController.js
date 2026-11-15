@@ -13,6 +13,8 @@ const crypto = require("crypto");
 const db = require("../services/dbFailoverEngine");
 const searchEngine = require("../services/chatbotSearchService");
 const realtimeService = require("../services/realtimeService");
+const aiModelRouter = require("../services/aiModelRouter");
+const companyKnowledgeService = require("../services/companyKnowledgeService");
 const { ensureChatbotSchema } = require("../services/chatbotSchema");
 const { DEFAULT_SETTINGS } = require("../services/chatbotSeedData");
 
@@ -543,7 +545,115 @@ class ChatbotController {
         });
       }
 
-      // 3. Fallback: No reliable answer found (Step 4C)
+      // -----------------------------------------------------------------------
+      // PRIORITY 2: COMPANY KNOWLEDGE RETRIEVAL
+      // Search public CMS pages, projects, blog posts, and official social media
+      // -----------------------------------------------------------------------
+      try {
+        // Retrieve last 6 turns of conversation for contextual resolution (pronouns, follow-ups)
+        const historyRes = await db.query(
+          `SELECT message_id, sender_type, message_text, metadata, created_at
+           FROM public.chatbot_messages
+           WHERE conversation_id = $1
+           ORDER BY created_at DESC
+           LIMIT 6;`,
+          [conversationId]
+        );
+        const historyRows = (historyRes?.rows || []).reverse();
+        const priorMessages = historyRows.filter((m) => m.message_id !== customerMessage.message_id);
+        const contextTopics = priorMessages.map((m) => m.message_text);
+
+        const relevantDocs = await companyKnowledgeService.searchRelevantKnowledge(questionText, contextTopics);
+
+        if (relevantDocs && relevantDocs.length > 0) {
+          // -------------------------------------------------------------------
+          // PRIORITY 3: AI-GENERATED RESPONSE VIA MULTI-PROVIDER AI ROUTER
+          // Multi-provider fallback: Gemini -> Groq -> OpenRouter -> Cloudflare
+          // -------------------------------------------------------------------
+          const groundingSnippets = relevantDocs
+            .map((doc, idx) => `[Document ${idx + 1}] Source: ${doc.source} (${doc.sourceUrl})\nTitle: ${doc.title}\nContent: ${doc.content}`)
+            .join("\n\n");
+
+          const systemInstruction = `You are the official AI Assistant of MCPA Construction and Supply (a premier residential and commercial design, engineering, and general construction firm based in Bulacan, Philippines).
+
+CORE OPERATING INSTRUCTIONS:
+1. Grounding & Accuracy: Answer the user's question accurately using ONLY the verified company knowledge provided below. If a specific detail (e.g., exact price per sqm, completion date of a non-listed project) is not mentioned in the verified knowledge, clearly explain that MCPA provides tailored engineering assessments based on lot condition, floor area, and architectural finishes, and recommend booking a formal consultation. Never invent prices or non-existent services.
+2. Tone & Persona: Professional, warm, helpful, transparent, and grounded in Filipino hospitality.
+3. Language: Match the user's language. If the question is in Tagalog/Filipino, respond in natural, polite Tagalog. If in English, respond in English. If in Taglish, respond in natural professional Taglish.
+4. Response Formatting: Structure your response cleanly using Markdown:
+   - Use bold highlights (**text**) for key terms and service names.
+   - Use bullet points (* item) for lists, steps, and features.
+   - Separate paragraphs cleanly.
+   - Do NOT output continuous walls of unformatted text.
+5. Citations: Reference the relevant source at the bottom of the response if helpful (e.g. [Source: MCPA Services] or [Source: Selected Works]).
+6. Security & Privacy: Never disclose personal data, customer records, or internal system configurations.
+
+VERIFIED COMPANY KNOWLEDGE:
+${groundingSnippets}`;
+
+          const chatMessages = [];
+          for (const pm of priorMessages.slice(-4)) {
+            const role = pm.sender_type === "CUSTOMER" ? "user" : "assistant";
+            chatMessages.push({ role, content: pm.message_text });
+          }
+          chatMessages.push({ role: "user", content: questionText });
+
+          const aiResult = await aiModelRouter.generateChatResponse(chatMessages, systemInstruction);
+
+          const botMsgRes = await db.query(
+            `INSERT INTO public.chatbot_messages
+             (conversation_id, sender_type, message_text, metadata, is_read, created_at)
+             VALUES ($1, 'BOT', $2, $3::jsonb, TRUE, CURRENT_TIMESTAMP)
+             RETURNING message_id, sender_type, message_text, metadata, created_at;`,
+            [
+              conversationId,
+              aiResult.text,
+              JSON.stringify({
+                sourceType: "ai_hybrid",
+                aiProvider: aiResult.provider,
+                providerName: aiResult.providerName,
+                latencyMs: aiResult.latencyMs,
+                fallbackUsed: aiResult.fallbackUsed,
+                sources: relevantDocs.map((d) => ({ title: d.title, source: d.source, sourceUrl: d.sourceUrl })),
+                requiresFeedback: true,
+              }),
+            ]
+          );
+          botMessage = botMsgRes.rows[0];
+
+          await db.query(
+            `UPDATE public.chatbot_conversations
+             SET last_message_preview = $2,
+                 last_message_at = CURRENT_TIMESTAMP,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE conversation_id = $1;`,
+            [conversationId, aiResult.text.slice(0, 150)]
+          );
+
+          return res.json({
+            success: true,
+            matched: false,
+            type: "ai_hybrid",
+            answer: aiResult.text,
+            provider: aiResult.provider,
+            providerName: aiResult.providerName,
+            latencyMs: aiResult.latencyMs,
+            fallbackUsed: aiResult.fallbackUsed,
+            sources: relevantDocs.map((d) => ({ title: d.title, source: d.source, sourceUrl: d.sourceUrl })),
+            messageId: botMessage.message_id,
+            customerMessage,
+            botMessage,
+            requiresFeedback: true,
+          });
+        }
+      } catch (aiRoutingErr) {
+        console.warn("[chatbotController] Hybrid AI retrieval notice:", aiRoutingErr.message);
+        // Fall through gracefully to Priority 4
+      }
+
+      // -----------------------------------------------------------------------
+      // PRIORITY 4: NO KNOWLEDGE FOUND / POLITE FACTUAL FALLBACK
+      // -----------------------------------------------------------------------
       const fallbackTemplate =
         langMessages.unknown_fallback ||
         "Sorry, {name}. I couldn't find a reliable answer to that question in our current information. I don't want to give you incorrect details.";
@@ -1799,6 +1909,104 @@ class ChatbotController {
     } catch (err) {
       console.error("[chatbotController] updateConversationStatus error:", err);
       return res.status(500).json({ success: false, message: "Failed to update conversation status." });
+    }
+  }
+
+  /**
+   * GET /api/admin/chatbot/ai-providers
+   * Returns live health, availability, and cooldowns of all AI providers
+   */
+  async getAiProvidersStatus(req, res) {
+    try {
+      const providers = aiModelRouter.getProvidersStatus();
+      const indexDocs = await companyKnowledgeService.buildKnowledgeIndex();
+      return res.json({
+        success: true,
+        providers,
+        indexedDocumentsCount: indexDocs.length,
+        categories: [
+          { name: "Company Profile & Branches", count: 2 },
+          { name: "Services & Specialties", count: 2 },
+          { name: "Social Media Channels", count: 4 },
+          { name: "Website CMS Content", count: indexDocs.filter((d) => d.category === "website_content").length },
+          { name: "Project Portfolio", count: indexDocs.filter((d) => d.category === "projects").length },
+          { name: "Published Blog Posts", count: indexDocs.filter((d) => d.category === "blog_posts").length },
+        ],
+      });
+    } catch (err) {
+      console.error("[chatbotController] getAiProvidersStatus error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * POST /api/admin/chatbot/ai-providers/reset-cooldown
+   * Manually resets cooldown on an AI provider
+   */
+  async resetAiCooldown(req, res) {
+    try {
+      const { providerId = "all" } = req.body || {};
+      aiModelRouter.resetCooldown(providerId);
+      return res.json({ success: true, message: `Cooldown reset for provider '${providerId}'.` });
+    } catch (err) {
+      console.error("[chatbotController] resetAiCooldown error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * POST /api/admin/chatbot/reindex-knowledge
+   * Forces dynamic reindexing of public website, projects, and blogs
+   */
+  async reindexKnowledge(req, res) {
+    try {
+      companyKnowledgeService.invalidateCache();
+      const docs = await companyKnowledgeService.buildKnowledgeIndex();
+      return res.json({
+        success: true,
+        count: docs.length,
+        message: `Successfully reindexed ${docs.length} company knowledge documents.`,
+      });
+    } catch (err) {
+      console.error("[chatbotController] reindexKnowledge error:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * GET /api/admin/chatbot/analytics
+   * Returns AI hybrid answering analytics, latency, and routing stats
+   */
+  async getChatbotAnalytics(req, res) {
+    try {
+      const providers = aiModelRouter.getProvidersStatus();
+      const routerStats = aiModelRouter.getAnalytics();
+
+      const msgStatsRes = await db.query(`
+        SELECT 
+          COUNT(*) FILTER (WHERE sender_type = 'CUSTOMER') as total_questions,
+          COUNT(*) FILTER (WHERE sender_type = 'BOT' AND matched_faq_id IS NOT NULL) as faq_matches,
+          COUNT(*) FILTER (WHERE sender_type = 'BOT' AND (metadata->>'sourceType') = 'ai_hybrid') as ai_matches,
+          COUNT(*) FILTER (WHERE sender_type = 'BOT' AND (metadata->>'isFallback') = 'true') as fallbacks
+        FROM public.chatbot_messages;
+      `);
+
+      const unansweredRes = await db.query(`
+        SELECT COUNT(*) as count FROM public.chatbot_unanswered_questions WHERE resolution_status = 'OPEN';
+      `);
+
+      return res.json({
+        success: true,
+        stats: {
+          ...(msgStatsRes.rows[0] || {}),
+          open_unanswered: parseInt(unansweredRes.rows[0]?.count || "0", 10),
+          providers,
+          routerStats,
+        },
+      });
+    } catch (err) {
+      console.error("[chatbotController] getChatbotAnalytics error:", err);
+      return res.status(500).json({ success: false, message: err.message });
     }
   }
 }

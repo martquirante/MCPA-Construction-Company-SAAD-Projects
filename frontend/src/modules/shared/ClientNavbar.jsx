@@ -125,6 +125,15 @@ export default function ClientNavbar({ isCompleted = false, minimal = false } = 
     { label: t("navProjects"), href: "/projects", active: pathname === "/projects" },
     { label: t("navServices"), href: "/services", active: pathname === "/services" },
     { label: t("navProcess"), href: "/process", active: pathname === "/process" },
+    {
+      label: t("navBlog") || "Updates & Blog",
+      href: "/blog",
+      active:
+        pathname?.startsWith("/blog") ||
+        pathname?.startsWith("/updates") ||
+        pathname?.startsWith("/hashtag") ||
+        pathname?.startsWith("/category"),
+    },
   ];
 
   const handleNavClick = (e, href) => {

@@ -36,6 +36,7 @@ const emptySubscribe = () => () => {};
  */
 export default function ProjectDetailsModal({ project, isOpen, onClose, onInquire }) {
   const router = useRouter();
+  const { language } = useLanguage();
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
@@ -151,7 +152,6 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
     else router.push(`/book?style=${encodeURIComponent(project.name)}`);
   };
 
-  const { language } = useLanguage();
   const isFil = language === "fil";
 
   const defaultFeaturesEn = [
@@ -446,13 +446,15 @@ export default function ProjectDetailsModal({ project, isOpen, onClose, onInquir
                     </span>
                   </div>
                   <p className="text-[11px] sm:text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed font-normal">
-                    {isFil ? (
+                    {project.structuralStandard || project.structural_standard || project.architectural_details || project.architecturalDetails ? (
+                      project.structuralStandard || project.structural_standard || project.architectural_details || project.architecturalDetails
+                    ) : isFil ? (
                       <>
-                        Itinayo alinsunod sa <span className="font-semibold text-neutral-900 dark:text-neutral-100">National Structural Code of the Philippines (NSCP)</span> gamit ang Grade 60 high-tensile rebars, 3,000+ PSI ready-mix na kongkreto, earthquake-tested shear walling, at mga opisyal na pirma at tatak ng PRC-licensed na arkitekto at civil engineer.
+                        Itinayo alinsunod sa <span className="font-semibold text-neutral-900 dark:text-neutral-100">National Structural Code of the Philippines (NSCP)</span> gamit ang rebars, 3,000+ PSI ready-mix na kongkreto, earthquake-tested shear walling, at mga opisyal na pirma at tatak ng PRC-licensed na arkitekto at civil engineer.
                       </>
                     ) : (
                       <>
-                        Constructed per the <span className="font-semibold text-neutral-900 dark:text-neutral-100">National Structural Code of the Philippines (NSCP)</span> with Grade 60 high-tensile rebars, 3,000+ PSI ready-mix concrete, earthquake-tested shear walling, and PRC-licensed architectural &amp; civil engineering sign-offs.
+                        Constructed per the <span className="font-semibold text-neutral-900 dark:text-neutral-100">National Structural Code of the Philippines (NSCP)</span> with rebars, 3,000+ PSI ready-mix concrete, earthquake-tested shear walling, and PRC-licensed architectural &amp; civil engineering sign-offs.
                       </>
                     )}
                   </p>

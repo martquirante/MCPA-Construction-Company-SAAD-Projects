@@ -1033,39 +1033,36 @@ export default function AdminMeetingsTab({
     const projectTitle = target.projectTitle || target.projectType || "Residential Architectural & Engineering Review";
     const projectCode = target.projectCode || target.trackingId || "MCPA-CLIENT";
 
+    const callerEmail = (currentUser?.email || "").toLowerCase().trim();
+    const callerName = currentUser?.fullName || currentUser?.name || (callerEmail ? callerEmail.split("@")[0] : "MCPA Staff");
+
     let adminAvatar =
       currentUser?.avatar_url ||
       currentUser?.avatarUrl ||
       currentUser?.photoURL ||
       currentUser?.picture;
 
-    if (!adminAvatar && typeof window !== "undefined") {
+    if (!adminAvatar && typeof window !== "undefined" && callerEmail) {
       try {
-        const customAvatar = localStorage.getItem("mcpa_admin_avatar");
+        const customAvatar = localStorage.getItem(`mcpa_admin_avatar_${callerEmail}`);
         if (customAvatar && customAvatar.trim() && customAvatar !== "null") {
           adminAvatar = customAvatar.trim();
-        } else {
-          const storedAdmin = localStorage.getItem("mcpa_admin_user");
-          if (storedAdmin) {
-            const parsed = JSON.parse(storedAdmin);
-            adminAvatar = parsed.avatarUrl || parsed.avatar_url || parsed.photoURL || parsed.picture;
-          }
         }
       } catch (e) {}
     }
 
-    if (!adminAvatar) {
+    if (!adminAvatar && (callerEmail.includes("quirante") || callerName.toLowerCase().includes("raymart"))) {
       adminAvatar = "https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c";
     }
 
     const callPayload = {
       roomCode: instantRoom,
       initiatedBy: "admin",
-      callerName: currentUser?.name || "Engr. Raymart Quirante",
-      callerRole: "Lead Project Engineer & Consultant",
-      adminName: currentUser?.name || "Engr. Raymart Quirante",
-      adminRole: "Lead Project Engineer & Consultant",
-      adminAvatar,
+      callerName: callerName,
+      callerRole: currentUser?.role === "architect" ? "Project Architect" : currentUser?.role === "engineer" ? "Site Engineer" : "Administrator",
+      adminName: callerName,
+      adminRole: currentUser?.role === "architect" ? "Project Architect" : currentUser?.role === "engineer" ? "Site Engineer" : "Administrator",
+      adminAvatar: adminAvatar || null,
       targetClientId: target.submissionId || target.submission_id || target.id,
       targetClientEmail: (target.clientEmail || target.client_email || "").toLowerCase(),
       targetClientName: clientName,

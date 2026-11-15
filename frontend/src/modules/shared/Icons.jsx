@@ -1024,6 +1024,63 @@ export function TikTokIcon({ className = "w-4 h-4", ...props }) {
   );
 }
 
+export function YouTubeIcon({ className = "w-4 h-4", ...props }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className} {...props}>
+      <circle cx="12" cy="12" r="12" fill="#FF0000" />
+      <path d="M16.5 12l-6.5-3.8v7.6z" fill="#FFFFFF" />
+    </svg>
+  );
+}
+
+export function XTwitterIcon({ className = "w-4 h-4", ...props }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className} {...props}>
+      <circle cx="12" cy="12" r="12" fill="#000000" />
+      <path
+        d="M16.8 6.5h1.9l-4.15 4.74 4.88 6.26h-3.82l-2.99-3.92-3.42 3.92H6.9l4.43-5.07L6.68 6.5h3.92l2.71 3.58z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
+
+export function LinkedInIcon({ className = "w-4 h-4", ...props }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className} {...props}>
+      <circle cx="12" cy="12" r="12" fill="#0A66C2" />
+      <path
+        d="M8.5 7.5a1.2 1.2 0 11-2.4 0 1.2 1.2 0 012.4 0zM6.3 9.8h2V17h-2V9.8zm3.2 0h1.9v1h.03c.27-.5 1-1.2 2.1-1.2 2.2 0 2.6 1.5 2.6 3.4V17h-2v-3.5c0-.8-.01-1.9-1.2-1.9-1.2 0-1.4.9-1.4 1.8V17h-2V9.8z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
+
+export function ThreadsIcon({ className = "w-4 h-4", ...props }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className} {...props}>
+      <circle cx="12" cy="12" r="12" fill="#000000" />
+      <path
+        d="M14.9 11.8c-.1-.7-.4-1.2-.8-1.5-.4-.4-1-.5-1.7-.5-.8 0-1.5.3-2 .8-.5.6-.8 1.4-.8 2.4 0 1 .3 1.8.8 2.3.5.6 1.2.9 2.1.9.7 0 1.3-.2 1.8-.6.5-.4.8-1 .9-1.7h1.4c-.2 1.1-.6 2-1.4 2.6-.8.7-1.7 1-2.7 1-1.3 0-2.4-.4-3.2-1.3-.8-.9-1.3-2-1.3-3.4 0-1.4.4-2.5 1.2-3.4.8-.9 1.9-1.3 3.3-1.3 1.2 0 2.1.3 2.8.9.7.6 1.1 1.4 1.2 2.5h-1.4z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
+
+export function PinterestIcon({ className = "w-4 h-4", ...props }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className} {...props}>
+      <circle cx="12" cy="12" r="12" fill="#E60023" />
+      <path
+        d="M12 6.5c-3 0-5.5 2.2-5.5 5 0 1.9 1 3.5 2.5 4.3-.04-.4-.07-.9.02-1.3l.6-2.5s-.2-.3-.2-.8c0-.8.5-1.4 1-1.4.5 0 .8.4.8.8 0 .5-.3 1.3-.5 2-.1.6.3 1.1.9 1.1 1.1 0 1.9-1.2 1.9-2.8 0-1.5-1-2.5-2.6-2.5-1.9 0-3 1.4-3 2.9 0 .6.2 1.2.5 1.5.06.07.07.13.05.2l-.2.8c-.03.12-.1.15-.22.1-1-.4-1.6-1.7-1.6-2.8 0-2.3 1.7-4.4 4.8-4.4 2.5 0 4.5 1.8 4.5 4.2 0 2.5-1.6 4.5-3.8 4.5-.7 0-1.4-.4-1.7-.8l-.4 1.7c-.2.6-.6 1.4-.9 1.9.6.2 1.3.3 2 .3 4.1 0 7.5-3.4 7.5-7.5s-3.4-7.5-7.5-7.5z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
+
 export function LayoutDashboardIcon({ className = "w-5 h-5", strokeWidth = 1.75, ...props }) {
   return (
     <LayoutDashboard

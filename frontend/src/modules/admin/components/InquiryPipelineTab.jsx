@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   CheckIcon,
   MapPinIcon,
@@ -50,6 +50,9 @@ import {
   List,
   CheckCircle2,
   XCircle,
+  MessageSquare,
+  Send,
+  Info,
 } from "lucide-react";
 import { authFetch } from "@/modules/shared/authFetch";
 import AdminEmptyState from "@/modules/admin/components/AdminEmptyState";
@@ -317,6 +320,95 @@ export default function InquiryPipelineTab({
   const [meetingNotes, setMeetingNotes] = useState("");
   const [isApproving, setIsApproving] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+
+  // Client Consultation Notes & Asynchronous Message Thread state
+  const [threadMessages, setThreadMessages] = useState([]);
+  const [isLoadingThread, setIsLoadingThread] = useState(false);
+  const [threadReplyText, setThreadReplyText] = useState("");
+  const [isSendingReply, setIsSendingReply] = useState(false);
+
+  const fetchThreadMessages = async (brief) => {
+    if (!brief) return;
+    const projectRef = brief.client_project_id || brief.clientProjectId || brief.brief_id || brief.id || brief.submissionId;
+    if (!projectRef) return;
+    try {
+      const res = await authFetch(`/api/projects/${encodeURIComponent(projectRef)}/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.messages)) {
+          setThreadMessages(data.messages);
+        }
+      }
+    } catch (err) {
+      console.warn("[AdminThread] Error fetching messages:", err);
+    } finally {
+      setIsLoadingThread(false);
+    }
+  };
+
+  const handleSendAdminReply = async (e) => {
+    e?.preventDefault();
+    if (!threadReplyText.trim() || isSendingReply || !selectedBrief) return;
+    const projectRef = selectedBrief.client_project_id || selectedBrief.clientProjectId || selectedBrief.brief_id || selectedBrief.id || selectedBrief.submissionId;
+    if (!projectRef) return;
+
+    setIsSendingReply(true);
+    try {
+      const res = await authFetch(`/api/projects/${encodeURIComponent(projectRef)}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageText: threadReplyText.trim() }),
+      });
+      if (res.ok) {
+        setThreadReplyText("");
+        await fetchThreadMessages(selectedBrief);
+        if (typeof showToast === "function") {
+          showToast("Reply sent to client successfully!", "success");
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        if (typeof showToast === "function") {
+          showToast(errData.message || "Failed to send reply.", "error");
+        }
+      }
+    } catch (err) {
+      if (typeof showToast === "function") {
+        showToast("Error connecting to server to send reply.", "error");
+      }
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedBrief) return;
+
+    let isMounted = true;
+    const load = async () => {
+      const projectRef = selectedBrief.client_project_id || selectedBrief.clientProjectId || selectedBrief.brief_id || selectedBrief.id || selectedBrief.submissionId;
+      if (!projectRef) return;
+      try {
+        const res = await authFetch(`/api/projects/${encodeURIComponent(projectRef)}/messages`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.messages)) {
+            setThreadMessages(data.messages);
+          }
+        }
+      } catch (err) {
+        console.warn("[AdminThread] Error fetching messages:", err);
+      } finally {
+        if (isMounted) setIsLoadingThread(false);
+      }
+    };
+
+    load();
+    const timer = setInterval(load, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, [selectedBrief]);
 
   // Reschedule Modal state
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
@@ -1805,7 +1897,7 @@ export default function InquiryPipelineTab({
                             <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/40">
                               <span className="text-[10px] font-mono uppercase text-neutral-500 block">Assessment Notes</span>
                               <span className="text-neutral-700 dark:text-neutral-300 italic">
-                                "{selectedBrief.rejectionNotes || selectedBrief.rejection_notes}"
+                                &ldquo;{selectedBrief.rejectionNotes || selectedBrief.rejection_notes}&rdquo;
                               </span>
                             </div>
                           )}
@@ -1893,7 +1985,7 @@ export default function InquiryPipelineTab({
                               <div className="pt-2 border-t border-neutral-200/60 dark:border-white/5">
                                 <span className="text-[10px] font-mono uppercase text-neutral-400 block mb-0.5">Client Remarks &amp; Notes</span>
                                 <p className="text-xs text-neutral-700 dark:text-neutral-300 italic">
-                                  "{selectedBrief.message}"
+                                  &ldquo;{selectedBrief.message}&rdquo;
                                 </p>
                               </div>
                             )}
@@ -1969,6 +2061,87 @@ export default function InquiryPipelineTab({
                         </div>
                       </div>
                     )}
+
+                    {/* SECTION 7.5: CLIENT CONSULTATION NOTES & ASYNCHRONOUS THREAD */}
+                    <div className="rounded-xl bg-white dark:bg-[#12151e] border border-amber-500/30 overflow-hidden shadow-xs">
+                      <div className="px-5 py-3 border-b border-neutral-200/80 dark:border-white/5 bg-amber-50/50 dark:bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                            Client &amp; Engineer Consultation Thread (Asynchronous Notes)
+                          </span>
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono text-amber-700 dark:text-amber-400">
+                          <Clock className="w-3 h-3" />
+                          <span>MCPA Office Hours: 8:00 AM – 5:00 PM</span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 sm:p-5 space-y-4">
+                        <div className="p-3 rounded-lg bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/80 dark:border-white/5 text-[11px] text-neutral-600 dark:text-neutral-400 flex items-start gap-2">
+                          <Info className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                          <span>
+                            Clients can leave notes, questions, and revision requests here 24/7 (especially during evening/night hours). You can reply directly below during office hours.
+                          </span>
+                        </div>
+
+                        {/* Message list */}
+                        <div className="space-y-3 max-h-[280px] overflow-y-auto p-1">
+                          {isLoadingThread && threadMessages.length === 0 ? (
+                            <div className="py-6 text-center text-xs font-mono text-neutral-400">
+                              Loading consultation notes...
+                            </div>
+                          ) : threadMessages.length === 0 ? (
+                            <div className="py-6 text-center text-xs text-neutral-400 font-mono">
+                              No consultation notes left by client yet. You can post an initial note or instruction below.
+                            </div>
+                          ) : (
+                            threadMessages.map((msg, mIdx) => {
+                              const isStaff = msg.sender_role === "admin" || msg.sender_role === "engineer" || msg.sender_role === "super_admin";
+                              const timeStr = msg.created_at ? new Date(msg.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+                              return (
+                                <div key={msg.message_id || mIdx} className={`flex flex-col ${isStaff ? "items-end" : "items-start"} space-y-1`}>
+                                  <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-400 px-1">
+                                    <span className="font-bold text-neutral-700 dark:text-neutral-300">
+                                      {isStaff ? `${msg.sender_name || "MCPA Engineering"} (Staff Reply)` : `${msg.sender_name || selectedBrief.clientName || "Client"} (Client Note)`}
+                                    </span>
+                                    <span>· {timeStr}</span>
+                                  </div>
+                                  <div
+                                    className={`max-w-[85%] p-3 rounded-xl text-xs leading-relaxed ${
+                                      isStaff
+                                        ? "bg-amber-500 text-neutral-950 font-medium rounded-tr-[3px]"
+                                        : "bg-neutral-100 dark:bg-white/[0.04] text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-white/10 rounded-tl-[3px]"
+                                    }`}
+                                  >
+                                    <p className="whitespace-pre-line select-text">{msg.message_text}</p>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Reply Box */}
+                        <form onSubmit={handleSendAdminReply} className="flex gap-2 pt-2 border-t border-neutral-200/80 dark:border-white/5">
+                          <textarea
+                            value={threadReplyText}
+                            onChange={(e) => setThreadReplyText(e.target.value)}
+                            placeholder="Type reply or engineering note for the client..."
+                            rows={2}
+                            className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-black/30 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!threadReplyText.trim() || isSendingReply}
+                            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer shrink-0 flex items-center gap-1.5 self-end h-[42px]"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>{isSendingReply ? "Sending..." : "Send Reply"}</span>
+                          </button>
+                        </form>
+                      </div>
+                    </div>
 
                     {/* SECTION 8: 4-STAGE PROGRESSIVE DISCLOSURE CONTROL */}
                     {!isBriefRejected && (

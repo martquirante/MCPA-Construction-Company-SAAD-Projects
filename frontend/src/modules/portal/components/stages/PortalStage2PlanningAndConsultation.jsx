@@ -48,6 +48,7 @@ import {
 import { authFetch } from "@/modules/shared/authFetch";
 import { extractPaperSignature } from "@/modules/shared/imageUtils";
 import PortalMeetingHub from "../PortalMeetingHub";
+import ClientConsultationNotesCard from "../ClientConsultationNotesCard";
 import DocumentUploadModal from "@/modules/shared/DocumentUploadModal";
 import LordIcon from "@/modules/shared/LordIcon";
 import {
@@ -1449,6 +1450,11 @@ export default function PortalStage2PlanningAndConsultation({
       {/* ------------------------------------------------------------- */}
       {activeSubTab === "meeting" && (
         <div className="space-y-6">
+          <ClientConsultationNotesCard
+            projectId={activeProject?.client_project_id || activeProject?.id || inquiries?.[0]?.client_project_id || inquiries?.[0]?.brief_id}
+            currentUser={currentUser}
+            showToast={showToast}
+          />
           <PortalMeetingHub
             activeProject={activeProject}
             currentUser={currentUser}

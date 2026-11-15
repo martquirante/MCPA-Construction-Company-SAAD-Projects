@@ -1292,7 +1292,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
 
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1">
-                  Engineering & Structural Compliance Notes
+                  MCPA Structural Standard & Materials Used (Editable)
                 </label>
                 <textarea
                   ref={archDetailsRef}
@@ -1300,7 +1300,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                   value={formData.architecturalDetails}
                   onChange={handleTextareaChange}
                   rows={2}
-                  placeholder="e.g. Grade 60 Rebars, 3000 PSI Ready-Mix, Signed & Sealed PRC Blueprints..."
+                  placeholder="e.g. Constructed per NSCP with rebars, 3000 PSI ready-mix concrete, earthquake-tested shear walling, and PRC-licensed architectural & engineering sign-offs."
                   className="w-full px-3.5 py-2.5 rounded-[4px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs text-neutral-900 dark:text-white focus:border-amber-500 focus:outline-none resize-none overflow-hidden transition-all"
                 />
               </div>

@@ -365,7 +365,9 @@ async function initializeDatabase() {
     console.log("[OK] Table 'meeting_history_logs' verified/created.");
 
     const defaultAdmins = [
-      { email: "dbprojectmartquirante@gmail.com", pass: "mcpa2026", name: "Engr. Raymart Quirante (MCPA Admin)" },
+      { email: "dbprojectmartquirante@gmail.com", pass: "mcpa2026", name: "Engr. Raymart Quirante", title: "Software Engineer" },
+      { email: "mcpa.construction@gmail.com", pass: "MCPAcons@2026", name: "MCPA Engr. Pau", title: "Administrator" },
+      { email: "contact@mcpaconstruction.com", pass: "MCPAcons@2026", name: "MCPA Official Contact", title: "Administrator" },
     ];
 
     for (const adm of defaultAdmins) {
@@ -373,10 +375,10 @@ async function initializeDatabase() {
       if (!checkAdmin.rows || checkAdmin.rows.length === 0) {
         const hashed = await bcrypt.hash(adm.pass, 10);
         await db.query(
-          "INSERT INTO users (email, password_hash, full_name, role) VALUES ($1, $2, $3, 'admin')",
-          [adm.email, hashed, adm.name]
+          "INSERT INTO users (email, password_hash, full_name, role, account_status, email_verified, title) VALUES ($1, $2, $3, 'admin', 'active', TRUE, $4)",
+          [adm.email, hashed, adm.name, adm.title || "Administrator"]
         );
-        console.log(`\x1b[32m[OK] Seeded Administrator: ${adm.email} (Password: ${adm.pass})\x1b[0m`);
+        console.log(`\x1b[32m[OK] Seeded Administrator: ${adm.email}\x1b[0m`);
       } else {
         console.log(`[INFO] Administrator (${adm.email}) is already initialized.`);
       }
@@ -497,6 +499,14 @@ async function initializeDatabase() {
       console.log("[OK] Chatbot schema & seed data verified on all pools.");
     } catch (cbErr) {
       console.warn("[initDb] Chatbot schema notice:", cbErr.message);
+    }
+
+    // Real-Time Website Visitor Analytics schema, applied to Supabase AND Neon explicitly
+    try {
+      const { runAnalyticsMigration } = require("./runAnalyticsMigration");
+      await runAnalyticsMigration();
+    } catch (anErr) {
+      console.warn("[initDb] Analytics schema notice:", anErr.message);
     }
 
     console.log("\n[SUCCESS] Database initialization completed successfully!\n");

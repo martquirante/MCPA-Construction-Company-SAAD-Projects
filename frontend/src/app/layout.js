@@ -110,6 +110,7 @@ import NetworkStatusBar from "@/modules/shared/NetworkStatusBar";
 import { LanguageProvider } from "@/modules/shared/LanguageContext";
 import ChatWidgetRoot from "@/modules/chatbot/ChatWidgetRoot";
 import ThemeSelectorModal from "@/modules/shared/ThemeSelectorModal";
+import WebsiteAnalyticsTracker from "@/modules/analytics/WebsiteAnalyticsTracker";
 
 export default function RootLayout({ children }) {
   return (
@@ -139,12 +140,21 @@ export default function RootLayout({ children }) {
                   "alternateName": [
                     "MCPA",
                     "MCPA Construction",
-                    "MCPA Construction & Supply"
+                    "MCPA Construction & Supply",
+                    "MCPA Plaridel Bulacan"
                   ],
                   "publisher": {
                     "@id": `${SITE_URL}/#organization`
                   },
-                  "inLanguage": "en-PH"
+                  "inLanguage": "en-PH",
+                  "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": {
+                      "@type": "EntryPoint",
+                      "urlTemplate": `${SITE_URL}/blog?q={search_term_string}`
+                    },
+                    "query-input": "required name=search_term_string"
+                  }
                 },
                 {
                   "@type": "GeneralContractor",
@@ -204,6 +214,56 @@ export default function RootLayout({ children }) {
                     "https://www.instagram.com/mcpa.constructionandsupply/",
                     "https://www.tiktok.com/@mcpa.construction"
                   ]
+                },
+                {
+                  "@type": "ItemList",
+                  "@id": `${SITE_URL}/#sitelinks`,
+                  "name": "MCPA Construction Navigation & Sitelinks",
+                  "description": "Primary architectural, engineering, and project links for MCPA Construction and Supply.",
+                  "itemListElement": [
+                    {
+                      "@type": "SiteNavigationElement",
+                      "position": 1,
+                      "name": "Projects Showcase",
+                      "description": "Browse completed custom 2-storey residential homes, modern commercial buildings, and architectural portfolios.",
+                      "url": `${SITE_URL}/projects`
+                    },
+                    {
+                      "@type": "SiteNavigationElement",
+                      "position": 2,
+                      "name": "Construction Process",
+                      "description": "Learn the 5-stage design and build roadmap: consultation, blueprints, budgeting, contracts, and site execution.",
+                      "url": `${SITE_URL}/process`
+                    },
+                    {
+                      "@type": "SiteNavigationElement",
+                      "position": 3,
+                      "name": "Updates & Blog",
+                      "description": "Official company feed, live site progress milestones, structural topping-off logs, and announcements.",
+                      "url": `${SITE_URL}/blog`
+                    },
+                    {
+                      "@type": "SiteNavigationElement",
+                      "position": 4,
+                      "name": "Design & Build Services",
+                      "description": "Custom house design, signed and sealed plans, commercial construction, and Build Now Pay Later financing.",
+                      "url": `${SITE_URL}/services`
+                    },
+                    {
+                      "@type": "SiteNavigationElement",
+                      "position": 5,
+                      "name": "Book Consultation",
+                      "description": "Schedule a direct consultation with licensed civil engineers and architects in Plaridel, Bulacan.",
+                      "url": `${SITE_URL}/book`
+                    },
+                    {
+                      "@type": "SiteNavigationElement",
+                      "position": 6,
+                      "name": "Client Portal",
+                      "description": "Access real-time project milestones, photo logs, legal transmittals, and payment ledger.",
+                      "url": `${SITE_URL}/portal`
+                    }
+                  ]
                 }
               ]
             })
@@ -219,6 +279,7 @@ export default function RootLayout({ children }) {
           {children}
           <ChatWidgetRoot />
           <ThemeSelectorModal />
+          <WebsiteAnalyticsTracker />
           <Analytics />
         </LanguageProvider>
       </body>

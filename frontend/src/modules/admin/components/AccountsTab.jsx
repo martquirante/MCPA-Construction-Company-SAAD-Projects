@@ -2752,9 +2752,11 @@ function KpiCard({ label, value, sub, active, onClick, icon: Icon, tone = "all" 
 // ─── Staff Account Card Component ─────────────────────────────────────────────
 function StaffCard({ staff, onResend, isResending }) {
   const role = (staff.role || "admin").toLowerCase();
+  const isAdmin = role === "admin" || role === "super_admin";
   const isPending = staff.account_status === "pending" || staff.has_pending_invite;
-  const initials = getInitials(staff.full_name || staff.email);
-  const colors = getAvatarGradient(staff.full_name || staff.email);
+  const displayName = isAdmin ? "MCPA Construction and Supply" : (staff.full_name || "Staff Member");
+  const initials = getInitials(displayName || staff.email);
+  const colors = getAvatarGradient(displayName || staff.email);
 
   const roleMeta = {
     admin: {
@@ -2805,11 +2807,24 @@ function StaffCard({ staff, onResend, isResending }) {
 
         {/* Profile Details */}
         <div className="flex items-start gap-3.5 mb-4">
-          {staff.avatar_url && staff.avatar_url.trim().length > 5 ? (
+          {isAdmin ? (
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 p-2 flex items-center justify-center shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/assets/mcpa-logo.svg"
+                alt="MCPA Construction and Supply"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/assets/logo-white.svg";
+                }}
+              />
+            </div>
+          ) : staff.avatar_url && staff.avatar_url.trim().length > 5 ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={staff.avatar_url}
-              alt={staff.full_name}
+              alt={displayName}
               className="w-12 h-12 rounded-xl object-cover border border-neutral-200/80 dark:border-white/10 shrink-0"
             />
           ) : (
@@ -2823,10 +2838,10 @@ function StaffCard({ staff, onResend, isResending }) {
 
           <div className="min-w-0 flex-1">
             <h3 className="font-bold text-sm text-neutral-900 dark:text-white truncate">
-              {staff.full_name || "Unnamed Staff Member"}
+              {displayName}
             </h3>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
-              {staff.occupation || roleMeta.label}
+              {isAdmin ? "Administrator" : (staff.occupation || roleMeta.label)}
             </p>
           </div>
         </div>

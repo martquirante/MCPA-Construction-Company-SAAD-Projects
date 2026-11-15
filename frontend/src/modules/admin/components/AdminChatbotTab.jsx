@@ -35,6 +35,11 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  Cpu,
+  Sparkles,
+  Database,
+  ShieldCheck,
+  Zap,
 } from "lucide-react";
 import {
   saveMessageToFirebase,
@@ -114,6 +119,17 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
   // ---------------------------------------------------------------------------
   const [settingsData, setSettingsData] = useState(null);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // ---------------------------------------------------------------------------
+  // 5. AI Providers & Knowledge Index State
+  // ---------------------------------------------------------------------------
+  const [aiProviders, setAiProviders] = useState([]);
+  const [aiStats, setAiStats] = useState(null);
+  const [indexedDocsCount, setIndexedDocsCount] = useState(0);
+  const [knowledgeCategories, setKnowledgeCategories] = useState([]);
+  const [isReindexing, setIsReindexing] = useState(false);
+  const [isResettingCooldown, setIsResettingCooldown] = useState(false);
+  const [isLoadingAiStatus, setIsLoadingAiStatus] = useState(false);
 
   // ===========================================================================
   // INITIAL DATA LOADING
@@ -226,6 +242,67 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
     } catch (_) {}
   };
 
+  const loadAiStatus = async () => {
+    setIsLoadingAiStatus(true);
+    try {
+      const [pRes, aRes] = await Promise.all([
+        authFetch("/api/admin/chatbot/ai-providers"),
+        authFetch("/api/admin/chatbot/analytics"),
+      ]);
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        setAiProviders(pData.providers || []);
+        setIndexedDocsCount(pData.indexedDocumentsCount || 0);
+        setKnowledgeCategories(pData.categories || []);
+      }
+      if (aRes.ok) {
+        const aData = await aRes.json();
+        setAiStats(aData.stats || null);
+      }
+    } catch (err) {
+      console.warn("loadAiStatus error:", err);
+    } finally {
+      setIsLoadingAiStatus(false);
+    }
+  };
+
+  const handleReindexKnowledge = async () => {
+    setIsReindexing(true);
+    try {
+      const res = await authFetch("/api/admin/chatbot/reindex-knowledge", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        onShowToast?.(data.message || "Knowledge base reindexed successfully.", "success");
+        await loadAiStatus();
+      } else {
+        onShowToast?.(data.message || "Failed to reindex knowledge base.", "error");
+      }
+    } catch (err) {
+      onShowToast?.("Error reindexing knowledge base.", "error");
+    } finally {
+      setIsReindexing(false);
+    }
+  };
+
+  const handleResetCooldown = async (providerId = "all") => {
+    setIsResettingCooldown(true);
+    try {
+      const res = await authFetch("/api/admin/chatbot/ai-providers/reset-cooldown", {
+        method: "POST",
+        body: JSON.stringify({ providerId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        onShowToast?.(data.message || "Cooldown reset.", "success");
+        await loadAiStatus();
+      }
+    } catch (err) {
+      onShowToast?.("Failed to reset cooldown.", "error");
+    } finally {
+      setIsResettingCooldown(false);
+    }
+  };
+
   useEffect(() => {
     loadSummary();
     loadCategories();
@@ -240,6 +317,8 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
       loadConversations();
     } else if (subTab === "settings") {
       loadSettings();
+    } else if (subTab === "ai") {
+      loadAiStatus();
     }
   }, [subTab, selectedCatFilter, statusFilter]);
 
@@ -640,6 +719,23 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
           >
             <Sliders className="w-3.5 h-3.5" />
             <span className="whitespace-nowrap">Settings</span>
+          </button>
+
+          {/* Sub-tab: AI & Knowledge */}
+          <button
+            type="button"
+            onClick={() => setSubTab("ai")}
+            className={`px-3 py-2 sm:py-1.5 rounded-[4px] text-xs font-mono font-bold tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 select-none ${
+              subTab === "ai"
+                ? "bg-amber-500 text-neutral-950 shadow-xs"
+                : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span className="whitespace-nowrap">AI & Knowledge</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-[2px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono font-bold border border-emerald-500/30">
+              Live
+            </span>
           </button>
         </div>
 
@@ -1570,6 +1666,211 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
             </button>
           </div>
         </form>
+      )}
+
+      {/* ===================================================================
+          SUB-TAB 5: AI MODEL ROUTER & COMPANY KNOWLEDGE BASE
+      ==================================================================== */}
+      {subTab === "ai" && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Header Action Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Cpu className="w-5 h-5 text-amber-500" />
+                <h3 className="font-mono font-bold text-sm text-neutral-900 dark:text-white uppercase tracking-wider">
+                  Hybrid AI Routing & Grounded Knowledge System
+                </h3>
+              </div>
+              <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                Multi-provider free-tier fallback (Gemini → Groq → OpenRouter → Cloudflare) grounded strictly on public MCPA website content, portfolio, and company records.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleReindexKnowledge}
+                disabled={isReindexing}
+                className="px-4 py-2 rounded-[4px] bg-amber-500 hover:bg-amber-600 text-neutral-950 font-mono text-xs font-bold uppercase tracking-wider transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isReindexing ? "animate-spin" : ""}`} />
+                <span>{isReindexing ? "Reindexing..." : "Reindex Knowledge Base"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleResetCooldown("all")}
+                disabled={isResettingCooldown}
+                className="px-3 py-2 rounded-[4px] bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 font-mono text-xs font-bold transition-colors cursor-pointer"
+                title="Reset all provider cooldowns"
+              >
+                Reset Cooldowns
+              </button>
+            </div>
+          </div>
+
+          {/* AI Providers Status Grid */}
+          <div className="space-y-3">
+            <h4 className="font-mono font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+              <Zap className="w-4 h-4" />
+              <span>Multi-Provider Model Hierarchy & Real-Time Circuit Breaker</span>
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {aiProviders.map((provider, pIdx) => {
+                const isPrimary = pIdx === 0;
+                return (
+                  <div
+                    key={provider.id}
+                    className="p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-3 relative overflow-hidden"
+                  >
+                    {isPrimary && (
+                      <div className="absolute top-0 right-0 bg-amber-500 text-neutral-950 font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-bl-[4px]">
+                        Primary
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            provider.isAvailable
+                              ? "bg-emerald-500 animate-pulse"
+                              : provider.inCooldown
+                              ? "bg-amber-500 animate-bounce"
+                              : "bg-neutral-400"
+                          }`}
+                        />
+                        <span className="font-mono font-bold text-xs text-neutral-900 dark:text-white truncate">
+                          {provider.name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-neutral-500 block">
+                        Tier {pIdx + 1} · {provider.id.toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-neutral-150 dark:border-white/5 space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-[11px] font-mono">
+                        <span className="text-neutral-500">Status:</span>
+                        <span
+                          className={`font-bold ${
+                            provider.isAvailable
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : provider.inCooldown
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-neutral-400"
+                          }`}
+                        >
+                          {provider.inCooldown
+                            ? `Cooldown (${provider.cooldownRemainingSec}s)`
+                            : provider.isConfigured
+                            ? "Operational"
+                            : "Missing Key"}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-[11px] font-mono">
+                        <span className="text-neutral-500">Success / Fail:</span>
+                        <span className="text-neutral-700 dark:text-neutral-300">
+                          {provider.successCount || 0} / {provider.failureCount || 0}
+                        </span>
+                      </div>
+
+                      {provider.inCooldown && (
+                        <button
+                          type="button"
+                          onClick={() => handleResetCooldown(provider.id)}
+                          className="w-full mt-2 py-1 px-2 rounded-[3px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold uppercase transition-colors cursor-pointer text-center"
+                        >
+                          Reset Cooldown
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Grounded Company Knowledge Coverage Card */}
+          <div className="p-4 sm:p-5 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-150 dark:border-white/5 pb-3">
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-amber-500" />
+                <h4 className="font-mono font-bold text-xs uppercase tracking-wider text-neutral-900 dark:text-white">
+                  Live Knowledge Base Coverage ({indexedDocsCount} Verified Public Documents)
+                </h4>
+              </div>
+              <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Strict Database Table Allowlist Enforced</span>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+              {knowledgeCategories.map((cat, cIdx) => (
+                <div
+                  key={cIdx}
+                  className="p-3 rounded-[4px] bg-neutral-50 dark:bg-black/20 border border-neutral-200 dark:border-white/5 space-y-1"
+                >
+                  <span className="text-[10px] font-mono text-neutral-500 block truncate">
+                    {cat.name}
+                  </span>
+                  <span className="text-base font-mono font-bold text-amber-600 dark:text-amber-400">
+                    {cat.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-3 rounded-[4px] bg-amber-500/5 border border-amber-500/20 text-xs text-neutral-600 dark:text-neutral-400 flex items-start gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p>
+                <strong>Security Guardrail Active:</strong> Only approved public records (CMS content, public projects, published blog posts, and official social media) are indexed. Customer private inquiries, personal profiles, billing ledgers, and admin credentials cannot be accessed by AI models.
+              </p>
+            </div>
+          </div>
+
+          {/* Hybrid Answering Analytics Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-1">
+              <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
+                Total Customer Inquiries
+              </span>
+              <p className="text-xl font-mono font-bold text-neutral-900 dark:text-white">
+                {aiStats?.total_questions || 0}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-1">
+              <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
+                Priority 1 FAQ Hits
+              </span>
+              <p className="text-xl font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                {aiStats?.faq_matches || 0}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-1">
+              <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
+                Priority 3 AI Hybrid Answers
+              </span>
+              <p className="text-xl font-mono font-bold text-amber-600 dark:text-amber-400">
+                {aiStats?.ai_matches || 0}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-[6px] bg-white dark:bg-[#101218] border border-neutral-200 dark:border-white/5 shadow-xs space-y-1">
+              <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
+                Unanswered Questions
+              </span>
+              <p className="text-xl font-mono font-bold text-rose-500">
+                {aiStats?.open_unanswered || 0}
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ===================================================================

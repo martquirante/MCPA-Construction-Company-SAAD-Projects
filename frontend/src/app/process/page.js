@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import ClientNavbar from "@/modules/shared/ClientNavbar";
 import Footer from "@/modules/shared/Footer";
@@ -17,73 +18,122 @@ import {
   KeyIcon,
 } from "@/modules/shared/Icons";
 
+const DEFAULT_STAGES = [
+  {
+    step: "01",
+    badge: "Stage 1: Custom Design & Blueprints Purchase",
+    icon: <FileSignatureIcon className="w-5 h-5 text-amber-500" />,
+    title: "Architectural Design & Signed/Sealed Blueprints",
+    subtitle: "Complete custom blueprints prepared & sealed by licensed architects and civil engineers",
+    desc: "Start by purchasing your complete custom design package. Our licensed architectural and civil engineering team drafts your personalized 3D designs, structural calculations, and complete blueprints required for building permits and financing approvals.",
+    telemetry: "Signed & Sealed Plans · Complete 3D Visualizations · City Permit Ready",
+    checklist: [
+      "Initial lot boundary check, orientation survey, and soil strength evaluation",
+      "Personalized architectural consultation on your custom floor plan and vision",
+      "Earthquake-resistant structural calculations and signed PRC engineer seals",
+      "Complete electrical, plumbing, sanitary, and architectural working drawings",
+    ],
+    output: "Complete Signed & Sealed Architectural & Engineering Blueprints Package",
+  },
+  {
+    step: "02",
+    badge: "Stage 2: Build Now, Pay Later (BNPL) Financing",
+    icon: <CompassIcon className="w-5 h-5 text-amber-500" />,
+    title: "BNPL & Bank/Pag-IBIG Loan Application",
+    subtitle: "Flexible installment financing assistance with your clean title and blueprints",
+    desc: "With your finalized blueprints and titled lot in hand, you can apply for our Build Now, Pay Later financing or Bank / Pag-IBIG loan assistance. We provide the certified Bill of Materials (BOM) and structural cost estimate needed for rapid financial approval.",
+    telemetry: "Zero Downpayment Options · Clean Titled Lots · Fast Approval Assistance",
+    checklist: [
+      "Land title verification with official property and registry records",
+      "Detailed Bill of Materials (BOM) and itemized construction cost schedule",
+      "Dedicated endorsement and paperwork assistance for Bank or Pag-IBIG loans",
+      "Clear milestone-based flexible installment progress payment contract",
+    ],
+    output: "Approved Construction Financing & Milestone Progress Schedule",
+  },
+  {
+    step: "03",
+    badge: "Stage 3: Construction Push-Through & Foundation",
+    icon: <HardHatIcon className="w-5 h-5 text-amber-500" />,
+    title: "Full Construction Execution & Certified Materials",
+    subtitle: "Turnkey building with direct in-house supply, tested concrete, and regular photo updates",
+    desc: "Once financing is secured, we push through with on-site construction. From excavation and foundation pouring to post and beam erection, every single phase is built using tested materials and documented with live progress updates.",
+    telemetry: "Direct Rebars & 3000+ PSI Concrete · Supervised Structural Pouring · Weekly Photo Logs",
+    checklist: [
+      "Groundbreaking ceremony, excavation, solid footing, and steel rebar tying",
+      "Supervised ready-mix concrete pouring with cylinder strength tests",
+      "Reinforced concrete posts, beams, floor slabs, and exterior wall installation",
+      "Weekly high-resolution photo and video logs sent directly to your phone and client portal",
+    ],
+    output: "Weather-Tight, Earthquake-Tested Solid Home Structure",
+  },
+  {
+    step: "04",
+    badge: "Stage 4: Final Quality Inspection & Key Turnover",
+    icon: <KeyIcon className="w-5 h-5 text-amber-500" />,
+    title: "Room-by-Room Walkthrough & Key Handover",
+    subtitle: "Certificate of Occupancy, ceremonial key turnover, and 15-Year Structural Warranty",
+    desc: "The milestone you've waited for. We conduct a detailed room-by-room walkthrough with you, finalize the Certificate of Occupancy, and hand you the ceremonial keys along with our 15-year structural warranty.",
+    telemetry: "Joint Homeowner Walkthrough · Certificate of Occupancy · 15-Year Structural Warranty",
+    checklist: [
+      "Complete tile works, paint, lighting, windows, cabinetry, and bathroom fixtures",
+      "Detailed room-by-room quality walkthrough with the homeowner",
+      "Full assistance in securing the official Certificate of Occupancy from the city",
+      "Ceremonial house key turnover, complete as-built plans & 15-year warranty certificate",
+    ],
+    output: "Official Certificate of Occupancy, House Keys & 15-Year Structural Warranty",
+  },
+];
+
 export default function ProcessPage() {
-  const stages = [
-    {
-      step: "01",
-      badge: "Phase 1: Initial Planning & Site Visit",
-      icon: <CompassIcon className="w-5 h-5 text-amber-500" />,
-      title: "Discovery, Lot Check & Site Inspection",
-      subtitle: "Soil evaluation, boundary check & design planning",
-      desc: "Before any construction begins, our licensed engineers and builders visit your titled property across Bulacan, Metro Manila, or Central Luzon to verify the land title and test the ground condition.",
-      telemetry: "Land Title Verification · Ground Soil Strength Check",
-      checklist: [
-        "Land title verification with official property records",
-        "Ground and soil inspection to ensure a strong foundation",
-        "Lot boundary check and orientation survey",
-        "Personal consultation on your dream house style and budget",
-      ],
-      output: "Site Inspection Report & Estimated Project Cost Breakdown",
-    },
-    {
-      step: "02",
-      badge: "Phase 2: Architectural Blueprints & Permits",
-      icon: <FileSignatureIcon className="w-5 h-5 text-amber-500" />,
-      title: "Signed & Sealed Blueprints & City Permits",
-      subtitle: "Complete blueprints ready for municipal approval",
-      desc: "Our licensed architects and civil engineers draft your complete house plans, detailed 3D color designs, and handle municipal building permit submissions.",
-      telemetry: "Licensed Architects & Engineers · Earthquake-Resistant Design · Building Permits",
-      checklist: [
-        "Complete architectural floor plans, exterior looks & room layouts",
-        "Earthquake-resistant structural calculations for columns and foundation",
-        "Complete electrical wiring plans and plumbing layouts",
-        "Full assistance in submitting and securing City Building Permits",
-      ],
-      output: "Approved City Building Permits & Official Sealed Blueprints",
-    },
-    {
-      step: "03",
-      badge: "Phase 3: Structural Building & Framing",
-      icon: <HardHatIcon className="w-5 h-5 text-amber-500" />,
-      title: "Solid Construction & Quality Materials",
-      subtitle: "Built with tested concrete, steel, and regular photo updates",
-      desc: "We build your home strong from the ground up. Using our dedicated supply of certified high-grade steel and strong concrete, every stage is documented with photo updates.",
-      telemetry: "Certified Steel Bars · Strong 3000 PSI Concrete · Weekly Photo Reports",
-      checklist: [
-        "Foundation excavation, solid footing and steel rebar tying",
-        "Supervised concrete pouring with strength testing",
-        "Reinforced concrete posts, beams, and floor slabs",
-        "Weekly photo updates sent directly to your phone and online portal",
-      ],
-      output: "Weather-tight, solid house structure ready for finishing",
-    },
-    {
-      step: "04",
-      badge: "Phase 4: Final Inspection & House Turnover",
-      icon: <KeyIcon className="w-5 h-5 text-amber-500" />,
-      title: "Final Quality Inspection & Key Turnover",
-      subtitle: "Room-by-room walkthrough and official key handover",
-      desc: "The milestone you've waited for. We conduct a thorough room-by-room walkthrough with you, finalize the Certificate of Occupancy, and hand you the keys to your new home.",
-      telemetry: "Official Certificate of Occupancy · Joint Walkthrough · 15-Year Structural Warranty",
-      checklist: [
-        "Complete tile works, paint, lighting, windows and bathroom fixtures",
-        "Detailed room-by-room quality walkthrough with the homeowner",
-        "Assistance in securing the official Certificate of Occupancy",
-        "Ceremonial house key turnover, complete house plans & 15-year warranty",
-      ],
-      output: "Official Certificate of Occupancy, House Keys & 15-Year Structural Warranty",
-    },
-  ];
+  const [cmsData, setCmsData] = useState({});
+
+  useEffect(() => {
+    async function loadCmsContent() {
+      try {
+        const res = await fetch("/api/content/website?page=process");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.content && typeof json.content === "object") {
+            setCmsData(json.content);
+          }
+        }
+      } catch (_) {}
+    }
+    loadCmsContent();
+  }, []);
+
+  // Dynamically merge CMS fields if edited in Admin
+  const eyebrow = cmsData.processEyebrow || "Clear Step-by-Step Progress · Regular Updates";
+  const mainHeading = cmsData.processHeading || "Our 4-Stage Construction Process";
+  const mainDesc =
+    cmsData.processDescription ||
+    "We remove worries from building your home through clear step-by-step updates, weekly photo logs sent to your phone, and guaranteed quality materials. Here is how your dream home is built.";
+
+  const stages = DEFAULT_STAGES.map((def, idx) => {
+    const num = idx + 1;
+    const badge = cmsData[`step${num}_badge`] || def.badge;
+    const title = cmsData[`step${num}_title`] || def.title;
+    const subtitle = cmsData[`step${num}_subtitle`] || def.subtitle;
+    const desc = cmsData[`step${num}_desc`] || def.desc;
+    const telemetry = cmsData[`step${num}_telemetry`] || def.telemetry;
+    const checklistRaw = cmsData[`step${num}_checklist`];
+    const checklist = checklistRaw
+      ? checklistRaw.split("\n").map((s) => s.replace(/^[*\-•\d.]+\s*/, "").trim()).filter(Boolean)
+      : def.checklist;
+    const output = cmsData[`step${num}_output`] || def.output;
+
+    return {
+      ...def,
+      badge,
+      title,
+      subtitle,
+      desc,
+      telemetry,
+      checklist,
+      output,
+    };
+  });
 
   const pillars = [
     {
@@ -134,16 +184,20 @@ export default function ProcessPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 md:mb-20">
           <div className="max-w-3xl">
             <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-4 select-none">
-              <span>Clear Step-by-Step Progress · Regular Updates</span>
+              <span>{eyebrow}</span>
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold uppercase tracking-tight text-neutral-950 dark:text-white leading-[1.08]">
-              Our 4-Stage <br />
-              <span className="text-amber-600 dark:text-amber-400">
-                Construction Process
-              </span>
+              {mainHeading.includes("Construction Process") ? (
+                <>
+                  {mainHeading.replace("Construction Process", "").trim()} <br />
+                  <span className="text-amber-600 dark:text-amber-400">Construction Process</span>
+                </>
+              ) : (
+                mainHeading
+              )}
             </h1>
             <p className="mt-5 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
-              We remove worries from building your home through clear step-by-step updates, weekly photo logs sent to your phone, and guaranteed quality materials. Here is how your dream home is built.
+              {mainDesc}
             </p>
           </div>
         </div>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import ScrollMorph from "./ScrollMorph";
 import { setReturnToCompletedHome } from "@/modules/home/homeState";
 import { useLanguage } from "./LanguageContext";
+import { useCms } from "@/modules/cms/CmsContext";
 import {
   ArrowRightIcon,
   FacebookIcon,
@@ -19,7 +20,47 @@ import {
 
 export default function Footer() {
   const { language } = useLanguage();
+  const { getContent } = useCms();
   const currentYear = new Date().getFullYear();
+
+  const footerTagline = getContent(
+    "footer",
+    "general",
+    "tagline",
+    "Looking to turn your ideas into reality? MCPA Construction and Supply is a full-service design and build contractor based in Plaridel, Bulacan. We specialize in custom residential homes, modern commercial facilities, warehouse structures, signed and sealed engineering plans, and in-house construction supplies across Bulacan, Metro Manila, and Central Luzon."
+  );
+  const contactAddress = getContent(
+    "contact",
+    "info",
+    "address",
+    "2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines"
+  );
+  const contactHotline = getContent("contact", "info", "hotline", "(0949) 775 8239");
+  const contactEmail = getContent("contact", "info", "email", "mcpa.construction@gmail.com");
+  const contactHours = getContent(
+    "contact",
+    "info",
+    "office_hours",
+    "Monday – Saturday: 8:00 AM – 5:00 PM PST"
+  );
+  const fbUrl = getContent(
+    "contact",
+    "info",
+    "facebook_url",
+    "https://www.facebook.com/MCPA.ConstructionandSupply/"
+  );
+  const igUrl = getContent(
+    "contact",
+    "info",
+    "instagram_url",
+    "https://www.instagram.com/mcpa.constructionandsupply/"
+  );
+  const tiktokUrl = getContent(
+    "contact",
+    "info",
+    "tiktok_url",
+    "https://www.tiktok.com/@mcpa.construction"
+  );
 
   const [emailInput, setEmailInput] = useState("");
   const [subscribed, setSubscribed] = useState(false);
@@ -95,7 +136,7 @@ export default function Footer() {
                 suppressHydrationWarning
                 className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-sm mb-6 font-light"
               >
-                Looking to turn your ideas into reality? MCPA Construction and Supply is a full-service design and build contractor based in Plaridel, Bulacan. We specialize in custom residential homes, modern commercial facilities, warehouse structures, signed and sealed engineering plans, and in-house construction supplies across Bulacan, Metro Manila, and Central Luzon.
+                {footerTagline}
               </p>
             </div>
 
@@ -107,7 +148,7 @@ export default function Footer() {
               <div className="flex items-center gap-3">
                 {/* Facebook */}
                 <a
-                  href="https://www.facebook.com/MCPA.ConstructionandSupply/"
+                  href={fbUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-150 inline-flex items-center justify-center cursor-pointer"
@@ -118,7 +159,7 @@ export default function Footer() {
                 </a>
                 {/* Instagram */}
                 <a
-                  href="https://www.instagram.com/mcpa.constructionandsupply/"
+                  href={igUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:text-pink-600 dark:hover:text-pink-400 transition-colors duration-150 inline-flex items-center justify-center cursor-pointer"
@@ -129,7 +170,7 @@ export default function Footer() {
                 </a>
                 {/* TikTok */}
                 <a
-                  href="https://www.tiktok.com/@mcpa.construction"
+                  href={tiktokUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors duration-150 inline-flex items-center justify-center cursor-pointer"
@@ -184,6 +225,12 @@ export default function Footer() {
                 <Link href="/process" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
                   <ChevronRightIcon className="w-3 h-3 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   <span>Our Process</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/blog" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors flex items-center gap-1.5 group">
+                  <ChevronRightIcon className="w-3 h-3 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  <span>Updates &amp; Blog</span>
                 </Link>
               </li>
               <li>
@@ -264,7 +311,7 @@ export default function Footer() {
                   title="Open MCPA Headquarters in Google Maps"
                 >
                   <MapPinIcon className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform shrink-0 mt-0.5" />
-                  <span className="group-hover:underline">2826 Le Cagayan Valley Rd, Tabang, Plaridel, Bulacan, Philippines</span>
+                  <span className="group-hover:underline">{contactAddress}</span>
                 </a>
               </div>
 
@@ -273,10 +320,10 @@ export default function Footer() {
                   Direct Mobile / Viber
                 </p>
                 <a
-                  href="tel:+639497758239"
+                  href={`tel:${contactHotline.replace(/[^0-9+]/g, "")}`}
                   className="text-neutral-900 dark:text-neutral-200 hover:text-amber-600 dark:hover:text-amber-400 text-sm block mt-0.5 transition-colors font-medium tabular-nums"
                 >
-                  (0949) 775 8239
+                  {contactHotline}
                 </a>
                 <p className="text-neutral-500 dark:text-neutral-400 text-xs">
                   Available for Calls, SMS &amp; Viber
@@ -288,10 +335,10 @@ export default function Footer() {
                   Official Email
                 </p>
                 <a
-                  href="mailto:mcpa.construction@gmail.com"
+                  href={`mailto:${contactEmail}`}
                   className="text-amber-600 dark:text-amber-400 hover:underline text-xs"
                 >
-                  mcpa.construction@gmail.com
+                  {contactEmail}
                 </a>
               </div>
 
@@ -300,7 +347,7 @@ export default function Footer() {
                   Operating Hours
                 </p>
                 <p className="text-neutral-700 dark:text-neutral-300 text-xs">
-                  Monday – Saturday: 8:00 AM – 5:00 PM PST
+                  {contactHours}
                 </p>
               </div>
 
