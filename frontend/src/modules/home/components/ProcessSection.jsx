@@ -219,14 +219,46 @@ export default function ProcessSection() {
 
   const resolvedStages = STAGES.map((stage, idx) => {
     const n = idx + 1;
+    const title =
+      getContent("process", `stage${n}`, `step${n}_title`) ||
+      getContent("process", "stages", `stage${n}_title`) ||
+      stage.title;
+    const desc =
+      getContent("process", `stage${n}`, `step${n}_desc`) ||
+      getContent("process", "stages", `stage${n}_desc`) ||
+      stage.desc;
+    const badge =
+      getContent("process", `stage${n}`, `step${n}_badge`) ||
+      getContent("process", "stages", `stage${n}_badge`) ||
+      stage.phaseBadge;
+    const checklistRaw =
+      getContent("process", `stage${n}`, `step${n}_checklist`) ||
+      getContent("process", "stages", `stage${n}_checklist`);
+    const checklist = checklistRaw
+      ? checklistRaw.split("\n").map((s) => s.replace(/^[*\-•\d.]+\s*/, "").trim()).filter(Boolean)
+      : stage.checklist;
+    const media =
+      getContent("process", `stage${n}`, `step${n}_media`) ||
+      getContent("process", "stages", `stage${n}_media`);
+
     return {
       ...stage,
-      title: getContent("process", "stages", `stage${n}_title`, stage.title),
-      desc: getContent("process", "stages", `stage${n}_desc`, stage.desc),
+      title,
+      desc,
+      phaseBadge: badge,
+      checklist: checklist.length > 0 ? checklist : stage.checklist,
+      media,
     };
   });
   const currentStage = resolvedStages[activeStage];
   const IconComponent = currentStage.icon;
+
+  const processBadge =
+    getContent("process", "steps", "processEyebrow") ||
+    getContent("process", "stages", "processBadge", "Our 4-Step Building Journey");
+  const processHeading =
+    getContent("process", "steps", "processHeading") ||
+    getContent("process", "stages", "processHeading", "The MCPA Process");
 
   return (
     <section
@@ -243,14 +275,10 @@ export default function ProcessSection() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-3 mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-neutral-200 dark:border-neutral-900 shrink-0">
           <div>
             <div className="inline-flex items-center text-[10px] sm:text-xs font-mono font-bold tracking-[0.2em] uppercase text-amber-600 dark:text-amber-400 mb-1 sm:mb-2 select-none">
-              <span>{getContent("process", "stages", "processBadge", "Our 4-Step Building Journey")}</span>
+              <span>{processBadge}</span>
             </div>
             <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight">
-              {getContent("process", "stages", "processHeading", "The")}{" "}
-              <span className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 bg-clip-text text-transparent">
-                {getContent("process", "stages", "processHighlight", "MCPA")}
-              </span>{" "}
-              Process
+              {processHeading}
             </h2>
           </div>
 

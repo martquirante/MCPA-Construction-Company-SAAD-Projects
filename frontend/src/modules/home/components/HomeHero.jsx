@@ -4,9 +4,12 @@ import Image from "next/image";
 import Button from "../../shared/Button";
 import { ArrowDownIcon } from "../../shared/Icons";
 import { useLanguage } from "../../shared/LanguageContext";
+import { useCms } from "../../cms/CmsContext";
 
 export default function HomeHero() {
   const { t } = useLanguage();
+  const { getContent } = useCms();
+  const heroMedia = getContent("home", "hero", "heroBackgroundMedia", "");
 
   const scrollToExplore = () => {
     const el = document.getElementById("overview");
@@ -22,51 +25,72 @@ export default function HomeHero() {
       id="top"
       className="relative w-full h-[100dvh] min-h-[640px] max-h-[1080px] bg-neutral-950 overflow-hidden select-none flex items-center justify-center"
     >
-      {/* 1. Background Responsive House Images (Bright Daytime in Light Theme, Twilight in Dark Theme) */}
+      {/* 1. Background Media (Custom Uploaded Media from CMS OR Default Responsive Architectural Photography) */}
       <div className="absolute inset-0 z-0">
-        {/* Desktop Screens */}
-        <div className="absolute inset-0 hidden sm:block">
-          {/* Light Theme: Sunny Daytime Architectural Residence */}
-          <Image
-            src="/assets/hero-residence-day-wide-v2.jpg"
-            alt="MCPA Luxury Modern Residence"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-[center_35%] dark:hidden"
-          />
-          {/* Dark Theme: Twilight / Night Luxury Residence */}
-          <Image
-            src="/assets/hero-residence-wide-v2.jpg"
-            alt="MCPA Luxury Modern Residence"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-[center_35%] hidden dark:block"
-          />
-        </div>
+        {heroMedia ? (
+          /\.(mp4|webm|mov)$/i.test(heroMedia) || heroMedia.includes("/videos/") ? (
+            <video
+              src={heroMedia}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <img
+              src={heroMedia}
+              alt="MCPA Luxury Residence"
+              className="w-full h-full object-cover"
+            />
+          )
+        ) : (
+          <>
+            {/* Desktop Screens */}
+            <div className="absolute inset-0 hidden sm:block">
+              {/* Light Theme: Sunny Daytime Architectural Residence */}
+              <Image
+                src="/assets/hero-residence-day-wide-v2.jpg"
+                alt="MCPA Luxury Modern Residence"
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-[center_35%] dark:hidden"
+              />
+              {/* Dark Theme: Twilight / Night Luxury Residence */}
+              <Image
+                src="/assets/hero-residence-wide-v2.jpg"
+                alt="MCPA Luxury Modern Residence"
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-[center_35%] hidden dark:block"
+              />
+            </div>
 
-        {/* Mobile Screens */}
-        <div className="absolute inset-0 block sm:hidden">
-          {/* Light Theme: Sunny Daytime Architectural Residence */}
-          <Image
-            src="/assets/hero-residence-day-mobile.jpg"
-            alt="MCPA Luxury Modern Residence"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-center dark:hidden"
-          />
-          {/* Dark Theme: Twilight / Night Luxury Residence */}
-          <Image
-            src="/assets/hero-residence-mobile.jpg"
-            alt="MCPA Luxury Modern Residence"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-center hidden dark:block"
-          />
-        </div>
+            {/* Mobile Screens */}
+            <div className="absolute inset-0 block sm:hidden">
+              {/* Light Theme: Sunny Daytime Architectural Residence */}
+              <Image
+                src="/assets/hero-residence-day-mobile.jpg"
+                alt="MCPA Luxury Modern Residence"
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-center dark:hidden"
+              />
+              {/* Dark Theme: Twilight / Night Luxury Residence */}
+              <Image
+                src="/assets/hero-residence-mobile.jpg"
+                alt="MCPA Luxury Modern Residence"
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-center hidden dark:block"
+              />
+            </div>
+          </>
+        )}
 
         {/* Cinematic contrast gradient overlay: subtle in light mode, deep in dark mode */}
         <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/40 via-black/10 to-black/25 dark:from-black/75 dark:via-black/35 dark:to-black/50 transition-colors duration-500" />

@@ -6,6 +6,7 @@ import { useScrollScrub } from "../hooks/useScrollScrub";
 import { useScrollScrubFrames } from "../hooks/useScrollScrubFrames";
 import HeroContentOverlay from "./HeroContentOverlay";
 import BuildProgressBadge from "./BuildProgressBadge";
+import { useCms } from "../../cms/CmsContext";
 
 // Reusable Optical Lens Vignette & Atmospheric Grading
 function OpticalFilterStack() {
@@ -23,6 +24,9 @@ function OpticalFilterStack() {
 
 // Completed Residence Photo Layer (Light / Dark mode + Responsive)
 function CompletedHouseLayer({ isCompleted, isPortrait }) {
+  const { getContent } = useCms();
+  const heroMedia = getContent("home", "hero", "heroBackgroundMedia", "");
+
   return (
     <div
       suppressHydrationWarning
@@ -30,51 +34,72 @@ function CompletedHouseLayer({ isCompleted, isPortrait }) {
         isCompleted ? "opacity-100" : "opacity-0"
       }`}
     >
-      {/* Desktop / Landscape Screens */}
-      <div
-        suppressHydrationWarning
-        className={`absolute inset-0 ${isPortrait ? "hidden" : "hidden sm:block"}`}
-      >
-        <Image
-          src="/assets/hero-residence-day-wide-v2.jpg"
-          alt="MCPA Luxury Residence"
-          fill
-          loading="lazy"
-          sizes="100vw"
-          className="object-cover object-[center_35%] dark:hidden"
-        />
-        <Image
-          src="/assets/hero-residence-wide-v2.jpg"
-          alt="MCPA Luxury Residence"
-          fill
-          loading="lazy"
-          sizes="100vw"
-          className="object-cover object-[center_35%] hidden dark:block"
-        />
-      </div>
+      {heroMedia ? (
+        /\.(mp4|webm|mov)$/i.test(heroMedia) || heroMedia.includes("/videos/") ? (
+          <video
+            src={heroMedia}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <img
+            src={heroMedia}
+            alt="MCPA Luxury Residence"
+            className="w-full h-full object-cover"
+          />
+        )
+      ) : (
+        <>
+          {/* Desktop / Landscape Screens */}
+          <div
+            suppressHydrationWarning
+            className={`absolute inset-0 ${isPortrait ? "hidden" : "hidden sm:block"}`}
+          >
+            <Image
+              src="/assets/hero-residence-day-wide-v2.jpg"
+              alt="MCPA Luxury Residence"
+              fill
+              loading="lazy"
+              sizes="100vw"
+              className="object-cover object-[center_35%] dark:hidden"
+            />
+            <Image
+              src="/assets/hero-residence-wide-v2.jpg"
+              alt="MCPA Luxury Residence"
+              fill
+              loading="lazy"
+              sizes="100vw"
+              className="object-cover object-[center_35%] hidden dark:block"
+            />
+          </div>
 
-      {/* Mobile / Portrait Screens */}
-      <div
-        suppressHydrationWarning
-        className={`absolute inset-0 ${isPortrait ? "block" : "block sm:hidden"}`}
-      >
-        <Image
-          src="/assets/hero-residence-day-mobile.jpg"
-          alt="MCPA Luxury Residence"
-          fill
-          loading="lazy"
-          sizes="100vw"
-          className="object-cover object-center dark:hidden"
-        />
-        <Image
-          src="/assets/hero-residence-mobile.jpg"
-          alt="MCPA Luxury Residence"
-          fill
-          loading="lazy"
-          sizes="100vw"
-          className="object-cover object-center hidden dark:block"
-        />
-      </div>
+          {/* Mobile / Portrait Screens */}
+          <div
+            suppressHydrationWarning
+            className={`absolute inset-0 ${isPortrait ? "block" : "block sm:hidden"}`}
+          >
+            <Image
+              src="/assets/hero-residence-day-mobile.jpg"
+              alt="MCPA Luxury Residence"
+              fill
+              loading="lazy"
+              sizes="100vw"
+              className="object-cover object-center dark:hidden"
+            />
+            <Image
+              src="/assets/hero-residence-mobile.jpg"
+              alt="MCPA Luxury Residence"
+              fill
+              loading="lazy"
+              sizes="100vw"
+              className="object-cover object-center hidden dark:block"
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -5,8 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRightIcon } from "../../shared/Icons";
 import { useLanguage } from "../../shared/LanguageContext";
+import { useCms } from "../../cms/CmsContext";
 
-const CRAFT_VIDEOS = [
+const DEFAULT_CRAFT_VIDEOS = [
   {
     id: "bungalow-timelapse",
     title: "Modern Tropical Bungalow",
@@ -53,12 +54,46 @@ const CRAFT_VIDEOS = [
 
 export default function CraftInMotion() {
   const { language, t } = useLanguage();
+  const { getContent } = useCms();
   const isFil = language === "fil";
   const [activeIndex, setActiveIndex] = useState(0);
   const [prevIndex, setPrevIndex] = useState(null);
   const [isInView, setIsInView] = useState(false);
   const videoRefs = useRef([]);
   const sectionRef = useRef(null);
+
+  // Dynamic videos mapped from CMS
+  const craftVideos = DEFAULT_CRAFT_VIDEOS.map((def, idx) => {
+    const num = idx + 1;
+    return {
+      ...def,
+      title: getContent("home", "craft_motion", `video${num}_title`, def.title),
+      phase: getContent("home", "craft_motion", `video${num}_phase`, def.phase),
+      src: getContent("home", "craft_motion", `video${num}_src`, def.src),
+      poster: getContent("home", "craft_motion", `video${num}_poster`, def.poster),
+    };
+  });
+
+  const headingLine1 = getContent(
+    "home",
+    "craft_motion",
+    "craftMotionEyebrow",
+    isFil ? "Itinayo ng mga Kamay." : "Built by hands."
+  );
+  const headingLine2 = getContent(
+    "home",
+    "craft_motion",
+    "craftMotionHeading",
+    isFil ? "Pinasakdal ng Proseso." : "Perfected by process."
+  );
+  const sectionDesc = getContent(
+    "home",
+    "craft_motion",
+    "craftMotionDesc",
+    isFil
+      ? "Bawat proyekto ay pinamamahalaan ng mga lisensyadong eksperto sa mismong gawaan at may tapat na lingguhang ulat."
+      : "Every project is managed with dedicated on-site principals and transparent weekly reporting."
+  );
 
   // Prime and play videos before section fully enters viewport
   useEffect(() => {
@@ -99,7 +134,7 @@ export default function CraftInMotion() {
     }
 
     // 2. Pre-start the next video 1.5s ahead so frames are decoded and playing
-    const nextIdx = (activeIndex + 1) % CRAFT_VIDEOS.length;
+    const nextIdx = (activeIndex + 1) % craftVideos.length;
     const preloadTimer = setTimeout(() => {
       const nextVid = videoRefs.current[nextIdx];
       if (nextVid) {
@@ -129,7 +164,7 @@ export default function CraftInMotion() {
       clearTimeout(transitionTimer);
       clearTimeout(cleanupTimer);
     };
-  }, [activeIndex, isInView]);
+  }, [activeIndex, isInView, craftVideos.length]);
 
   return (
     <section
@@ -139,7 +174,7 @@ export default function CraftInMotion() {
       {/* Instant Zero-Delay Architectural Poster Layer — Guarantees no black screen before or during video load */}
       <div className="absolute inset-0 z-0">
         <Image
-          src={CRAFT_VIDEOS[activeIndex]?.poster || CRAFT_VIDEOS[0].poster}
+          src={craftVideos[activeIndex]?.poster || craftVideos[0]?.poster || DEFAULT_CRAFT_VIDEOS[0].poster}
           alt="MCPA Construction Craft in Motion"
           fill
           priority
@@ -149,14 +184,13 @@ export default function CraftInMotion() {
       </div>
 
       {/* Multi-Layer Video Dissolve Engine — Preloaded with FastStart MP4 and matching Poster Fallbacks */}
-      {CRAFT_VIDEOS.map((video, idx) => {
+      {craftVideos.map((video, idx) => {
         const isActive = idx === activeIndex;
         const isPrev = idx === prevIndex;
-        const isNext = idx === (activeIndex + 1) % CRAFT_VIDEOS.length;
 
         return (
           <video
-            key={video.id}
+            key={video.id || idx}
             ref={(el) => (videoRefs.current[idx] = el)}
             src={video.src}
             poster={video.poster}
@@ -185,17 +219,15 @@ export default function CraftInMotion() {
         <div className="max-w-3xl text-white">
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold uppercase tracking-tight text-white leading-tight">
             <span className="block">
-              {isFil ? "Itinayo ng mga Kamay." : "Built by hands."}
+              {headingLine1}
             </span>
             <span className="block mt-1 sm:mt-1.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 bg-clip-text text-transparent">
-              {isFil ? "Pinasakdal ng Proseso." : "Perfected by process."}
+              {headingLine2}
             </span>
           </h2>
 
           <p className="mt-4 text-neutral-300 text-sm sm:text-base md:text-lg leading-relaxed font-light max-w-xl">
-            {isFil
-              ? "Bawat proyekto ay pinamamahalaan ng mga lisensyadong eksperto sa mismong gawaan at may tapat na lingguhang ulat."
-              : "Every project is managed with dedicated on-site principals and transparent weekly reporting."}
+            {sectionDesc}
           </p>
 
           <div className="mt-7 sm:mt-8">

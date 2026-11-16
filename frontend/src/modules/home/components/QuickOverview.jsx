@@ -11,6 +11,7 @@ import ProcessSection from "./ProcessSection";
 import Footer from "@/modules/shared/Footer";
 import ScrollMorph from "../../shared/ScrollMorph";
 import { useLanguage } from "../../shared/LanguageContext";
+import { useCms } from "../../cms/CmsContext";
 import {
   BuildingIcon,
   ShieldCheckIcon,
@@ -27,6 +28,7 @@ import {
 
 export default function QuickOverview() {
   const { t } = useLanguage();
+  const { getContent } = useCms();
   const pillarsRef = useRef(null);
   const [pillarsVisible, setPillarsVisible] = useState(false);
   const [inquiredStyle, setInquiredStyle] = useState("");
@@ -196,15 +198,20 @@ export default function QuickOverview() {
 
           <div className="relative z-10 max-w-2xl mx-auto">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-neutral-950 dark:text-white leading-tight mb-4">
-              Let&apos;s Build Something
+              {getContent("home", "cta", "ctaHeading", "Let's Build Something")}
               <br />
               <span className="text-amber-500 dark:text-amber-400">
-                Extraordinary
+                {getContent("home", "cta", "ctaHeadingAccent", "Extraordinary")}
               </span>
             </h2>
 
             <p className="text-neutral-600 dark:text-neutral-300 text-sm sm:text-base leading-relaxed font-light mb-8 max-w-lg mx-auto">
-              Whether you are locally based or an OFW building your dream home in the Philippines, our engineering team manages your build from site profiling to turnover.
+              {getContent(
+                "home",
+                "cta",
+                "ctaSubtitle",
+                "Whether you are locally based or an OFW building your dream home in the Philippines, our engineering team manages your build from site profiling to turnover."
+              )}
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -212,7 +219,7 @@ export default function QuickOverview() {
                 href="/book"
                 className="inline-flex items-center gap-2 px-8 py-3.5 rounded-[8px] bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-widest transition-[background-color,box-shadow] duration-150 shadow-[0_2px_8px_rgba(245,158,11,0.28)] hover:shadow-[0_4px_14px_rgba(245,158,11,0.36)] active:bg-amber-600 active:shadow-none"
               >
-                <span>{t("bookAppointment")}</span>
+                <span>{getContent("home", "cta", "ctaButtonLabel", t("bookAppointment"))}</span>
                 <ArrowRightIcon className="w-4 h-4" />
               </Link>
               <Link

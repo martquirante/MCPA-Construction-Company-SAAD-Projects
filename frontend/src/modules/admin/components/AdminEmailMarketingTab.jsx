@@ -42,8 +42,11 @@ import {
 import { authFetch } from "@/modules/shared/authFetch";
 
 export default function AdminEmailMarketingTab({ showToast = () => {} }) {
-  // Navigation Subtabs
+  // Navigation Subtabs & Combobox
   const [activeSubTab, setActiveSubTab] = useState("overview"); // overview, campaigns, templates, subscribers, audience, scheduled, analytics, settings
+  const [isTabComboboxOpen, setIsTabComboboxOpen] = useState(false);
+  const [tabComboboxQuery, setTabComboboxQuery] = useState("");
+  const tabComboboxRef = useRef(null);
 
   // State: Metrics & Dashboard Data
   const [metrics, setMetrics] = useState({
@@ -185,6 +188,30 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
   useEffect(() => {
     fetchOverview();
   }, []);
+
+  // Close Combobox on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (tabComboboxRef.current && !tabComboboxRef.current.contains(event.target)) {
+        setIsTabComboboxOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close Combobox on Escape
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setIsTabComboboxOpen(false);
+      }
+    }
+    if (isTabComboboxOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [isTabComboboxOpen]);
 
   // -------------------------------------------------------------
   // Visual Email Builder Handlers
@@ -703,47 +730,206 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
         </div>
       </div>
 
-      {/* 2. Sub-Navigation Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-neutral-200 dark:border-neutral-800">
-        {[
-          { id: "overview", label: "Overview", icon: Layout },
-          { id: "campaigns", label: "Campaigns", icon: Send, badge: metrics.totalCampaigns },
-          { id: "templates", label: "Email Templates", icon: Layers },
-          { id: "subscribers", label: "Subscribers", icon: Users, badge: metrics.activeSubscribers },
-          { id: "audience", label: "Audience & Segments", icon: Filter },
-          { id: "scheduled", label: "Scheduled Emails", icon: Clock, badge: metrics.scheduledCampaigns },
-          { id: "analytics", label: "Email Analytics", icon: MousePointer },
-          { id: "settings", label: "Settings", icon: Settings },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeSubTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveSubTab(tab.id)}
-              className={`px-3.5 py-2 rounded-lg text-xs font-mono font-medium whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-                isActive
-                  ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
-                  : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{tab.label}</span>
-              {tab.badge !== undefined && tab.badge > 0 && (
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                    isActive
-                      ? "bg-neutral-950 text-amber-400"
-                      : "bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+      {/* 2. Sub-Navigation Combobox Bar */}
+      {(() => {
+        const EMAIL_TABS = [
+          { id: "overview", label: "Overview", icon: Layout, description: "Metrics, recent deliveries & quick insights" },
+          { id: "campaigns", label: "Campaigns", icon: Send, badge: metrics.totalCampaigns, description: "Drafts, blasts & campaign management" },
+          { id: "templates", label: "Email Templates", icon: Layers, description: "Reusable architectural newsletters" },
+          { id: "subscribers", label: "Subscribers", icon: Users, badge: metrics.activeSubscribers, description: "Audience contacts, statuses & consent" },
+          { id: "audience", label: "Audience & Segments", icon: Filter, description: "Target segments & DPA compliance filters" },
+          { id: "scheduled", label: "Scheduled Emails", icon: Clock, badge: metrics.scheduledCampaigns, description: "Automated recurring sends & calendar releases" },
+          { id: "analytics", label: "Email Analytics", icon: MousePointer, description: "Open rates, CTR & conversion tracking" },
+          { id: "settings", label: "Settings", icon: Settings, description: "Sender credentials & delivery settings" },
+        ];
+        const currentTab = EMAIL_TABS.find((t) => t.id === activeSubTab) || EMAIL_TABS[0];
+        const CurrentTabIcon = currentTab.icon;
+        const filteredTabs = EMAIL_TABS.filter((t) =>
+          t.label.toLowerCase().includes(tabComboboxQuery.toLowerCase().trim())
+        );
+
+        return (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200 dark:border-neutral-800 relative z-30">
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 shrink-0">
+                View / Section:
+              </span>
+
+              {/* Combobox Dropdown */}
+              <div className="relative" ref={tabComboboxRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTabComboboxOpen(!isTabComboboxOpen);
+                    setTabComboboxQuery("");
+                  }}
+                  className={`group flex items-center justify-between gap-3 px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-mono border transition-all cursor-pointer shadow-xs min-w-[240px] sm:min-w-[270px] ${
+                    isTabComboboxOpen
+                      ? "bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-neutral-950 dark:text-white ring-2 ring-amber-500/20"
+                      : "bg-white dark:bg-[#10131a] hover:bg-neutral-100 dark:hover:bg-white/5 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white"
                   }`}
+                  aria-haspopup="listbox"
+                  aria-expanded={isTabComboboxOpen}
                 >
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="p-1 rounded-lg bg-amber-500/15 text-amber-500 shrink-0">
+                      <CurrentTabIcon className="w-4 h-4" />
+                    </div>
+                    <div className="flex items-center gap-2 truncate text-left">
+                      <span className="font-bold text-xs tracking-tight text-neutral-900 dark:text-white truncate">
+                        {currentTab.label}
+                      </span>
+                      {currentTab.badge !== undefined && currentTab.badge > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-neutral-950 shrink-0">
+                          {currentTab.badge}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-neutral-400 transition-transform duration-200 shrink-0 ${
+                      isTabComboboxOpen
+                        ? "rotate-180 text-amber-500"
+                        : "group-hover:text-neutral-600 dark:group-hover:text-neutral-200"
+                    }`}
+                  />
+                </button>
+
+                {/* Dropdown Popover */}
+                {isTabComboboxOpen && (
+                  <div className="absolute left-0 mt-2 w-72 sm:w-80 rounded-2xl bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/10 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                    {/* Popover Header */}
+                    <div className="p-3 border-b border-neutral-100 dark:border-white/5 bg-neutral-50/60 dark:bg-white/[0.02]">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-amber-500" />
+                          Email Marketing Views
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400">
+                          {EMAIL_TABS.length} sections
+                        </span>
+                      </div>
+
+                      {/* Quick Search */}
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-2.5" />
+                        <input
+                          type="text"
+                          placeholder="Search section..."
+                          value={tabComboboxQuery}
+                          onChange={(e) => setTabComboboxQuery(e.target.value)}
+                          className="w-full pl-8 pr-7 py-1.5 rounded-lg text-xs font-mono bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-amber-500 transition-colors"
+                          autoFocus
+                        />
+                        {tabComboboxQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setTabComboboxQuery("")}
+                            className="absolute right-2.5 top-2 text-neutral-400 hover:text-neutral-600 dark:hover:text-white"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Options list */}
+                    <div className="p-1.5 max-h-72 overflow-y-auto space-y-0.5">
+                      {filteredTabs.length === 0 ? (
+                        <div className="p-4 text-center text-xs font-mono text-neutral-400">
+                          No matching section found
+                        </div>
+                      ) : (
+                        filteredTabs.map((tab) => {
+                          const TabIcon = tab.icon;
+                          const isSelected = activeSubTab === tab.id;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => {
+                                setActiveSubTab(tab.id);
+                                setIsTabComboboxOpen(false);
+                              }}
+                              className={`w-full group flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-left transition-all cursor-pointer ${
+                                isSelected
+                                  ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
+                                  : "hover:bg-neutral-100 dark:hover:bg-white/5 text-neutral-700 dark:text-neutral-300"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div
+                                  className={`p-1 rounded-lg shrink-0 transition-colors ${
+                                    isSelected
+                                      ? "bg-neutral-950/20 text-neutral-950"
+                                      : "bg-neutral-100 dark:bg-neutral-800 text-amber-500"
+                                  }`}
+                                >
+                                  <TabIcon className="w-3.5 h-3.5" />
+                                </div>
+                                <div className="truncate">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`text-xs font-bold truncate ${
+                                        isSelected ? "text-neutral-950" : "text-neutral-900 dark:text-white"
+                                      }`}
+                                    >
+                                      {tab.label}
+                                    </span>
+                                    {tab.badge !== undefined && tab.badge > 0 && (
+                                      <span
+                                        className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                                          isSelected
+                                            ? "bg-neutral-950 text-amber-400"
+                                            : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                                        }`}
+                                      >
+                                        {tab.badge}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {tab.description && (
+                                    <p
+                                      className={`text-[10px] font-mono truncate ${
+                                        isSelected ? "text-neutral-950/80" : "text-neutral-400"
+                                      }`}
+                                    >
+                                      {tab.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {isSelected && <Check className="w-4 h-4 text-neutral-950 shrink-0" />}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Active Section Quick Badge / Status */}
+            <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-neutral-400">
+              <span className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                Active:
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20 flex items-center gap-1.5">
+                <CurrentTabIcon className="w-3.5 h-3.5" />
+                <span>{currentTab.label}</span>
+                {currentTab.badge !== undefined && currentTab.badge > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-neutral-950 font-bold ml-1">
+                    {currentTab.badge}
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* SUBTAB 1: OVERVIEW DASHBOARD */}
