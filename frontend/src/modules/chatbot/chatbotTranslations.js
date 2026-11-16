@@ -7,8 +7,8 @@ export const CHATBOT_TRANSLATIONS = {
   en: {
     launcherLabel: "Chat With Us",
     launcherTooltip: "Open Customer Support Chat",
-    headerTitle: "MCPA Support",
-    headerSubtitle: "Design & Build · In-House Supply",
+    headerTitle: "MCPA AI Assistant",
+    headerSubtitle: "Design & Build · Construction & Supply",
     statusBot: "Automated Support Active",
     statusAwaitingHuman: "Waiting for an MCPA Administrator...",
     statusHumanAssigned: "Connected with Administrator",
@@ -58,8 +58,8 @@ export const CHATBOT_TRANSLATIONS = {
   fil: {
     launcherLabel: "Chat With Us",
     launcherTooltip: "Buksan ang Customer Support Chat",
-    headerTitle: "MCPA Support",
-    headerSubtitle: "Design & Build · In-House Supply",
+    headerTitle: "MCPA AI Assistant",
+    headerSubtitle: "Design & Build · Construction & Supply",
     statusBot: "Automated Support Aktibo",
     statusAwaitingHuman: "Naghihintay ng MCPA Administrator...",
     statusHumanAssigned: "Konektado sa Administrator",
