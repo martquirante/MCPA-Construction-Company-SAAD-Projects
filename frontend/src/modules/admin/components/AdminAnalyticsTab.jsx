@@ -728,11 +728,27 @@ export default function AdminAnalyticsTab({ showToast }) {
             className="px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-xs font-bold outline-none"
           >
             <option value="all">All Countries</option>
-            {(charts.countries || []).map((c) => (
-              <option key={c.country_code} value={c.country_code}>
-                {c.country} ({c.visitors})
-              </option>
-            ))}
+            {(() => {
+              const countryMap = new Map();
+              for (const c of charts.countries || []) {
+                const code = c.country_code || "UN";
+                if (!countryMap.has(code)) {
+                  countryMap.set(code, {
+                    country: c.country,
+                    country_code: code,
+                    visitors: Number(c.visitors || 0),
+                  });
+                } else {
+                  const existing = countryMap.get(code);
+                  existing.visitors += Number(c.visitors || 0);
+                }
+              }
+              return Array.from(countryMap.values()).map((c, idx) => (
+                <option key={`${c.country_code}-${idx}`} value={c.country_code}>
+                  {c.country} ({c.visitors})
+                </option>
+              ));
+            })()}
           </select>
 
           {/* Province Filter */}
@@ -742,11 +758,26 @@ export default function AdminAnalyticsTab({ showToast }) {
             className="px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-xs font-bold outline-none"
           >
             <option value="all">All Provinces / States</option>
-            {(charts.provinces || []).map((p, idx) => (
-              <option key={`${p.province}-${idx}`} value={p.province}>
-                {p.province} ({p.visitors})
-              </option>
-            ))}
+            {(() => {
+              const provinceMap = new Map();
+              for (const p of charts.provinces || []) {
+                const name = p.province || "Unknown";
+                if (!provinceMap.has(name)) {
+                  provinceMap.set(name, {
+                    province: name,
+                    visitors: Number(p.visitors || 0),
+                  });
+                } else {
+                  const existing = provinceMap.get(name);
+                  existing.visitors += Number(p.visitors || 0);
+                }
+              }
+              return Array.from(provinceMap.values()).map((p, idx) => (
+                <option key={`${p.province}-${idx}`} value={p.province}>
+                  {p.province} ({p.visitors})
+                </option>
+              ));
+            })()}
           </select>
 
           <button
