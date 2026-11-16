@@ -15,9 +15,53 @@ import {
 /**
  * Interactive Global Geographic Visitor Map
  * Uses Leaflet with 100% Free, No-API-Key-Required Dark & Satellite Tile Layers
- * (Esri Dark Gray Canvas & OpenStreetMap) with Proportional Country/City Markers
- * and full-screen expansion mode.
+ * (Esri Dark Gray Canvas & OpenStreetMap) with Dynamic Heatmap Gradient Markers
+ * (Green -> Yellow -> Red -> Violet) and full-screen expansion mode.
  */
+
+/**
+ * Dynamic Heatmap Color Scale:
+ * - Low density / onti: Green (#10b981)
+ * - Moderate density: Yellow (#eab308)
+ * - High density / marami: Red (#ef4444)
+ * - Peak Hotspot / pinakamarami: Violet (#a855f7)
+ */
+function getHeatmapColor(visitors, maxVisitors = 1) {
+  const v = Math.max(1, Number(visitors) || 1);
+  const max = Math.max(1, Number(maxVisitors) || 1);
+  const ratio = v / max;
+
+  if (ratio >= 0.75 || (v >= 20 && ratio >= 0.5)) {
+    return {
+      fill: "#a855f7", // Violet (Peak Hotspot)
+      glow: "rgba(168, 85, 247, 0.45)",
+      border: "#c084fc",
+      tier: "Peak Hotspot (Violet)",
+    };
+  }
+  if (ratio >= 0.4 || (v >= 8 && ratio >= 0.3)) {
+    return {
+      fill: "#ef4444", // Red (High Density)
+      glow: "rgba(239, 68, 68, 0.4)",
+      border: "#f87171",
+      tier: "High Density (Red)",
+    };
+  }
+  if (ratio >= 0.18 || v >= 3) {
+    return {
+      fill: "#eab308", // Yellow (Moderate)
+      glow: "rgba(234, 179, 8, 0.38)",
+      border: "#fde047",
+      tier: "Moderate (Yellow)",
+    };
+  }
+  return {
+    fill: "#10b981", // Green (Light / Low)
+    glow: "rgba(16, 185, 129, 0.35)",
+    border: "#6ee7b7",
+    tier: "Low (Green)",
+  };
+}
 export default function AnalyticsWorldMap({
   countries = [],
   cities = [],
@@ -174,7 +218,7 @@ export default function AnalyticsWorldMap({
 
     const maxVisitors = Math.max(1, ...countries.map((c) => Number(c.visitors) || 1));
 
-    // Plot Country-level aggregated bubbles
+    // Plot Country-level Heatmap Circles (Aura + Core + Center Pip)
     countries.forEach((c) => {
       const lat = parseFloat(c.latitude);
       const lng = parseFloat(c.longitude);
@@ -184,21 +228,50 @@ export default function AnalyticsWorldMap({
         selectedCountry !== "all" &&
         (c.country_code === selectedCountry || c.country === selectedCountry);
 
-      const radius = Math.max(9, Math.min(28, 9 + (Number(c.visitors || 1) / maxVisitors) * 19));
+      const heat = getHeatmapColor(c.visitors, maxVisitors);
+      const radius = Math.max(10, Math.min(32, 10 + Math.sqrt(Number(c.visitors || 1) / maxVisitors) * 22));
 
+      // 1. Heatmap Ambient Aura (Soft glowing heat bloom)
+      const halo = L.circleMarker([lat, lng], {
+        radius: radius * 1.55,
+        fillColor: isSelected ? "#38bdf8" : heat.fill,
+        color: isSelected ? "#38bdf8" : heat.fill,
+        weight: 0,
+        opacity: 0,
+        fillOpacity: isSelected ? 0.3 : 0.22,
+        interactive: false,
+      });
+      halo.addTo(layerGroup);
+
+      // 2. Heatmap Density Core
       const circle = L.circleMarker([lat, lng], {
         radius,
-        fillColor: isSelected ? "#10b981" : "#f59e0b",
-        color: isSelected ? "#ffffff" : "#fbbf24",
-        weight: isSelected ? 3 : 1.5,
+        fillColor: isSelected ? "#0284c7" : heat.fill,
+        color: isSelected ? "#ffffff" : heat.border,
+        weight: isSelected ? 2.5 : 1.5,
         opacity: 0.95,
-        fillOpacity: isSelected ? 0.85 : 0.55,
+        fillOpacity: isSelected ? 0.85 : 0.65,
       });
+
+      // 3. Glowing Center Hotspot Pip
+      const centerPip = L.circleMarker([lat, lng], {
+        radius: Math.max(3, Math.min(5, radius * 0.22)),
+        fillColor: "#ffffff",
+        color: heat.border,
+        weight: 1,
+        opacity: 0.95,
+        fillOpacity: 0.95,
+        interactive: false,
+      });
+      centerPip.addTo(layerGroup);
 
       circle.bindTooltip(
         `<div style="font-family: sans-serif; padding: 4px 6px;">
-          <div style="font-weight: 800; font-size: 12px; color: #f59e0b;">${c.country} (${c.country_code})</div>
-          <div style="font-size: 11px; color: #111;">Visitors: <strong>${c.visitors}</strong> &bull; Sessions: <strong>${c.sessions}</strong></div>
+          <div style="font-weight: 800; font-size: 12px; color: ${heat.fill}; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <span>${c.country} (${c.country_code})</span>
+            <span style="font-size: 9.5px; padding: 1.5px 6px; border-radius: 9999px; background: rgba(0,0,0,0.65); color: ${heat.fill}; border: 1px solid ${heat.border}; font-weight: 700;">${heat.tier}</span>
+          </div>
+          <div style="font-size: 11px; color: #111; margin-top: 3px;">Visitors: <strong>${c.visitors}</strong> &bull; Sessions: <strong>${c.sessions}</strong></div>
           <div style="font-size: 10px; color: #555;">Pageviews: ${c.pageviews} (Click to filter)</div>
         </div>`,
         { direction: "top", offset: [0, -6] }
@@ -214,25 +287,39 @@ export default function AnalyticsWorldMap({
       circle.addTo(layerGroup);
     });
 
-    // Plot City-level markers when a country is selected or for top cities
-    cities.slice(0, 30).forEach((cityItem) => {
+    // Plot City-level markers using cohesive Heatmap Color
+    const maxCityVisitors = Math.max(1, ...cities.map((ct) => Number(ct.visitors) || 1));
+    cities.slice(0, 35).forEach((cityItem) => {
       const lat = parseFloat(cityItem.latitude);
       const lng = parseFloat(cityItem.longitude);
       if (isNaN(lat) || isNaN(lng)) return;
 
+      const cityHeat = getHeatmapColor(cityItem.visitors, maxCityVisitors);
+
+      // Subtle city ambient glow
+      const cityHalo = L.circleMarker([lat, lng], {
+        radius: 7,
+        fillColor: cityHeat.fill,
+        color: cityHeat.fill,
+        weight: 0,
+        fillOpacity: 0.25,
+        interactive: false,
+      });
+      cityHalo.addTo(layerGroup);
+
       const dot = L.circleMarker([lat, lng], {
-        radius: 5,
-        fillColor: "#38bdf8",
-        color: "#0284c7",
+        radius: 4,
+        fillColor: cityHeat.fill,
+        color: "#ffffff",
         weight: 1,
         opacity: 0.9,
-        fillOpacity: 0.85,
+        fillOpacity: 0.9,
       });
 
       dot.bindTooltip(
         `<div style="font-family: sans-serif; padding: 3px 5px;">
-          <div style="font-weight: 700; font-size: 11px;">${cityItem.city}, ${cityItem.province}</div>
-          <div style="font-size: 10px; color: #444;">${cityItem.country} &bull; ${cityItem.visitors} visitor(s)</div>
+          <div style="font-weight: 700; font-size: 11px; color: ${cityHeat.fill};">${cityItem.city}, ${cityItem.province}</div>
+          <div style="font-size: 10px; color: #444;">${cityItem.country} &bull; ${cityItem.visitors} visitor(s) (${cityHeat.tier})</div>
         </div>`,
         { direction: "top" }
       );
@@ -379,16 +466,29 @@ export default function AnalyticsWorldMap({
       />
 
       {/* Legend & Privacy Bar */}
-      <div className="px-4 py-2.5 bg-neutral-950 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-400 shrink-0">
-        <div className="flex items-center gap-4">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
-            <span>Country Activity Bubble (Click to drill down)</span>
+      <div className="px-4 py-2.5 bg-neutral-950 border-t border-white/10 flex flex-wrap items-center justify-between gap-2.5 text-[11px] text-neutral-400 shrink-0">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-400">
+            Heatmap Intensity:
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block" />
-            <span>City / Municipality Cluster</span>
-          </span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.7)] inline-block" />
+              <span>Low (Green)</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#eab308] shadow-[0_0_8px_rgba(234,179,8,0.7)] inline-block" />
+              <span>Moderate (Yellow)</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shadow-[0_0_8px_rgba(239,68,68,0.7)] inline-block" />
+              <span>High (Red)</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#a855f7] shadow-[0_0_8px_rgba(168,85,247,0.7)] inline-block" />
+              <span>Peak Hotspot (Violet)</span>
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {isFullscreen && (
