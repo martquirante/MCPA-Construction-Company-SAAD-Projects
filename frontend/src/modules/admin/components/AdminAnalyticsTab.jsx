@@ -35,6 +35,8 @@ import {
   Radio,
   CheckCircle2,
   AlertCircle,
+  ChevronDown,
+  Calendar,
 } from "lucide-react";
 
 const DATE_RANGE_OPTIONS = [
@@ -341,7 +343,6 @@ export default function AdminAnalyticsTab({ showToast }) {
   // Fetch Dashboard Analytics
   const fetchDashboard = useCallback(
     async (silent = false) => {
-      if (!silent) setLoading(true);
       try {
         const params = new URLSearchParams({ range });
         if (range === "custom") {
@@ -381,7 +382,14 @@ export default function AdminAnalyticsTab({ showToast }) {
   );
 
   useEffect(() => {
-    fetchDashboard(false);
+    let ignore = false;
+    async function load() {
+      await fetchDashboard(false);
+    }
+    load();
+    return () => {
+      ignore = true;
+    };
   }, [fetchDashboard]);
 
   // Connect to Real-Time SSE Stream + Periodic Live Refresh
@@ -618,82 +626,83 @@ export default function AdminAnalyticsTab({ showToast }) {
          ===================================================================== */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white dark:bg-[#10131a] p-4 sm:p-5 rounded-2xl border border-neutral-200 dark:border-white/10 shadow-xs">
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span>{liveData.onlineCount ?? 0} Online Right Now</span>
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[11px] font-mono font-bold">
-              {realtimeConnected ? "Realtime Stream Connected" : "Live Sync Active"}
-            </span>
-            {lastRealtimeEvent && (
-              <span className="text-[11px] text-neutral-500 font-mono truncate max-w-xs">
-                Last activity: {lastRealtimeEvent.pagePath} ({lastRealtimeEvent.country || "PH"})
-              </span>
-            )}
-          </div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-950 dark:text-white mt-1">
+          <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-950 dark:text-white">
             Analytics &amp; Real-Time Visitor Intelligence
           </h2>
         </div>
 
-        {/* 8 Sub-Section Tabs with Horizontal Scroll */}
-        <div className="w-full lg:w-auto overflow-x-auto pb-1.5 pt-0.5 flex items-center gap-2 max-w-full scrollbar-thin scrollbar-thumb-amber-500/40 scrollbar-track-neutral-100 dark:scrollbar-track-white/5">
-          {SUB_SECTIONS.map((sec) => {
-            const Icon = sec.icon;
-            const active = activeSubSection === sec.id;
-            return (
-              <button
-                key={sec.id}
-                type="button"
-                onClick={() => setActiveSubSection(sec.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
-                  active
-                    ? "bg-amber-500 text-neutral-950 shadow-xs"
-                    : "bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
-                <span>{sec.label}</span>
-              </button>
-            );
-          })}
+        {/* Sub-Section Combobox / Dropdown */}
+        <div className="relative inline-flex items-center">
+          <label htmlFor="analytics-sub-section" className="sr-only">
+            Select Analytics View
+          </label>
+          <div className="relative">
+            <select
+              id="analytics-sub-section"
+              value={activeSubSection}
+              onChange={(e) => setActiveSubSection(e.target.value)}
+              className="appearance-none pl-9 pr-9 py-2 rounded-xl bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200/70 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-xs font-bold text-neutral-900 dark:text-white outline-none cursor-pointer transition-all min-w-[210px] shadow-xs"
+            >
+              {SUB_SECTIONS.map((sec) => (
+                <option
+                  key={sec.id}
+                  value={sec.id}
+                  className="bg-white dark:bg-[#10131a] text-neutral-900 dark:text-white py-1.5 font-sans"
+                >
+                  {sec.label}
+                </option>
+              ))}
+            </select>
+            {(() => {
+              const CurrentIcon = SUB_SECTIONS.find((s) => s.id === activeSubSection)?.icon || BarChart3;
+              return (
+                <CurrentIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-amber-500 shrink-0" />
+              );
+            })()}
+            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400 shrink-0" />
+          </div>
         </div>
       </div>
 
       {/* =====================================================================
           2. GLOBAL DATE RANGE & GEOGRAPHIC FILTER BAR
          ===================================================================== */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white dark:bg-[#10131a] p-3.5 sm:p-4 rounded-2xl border border-neutral-200 dark:border-white/10">
-        {/* Date Range Pills */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {DATE_RANGE_OPTIONS.map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setRange(opt.id)}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                range === opt.id
-                  ? "bg-amber-500 text-neutral-950"
-                  : "bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Custom Date Range Pickers + Geographic Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#10131a] p-3.5 sm:p-4 rounded-2xl border border-neutral-200 dark:border-white/10">
+        {/* Date Range Dropdown + Custom Date Pickers */}
         <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <label htmlFor="analytics-date-range" className="sr-only">
+              Select Date Range
+            </label>
+            <select
+              id="analytics-date-range"
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+              className="appearance-none pl-9 pr-9 py-2 rounded-xl bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200/70 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-xs font-bold text-neutral-900 dark:text-white outline-none cursor-pointer transition-all min-w-[170px] shadow-xs"
+            >
+              {DATE_RANGE_OPTIONS.map((opt) => (
+                <option
+                  key={opt.id}
+                  value={opt.id}
+                  className="bg-white dark:bg-[#10131a] text-neutral-900 dark:text-white py-1 font-sans"
+                >
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-amber-500 shrink-0" />
+            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400 shrink-0" />
+          </div>
+
           {range === "custom" && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 animate-fadeIn">
               <input
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
                 className="px-2.5 py-1.5 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-xs outline-none"
               />
-              <span className="text-xs text-neutral-400">to</span>
+              <span className="text-xs text-neutral-400 font-mono">to</span>
               <input
                 type="date"
                 value={customEndDate}
@@ -702,6 +711,10 @@ export default function AdminAnalyticsTab({ showToast }) {
               />
             </div>
           )}
+        </div>
+
+        {/* Geographic Filters (Country & Province) */}
+        <div className="flex flex-wrap items-center gap-2">
 
           {/* Country Filter */}
           <select
@@ -738,7 +751,10 @@ export default function AdminAnalyticsTab({ showToast }) {
 
           <button
             type="button"
-            onClick={() => fetchDashboard(false)}
+            onClick={() => {
+              setLoading(true);
+              fetchDashboard(false);
+            }}
             className="p-2 rounded-xl bg-neutral-100 dark:bg-white/5 hover:bg-amber-500/20 text-neutral-600 dark:text-neutral-300 cursor-pointer"
             title="Refresh Analytics"
           >
@@ -767,9 +783,7 @@ export default function AdminAnalyticsTab({ showToast }) {
                     <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-500">
                       {card.title}
                     </span>
-                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                      <Icon className="w-4 h-4" />
-                    </div>
+                    <Icon className="w-4.5 h-4.5 text-amber-500 dark:text-amber-400 shrink-0" />
                   </div>
 
                   <div className="mt-2 flex items-baseline justify-between gap-2">
