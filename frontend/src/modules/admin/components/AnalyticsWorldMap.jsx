@@ -30,14 +30,15 @@ function createHeatmapEngine(canvas) {
   let _blur = 18;
   let _opacity = 0.8;
 
-  // Thermal Gradient Palette matching NOAA / Maptive style
+  // Thermal Heatmap Gradient Palette matching NOAA / Weather style
+  // Low (unti): Green -> Moderate: Yellow -> Dense (marami): Red -> Peak Hotspot: Violet / Bright Core
   const defaultGradient = {
-    0.15: "#3b82f6", // Blue / Violet (Light)
-    0.35: "#10b981", // Green (Medium Light)
-    0.55: "#eab308", // Yellow (Medium)
-    0.75: "#f97316", // Orange (Medium Dense)
-    0.92: "#ef4444", // Red / Coral (Dense)
-    1.00: "#ffffff", // White-hot core (Peak)
+    0.15: "#22c55e", // Green (Light / Low density / onti)
+    0.38: "#eab308", // Yellow (Moderate density)
+    0.62: "#f97316", // Orange (High density)
+    0.80: "#ef4444", // Red (Very high density / marami)
+    0.93: "#a855f7", // Violet / Purple (Hotspot cluster)
+    1.00: "#f3e8ff", // White-hot Violet core (Peak)
   };
 
   function colorPalette(grad = defaultGradient) {
@@ -783,24 +784,20 @@ export default function AnalyticsWorldMap({
           </span>
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.7)] inline-block" />
-              <span>Light (Blue)</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.7)] inline-block" />
-              <span>Medium (Green)</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] shadow-[0_0_8px_rgba(34,197,94,0.7)] inline-block" />
+              <span>Low (Green)</span>
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#eab308] shadow-[0_0_8px_rgba(234,179,8,0.7)] inline-block" />
-              <span>Medium Dense (Yellow)</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#f97316] shadow-[0_0_8px_rgba(249,115,22,0.7)] inline-block" />
-              <span>Dense (Orange)</span>
+              <span>Moderate (Yellow)</span>
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shadow-[0_0_8px_rgba(239,68,68,0.7)] inline-block" />
-              <span>Hotspot (Red/White Core)</span>
+              <span>High (Red)</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#a855f7] shadow-[0_0_8px_rgba(168,85,247,0.7)] inline-block" />
+              <span>Peak Hotspot (Violet)</span>
             </span>
           </div>
         </div>

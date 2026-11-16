@@ -22,6 +22,7 @@ import FinishedProjectsTab from "@/modules/admin/components/FinishedProjectsTab"
 import AdminChatbotTab from "@/modules/admin/components/AdminChatbotTab";
 import AdminCmsTab from "@/modules/admin/components/AdminCmsTab";
 import AdminAnalyticsTab from "@/modules/admin/components/AdminAnalyticsTab";
+import AdminEmailMarketingTab from "@/modules/admin/components/AdminEmailMarketingTab";
 import AdminIncomingCallManager from "@/modules/admin/components/AdminIncomingCallManager";
 import AdminSettingsModal from "@/modules/admin/components/AdminSettingsModal";
 import AdminNotificationCenter from "@/modules/admin/components/AdminNotificationCenter";
@@ -121,6 +122,7 @@ export const TAB_ROLE_PERMISSIONS = {
   "cms-media": ["admin", "super_admin", "content_manager", "editor"],
   "cms-appearance": ["admin", "super_admin"],
   analytics: ["admin", "super_admin"],
+  "email-marketing": ["admin", "super_admin", "content_manager"],
 };
 
 export function getRoleBadgeMeta(role) {
@@ -245,6 +247,17 @@ export default function AdminPage() {
   const [themePref, setThemePref] = useState("system");
   const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "briefs"
   const [currentUser, setCurrentUser] = useState(null);
+
+  // Synchronize activeTab from URL search query parameter (e.g., /admin?tab=email-marketing)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
 
   // Data states
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -2063,6 +2076,7 @@ export default function AdminPage() {
       items: [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
         { id: "analytics", label: "Analytics & Visitors", icon: BarChart3Icon },
+        { id: "email-marketing", label: "Email Marketing", icon: MailIcon },
         { id: "calendar", label: "Calendar", icon: CalendarDaysIcon },
         {
           id: "meetings",
@@ -2880,6 +2894,13 @@ export default function AdminPage() {
         {/* ================================================================= */}
         {activeTab === "analytics" && (
           <AdminAnalyticsTab showToast={showToast} />
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB: EMAIL MARKETING & CAMPAIGN MANAGEMENT                        */}
+        {/* ================================================================= */}
+        {activeTab === "email-marketing" && (
+          <AdminEmailMarketingTab showToast={showToast} />
         )}
 
         {/* ================================================================= */}

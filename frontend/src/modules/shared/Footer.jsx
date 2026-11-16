@@ -64,14 +64,47 @@ export default function Footer() {
 
   const [emailInput, setEmailInput] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [subscribeStatus, setSubscribeStatus] = useState({ state: "idle", message: "" }); // "idle" | "loading" | "success" | "error"
 
-  const handleSubscribe = (e) => {
+  const handleSubscribe = async (e) => {
     e.preventDefault();
-    if (emailInput.trim()) {
-      setSubscribed(true);
-      setTimeout(() => {
+    const cleanEmail = emailInput.trim();
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      setSubscribeStatus({ state: "error", message: "Please provide a valid email address." });
+      return;
+    }
+
+    try {
+      setSubscribeStatus({ state: "loading", message: "Registering subscription..." });
+      const res = await fetch("/api/newsletter/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: cleanEmail,
+          source: "FOOTER",
+          marketingConsent: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSubscribed(true);
+        setSubscribeStatus({
+          state: "success",
+          message: data.message || "Subscribed! Check your inbox for confirmation.",
+        });
         setEmailInput("");
-      }, 3000);
+      } else {
+        setSubscribeStatus({
+          state: "error",
+          message: data.message || "Subscription could not be processed. Please try again.",
+        });
+      }
+    } catch (err) {
+      setSubscribeStatus({
+        state: "error",
+        message: "Network error. Please try again later.",
+      });
     }
   };
 
@@ -394,34 +427,59 @@ export default function Footer() {
 
               {/* Newsletter / Project Briefing Sign Up */}
               <div className="pt-2">
-                <form onSubmit={handleSubscribe} className="space-y-2 w-3/4 sm:w-full">
-                  <label htmlFor="footer-newsletter" className="block text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
-                    Project Briefings & Updates
-                  </label>
+                <form onSubmit={handleSubscribe} className="space-y-2 w-full">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="footer-newsletter" className="block text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+                      Project Briefings & Updates
+                    </label>
+                  </div>
                   <div className="flex items-center gap-1.5">
                     <input
                       id="footer-newsletter"
                       type="email"
                       required
-                      placeholder="Enter client email..."
+                      disabled={subscribeStatus.state === "loading"}
+                      placeholder="Enter your email..."
                       value={emailInput}
-                      onChange={(e) => setEmailInput(e.target.value)}
-                      className="flex-1 min-w-0 bg-white dark:bg-white/5 border border-neutral-300 dark:border-white/10 focus:border-amber-500/50 rounded-lg px-3 py-2 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 outline-none transition-colors"
+                      onChange={(e) => {
+                        setEmailInput(e.target.value);
+                        if (subscribeStatus.state !== "idle") {
+                          setSubscribeStatus({ state: "idle", message: "" });
+                        }
+                      }}
+                      className="flex-1 min-w-0 bg-white dark:bg-white/5 border border-neutral-300 dark:border-white/10 focus:border-amber-500/50 rounded-lg px-3 py-2 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 outline-none transition-colors disabled:opacity-50"
                     />
                     <button
                       type="submit"
-                      className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors shrink-0 cursor-pointer shadow-xs"
+                      disabled={subscribeStatus.state === "loading"}
+                      className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors shrink-0 cursor-pointer shadow-xs disabled:opacity-50 flex items-center justify-center min-w-[34px]"
                       title="Subscribe to briefings"
                     >
-                      <ArrowRightIcon className="w-3.5 h-3.5" />
+                      {subscribeStatus.state === "loading" ? (
+                        <div className="w-3.5 h-3.5 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <ArrowRightIcon className="w-3.5 h-3.5" />
+                      )}
                     </button>
                   </div>
-                  {subscribed && (
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400 font-mono animate-fade-in inline-flex items-center gap-1.5">
-                      <CheckIcon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                      <span>Subscribed to MCPA Briefings.</span>
-                    </p>
+
+                  {/* Feedback Notices */}
+                  {subscribeStatus.state === "success" && (
+                    <div className="p-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-600 dark:text-emerald-400 font-mono animate-fade-in flex items-center gap-1.5">
+                      <CheckIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span>{subscribeStatus.message}</span>
+                    </div>
                   )}
+
+                  {subscribeStatus.state === "error" && (
+                    <div className="p-2 rounded-md bg-red-500/10 border border-red-500/20 text-[11px] text-red-600 dark:text-red-400 font-mono animate-fade-in">
+                      {subscribeStatus.message}
+                    </div>
+                  )}
+
+                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 leading-tight">
+                    By subscribing, you agree to receive project updates & advisories. You can unsubscribe anytime.
+                  </p>
                 </form>
               </div>
             </div>

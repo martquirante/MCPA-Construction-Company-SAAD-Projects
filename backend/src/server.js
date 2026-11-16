@@ -26,6 +26,9 @@ const chatbotController = require("./controllers/chatbotController");
 const calendarController = require("./controllers/calendarController");
 const cmsController = require("./controllers/cmsController");
 const analyticsController = require("./controllers/analyticsController");
+const emailMarketingRoutes = require("./routes/emailMarketingRoutes");
+const emailMarketingController = require("./controllers/emailMarketingController");
+const { startCampaignScheduler } = require("./services/emailCampaignScheduler");
 
 const { rateLimit } = require("express-rate-limit");
 const { requireAuth, requireRole, optionalAuth } = require("./middleware/auth");
@@ -845,9 +848,21 @@ app.get("/api/admin/analytics/export", requireAuth, requireRole("admin", "super_
 app.get("/api/admin/analytics/settings", requireAuth, requireRole("admin", "super_admin"), (req, res) => analyticsController.getSettings(req, res));
 app.put("/api/admin/analytics/settings", requireAuth, requireRole("admin", "super_admin"), (req, res) => analyticsController.updateSettings(req, res));
 
+// -----------------------------------------------------------------------------
+// EMAIL MARKETING & CAMPAIGN MANAGEMENT SYSTEM
+// -----------------------------------------------------------------------------
+app.use("/api/email-marketing", emailMarketingRoutes);
+app.post("/api/newsletter/subscribe", (req, res) => emailMarketingController.subscribeNewsletter(req, res));
+app.post("/api/newsletter/unsubscribe", (req, res) => emailMarketingController.unsubscribeNewsletter(req, res));
+app.get("/api/campaigns/track/open/:campaignId/:email", (req, res) => emailMarketingController.trackOpen(req, res));
+app.get("/api/campaigns/track/click/:campaignId/:email", (req, res) => emailMarketingController.trackClick(req, res));
+
 // Startup & Database Sync
 if (!process.env.VERCEL) {
   initializeDatabase().then(() => {
+    // Start automated campaign scheduler
+    startCampaignScheduler();
+
     server.listen(PORT, () => {
       console.log(`\n\x1b[32m[SERVER] MCPA Enterprise Backend listening on http://localhost:${PORT}\x1b[0m`);
       console.log(`[DATABASE] Active DB Provider: \x1b[33m${db.getActiveProviderName()}\x1b[0m`);
