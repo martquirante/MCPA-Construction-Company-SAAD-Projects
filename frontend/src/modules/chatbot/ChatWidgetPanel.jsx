@@ -221,32 +221,68 @@ function renderInlineMarkdown(text) {
 }
 
 /**
- * MART Assistant Avatar with Raymart's profile photo and fallback
+ * Animated AI Chatbot Mascot Avatar
+ * Vector animated mascot in MCPA Safety Amber (#F59E0B)
  */
-function SystemBotAvatar({ className = "" }) {
+function AnimatedBotAvatar({ className = "" }) {
   return (
     <div
-      className={`relative shrink-0 select-none ${className}`}
-      title="MART"
+      className={`relative flex items-center justify-center shrink-0 select-none animate-bot-float ${className}`}
+      title="MCPA Assistant"
     >
-      <div className="w-6 h-6 rounded-full overflow-hidden ring-1 ring-neutral-300 dark:ring-white/20 bg-neutral-800 flex items-center justify-center shadow-2xs">
-        <img
-          src="https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
-          alt="MART"
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.currentTarget.style.display = "none";
-            if (e.currentTarget.parentElement) {
-              e.currentTarget.parentElement.innerHTML = '<span class="font-bold text-amber-500 font-mono text-[9px]">M</span>';
-            }
-          }}
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-6 h-6 text-amber-500 dark:text-amber-400 drop-shadow-xs"
+      >
+        <path d="M12 2V5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <circle
+          cx="12"
+          cy="2"
+          r="1.6"
+          fill="#F59E0B"
+          className="animate-bot-antenna"
         />
-      </div>
+        <rect x="2" y="10" width="2" height="4" rx="1" fill="#F59E0B" />
+        <rect x="20" y="10" width="2" height="4" rx="1" fill="#F59E0B" />
+        <rect
+          x="3.5"
+          y="5"
+          width="17"
+          height="14"
+          rx="3.5"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          fill="rgba(245, 158, 11, 0.08)"
+        />
+        <rect
+          x="6"
+          y="7.5"
+          width="12"
+          height="6.5"
+          rx="2"
+          fill="#171717"
+          stroke="rgba(245, 158, 11, 0.35)"
+          strokeWidth="0.8"
+        />
+        <g className="animate-bot-eye">
+          <ellipse cx="9" cy="10.8" rx="1.3" ry="1.4" fill="#F59E0B" />
+          <ellipse cx="15" cy="10.8" rx="1.3" ry="1.4" fill="#F59E0B" />
+        </g>
+        <path
+          d="M8.5 16H15.5"
+          stroke="#F59E0B"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          className="opacity-90"
+        />
+      </svg>
     </div>
   );
 }
 
-const AnimatedBotAvatar = SystemBotAvatar;
+const SystemBotAvatar = AnimatedBotAvatar;
 
 /**
  * Human Admin Avatar with verified photo and fallback initials badge
@@ -1095,7 +1131,7 @@ export default function ChatWidgetPanel({ onClose }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Customer Support with MART"
+      aria-label="MCPA Construction Customer Support"
       className="relative flex flex-col h-full w-full bg-white dark:bg-[#0c0e12] text-neutral-900 dark:text-neutral-100 select-text overflow-hidden font-sans border-0 shadow-none sm:rounded-[12px]"
     >
       {/* Top-Right Fading Dot Grid (Dense & Small, fading towards bottom-left) */}
@@ -1119,24 +1155,14 @@ export default function ChatWidgetPanel({ onClose }) {
       />
 
       {/* -------------------------------------------------------------------
-          HEADER BAR: Avatar + MART + Raymart's Personal AI Assistant + RotateCcw & Close
+          HEADER BAR: Avatar + MCPA Support + Subtitle + RotateCcw & Close
       -------------------------------------------------------------------- */}
       <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-white/10 bg-white/80 dark:bg-[#0c0e12]/80 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          {/* Header Avatar: Raymart */}
-          <div className="relative shrink-0">
-            <div className="w-8 h-8 rounded-full overflow-hidden ring-1 ring-neutral-300 dark:ring-white/20 bg-neutral-800 flex items-center justify-center shadow-xs">
-              <img
-                src="https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
-                alt="Raymart"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                  if (e.currentTarget.parentElement) {
-                    e.currentTarget.parentElement.innerHTML = '<span class="font-bold text-amber-500 font-mono text-[11px]">RQ</span>';
-                  }
-                }}
-              />
+          {/* Header Avatar: Animated MCPA Bot Mascot */}
+          <div className="relative shrink-0 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full ring-1 ring-neutral-300 dark:ring-white/20 bg-neutral-100 dark:bg-white/[0.06] flex items-center justify-center shadow-xs">
+              <AnimatedBotAvatar className="scale-90" />
             </div>
             {/* Small active green online beacon */}
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#0c0e12]" />
@@ -1145,7 +1171,7 @@ export default function ChatWidgetPanel({ onClose }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-xs uppercase tracking-wider truncate text-neutral-900 dark:text-white font-sans">
-                MART
+                {t.headerTitle || "MCPA Support"}
               </span>
               {clientInfo?.isStage2or3 && (
                 <span className="px-1.5 py-0.2 rounded-[3px] bg-amber-500/15 border border-amber-500/30 text-[9px] font-mono font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 shrink-0">
@@ -1154,7 +1180,7 @@ export default function ChatWidgetPanel({ onClose }) {
               )}
             </div>
 
-            {/* Sub-status Indicator: Raymart's Personal AI Assistant */}
+            {/* Sub-status Indicator */}
             <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate font-normal">
               {isLiveSupportMode
                 ? assignedAdmin
@@ -1164,7 +1190,7 @@ export default function ChatWidgetPanel({ onClose }) {
                 ? t.statusResolved
                 : clientInfo?.clientUser?.fullName
                 ? `${(t.welcomeBack || "Welcome back, {name}!").replace("{name}", clientInfo.clientUser.fullName.split(" ")[0])}`
-                : "Raymart's Personal AI Assistant"}
+                : (t.headerSubtitle || "Design & Build · In-House Supply")}
             </p>
           </div>
         </div>
@@ -1245,32 +1271,28 @@ export default function ChatWidgetPanel({ onClose }) {
         {/* STEP 1: INITIAL GREETING & NAME COLLECTION GATE (3 Bot Bubbles + Name Card) */}
         {!isInitializing && !session && (
           <div className="w-full flex flex-col space-y-2.5 py-2 animate-fadeIn">
-            {/* Sender identity: MART avatar + label */}
+            {/* Sender identity: MCPA Bot avatar + label */}
             <div className="flex items-center gap-1.5 px-0.5 select-none mb-0.5">
-              <div className="w-4 h-4 rounded-full overflow-hidden ring-1 ring-white/15 bg-neutral-800 flex items-center justify-center shrink-0">
-                <img
-                  src="https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
-                  alt="MART"
-                  className="w-full h-full object-cover"
-                />
+              <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-amber-500/30 bg-neutral-900 flex items-center justify-center shrink-0">
+                <AnimatedBotAvatar className="scale-75" />
               </div>
-              <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-semibold">
-                MART
+              <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">
+                MCPA ASSISTANT
               </span>
             </div>
 
             {/* Bubble 1 */}
             <div className="p-3.5 rounded-2xl rounded-tl-sm bg-white dark:bg-[#151921] border border-neutral-200/80 dark:border-white/5 text-[12.5px] leading-relaxed text-neutral-800 dark:text-neutral-100 shadow-xs max-w-[95%]">
               {language === "fil"
-                ? "Kumusta! 👋 Maligayang pagdating sa digital space ni Raymart."
-                : "Hey there! 👋 Welcome to Raymart's digital space."}
+                ? "Kumusta! 👋 Maligayang pagdating sa MCPA Construction and Supply."
+                : "Hello! 👋 Welcome to MCPA Construction and Supply."}
             </div>
 
             {/* Bubble 2 */}
             <div className="p-3.5 rounded-2xl rounded-tl-sm bg-white dark:bg-[#151921] border border-neutral-200/80 dark:border-white/5 text-[12.5px] leading-relaxed text-neutral-800 dark:text-neutral-100 shadow-xs max-w-[95%]">
               {language === "fil"
-                ? "Ako si MART, ang personal AI assistant ni Raymart. Maari kitang tulungan at magbahagi tungkol sa kanyang mga proyekto, kasanayan, karanasan, at interes."
-                : "I'm MART, Raymart's personal AI assistant. I can tell you more about his projects, skills, experiences, and interests."}
+                ? "Ako ang inyong MCPA AI Project Assistant. Narito ako upang sagutin ang inyong mga katanungan tungkol sa aming design-and-build services, construction packages, proseso ng quotation at konsultasyon, at mga building permit."
+                : "I'm your MCPA AI Project Assistant. I can help answer your questions about our design-and-build services, construction packages, quotation process, and building permits."}
             </div>
 
             {/* Bubble 3 */}
