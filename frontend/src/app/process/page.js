@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import ClientNavbar from "@/modules/shared/ClientNavbar";
 import Footer from "@/modules/shared/Footer";
 import { setReturnToCompletedHome } from "@/modules/home/homeState";
+import { useCms } from "@/modules/cms/CmsContext";
+import { useLanguage } from "@/modules/shared/LanguageContext";
 import {
   BuildingIcon,
   HardHatIcon,
@@ -86,42 +87,33 @@ const DEFAULT_STAGES = [
 ];
 
 export default function ProcessPage() {
-  const [cmsData, setCmsData] = useState({});
+  const { getContent } = useCms();
+  const { t } = useLanguage();
 
-  useEffect(() => {
-    async function loadCmsContent() {
-      try {
-        const res = await fetch("/api/content/website?page=process");
-        if (res.ok) {
-          const json = await res.json();
-          if (json.content && typeof json.content === "object") {
-            setCmsData(json.content);
-          }
-        }
-      } catch (_) {}
-    }
-    loadCmsContent();
-  }, []);
-
-  // Dynamically merge CMS fields if edited in Admin
-  const eyebrow = cmsData.processEyebrow || "Clear Step-by-Step Progress · Regular Updates";
-  const mainHeading = cmsData.processHeading || "Our 4-Stage Construction Process";
-  const mainDesc =
-    cmsData.processDescription ||
-    "We remove worries from building your home through clear step-by-step updates, weekly photo logs sent to your phone, and guaranteed quality materials. Here is how your dream home is built.";
+  // Dynamically pull CMS fields with instantaneous cross-tab synchronization
+  const eyebrow = getContent("process", "steps", "processEyebrow", "Clear Step-by-Step Progress · Regular Updates");
+  const mainHeading = getContent("process", "steps", "processHeading", "Our 4-Stage Construction Process");
+  const mainDesc = getContent(
+    "process",
+    "steps",
+    "processDescription",
+    "We remove worries from building your home through clear step-by-step updates, weekly photo logs sent to your phone, and guaranteed quality materials. Here is how your dream home is built."
+  );
+  const heroMedia = getContent("process", "steps", "processHeroMedia", "");
 
   const stages = DEFAULT_STAGES.map((def, idx) => {
     const num = idx + 1;
-    const badge = cmsData[`step${num}_badge`] || def.badge;
-    const title = cmsData[`step${num}_title`] || def.title;
-    const subtitle = cmsData[`step${num}_subtitle`] || def.subtitle;
-    const desc = cmsData[`step${num}_desc`] || def.desc;
-    const telemetry = cmsData[`step${num}_telemetry`] || def.telemetry;
-    const checklistRaw = cmsData[`step${num}_checklist`];
+    const badge = getContent("process", `stage${num}`, `step${num}_badge`, def.badge);
+    const title = getContent("process", `stage${num}`, `step${num}_title`, def.title);
+    const subtitle = getContent("process", `stage${num}`, `step${num}_subtitle`, def.subtitle);
+    const desc = getContent("process", `stage${num}`, `step${num}_desc`, def.desc);
+    const telemetry = getContent("process", `stage${num}`, `step${num}_telemetry`, def.telemetry);
+    const checklistRaw = getContent("process", `stage${num}`, `step${num}_checklist`, "");
     const checklist = checklistRaw
       ? checklistRaw.split("\n").map((s) => s.replace(/^[*\-•\d.]+\s*/, "").trim()).filter(Boolean)
       : def.checklist;
-    const output = cmsData[`step${num}_output`] || def.output;
+    const output = getContent("process", `stage${num}`, `step${num}_output`, def.output);
+    const media = getContent("process", `stage${num}`, `step${num}_media`, "");
 
     return {
       ...def,
@@ -132,24 +124,25 @@ export default function ProcessPage() {
       telemetry,
       checklist,
       output,
+      media,
     };
   });
 
   const pillars = [
     {
       icon: <ListChecksIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Milestone-Based Payments",
-      desc: "You only pay for construction stages that are inspected, approved, and verified with photos.",
+      title: getContent("process", "pillars", "pillar1_title", "Milestone-Based Payments"),
+      desc: getContent("process", "pillars", "pillar1_desc", "You only pay for construction stages that are inspected, approved, and verified with photos."),
     },
     {
       icon: <TruckIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Direct In-House Materials",
-      desc: "Zero compromised materials. All steel bars and concrete aggregates come directly from our own verified logistics fleet.",
+      title: getContent("process", "pillars", "pillar2_title", "Direct In-House Materials"),
+      desc: getContent("process", "pillars", "pillar2_desc", "Zero compromised materials. All steel bars and concrete aggregates come directly from our own verified logistics fleet."),
     },
     {
       icon: <SmartphoneIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Regular Photo Updates",
-      desc: "Clear photo updates sent directly to your phone and online portal, so you always know the exact status of your home.",
+      title: getContent("process", "pillars", "pillar3_title", "Live Portal Photo Logs"),
+      desc: getContent("process", "pillars", "pillar3_desc", "Stay updated anywhere in the world with weekly high-resolution photo logs sent directly to your client portal."),
     },
     {
       icon: <HardHatIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
@@ -182,23 +175,36 @@ export default function ProcessPage() {
 
         {/* Page Hero Header */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 md:mb-20">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-4 select-none">
-              <span>{eyebrow}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-8 max-w-3xl">
+              <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-4 select-none">
+                <span>{eyebrow}</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold uppercase tracking-tight text-neutral-950 dark:text-white leading-[1.08]">
+                {mainHeading.includes("Construction Process") ? (
+                  <>
+                    {mainHeading.replace("Construction Process", "").trim()} <br />
+                    <span className="text-amber-600 dark:text-amber-400">Construction Process</span>
+                  </>
+                ) : (
+                  mainHeading
+                )}
+              </h1>
+              <p className="mt-5 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
+                {mainDesc}
+              </p>
             </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold uppercase tracking-tight text-neutral-950 dark:text-white leading-[1.08]">
-              {mainHeading.includes("Construction Process") ? (
-                <>
-                  {mainHeading.replace("Construction Process", "").trim()} <br />
-                  <span className="text-amber-600 dark:text-amber-400">Construction Process</span>
-                </>
-              ) : (
-                mainHeading
-              )}
-            </h1>
-            <p className="mt-5 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
-              {mainDesc}
-            </p>
+
+            {/* Optional Showcase Media Banner if uploaded in CMS */}
+            {heroMedia && (
+              <div className="lg:col-span-4 rounded-2xl overflow-hidden border border-neutral-200 dark:border-white/10 shadow-lg bg-black aspect-video relative">
+                {/\.(mp4|webm|mov)$/i.test(heroMedia) ? (
+                  <video src={heroMedia} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                ) : (
+                  <img src={heroMedia} alt="MCPA Process" className="w-full h-full object-cover" />
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -208,6 +214,105 @@ export default function ProcessPage() {
             <div
               key={stg.step}
               className="relative rounded-[6px] p-7 sm:p-10 lg:p-12 bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:border-amber-500/40 dark:hover:border-amber-500/40 transition-[border-color,box-shadow] duration-150 group"
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* Stage Indicator Col */}
+                <div className="lg:col-span-4 flex flex-col justify-between">
+                  <div>
+                    {/* Optional Stage Illustration Media */}
+                    {stg.media && (
+                      <div className="mb-5 rounded-lg overflow-hidden border border-neutral-200 dark:border-white/10 bg-black aspect-video relative">
+                        {/\.(mp4|webm|mov)$/i.test(stg.media) ? (
+                          <video src={stg.media} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                        ) : (
+                          <img src={stg.media} alt={stg.title} className="w-full h-full object-cover" />
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-4xl sm:text-5xl font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                        {stg.step}
+                      </span>
+                      <span className="px-2.5 py-1 rounded-[4px] bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/[0.08] text-neutral-700 dark:text-neutral-300 text-[10px] font-mono font-bold uppercase tracking-[0.12em]">
+                        {stg.badge}
+                      </span>
+                    </div>
+
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors duration-150">
+                      {stg.title}
+                    </h2>
+
+                    <p className="text-xs font-mono font-medium text-amber-700 dark:text-amber-400/90 uppercase tracking-wider mt-2 mb-4">
+                      {stg.subtitle}
+                    </p>
+
+                    <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal">
+                      {stg.desc}
+                    </p>
+                  </div>
+
+                  {/* Stage Highlights Badge — Architectural specification block */}
+                  <div className="mt-6 p-3.5 rounded-[4px] border-l-2 border-l-amber-500 border-y border-r border-neutral-200 dark:border-white/[0.08] bg-neutral-50 dark:bg-white/[0.02] font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
+                    <span className="text-amber-700 dark:text-amber-400 font-bold block mb-1 uppercase tracking-wider text-[10px]">
+                      Stage Telemetry Highlights
+                    </span>
+                    {stg.telemetry}
+                  </div>
+                </div>
+
+                {/* Checklist & Deliverables Col */}
+                <div className="lg:col-span-8 bg-neutral-50/70 dark:bg-white/[0.02] rounded-[6px] p-6 sm:p-8 border border-neutral-200 dark:border-white/[0.08] flex flex-col justify-between h-full">
+                  <div>
+                    <h3 className="text-xs font-mono font-bold uppercase tracking-[0.14em] text-neutral-900 dark:text-white mb-4 select-none">
+                      Step Verification Schedule
+                    </h3>
+
+                    {/* Unified Architectural Schedule Container */}
+                    <div className="rounded-[4px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0c0e14] overflow-hidden">
+                      <div className="grid grid-cols-1 sm:grid-cols-2">
+                        {stg.checklist.map((item, i) => (
+                          <div
+                            key={i}
+                            className={`flex items-start gap-2.5 p-3 border-b border-neutral-150 dark:border-white/[0.05] ${
+                              i % 2 === 0 ? "sm:border-r border-neutral-150 dark:border-white/[0.05]" : ""
+                            } ${i >= stg.checklist.length - 2 ? "sm:border-b-0" : ""} hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors`}
+                          >
+                            <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5 shrink-0 select-none">
+                              {String(i + 1).padStart(2, "0")}
+                            </span>
+                            <span className="text-xs text-neutral-700 dark:text-neutral-300 leading-snug">
+                              {item}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div>
+                      <span className="text-neutral-400 dark:text-neutral-500 block text-[10px] font-mono uppercase tracking-wider">
+                        Stage Output Handover:
+                      </span>
+                      <span className="font-semibold text-neutral-900 dark:text-white text-xs sm:text-sm">
+                        {stg.output}
+                      </span>
+                    </div>
+
+                    <Link
+                      href="/book"
+                      className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors shrink-0"
+                    >
+                      <span>Inquire About This Step</span>
+                      <ArrowRightIcon className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
             >
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 {/* Stage Indicator Col */}

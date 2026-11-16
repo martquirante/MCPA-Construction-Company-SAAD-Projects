@@ -1458,18 +1458,6 @@ export default function ChatWidgetPanel({ onClose }) {
                               {timeFormatted}
                             </span>
                           )}
-
-                          {msg.metadata?.sourceType === "ai_hybrid" && (
-                            <span className="inline-flex items-center gap-1 text-[9px] font-mono text-emerald-600 dark:text-emerald-400 select-none">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              <span>AI ({msg.metadata.providerName || msg.metadata.aiProvider || "Hybrid"})</span>
-                              {msg.metadata.latencyMs && (
-                                <span className="text-neutral-400 dark:text-neutral-500">
-                                  · {(msg.metadata.latencyMs / 1000).toFixed(1)}s
-                                </span>
-                              )}
-                            </span>
-                          )}
                         </div>
 
                         {!isCustomer && (

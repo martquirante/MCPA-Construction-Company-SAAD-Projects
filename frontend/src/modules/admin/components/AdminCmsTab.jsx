@@ -66,7 +66,7 @@ const PAGE_SECTIONS_SCHEMA = [
   {
     pageKey: "home",
     label: "Home Page",
-    description: "Hero banner, core value proposition pillars, and engineering statistics.",
+    description: "Hero banner, core value proposition pillars, engineering statistics, and craft videos.",
     sections: [
       {
         sectionKey: "hero",
@@ -78,7 +78,7 @@ const PAGE_SECTIONS_SCHEMA = [
           { key: "heroSubBold", label: "Subtitle Highlighted Brand Name", type: "text" },
           { key: "heroSubPost", label: "Subtitle Suffix", type: "text" },
           { key: "bookAppointment", label: "Primary CTA Button Label", type: "text" },
-          { key: "heroBackgroundMedia", label: "Hero Background Photo / Video (File Upload)", type: "media" },
+          { key: "heroBackgroundMedia", label: "Hero Background Photo / Video (File Upload or URL)", type: "media" },
         ],
       },
       {
@@ -100,14 +100,73 @@ const PAGE_SECTIONS_SCHEMA = [
         sectionKey: "stats",
         title: "Key Engineering & Licensing Statistics",
         fields: [
+          { key: "stat1_title", label: "Stat 1 Heading / Title", type: "text" },
           { key: "stat1_value", label: "Stat 1 Value", type: "text" },
           { key: "stat1_label", label: "Stat 1 Label", type: "text" },
+          { key: "stat1_desc", label: "Stat 1 Subtitle / Description", type: "textarea" },
+
+          { key: "stat2_title", label: "Stat 2 Heading / Title", type: "text" },
           { key: "stat2_value", label: "Stat 2 Value", type: "text" },
           { key: "stat2_label", label: "Stat 2 Label", type: "text" },
+          { key: "stat2_desc", label: "Stat 2 Subtitle / Description", type: "textarea" },
+
+          { key: "stat3_title", label: "Stat 3 Heading / Title", type: "text" },
           { key: "stat3_value", label: "Stat 3 Value (PCAB)", type: "text" },
           { key: "stat3_label", label: "Stat 3 Label", type: "text" },
+          { key: "stat3_desc", label: "Stat 3 Subtitle / Description", type: "textarea" },
+
+          { key: "stat4_title", label: "Stat 4 Heading / Title", type: "text" },
           { key: "stat4_value", label: "Stat 4 Value", type: "text" },
           { key: "stat4_label", label: "Stat 4 Label", type: "text" },
+          { key: "stat4_desc", label: "Stat 4 Subtitle / Description", type: "textarea" },
+        ],
+      },
+      {
+        sectionKey: "craft_motion",
+        title: "Our Craft in Motion (6 Video Timelapses & Walkthroughs)",
+        fields: [
+          { key: "craftMotionEyebrow", label: "Section Eyebrow", type: "text" },
+          { key: "craftMotionHeading", label: "Section Main Heading", type: "text" },
+          { key: "craftMotionDesc", label: "Section Subtitle / Description", type: "textarea" },
+
+          { key: "video1_title", label: "Video 1 Title (e.g. Modern Tropical Bungalow)", type: "text" },
+          { key: "video1_phase", label: "Video 1 Phase / Subtitle", type: "text" },
+          { key: "video1_src", label: "Video 1 MP4 Video File / URL", type: "media" },
+          { key: "video1_poster", label: "Video 1 Cover / Poster Image", type: "media" },
+
+          { key: "video2_title", label: "Video 2 Title (e.g. 2-Storey Luxury Residence)", type: "text" },
+          { key: "video2_phase", label: "Video 2 Phase / Subtitle", type: "text" },
+          { key: "video2_src", label: "Video 2 MP4 Video File / URL", type: "media" },
+          { key: "video2_poster", label: "Video 2 Cover / Poster Image", type: "media" },
+
+          { key: "video3_title", label: "Video 3 Title (e.g. Single-Storey Modern Estate)", type: "text" },
+          { key: "video3_phase", label: "Video 3 Phase / Subtitle", type: "text" },
+          { key: "video3_src", label: "Video 3 MP4 Video File / URL", type: "media" },
+          { key: "video3_poster", label: "Video 3 Cover / Poster Image", type: "media" },
+
+          { key: "video4_title", label: "Video 4 Title (e.g. Flickertech Commercial)", type: "text" },
+          { key: "video4_phase", label: "Video 4 Phase / Subtitle", type: "text" },
+          { key: "video4_src", label: "Video 4 MP4 Video File / URL", type: "media" },
+          { key: "video4_poster", label: "Video 4 Cover / Poster Image", type: "media" },
+
+          { key: "video5_title", label: "Video 5 Title (e.g. Tropical Open-Concept Living)", type: "text" },
+          { key: "video5_phase", label: "Video 5 Phase / Subtitle", type: "text" },
+          { key: "video5_src", label: "Video 5 MP4 Video File / URL", type: "media" },
+          { key: "video5_poster", label: "Video 5 Cover / Poster Image", type: "media" },
+
+          { key: "video6_title", label: "Video 6 Title (e.g. Courtyard Villa & Grand Suite)", type: "text" },
+          { key: "video6_phase", label: "Video 6 Phase / Subtitle", type: "text" },
+          { key: "video6_src", label: "Video 6 MP4 Video File / URL", type: "media" },
+          { key: "video6_poster", label: "Video 6 Cover / Poster Image", type: "media" },
+        ],
+      },
+      {
+        sectionKey: "cta",
+        title: "Bottom Call-to-Action Banner",
+        fields: [
+          { key: "ctaHeading", label: "CTA Heading", type: "text" },
+          { key: "ctaSubtitle", label: "CTA Subtitle / Description", type: "textarea" },
+          { key: "ctaButtonLabel", label: "CTA Button Label", type: "text" },
         ],
       },
     ],
@@ -115,28 +174,119 @@ const PAGE_SECTIONS_SCHEMA = [
   {
     pageKey: "services",
     label: "Services Page",
-    description: "Turnkey design & build, Build Now Pay Later, Signed & Sealed Plans, and Supply.",
+    description: "Header, 4 resilience metrics, 6 full services with deliverables, and Home service cards.",
     sections: [
       {
+        sectionKey: "hero",
+        title: "Services Masthead & Headline",
+        fields: [
+          { key: "servicesHeroEyebrow", label: "Services Page Eyebrow", type: "text" },
+          { key: "servicesHeroTitle", label: "Main Heading Prefix", type: "text" },
+          { key: "servicesHeroTitleAccent", label: "Main Heading Highlight (Accent)", type: "text" },
+          { key: "servicesHeroDesc", label: "Services Page Description", type: "textarea" },
+          { key: "servicesHeroMedia", label: "Services Hero Header Photo / Video", type: "media" },
+        ],
+      },
+      {
+        sectionKey: "metrics",
+        title: "Quick Resilience Metrics (4 Top Stat Cards)",
+        fields: [
+          { key: "metric1_title", label: "Metric 1 Title", type: "text" },
+          { key: "metric1_highlight", label: "Metric 1 Highlight Tag (e.g. Ready)", type: "text" },
+          { key: "metric1_label", label: "Metric 1 Subtitle Label", type: "text" },
+
+          { key: "metric2_title", label: "Metric 2 Title", type: "text" },
+          { key: "metric2_highlight", label: "Metric 2 Highlight Tag (e.g. Supply)", type: "text" },
+          { key: "metric2_label", label: "Metric 2 Subtitle Label", type: "text" },
+
+          { key: "metric3_title", label: "Metric 3 Title", type: "text" },
+          { key: "metric3_highlight", label: "Metric 3 Highlight Tag (e.g. %)", type: "text" },
+          { key: "metric3_label", label: "Metric 3 Subtitle Label", type: "text" },
+
+          { key: "metric4_title", label: "Metric 4 Title", type: "text" },
+          { key: "metric4_highlight", label: "Metric 4 Highlight Tag (e.g. Program)", type: "text" },
+          { key: "metric4_label", label: "Metric 4 Subtitle Label", type: "text" },
+        ],
+      },
+      {
+        sectionKey: "all_services",
+        title: "6 Full Detailed Services (Services Page Grid)",
+        fields: [
+          // Service 1
+          { key: "service1_badge", label: "Service 1 Badge (e.g. Complete Turnkey Build)", type: "text" },
+          { key: "service1_title", label: "Service 1 Main Title", type: "text" },
+          { key: "service1_subtitle", label: "Service 1 Subtitle", type: "text" },
+          { key: "service1_desc", label: "Service 1 Full Description", type: "textarea" },
+          { key: "service1_inclusions", label: "Service 1 Deliverables (One deliverable per line)", type: "textarea" },
+          { key: "service1_cta", label: "Service 1 Button Label", type: "text" },
+          { key: "service1_media", label: "Service 1 Showcase Photo / Video", type: "media" },
+
+          // Service 2
+          { key: "service2_badge", label: "Service 2 Badge (e.g. Flexible Payment Options)", type: "text" },
+          { key: "service2_title", label: "Service 2 Main Title", type: "text" },
+          { key: "service2_subtitle", label: "Service 2 Subtitle", type: "text" },
+          { key: "service2_desc", label: "Service 2 Full Description", type: "textarea" },
+          { key: "service2_inclusions", label: "Service 2 Deliverables (One deliverable per line)", type: "textarea" },
+          { key: "service2_cta", label: "Service 2 Button Label", type: "text" },
+          { key: "service2_media", label: "Service 2 Showcase Photo / Video", type: "media" },
+
+          // Service 3
+          { key: "service3_badge", label: "Service 3 Badge (e.g. Licensed Architects & Engineers)", type: "text" },
+          { key: "service3_title", label: "Service 3 Main Title", type: "text" },
+          { key: "service3_subtitle", label: "Service 3 Subtitle", type: "text" },
+          { key: "service3_desc", label: "Service 3 Full Description", type: "textarea" },
+          { key: "service3_inclusions", label: "Service 3 Deliverables (One deliverable per line)", type: "textarea" },
+          { key: "service3_cta", label: "Service 3 Button Label", type: "text" },
+          { key: "service3_media", label: "Service 3 Showcase Photo / Video", type: "media" },
+
+          // Service 4
+          { key: "service4_badge", label: "Service 4 Badge (e.g. Commercial & Warehouses)", type: "text" },
+          { key: "service4_title", label: "Service 4 Main Title", type: "text" },
+          { key: "service4_subtitle", label: "Service 4 Subtitle", type: "text" },
+          { key: "service4_desc", label: "Service 4 Full Description", type: "textarea" },
+          { key: "service4_inclusions", label: "Service 4 Deliverables (One deliverable per line)", type: "textarea" },
+          { key: "service4_cta", label: "Service 4 Button Label", type: "text" },
+          { key: "service4_media", label: "Service 4 Showcase Photo / Video", type: "media" },
+
+          // Service 5
+          { key: "service5_badge", label: "Service 5 Badge (e.g. In-House Materials & Supply)", type: "text" },
+          { key: "service5_title", label: "Service 5 Main Title", type: "text" },
+          { key: "service5_subtitle", label: "Service 5 Subtitle", type: "text" },
+          { key: "service5_desc", label: "Service 5 Full Description", type: "textarea" },
+          { key: "service5_inclusions", label: "Service 5 Deliverables (One deliverable per line)", type: "textarea" },
+          { key: "service5_cta", label: "Service 5 Button Label", type: "text" },
+          { key: "service5_media", label: "Service 5 Showcase Photo / Video", type: "media" },
+
+          // Service 6
+          { key: "service6_badge", label: "Service 6 Badge (e.g. Home Renovations & Upgrades)", type: "text" },
+          { key: "service6_title", label: "Service 6 Main Title", type: "text" },
+          { key: "service6_subtitle", label: "Service 6 Subtitle", type: "text" },
+          { key: "service6_desc", label: "Service 6 Full Description", type: "textarea" },
+          { key: "service6_inclusions", label: "Service 6 Deliverables (One deliverable per line)", type: "textarea" },
+          { key: "service6_cta", label: "Service 6 Button Label", type: "text" },
+          { key: "service6_media", label: "Service 6 Showcase Photo / Video", type: "media" },
+        ],
+      },
+      {
         sectionKey: "highlights",
-        title: "Services Overview & Core Offerings",
+        title: "Home Page Services Section (4 Quick Cards)",
         fields: [
           { key: "whatWeDo", label: "Section Eyebrow", type: "text" },
           { key: "servicesThat", label: "Heading Part 1", type: "text" },
           { key: "defineEras", label: "Heading Part 2 (Accent)", type: "text" },
           { key: "servicesSubtitle", label: "Services Subtitle", type: "textarea" },
-          { key: "serviceTurnkeyTag", label: "Service 1 Tag", type: "text" },
-          { key: "serviceTurnkeyTitle", label: "Service 1 Title", type: "text" },
-          { key: "serviceTurnkeyDesc", label: "Service 1 Description", type: "textarea" },
-          { key: "serviceBnplTag", label: "Service 2 Tag", type: "text" },
-          { key: "serviceBnplTitle", label: "Service 2 Title", type: "text" },
-          { key: "serviceBnplDesc", label: "Service 2 Description", type: "textarea" },
-          { key: "servicePlansTag", label: "Service 3 Tag", type: "text" },
-          { key: "servicePlansTitle", label: "Service 3 Title", type: "text" },
-          { key: "servicePlansDesc", label: "Service 3 Description", type: "textarea" },
-          { key: "serviceSupplyTag", label: "Service 4 Tag", type: "text" },
-          { key: "serviceSupplyTitle", label: "Service 4 Title", type: "text" },
-          { key: "serviceSupplyDesc", label: "Service 4 Description", type: "textarea" },
+          { key: "serviceTurnkeyTag", label: "Card 1 Tag", type: "text" },
+          { key: "serviceTurnkeyTitle", label: "Card 1 Title", type: "text" },
+          { key: "serviceTurnkeyDesc", label: "Card 1 Description", type: "textarea" },
+          { key: "serviceBnplTag", label: "Card 2 Tag", type: "text" },
+          { key: "serviceBnplTitle", label: "Card 2 Title", type: "text" },
+          { key: "serviceBnplDesc", label: "Card 2 Description", type: "textarea" },
+          { key: "servicePlansTag", label: "Card 3 Tag", type: "text" },
+          { key: "servicePlansTitle", label: "Card 3 Title", type: "text" },
+          { key: "servicePlansDesc", label: "Card 3 Description", type: "textarea" },
+          { key: "serviceSupplyTag", label: "Card 4 Tag", type: "text" },
+          { key: "serviceSupplyTitle", label: "Card 4 Title", type: "text" },
+          { key: "serviceSupplyDesc", label: "Card 4 Description", type: "textarea" },
         ],
       },
     ],
@@ -176,20 +326,21 @@ const PAGE_SECTIONS_SCHEMA = [
   {
     pageKey: "process",
     label: "Our Process",
-    description: "4-stage construction workflow from site consultation to key turnover.",
+    description: "4-stage construction workflow from site consultation to key turnover, plus quality guarantees.",
     sections: [
       {
         sectionKey: "steps",
-        title: "4-Stage Workflow Overview",
+        title: "Process Masthead & Hero",
         fields: [
           { key: "processEyebrow", label: "Process Eyebrow", type: "text" },
           { key: "processHeading", label: "Process Main Heading", type: "text" },
           { key: "processDescription", label: "Process Overview Description", type: "textarea" },
+          { key: "processHeroMedia", label: "Process Hero Banner Photo / Video", type: "media" },
         ],
       },
       {
         sectionKey: "stage1",
-        title: "Stage 1: Design Consultation & Blueprints Purchase",
+        title: "Stage 1: Custom Design & Blueprints Purchase",
         fields: [
           { key: "step1_badge", label: "Stage 1 Eyebrow Badge", type: "text" },
           { key: "step1_title", label: "Stage 1 Main Title", type: "text" },
@@ -198,6 +349,7 @@ const PAGE_SECTIONS_SCHEMA = [
           { key: "step1_telemetry", label: "Stage 1 Highlight Chips (e.g. Signed & Sealed Plans · 3D Renders)", type: "text" },
           { key: "step1_checklist", label: "Stage 1 Key Milestones (One per line)", type: "textarea" },
           { key: "step1_output", label: "Stage 1 Output Deliverable", type: "text" },
+          { key: "step1_media", label: "Stage 1 Illustration Photo / Video", type: "media" },
         ],
       },
       {
@@ -211,11 +363,12 @@ const PAGE_SECTIONS_SCHEMA = [
           { key: "step2_telemetry", label: "Stage 2 Highlight Chips (e.g. Zero Downpayment · Fast Loan Approval)", type: "text" },
           { key: "step2_checklist", label: "Stage 2 Key Milestones (One per line)", type: "textarea" },
           { key: "step2_output", label: "Stage 2 Output Deliverable", type: "text" },
+          { key: "step2_media", label: "Stage 2 Illustration Photo / Video", type: "media" },
         ],
       },
       {
         sectionKey: "stage3",
-        title: "Stage 3: Construction Push-Through & Quality Build",
+        title: "Stage 3: Construction Push-Through & Foundation",
         fields: [
           { key: "step3_badge", label: "Stage 3 Eyebrow Badge", type: "text" },
           { key: "step3_title", label: "Stage 3 Main Title", type: "text" },
@@ -224,6 +377,7 @@ const PAGE_SECTIONS_SCHEMA = [
           { key: "step3_telemetry", label: "Stage 3 Highlight Chips (e.g. Rebars · 3000 PSI Concrete · Weekly Logs)", type: "text" },
           { key: "step3_checklist", label: "Stage 3 Key Milestones (One per line)", type: "textarea" },
           { key: "step3_output", label: "Stage 3 Output Deliverable", type: "text" },
+          { key: "step3_media", label: "Stage 3 Illustration Photo / Video", type: "media" },
         ],
       },
       {
@@ -237,6 +391,19 @@ const PAGE_SECTIONS_SCHEMA = [
           { key: "step4_telemetry", label: "Stage 4 Highlight Chips (e.g. Walkthrough · Occupancy · 15-Yr Warranty)", type: "text" },
           { key: "step4_checklist", label: "Stage 4 Key Milestones (One per line)", type: "textarea" },
           { key: "step4_output", label: "Stage 4 Output Deliverable", type: "text" },
+          { key: "step4_media", label: "Stage 4 Illustration Photo / Video", type: "media" },
+        ],
+      },
+      {
+        sectionKey: "pillars",
+        title: "Process Guarantees (3 Quality Pillars)",
+        fields: [
+          { key: "pillar1_title", label: "Guarantee 1 Title", type: "text" },
+          { key: "pillar1_desc", label: "Guarantee 1 Description", type: "textarea" },
+          { key: "pillar2_title", label: "Guarantee 2 Title", type: "text" },
+          { key: "pillar2_desc", label: "Guarantee 2 Description", type: "textarea" },
+          { key: "pillar3_title", label: "Guarantee 3 Title", type: "text" },
+          { key: "pillar3_desc", label: "Guarantee 3 Description", type: "textarea" },
         ],
       },
     ],
@@ -433,6 +600,11 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
   const [mediaSearch, setMediaSearch] = useState("");
   const [mediaPickerModalOpen, setMediaPickerModalOpen] = useState(false);
   const [mediaDeleteWarning, setMediaDeleteWarning] = useState(null);
+  const [cmsMediaPickerTarget, setCmsMediaPickerTarget] = useState(null); // { pageKey, sectionKey, contentKey }
+  const [addingFieldToSection, setAddingFieldToSection] = useState(null); // { pageKey, sectionKey }
+  const [newFieldKey, setNewFieldKey] = useState("");
+  const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [newFieldType, setNewFieldType] = useState("text");
 
   // Website-Wide Content state
   const [activePageKey, setActivePageKey] = useState("home");
@@ -1882,66 +2054,128 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
                           </span>
                         </label>
                         {field.type === "media" ? (
-                          <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10">
-                            {val ? (
-                              /\.(mp4|webm|mov)$/i.test(val) ? (
-                                <video
-                                  src={val}
-                                  muted
-                                  controls
-                                  className="w-20 h-14 rounded-lg object-cover bg-black shrink-0"
-                                />
+                          <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                              {val ? (
+                                (/\.(mp4|webm|mov)$/i.test(val) || val.includes("/videos/")) ? (
+                                  <video
+                                    src={val}
+                                    muted
+                                    controls
+                                    className="w-28 h-20 rounded-lg object-cover bg-black shrink-0 border border-amber-500/40 shadow"
+                                  />
+                                ) : (
+                                  <img
+                                    src={val}
+                                    alt=""
+                                    className="w-28 h-20 rounded-lg object-cover bg-black shrink-0 border border-amber-500/40 shadow"
+                                  />
+                                )
                               ) : (
-                                <img
-                                  src={val}
-                                  alt=""
-                                  className="w-20 h-14 rounded-lg object-cover bg-black shrink-0"
-                                />
-                              )
-                            ) : (
-                              <div className="w-20 h-14 rounded-lg bg-neutral-200 dark:bg-white/10 flex items-center justify-center text-[10px] text-neutral-500 shrink-0">
-                                Default
-                              </div>
-                            )}
-                            <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-extrabold text-xs cursor-pointer">
-                              <Upload className="w-3.5 h-3.5" />
-                              <span>{uploadingMedia ? "Uploading..." : "Upload File"}</span>
-                              <input
-                                type="file"
-                                accept="image/*,video/*"
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  e.target.value = "";
-                                  if (!file) return;
-                                  setUploadingMedia(true);
-                                  try {
-                                    const fd = new FormData();
-                                    fd.append("files", file);
-                                    fd.append("category", "website");
-                                    const r = await authFetch("/api/admin/cms/media/upload", {
-                                      method: "POST",
-                                      body: fd,
-                                    });
-                                    const d = await r.json();
-                                    if (r.ok && d.media?.[0]?.file_url) {
-                                      handleContentFieldChange(
-                                        currentPageSchema.pageKey,
-                                        section.sectionKey,
-                                        field.key,
-                                        d.media[0].file_url
-                                      );
-                                      notify("Uploaded file ready — click Save & Publish Changes!", "success");
-                                      loadAllCmsData();
-                                    }
-                                  } catch (_) {
-                                    notify("File upload failed.", "error");
-                                  } finally {
-                                    setUploadingMedia(false);
+                                <div className="w-28 h-20 rounded-lg bg-neutral-200 dark:bg-white/10 flex flex-col items-center justify-center text-[10px] text-neutral-500 shrink-0 border border-dashed border-neutral-300 dark:border-white/20">
+                                  <ImageIcon className="w-5 h-5 text-neutral-400 mb-1" />
+                                  <span>Default Asset</span>
+                                </div>
+                              )}
+
+                              <div className="flex-1 space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {/* Direct Upload Button */}
+                                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs cursor-pointer shadow-sm">
+                                    <Upload className="w-3.5 h-3.5" />
+                                    <span>{uploadingMedia ? "Uploading..." : "Upload New"}</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*,video/*"
+                                      onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        e.target.value = "";
+                                        if (!file) return;
+                                        setUploadingMedia(true);
+                                        try {
+                                          const fd = new FormData();
+                                          fd.append("files", file);
+                                          fd.append("category", "website");
+                                          const r = await authFetch("/api/admin/cms/media/upload", {
+                                            method: "POST",
+                                            body: fd,
+                                          });
+                                          const d = await r.json();
+                                          if (r.ok && d.media?.[0]?.file_url) {
+                                            handleContentFieldChange(
+                                              currentPageSchema.pageKey,
+                                              section.sectionKey,
+                                              field.key,
+                                              d.media[0].file_url
+                                            );
+                                            notify("Media file uploaded & assigned! Click Save & Publish Changes to apply.", "success");
+                                            loadAllCmsData();
+                                          }
+                                        } catch (_) {
+                                          notify("File upload failed.", "error");
+                                        } finally {
+                                          setUploadingMedia(false);
+                                        }
+                                      }}
+                                      className="hidden"
+                                    />
+                                  </label>
+
+                                  {/* Select from Media Library */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCmsMediaPickerTarget({
+                                        pageKey: currentPageSchema.pageKey,
+                                        sectionKey: section.sectionKey,
+                                        contentKey: field.key,
+                                      });
+                                      setMediaPickerModalOpen(true);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-200 font-bold text-xs cursor-pointer"
+                                  >
+                                    <Folder className="w-3.5 h-3.5 text-amber-500" />
+                                    <span>From Media Library</span>
+                                  </button>
+
+                                  {/* Clear / Reset Button */}
+                                  {val ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleContentFieldChange(
+                                          currentPageSchema.pageKey,
+                                          section.sectionKey,
+                                          field.key,
+                                          ""
+                                        );
+                                        notify("Media reset to default asset. Click Save & Publish to apply.", "info");
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 cursor-pointer"
+                                    >
+                                      <RotateCcw className="w-3 h-3" />
+                                      <span>Reset Default</span>
+                                    </button>
+                                  ) : null}
+                                </div>
+
+                                {/* Direct Path / URL input */}
+                                <input
+                                  type="text"
+                                  value={val}
+                                  placeholder="File path or URL (e.g. /videos/... or https://...)"
+                                  onChange={(e) =>
+                                    handleContentFieldChange(
+                                      currentPageSchema.pageKey,
+                                      section.sectionKey,
+                                      field.key,
+                                      e.target.value
+                                    )
                                   }
-                                }}
-                                className="hidden"
-                              />
-                            </label>
+                                  className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-black/40 border border-neutral-200 dark:border-white/10 text-[11px] font-mono outline-none focus:border-amber-500"
+                                />
+                              </div>
+                            </div>
                           </div>
                         ) : field.type === "textarea" ? (
                           <textarea
@@ -1975,7 +2209,169 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
                       </div>
                     );
                   })}
+
+                  {/* Render any dynamic custom fields added by admin that are not in schema */}
+                  {(() => {
+                    const knownKeys = new Set(section.fields.map((f) => f.key));
+                    const sectionCustomData =
+                      editableContentMap?.[currentPageSchema.pageKey]?.[section.sectionKey] || {};
+                    const extraKeys = Object.keys(sectionCustomData).filter((k) => !knownKeys.has(k));
+
+                    return extraKeys.map((cKey) => {
+                      const cVal = sectionCustomData[cKey] ?? "";
+                      const isMedia =
+                        cKey.toLowerCase().includes("media") ||
+                        cKey.toLowerCase().includes("src") ||
+                        cKey.toLowerCase().includes("poster") ||
+                        cKey.toLowerCase().includes("video") ||
+                        cKey.toLowerCase().includes("image");
+
+                      return (
+                        <div key={cKey} className="md:col-span-2 p-3.5 rounded-xl bg-neutral-100/60 dark:bg-white/[0.03] border border-amber-500/30 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
+                              Custom Field: {cKey}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleContentFieldChange(
+                                  currentPageSchema.pageKey,
+                                  section.sectionKey,
+                                  cKey,
+                                  ""
+                                );
+                                notify(`Cleared ${cKey}. Click Save & Publish to apply.`, "info");
+                              }}
+                              className="text-[11px] text-red-500 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Delete Key</span>
+                            </button>
+                          </div>
+
+                          {isMedia ? (
+                            <div className="flex items-center gap-3">
+                              {cVal ? (
+                                cVal.match(/\.(mp4|webm|mov)$/i) ? (
+                                  <video src={cVal} muted controls className="w-24 h-16 rounded-lg object-cover bg-black" />
+                                ) : (
+                                  <img src={cVal} alt="" className="w-24 h-16 rounded-lg object-cover bg-black" />
+                                )
+                              ) : null}
+                              <input
+                                type="text"
+                                value={cVal}
+                                onChange={(e) =>
+                                  handleContentFieldChange(
+                                    currentPageSchema.pageKey,
+                                    section.sectionKey,
+                                    cKey,
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="Image or Video URL / path..."
+                                className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-black/40 border border-neutral-200 dark:border-white/10 text-xs font-mono"
+                              />
+                            </div>
+                          ) : (
+                            <textarea
+                              rows={2}
+                              value={cVal}
+                              onChange={(e) =>
+                                handleContentFieldChange(
+                                  currentPageSchema.pageKey,
+                                  section.sectionKey,
+                                  cKey,
+                                  e.target.value
+                                )
+                              }
+                              className="w-full p-2.5 rounded-lg bg-white dark:bg-black/40 border border-neutral-200 dark:border-white/10 text-xs sm:text-sm"
+                            />
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
+
+                {/* Add Custom Field Inline Box */}
+                {addingFieldToSection?.sectionKey === section.sectionKey ? (
+                  <div className="mt-4 p-4 rounded-xl bg-neutral-100 dark:bg-white/[0.04] border border-amber-500/40 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-neutral-900 dark:text-white">
+                        Add New Custom Field to [{section.title}]
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddingFieldToSection(null);
+                          setNewFieldKey("");
+                          setNewFieldType("text");
+                        }}
+                        className="text-neutral-400 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        value={newFieldKey}
+                        onChange={(e) => setNewFieldKey(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
+                        placeholder="Key name (e.g. promoBannerText)"
+                        className="px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs font-mono"
+                      />
+                      <select
+                        value={newFieldType}
+                        onChange={(e) => setNewFieldType(e.target.value)}
+                        className="px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 text-xs"
+                      >
+                        <option value="text">Text (Single Line)</option>
+                        <option value="textarea">Textarea (Multiline)</option>
+                        <option value="media">Photo / Video Media</option>
+                      </select>
+                      <button
+                        type="button"
+                        disabled={!newFieldKey.trim()}
+                        onClick={() => {
+                          if (!newFieldKey.trim()) return;
+                          handleContentFieldChange(
+                            currentPageSchema.pageKey,
+                            section.sectionKey,
+                            newFieldKey.trim(),
+                            ""
+                          );
+                          notify(`Created field "${newFieldKey.trim()}"! Enter content and click Save & Publish.`, "success");
+                          setAddingFieldToSection(null);
+                          setNewFieldKey("");
+                        }}
+                        className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs"
+                      >
+                        + Create Field
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddingFieldToSection({
+                          pageKey: currentPageSchema.pageKey,
+                          sectionKey: section.sectionKey,
+                        });
+                        setNewFieldKey("");
+                        setNewFieldType("text");
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-amber-500/40 hover:border-amber-500 text-amber-600 dark:text-amber-400 text-xs font-semibold hover:bg-amber-500/10 transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Custom Field to this Section</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -2421,9 +2817,15 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
           <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-white/10 max-w-4xl w-full p-6 space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h4 className="font-extrabold text-base">Select Multiple Photos &amp; Videos</h4>
+                <h4 className="font-extrabold text-base">
+                  {cmsMediaPickerTarget
+                    ? `Select Photo or Video for [${cmsMediaPickerTarget.contentKey}]`
+                    : "Select Multiple Photos & Videos"}
+                </h4>
                 <p className="text-xs text-neutral-500">
-                  Click as many photos and videos as you want, or upload new files directly from your device.
+                  {cmsMediaPickerTarget
+                    ? "Click any item from your media library to assign it, or upload a new file from your device."
+                    : "Click as many photos and videos as you want, or upload new files directly from your device."}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -2432,9 +2834,42 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
                   <span>{uploadingMedia ? "Uploading..." : "+ Upload New Files"}</span>
                   <input
                     type="file"
-                    multiple
+                    multiple={!cmsMediaPickerTarget}
                     accept="image/*,video/*"
-                    onChange={(e) => {
+                    onChange={async (e) => {
+                      if (cmsMediaPickerTarget) {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        setUploadingMedia(true);
+                        try {
+                          const fd = new FormData();
+                          fd.append("files", file);
+                          fd.append("category", "website");
+                          const r = await authFetch("/api/admin/cms/media/upload", {
+                            method: "POST",
+                            body: fd,
+                          });
+                          const d = await r.json();
+                          if (r.ok && d.media?.[0]?.file_url) {
+                            handleContentFieldChange(
+                              cmsMediaPickerTarget.pageKey,
+                              cmsMediaPickerTarget.sectionKey,
+                              cmsMediaPickerTarget.contentKey,
+                              d.media[0].file_url
+                            );
+                            notify(`Uploaded & assigned to ${cmsMediaPickerTarget.contentKey}! Click Save & Publish Changes to apply live.`, "success");
+                            loadAllCmsData();
+                            setCmsMediaPickerTarget(null);
+                            setMediaPickerModalOpen(false);
+                          }
+                        } catch (_) {
+                          notify("Upload failed.", "error");
+                        } finally {
+                          setUploadingMedia(false);
+                        }
+                        return;
+                      }
                       handleUploadFilesToPost(e.target.files, true);
                       e.target.value = "";
                     }}
@@ -2443,7 +2878,10 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
                 </label>
                 <button
                   type="button"
-                  onClick={() => setMediaPickerModalOpen(false)}
+                  onClick={() => {
+                    setMediaPickerModalOpen(false);
+                    setCmsMediaPickerTarget(null);
+                  }}
                   className="p-2 rounded-full bg-neutral-100 dark:bg-white/10 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
@@ -2461,6 +2899,18 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
                     key={m.id}
                     type="button"
                     onClick={() => {
+                      if (cmsMediaPickerTarget) {
+                        handleContentFieldChange(
+                          cmsMediaPickerTarget.pageKey,
+                          cmsMediaPickerTarget.sectionKey,
+                          cmsMediaPickerTarget.contentKey,
+                          m.file_url
+                        );
+                        setCmsMediaPickerTarget(null);
+                        setMediaPickerModalOpen(false);
+                        notify(`Assigned to ${cmsMediaPickerTarget.contentKey}! Click Save & Publish Changes to apply.`, "success");
+                        return;
+                      }
                       setSelectedLibraryUrls((prev) =>
                         prev.includes(m.file_url)
                           ? prev.filter((u) => u !== m.file_url)
@@ -2493,43 +2943,50 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
 
             <div className="pt-3 border-t border-neutral-200 dark:border-white/10 flex items-center justify-between">
               <span className="text-xs font-bold text-neutral-500">
-                {selectedLibraryUrls.length} file(s) selected
+                {cmsMediaPickerTarget
+                  ? "Click any item to select it directly"
+                  : `${selectedLibraryUrls.length} file(s) selected`}
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setMediaPickerModalOpen(false)}
+                  onClick={() => {
+                    setMediaPickerModalOpen(false);
+                    setCmsMediaPickerTarget(null);
+                  }}
                   className="px-4 py-2 rounded-xl bg-neutral-100 dark:bg-white/10 text-xs font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  disabled={selectedLibraryUrls.length === 0}
-                  onClick={() => {
-                    const selectedObjects = selectedLibraryUrls
-                      .map((url) => mediaItems.find((item) => item.file_url === url))
-                      .filter(Boolean)
-                      .map((m) => ({
-                        media_type:
-                          m.file_type?.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(m.file_url || "")
-                            ? "video"
-                            : "image",
-                        url: m.file_url,
-                        caption: m.title || "",
+                {!cmsMediaPickerTarget && (
+                  <button
+                    type="button"
+                    disabled={selectedLibraryUrls.length === 0}
+                    onClick={() => {
+                      const selectedObjects = selectedLibraryUrls
+                        .map((url) => mediaItems.find((item) => item.file_url === url))
+                        .filter(Boolean)
+                        .map((m) => ({
+                          media_type:
+                            m.file_type?.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(m.file_url || "")
+                              ? "video"
+                              : "image",
+                          url: m.file_url,
+                          caption: m.title || "",
+                        }));
+                      setPostForm((prev) => ({
+                        ...prev,
+                        media: [...prev.media, ...selectedObjects],
                       }));
-                    setPostForm((prev) => ({
-                      ...prev,
-                      media: [...prev.media, ...selectedObjects],
-                    }));
-                    setSelectedLibraryUrls([]);
-                    setMediaPickerModalOpen(false);
-                    notify(`Attached ${selectedObjects.length} file(s) to post!`, "success");
-                  }}
-                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-extrabold text-xs uppercase tracking-wider cursor-pointer"
-                >
-                  Attach Selected ({selectedLibraryUrls.length})
-                </button>
+                      setSelectedLibraryUrls([]);
+                      setMediaPickerModalOpen(false);
+                      notify(`Attached ${selectedObjects.length} file(s) to post!`, "success");
+                    }}
+                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-extrabold text-xs uppercase tracking-wider cursor-pointer"
+                  >
+                    Attach Selected ({selectedLibraryUrls.length})
+                  </button>
+                )}
               </div>
             </div>
           </div>

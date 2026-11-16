@@ -4,6 +4,8 @@ import Link from "next/link";
 import ClientNavbar from "@/modules/shared/ClientNavbar";
 import Footer from "@/modules/shared/Footer";
 import { setReturnToCompletedHome } from "@/modules/home/homeState";
+import { useCms } from "@/modules/cms/CmsContext";
+import { useLanguage } from "@/modules/shared/LanguageContext";
 import {
   HomeIcon,
   BadgePercentIcon,
@@ -14,105 +16,175 @@ import {
   ArrowRightIcon,
 } from "@/modules/shared/Icons";
 
+const DEFAULT_SERVICES = [
+  {
+    id: "residential",
+    badge: "Complete Turnkey Build",
+    icon: <HomeIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
+    title: "Custom Residential Design & Build",
+    subtitle: "Custom family homes built to last for generations",
+    description:
+      "From initial floor plans to final key handover, we handle your entire build. Whether you envision a modern single-storey home or a multi-storey family residence, every home is built strong to withstand heavy typhoons and earthquakes.",
+    inclusions: [
+      "3D realistic color views & floor plan designs",
+      "Solid concrete foundation & certified heavy-duty steel bars",
+      "High-grade plumbing, electrical wiring & sanitary installations",
+      "Full house handover with a 15-Year Structural Warranty",
+    ],
+    ctaText: "Inquire Residential Build",
+  },
+  {
+    id: "bnpl",
+    badge: "Flexible Payment Options",
+    icon: <BadgePercentIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
+    title: "Build Now, Pay Later Program",
+    subtitle: "Financing built around your titled property",
+    description:
+      "An exclusive program for lot owners across Bulacan, Metro Manila, and Central Luzon. Start building your home without waiting for full cash upfront, backed by flexible step-by-step payments and loan guidance.",
+    inclusions: [
+      "Step-by-step progress billing with zero surprise costs",
+      "Pag-IBIG Housing Loan end-to-end processing & documentation",
+      "Major commercial bank loan packaging assistance",
+      "Transparent milestone billing so you only pay as each stage is done",
+    ],
+    ctaText: "Apply for BNPL",
+  },
+  {
+    id: "signed-sealed",
+    badge: "Licensed Architects & Engineers",
+    icon: <FileSignatureIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
+    title: "Signed & Sealed Plans & Permits",
+    subtitle: "Full engineering blueprints ready for municipal approval",
+    description:
+      "Complete, fully certified architectural and engineering plans signed and sealed by licensed Architects, Civil Engineers, Master Plumbers, and Electrical Engineers, backed by full assistance in securing city building permits.",
+    inclusions: [
+      "Architectural blueprints, site plans & room layouts",
+      "Earthquake-tested structural plan & soil condition analysis",
+      "Electrical wiring layout, load computations & plumbing diagrams",
+      "Bulacan & NCR LGU Building Permit submission assistance",
+    ],
+    ctaText: "Order Blueprint Package",
+  },
+  {
+    id: "commercial",
+    badge: "Commercial & Warehouses",
+    icon: <WarehouseIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
+    title: "Commercial Buildings & Warehouses",
+    subtitle: "Spacious steel buildings and commercial rental spaces",
+    description:
+      "We construct durable commercial spaces, logistics buildings, retail units, and storage warehouses built with strong structural steel framing for wide open floor space and heavy daily use.",
+    inclusions: [
+      "Heavy-duty structural steel framing and wide columns",
+      "Reinforced heavy-duty concrete slab pouring for vehicle traffic",
+      "Integrated fire protection, industrial ventilation & loading bays",
+      "Clear project milestone scheduling with on-site safety standards",
+    ],
+    ctaText: "Inquire Commercial Space",
+  },
+  {
+    id: "supply",
+    badge: "In-House Materials & Supply",
+    icon: <TruckIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
+    title: "In-House Project Materials & Supply",
+    subtitle: "Materials dedicated exclusively to our own construction builds",
+    description:
+      "Zero retail markups and zero site delays. MCPA is not an open retail hardware store — our direct materials supply and logistics fleet are dedicated exclusively to our own construction and design-and-build projects. We test, prepare, and transport certified steel rebars, structural concrete, and aggregates directly to your build site.",
+    inclusions: [
+      "Certified heavy-duty steel rebars tested for strength",
+      "Tested ready-mix structural concrete for strong foundations",
+      "Quality-screened clean washed sand, crushed gravel, and base aggregates",
+      "Dedicated fleet of dump trucks ensuring zero project delivery delays",
+    ],
+    ctaText: "Inquire Design & Build",
+  },
+  {
+    id: "renovation",
+    badge: "Home Renovations & Upgrades",
+    icon: <HammerIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
+    title: "Renovations & Home Extensions",
+    subtitle: "Refresh, expand, and strengthen existing homes",
+    description:
+      "Complete residential extensions, modern exterior upgrades, vertical second-floor additions, and commercial tenant fit-outs with careful structural checks before any work begins.",
+    inclusions: [
+      "Thorough structural check of existing posts and foundations",
+      "Second-floor vertical expansions & roof deck conversions",
+      "Modern architectural cladding, glass railings & lighting updates",
+      "Complete plumbing and electrical re-piping & rewiring",
+    ],
+    ctaText: "Plan Renovation",
+  },
+];
+
 export default function ServicesPage() {
-  const services = [
+  const { getContent } = useCms();
+  const { t } = useLanguage();
+
+  // Dynamic CMS Page Hero Content
+  const heroEyebrow = getContent(
+    "services",
+    "hero",
+    "servicesHeroEyebrow",
+    "Design & Build Excellence · Dedicated In-House Supply"
+  );
+  const heroTitle = getContent("services", "hero", "servicesHeroTitle", "Services That");
+  const heroTitleAccent = getContent("services", "hero", "servicesHeroTitleAccent", "Endure For Eras");
+  const heroDesc = getContent(
+    "services",
+    "hero",
+    "servicesHeroDesc",
+    "MCPA Construction and Supply integrates licensed architectural design, structural engineering, and our own dedicated materials fleet. We eliminate third-party hardware markups and ensure guaranteed structural resilience from foundation to key handover."
+  );
+  const heroMedia = getContent("services", "hero", "servicesHeroMedia", "");
+
+  // Dynamic CMS 4 Resilience Metrics
+  const metrics = [
     {
-      id: "residential",
-      badge: "Complete Turnkey Build",
-      icon: <HomeIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Custom Residential Design & Build",
-      subtitle: "Custom family homes built to last for generations",
-      description:
-        "From initial floor plans to final key handover, we handle your entire build. Whether you envision a modern single-storey home or a multi-storey family residence, every home is built strong to withstand heavy typhoons and earthquakes.",
-      inclusions: [
-        "3D realistic color views & floor plan designs",
-        "Solid concrete foundation & certified heavy-duty steel bars",
-        "High-grade plumbing, electrical wiring & sanitary installations",
-        "Full house handover with a 15-Year Structural Warranty",
-      ],
-      ctaText: "Inquire Residential Build",
+      title: getContent("services", "metrics", "metric1_title", "Earthquake & Typhoon"),
+      highlight: getContent("services", "metrics", "metric1_highlight", "Ready"),
+      label: getContent("services", "metrics", "metric1_label", "Structural Resilience Standard"),
     },
     {
-      id: "bnpl",
-      badge: "Flexible Payment Options",
-      icon: <BadgePercentIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Build Now, Pay Later Program",
-      subtitle: "Financing built around your titled property",
-      description:
-        "An exclusive program for lot owners across Bulacan, Metro Manila, and Central Luzon. Start building your home without waiting for full cash upfront, backed by flexible step-by-step payments and loan guidance.",
-      inclusions: [
-        "Step-by-step progress billing with zero surprise costs",
-        "Pag-IBIG Housing Loan end-to-end processing & documentation",
-        "Major commercial bank loan packaging assistance",
-        "Transparent milestone billing so you only pay as each stage is done",
-      ],
-      ctaText: "Apply for BNPL",
+      title: getContent("services", "metrics", "metric2_title", "Direct"),
+      highlight: getContent("services", "metrics", "metric2_highlight", "Supply"),
+      label: getContent("services", "metrics", "metric2_label", "In-House Cement & Steel"),
     },
     {
-      id: "signed-sealed",
-      badge: "Licensed Architects & Engineers",
-      icon: <FileSignatureIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Signed & Sealed Plans & Permits",
-      subtitle: "Full engineering blueprints ready for municipal approval",
-      description:
-        "Complete, fully certified architectural and engineering plans signed and sealed by licensed Architects, Civil Engineers, Master Plumbers, and Electrical Engineers, backed by full assistance in securing city building permits.",
-      inclusions: [
-        "Architectural blueprints, site plans & room layouts",
-        "Earthquake-tested structural plan & soil condition analysis",
-        "Electrical wiring layout, load computations & plumbing diagrams",
-        "Bulacan & NCR LGU Building Permit submission assistance",
-      ],
-      ctaText: "Order Blueprint Package",
+      title: getContent("services", "metrics", "metric3_title", "100"),
+      highlight: getContent("services", "metrics", "metric3_highlight", "%"),
+      label: getContent("services", "metrics", "metric3_label", "PRC Signed & Sealed"),
     },
     {
-      id: "commercial",
-      badge: "Commercial & Warehouses",
-      icon: <WarehouseIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Commercial Buildings & Warehouses",
-      subtitle: "Spacious steel buildings and commercial rental spaces",
-      description:
-        "We construct durable commercial spaces, logistics buildings, retail units, and storage warehouses built with strong structural steel framing for wide open floor space and heavy daily use.",
-      inclusions: [
-        "Heavy-duty structural steel framing and wide columns",
-        "Reinforced heavy-duty concrete slab pouring for vehicle traffic",
-        "Integrated fire protection, industrial ventilation & loading bays",
-        "Clear project milestone scheduling with on-site safety standards",
-      ],
-      ctaText: "Inquire Commercial Space",
-    },
-    {
-      id: "supply",
-      badge: "In-House Materials & Supply",
-      icon: <TruckIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "In-House Project Materials & Supply",
-      subtitle: "Materials dedicated exclusively to our own construction builds",
-      description:
-        "Zero retail markups and zero site delays. MCPA is not an open retail hardware store — our direct materials supply and logistics fleet are dedicated exclusively to our own construction and design-and-build projects. We test, prepare, and transport certified steel rebars, structural concrete, and aggregates directly to your build site.",
-      inclusions: [
-        "Certified heavy-duty steel rebars tested for strength",
-        "Tested ready-mix structural concrete for strong foundations",
-        "Quality-screened clean washed sand, crushed gravel, and base aggregates",
-        "Dedicated fleet of dump trucks ensuring zero project delivery delays",
-      ],
-      ctaText: "Inquire Design & Build",
-    },
-    {
-      id: "renovation",
-      badge: "Home Renovations & Upgrades",
-      icon: <HammerIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Renovations & Home Extensions",
-      subtitle: "Refresh, expand, and strengthen existing homes",
-      description:
-        "Complete residential extensions, modern exterior upgrades, vertical second-floor additions, and commercial tenant fit-outs with careful structural checks before any work begins.",
-      inclusions: [
-        "Thorough structural check of existing posts and foundations",
-        "Second-floor vertical expansions & roof deck conversions",
-        "Modern architectural cladding, glass railings & lighting updates",
-        "Complete plumbing and electrical re-piping & rewiring",
-      ],
-      ctaText: "Plan Renovation",
+      title: getContent("services", "metrics", "metric4_title", "BNPL"),
+      highlight: getContent("services", "metrics", "metric4_highlight", "Program"),
+      label: getContent("services", "metrics", "metric4_label", "Titled Lot Financing"),
     },
   ];
+
+  // Dynamic CMS 6 Services
+  const services = DEFAULT_SERVICES.map((def, idx) => {
+    const num = idx + 1;
+    const badge = getContent("services", "all_services", `service${num}_badge`, def.badge);
+    const title = getContent("services", "all_services", `service${num}_title`, def.title);
+    const subtitle = getContent("services", "all_services", `service${num}_subtitle`, def.subtitle);
+    const desc = getContent("services", "all_services", `service${num}_desc`, def.description);
+    const ctaText = getContent("services", "all_services", `service${num}_cta`, def.ctaText);
+    const media = getContent("services", "all_services", `service${num}_media`, "");
+    const inclusionsRaw = getContent("services", "all_services", `service${num}_inclusions`, "");
+    const inclusions = inclusionsRaw
+      ? inclusionsRaw.split("\n").map((s) => s.replace(/^[*\-•\d.]+\s*/, "").trim()).filter(Boolean)
+      : def.inclusions;
+
+    return {
+      ...def,
+      badge,
+      title,
+      subtitle,
+      description: desc,
+      ctaText,
+      media,
+      inclusions,
+    };
+  });
 
   return (
     <div className="chb-texture min-h-screen bg-[#f8f7f5] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col transition-colors duration-500">
@@ -138,59 +210,51 @@ export default function ServicesPage() {
 
         {/* Page Hero Header */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 md:mb-20">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-4 select-none">
-              <span>Design &amp; Build Excellence · Dedicated In-House Supply</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-8 max-w-3xl">
+              <div className="inline-flex items-center text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-4 select-none">
+                <span>{heroEyebrow}</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold uppercase tracking-tight text-neutral-950 dark:text-white leading-[1.08]">
+                {heroTitle} <br />
+                <span className="text-amber-600 dark:text-amber-400">
+                  {heroTitleAccent}
+                </span>
+              </h1>
+              <p className="mt-5 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
+                {heroDesc}
+              </p>
             </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold uppercase tracking-tight text-neutral-950 dark:text-white leading-[1.08]">
-              Services That <br />
-              <span className="text-amber-600 dark:text-amber-400">
-                Endure For Eras
-              </span>
-            </h1>
-            <p className="mt-5 text-neutral-600 dark:text-neutral-400 text-base md:text-lg leading-relaxed font-normal">
-              MCPA Construction and Supply integrates licensed architectural design, structural engineering, and our own dedicated materials fleet. We eliminate third-party hardware markups and ensure guaranteed structural resilience from foundation to key handover.
-            </p>
+
+            {/* Optional Showcase Media Banner if uploaded in CMS */}
+            {heroMedia && (
+              <div className="lg:col-span-4 rounded-2xl overflow-hidden border border-neutral-200 dark:border-white/10 shadow-lg bg-black aspect-video relative">
+                {/\.(mp4|webm|mov)$/i.test(heroMedia) ? (
+                  <video src={heroMedia} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                ) : (
+                  <img src={heroMedia} alt="MCPA Services" className="w-full h-full object-cover" />
+                )}
+              </div>
+            )}
           </div>
 
           {/* Quick Metrics Strip — Architectural Data Table */}
           <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-px bg-neutral-200 dark:bg-white/[0.08] rounded-[6px] overflow-hidden border border-neutral-200 dark:border-white/[0.08]">
-            <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
-              <div className="flex flex-wrap items-baseline gap-x-1.5 text-lg sm:text-xl font-bold text-neutral-900 dark:text-white leading-tight">
-                <span>Earthquake &amp; Typhoon</span>
-                <span className="text-amber-600 dark:text-amber-400 font-semibold text-sm sm:text-base">Ready</span>
+            {metrics.map((m, idx) => (
+              <div key={idx} className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
+                <div className="flex flex-wrap items-baseline gap-x-1.5 text-lg sm:text-xl font-bold text-neutral-900 dark:text-white leading-tight">
+                  <span>{m.title}</span>
+                  {m.highlight && (
+                    <span className="text-amber-600 dark:text-amber-400 font-semibold text-sm sm:text-base">
+                      {m.highlight}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
+                  {m.label}
+                </p>
               </div>
-              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
-                Structural Resilience Standard
-              </p>
-            </div>
-            <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
-              <div className="flex flex-wrap items-baseline gap-x-1.5 text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white leading-tight">
-                <span>Direct</span>
-                <span className="text-amber-600 dark:text-amber-400 font-semibold text-base sm:text-lg">Supply</span>
-              </div>
-              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
-                In-House Cement &amp; Steel
-              </p>
-            </div>
-            <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
-              <div className="flex flex-wrap items-baseline gap-x-0.5 text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white leading-tight">
-                <span>100</span>
-                <span className="text-amber-600 dark:text-amber-400 font-semibold text-base sm:text-lg">%</span>
-              </div>
-              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
-                PRC Signed &amp; Sealed
-              </p>
-            </div>
-            <div className="p-4 sm:p-5 bg-white dark:bg-[#0f1117] flex flex-col justify-between">
-              <div className="flex flex-wrap items-baseline gap-x-1.5 text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white leading-tight">
-                <span>BNPL</span>
-                <span className="text-amber-600 dark:text-amber-400 font-semibold text-base sm:text-lg">Program</span>
-              </div>
-              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 font-mono uppercase tracking-[0.12em]">
-                Titled Lot Financing
-              </p>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -203,6 +267,17 @@ export default function ServicesPage() {
                 className="group relative rounded-[6px] p-7 sm:p-8 bg-white dark:bg-[#0f1117] border border-neutral-200 dark:border-white/[0.08] hover:border-amber-500/40 dark:hover:border-amber-500/40 transition-[border-color,box-shadow] duration-150 flex flex-col justify-between shadow-[0_2px_8px_rgba(0,0,0,0.03)]"
               >
                 <div>
+                  {/* Optional Service Card Media Banner */}
+                  {svc.media && (
+                    <div className="mb-5 -mt-2 -mx-2 rounded-lg overflow-hidden border border-neutral-200 dark:border-white/10 bg-black aspect-video relative">
+                      {/\.(mp4|webm|mov)$/i.test(svc.media) ? (
+                        <video src={svc.media} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={svc.media} alt={svc.title} className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                  )}
+
                   {/* Icon (Pure SVG, No Box) & Technical Badge */}
                   <div className="flex items-center justify-between gap-3 mb-6">
                     <div className="text-amber-600 dark:text-amber-400 shrink-0">
