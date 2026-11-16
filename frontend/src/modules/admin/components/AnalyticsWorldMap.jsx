@@ -105,7 +105,82 @@ function createHeatmapEngine(canvas) {
       }
       return this;
     },
-    draw(minOpacity = 0.05) {
+
+    // Mode A: NOAA Storm Prediction Center Heatmap (Square Grid Matrix)
+    drawGrid(gridSize = 11) {
+      if (!ctx || !_width || !_height || !_data.length) {
+        if (ctx && _width && _height) ctx.clearRect(0, 0, _width, _height);
+        return this;
+      }
+      ctx.clearRect(0, 0, _width, _height);
+
+      const cellMap = new Map();
+
+      // Project regional grid field for every visitor cluster
+      for (let i = 0; i < _data.length; i++) {
+        const [cx, cy, val] = _data[i];
+        const ratio = Math.min(1, Math.max(0.12, val / _max));
+        // Spread radius in pixels: expands proportionally with density
+        const spreadPx = Math.max(40, Math.min(180, 40 + Math.sqrt(ratio) * 110));
+
+        const startGX = Math.floor((cx - spreadPx) / gridSize) * gridSize;
+        const endGX = Math.ceil((cx + spreadPx) / gridSize) * gridSize;
+        const startGY = Math.floor((cy - spreadPx) / gridSize) * gridSize;
+        const endGY = Math.ceil((cy + spreadPx) / gridSize) * gridSize;
+
+        for (let gx = startGX; gx <= endGX; gx += gridSize) {
+          if (gx < -gridSize || gx > _width + gridSize) continue;
+          for (let gy = startGY; gy <= endGY; gy += gridSize) {
+            if (gy < -gridSize || gy > _height + gridSize) continue;
+
+            const dx = gx + gridSize / 2 - cx;
+            const dy = gy + gridSize / 2 - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist <= spreadPx) {
+              const normDist = dist / spreadPx;
+              // Steep core with glowing envelope (NOAA weather profile)
+              const cellVal = ratio * Math.pow(1 - normDist, 1.3);
+              if (cellVal >= 0.035) {
+                const key = `${gx},${gy}`;
+                const prev = cellMap.get(key) || 0;
+                cellMap.set(key, Math.min(1.0, prev + cellVal));
+              }
+            }
+          }
+        }
+      }
+
+      // Draw each illuminated NOAA grid cell
+      cellMap.forEach((density, key) => {
+        const [gxStr, gyStr] = key.split(",");
+        const gx = parseInt(gxStr, 10);
+        const gy = parseInt(gyStr, 10);
+
+        let color = "#16a34a"; // Green (Low / Unti)
+        if (density >= 0.88) {
+          color = "#ffffff"; // White-hot Core (Peak)
+        } else if (density >= 0.70) {
+          color = "#a855f7"; // Violet / Purple (Marami sobra / Hotspot)
+        } else if (density >= 0.45) {
+          color = "#ef4444"; // Red (Marami)
+        } else if (density >= 0.25) {
+          color = "#f97316"; // Orange (Moderate-High)
+        } else if (density >= 0.12) {
+          color = "#eab308"; // Yellow (Moderate)
+        }
+
+        ctx.fillStyle = color;
+        ctx.globalAlpha = Math.min(0.95, Math.max(0.2, density * _opacity * 1.2));
+        // Draw square cell with 1.5px separation gap (authentic NOAA matrix)
+        ctx.fillRect(gx + 1, gy + 1, gridSize - 2, gridSize - 2);
+      });
+
+      return this;
+    },
+
+    // Mode B: Continuous Smooth Thermal Surface (Gas Price / Weather Flow style)
+    drawSmooth(minOpacity = 0.05) {
       if (!ctx || !_width || !_height || !_data.length) {
         if (ctx && _width && _height) ctx.clearRect(0, 0, _width, _height);
         return this;
@@ -115,7 +190,6 @@ function createHeatmapEngine(canvas) {
       if (!_circle) _circle = createBrush(_r, _blur);
       const r2 = _r + _blur;
 
-      // Pass 1: Draw radial Gaussian shadow circles with intensity alpha
       for (let i = 0; i < _data.length; i++) {
         const [x, y, val] = _data[i];
         if (x < -r2 || y < -r2 || x > _width + r2 || y > _height + r2) continue;
@@ -124,7 +198,6 @@ function createHeatmapEngine(canvas) {
         ctx.drawImage(_circle, x - r2, y - r2);
       }
 
-      // Pass 2: Colorize pixels based on alpha against thermal palette
       const image = ctx.getImageData(0, 0, _width, _height);
       const imgData = image.data;
       const len = imgData.length;
@@ -142,6 +215,13 @@ function createHeatmapEngine(canvas) {
 
       ctx.putImageData(image, 0, 0);
       return this;
+    },
+
+    draw(mode = "noaa_grid") {
+      if (mode === "smooth") {
+        return this.drawSmooth();
+      }
+      return this.drawGrid(11);
     },
   };
 }
@@ -214,8 +294,10 @@ export default function AnalyticsWorldMap({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mapStyle, setMapStyle] = useState("dark"); // "dark" | "satellite" | "streets"
   const [isHeatmapActive, setIsHeatmapActive] = useState(true);
-  const [heatmapRadius, setHeatmapRadius] = useState(32); // 20 | 32 | 48
-  const [heatmapOpacity, setHeatmapOpacity] = useState(0.85); // 0.6 | 0.85 | 1.0
+  const [heatmapRenderMode, setHeatmapRenderMode] = useState("noaa_grid"); // "noaa_grid" (Image 3) | "smooth" (Image 2)
+  const [gridCellSize, setGridCellSize] = useState(11); // 8 | 11 | 16
+  const [heatmapRadius, setHeatmapRadius] = useState(36); // 24 | 36 | 52
+  const [heatmapOpacity, setHeatmapOpacity] = useState(0.9); // 0.6 | 0.85 | 1.0
   const [showSettings, setShowSettings] = useState(false);
 
   // 1. Initialize Leaflet Map with 100% Free Tiles (NO API KEY REQUIRED)
@@ -375,9 +457,14 @@ export default function AnalyticsWorldMap({
       .max(globalMax)
       .radius(heatmapRadius, Math.round(heatmapRadius * 0.6))
       .opacity(heatmapOpacity)
-      .data(heatPoints)
-      .draw(0.04);
-  }, [mapReady, isHeatmapActive, heatmapRadius, heatmapOpacity, countries, cities]);
+      .data(heatPoints);
+
+    if (heatmapRenderMode === "noaa_grid") {
+      engine.drawGrid(gridCellSize);
+    } else {
+      engine.drawSmooth(0.04);
+    }
+  }, [mapReady, isHeatmapActive, heatmapRenderMode, gridCellSize, heatmapRadius, heatmapOpacity, countries, cities]);
 
   // Sync heatmap drawing with Leaflet pan/zoom/resize events
   useEffect(() => {
@@ -454,41 +541,17 @@ export default function AnalyticsWorldMap({
       const heat = getHeatmapColor(c.visitors, maxVisitors);
       const radius = Math.max(8, Math.min(26, 8 + Math.sqrt(Number(c.visitors || 1) / maxVisitors) * 18));
 
-      // 1. Soft glowing boundary ring
-      const halo = L.circleMarker([lat, lng], {
-        radius: radius * 1.45,
+      // Sleek, minimal hotspot locator dot (ZERO concentric rings / bullseyes)
+      const dot = L.circleMarker([lat, lng], {
+        radius: isSelected ? 5.5 : 4,
         fillColor: isSelected ? "#38bdf8" : heat.fill,
-        color: isSelected ? "#38bdf8" : heat.fill,
-        weight: 0,
-        opacity: 0,
-        fillOpacity: isSelected ? 0.35 : 0.18,
-        interactive: false,
-      });
-      halo.addTo(layerGroup);
-
-      // 2. Main clickable circle marker
-      const circle = L.circleMarker([lat, lng], {
-        radius,
-        fillColor: isSelected ? "#0284c7" : heat.fill,
-        color: isSelected ? "#ffffff" : heat.border,
-        weight: isSelected ? 2.5 : 1.2,
+        color: "#ffffff",
+        weight: 1.2,
         opacity: 0.95,
-        fillOpacity: isSelected ? 0.9 : 0.45,
+        fillOpacity: 0.9,
       });
 
-      // 3. White Center Hotspot Pip
-      const centerPip = L.circleMarker([lat, lng], {
-        radius: Math.max(2.5, Math.min(4.5, radius * 0.22)),
-        fillColor: "#ffffff",
-        color: heat.border,
-        weight: 1,
-        opacity: 0.95,
-        fillOpacity: 0.95,
-        interactive: false,
-      });
-      centerPip.addTo(layerGroup);
-
-      circle.bindTooltip(
+      dot.bindTooltip(
         `<div style="font-family: sans-serif; padding: 4px 6px;">
           <div style="font-weight: 800; font-size: 12px; color: ${heat.fill}; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
             <span>${c.country} (${c.country_code})</span>
@@ -500,17 +563,17 @@ export default function AnalyticsWorldMap({
         { direction: "top", offset: [0, -6] }
       );
 
-      circle.on("click", () => {
+      dot.on("click", () => {
         if (onSelectCountry) {
           onSelectCountry(isSelected ? "all" : c.country_code);
         }
         map.flyTo([lat, lng], isSelected ? 2 : 5, { duration: 0.8 });
       });
 
-      circle.addTo(layerGroup);
+      dot.addTo(layerGroup);
     });
 
-    // Plot City-level nodes with matching Heatmap Palette
+    // Plot City-level nodes with matching Heatmap Palette (tiny 2px coordinate dots)
     const maxCityVisitors = Math.max(1, ...cities.map((ct) => Number(ct.visitors) || 1));
     cities.slice(0, 35).forEach((cityItem) => {
       const lat = parseFloat(cityItem.latitude);
@@ -519,16 +582,16 @@ export default function AnalyticsWorldMap({
 
       const cityHeat = getHeatmapColor(cityItem.visitors, maxCityVisitors);
 
-      const dot = L.circleMarker([lat, lng], {
-        radius: 3.5,
+      const cityDot = L.circleMarker([lat, lng], {
+        radius: 2,
         fillColor: cityHeat.fill,
         color: "#ffffff",
-        weight: 1,
-        opacity: 0.9,
+        weight: 0.6,
+        opacity: 0.8,
         fillOpacity: 0.85,
       });
 
-      dot.bindTooltip(
+      cityDot.bindTooltip(
         `<div style="font-family: sans-serif; padding: 3px 5px;">
           <div style="font-weight: 700; font-size: 11px; color: ${cityHeat.fill};">${cityItem.city}, ${cityItem.province}</div>
           <div style="font-size: 10px; color: #444;">${cityItem.country} &bull; ${cityItem.visitors} visitor(s) (${cityHeat.tier})</div>
@@ -536,7 +599,7 @@ export default function AnalyticsWorldMap({
         { direction: "top" }
       );
 
-      dot.addTo(layerGroup);
+      cityDot.addTo(layerGroup);
     });
   }, [mapReady, countries, cities, selectedCountry, onSelectCountry]);
 
@@ -591,6 +654,34 @@ export default function AnalyticsWorldMap({
             <span>Heatmap</span>
           </button>
 
+          {/* Quick Heatmap Mode Pill: NOAA Grid Cells vs Smooth Thermal Flow */}
+          <div className="hidden sm:flex items-center bg-white/10 rounded-lg p-0.5 border border-white/10">
+            <button
+              type="button"
+              onClick={() => setHeatmapRenderMode("noaa_grid")}
+              className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-bold cursor-pointer transition-all ${
+                heatmapRenderMode === "noaa_grid"
+                  ? "bg-amber-500 text-neutral-950 shadow-xs"
+                  : "text-neutral-300 hover:text-white"
+              }`}
+              title="NOAA Weather Storm Grid Cells (Image 3)"
+            >
+              NOAA Grid
+            </button>
+            <button
+              type="button"
+              onClick={() => setHeatmapRenderMode("smooth")}
+              className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-bold cursor-pointer transition-all ${
+                heatmapRenderMode === "smooth"
+                  ? "bg-amber-500 text-neutral-950 shadow-xs"
+                  : "text-neutral-300 hover:text-white"
+              }`}
+              title="Continuous Thermal Gradient Surface (Image 2)"
+            >
+              Smooth
+            </button>
+          </div>
+
           {/* Heatmap Tuning Popover Toggle */}
           <div className="relative">
             <button
@@ -607,10 +698,10 @@ export default function AnalyticsWorldMap({
 
             {/* Settings Popover */}
             {showSettings && (
-              <div className="absolute right-0 top-full mt-2 w-56 p-3 rounded-xl bg-neutral-950/95 backdrop-blur-lg border border-white/15 shadow-2xl z-[500] space-y-3 text-neutral-200">
+              <div className="absolute right-0 top-full mt-2 w-60 p-3 rounded-xl bg-neutral-950/95 backdrop-blur-lg border border-white/15 shadow-2xl z-[500] space-y-3 text-neutral-200">
                 <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
                   <span className="text-[11px] font-bold text-amber-400 font-mono uppercase tracking-wider">
-                    Heat Settings
+                    Heat Engine Settings
                   </span>
                   <button
                     type="button"
@@ -621,14 +712,70 @@ export default function AnalyticsWorldMap({
                   </button>
                 </div>
 
+                {/* Heatmap Mode Selector */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono text-neutral-400 block">Render Engine</span>
+                  <div className="grid grid-cols-2 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setHeatmapRenderMode("noaa_grid")}
+                      className={`py-1 px-1.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                        heatmapRenderMode === "noaa_grid"
+                          ? "bg-amber-500 text-neutral-950 font-extrabold"
+                          : "bg-white/5 hover:bg-white/10 text-neutral-300"
+                      }`}
+                    >
+                      NOAA Grid
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHeatmapRenderMode("smooth")}
+                      className={`py-1 px-1.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                        heatmapRenderMode === "smooth"
+                          ? "bg-amber-500 text-neutral-950 font-extrabold"
+                          : "bg-white/5 hover:bg-white/10 text-neutral-300"
+                      }`}
+                    >
+                      Smooth Flow
+                    </button>
+                  </div>
+                </div>
+
+                {/* Grid Cell Size (when in NOAA mode) */}
+                {heatmapRenderMode === "noaa_grid" && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono text-neutral-400 block">NOAA Grid Cell Size</span>
+                    <div className="grid grid-cols-3 gap-1">
+                      {[
+                        { label: "8px", val: 8 },
+                        { label: "11px", val: 11 },
+                        { label: "16px", val: 16 },
+                      ].map((opt) => (
+                        <button
+                          key={opt.val}
+                          type="button"
+                          onClick={() => setGridCellSize(opt.val)}
+                          className={`py-1 px-1 rounded text-[9.5px] font-bold cursor-pointer transition-all ${
+                            gridCellSize === opt.val
+                              ? "bg-amber-500 text-neutral-950"
+                              : "bg-white/5 hover:bg-white/10 text-neutral-300"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Heat Radius Presets */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-mono text-neutral-400 block">Radius Size</span>
+                  <span className="text-[10px] font-mono text-neutral-400 block">Cluster Spread Radius</span>
                   <div className="grid grid-cols-3 gap-1">
                     {[
-                      { label: "Fine", val: 20 },
-                      { label: "Standard", val: 32 },
-                      { label: "Wide", val: 48 },
+                      { label: "Fine", val: 24 },
+                      { label: "Standard", val: 36 },
+                      { label: "Wide", val: 52 },
                     ].map((opt) => (
                       <button
                         key={opt.val}
