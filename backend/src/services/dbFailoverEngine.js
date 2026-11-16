@@ -965,6 +965,173 @@ class DbFailoverEngine {
       return { rowCount: 1 };
     }
 
+    // 10. Website Content CMS queries
+    if (cleanSql.includes("FROM WEBSITE_CONTENT")) {
+      if (cleanSql.includes("COUNT(*)")) {
+        return { rows: [{ total_content_keys: (data.website_content || []).length }] };
+      }
+      let items = data.website_content || [];
+      if (cleanSql.includes("WHERE PAGE_KEY =") && params.length > 0) {
+        items = items.filter((item) => item.page_key === params[0]);
+      } else if (cleanSql.includes("CONTENT_VALUE =") && params.length > 0) {
+        items = items.filter((item) => item.content_value === params[0]);
+      }
+      return { rows: [...items] };
+    }
+    if (cleanSql.startsWith("INSERT INTO WEBSITE_CONTENT")) {
+      // params: [page_key, section_key, content_key, content_value, content_type, last_modified_by]
+      if (!data.website_content) data.website_content = [];
+      const [pKey, sKey, cKey, cVal, cType, modifiedBy] = params;
+      const existingIdx = data.website_content.findIndex(
+        (x) => x.page_key === pKey && x.section_key === sKey && x.content_key === cKey
+      );
+      const row = {
+        content_id: existingIdx >= 0 ? (data.website_content[existingIdx].content_id || existingIdx + 1) : data.website_content.length + 1,
+        page_key: pKey,
+        section_key: sKey,
+        content_key: cKey,
+        content_value: String(cVal ?? ""),
+        content_type: cType || "text",
+        last_modified_by: modifiedBy || null,
+        updated_at: new Date().toISOString(),
+      };
+      if (existingIdx >= 0) {
+        data.website_content[existingIdx] = { ...data.website_content[existingIdx], ...row };
+      } else {
+        data.website_content.push(row);
+      }
+      this.writeMockData(data);
+      return { rows: [row], rowCount: 1 };
+    }
+    if (cleanSql.startsWith("DELETE FROM WEBSITE_CONTENT")) {
+      if (!data.website_content) data.website_content = [];
+      if (cleanSql.includes("CONTENT_KEY =") && params.length >= 3) {
+        data.website_content = data.website_content.filter(
+          (x) => !(x.page_key === params[0] && x.section_key === params[1] && x.content_key === params[2])
+        );
+      } else if (cleanSql.includes("PAGE_KEY =") && params.length > 0) {
+        data.website_content = data.website_content.filter((x) => x.page_key !== params[0]);
+      }
+      this.writeMockData(data);
+      return { rowCount: 1 };
+    }
+    if (cleanSql.startsWith("UPDATE WEBSITE_CONTENT SET CONTENT_VALUE =")) {
+      if (!data.website_content) data.website_content = [];
+      const [newVal, oldVal] = params;
+      data.website_content.forEach((item) => {
+        if (item.content_value === oldVal) {
+          item.content_value = newVal;
+        }
+      });
+      this.writeMockData(data);
+      return { rowCount: 1 };
+    }
+
+    // 11. Theme & Appearance Settings queries
+    if (cleanSql.includes("FROM THEME_SETTINGS")) {
+      const themes = data.theme_settings || [];
+      if (params.length > 0) {
+        const found = themes.find((t) => t.setting_key === params[0]);
+        return { rows: found ? [found] : [] };
+      }
+      return { rows: [...themes] };
+    }
+    if (cleanSql.startsWith("INSERT INTO THEME_SETTINGS")) {
+      if (!data.theme_settings) data.theme_settings = [];
+      const [sKey, sVal, updatedBy] = params;
+      const parsedVal = typeof sVal === "string" ? JSON.parse(sVal) : sVal;
+      const existingIdx = data.theme_settings.findIndex((t) => t.setting_key === sKey);
+      const row = {
+        setting_id: existingIdx >= 0 ? existingIdx + 1 : data.theme_settings.length + 1,
+        setting_key: sKey,
+        setting_value: parsedVal,
+        updated_by: updatedBy || null,
+        updated_at: new Date().toISOString(),
+      };
+      if (existingIdx >= 0) {
+        data.theme_settings[existingIdx] = row;
+      } else {
+        data.theme_settings.push(row);
+      }
+      this.writeMockData(data);
+      return { rows: [row], rowCount: 1 };
+    }
+
+    // 12. Media Library queries
+    if (cleanSql.includes("FROM MEDIA_LIBRARY")) {
+      if (cleanSql.includes("COUNT(*)")) {
+        return { rows: [{ total_media: (data.media_library || []).length }] };
+      }
+      if (cleanSql.includes("WHERE ID =") && params.length > 0) {
+        const found = (data.media_library || []).find((m) => m.id === parseInt(params[0], 10));
+        return { rows: found ? [found] : [] };
+      }
+      return { rows: [...(data.media_library || [])].reverse() };
+    }
+    if (cleanSql.startsWith("INSERT INTO MEDIA_LIBRARY")) {
+      if (!data.media_library) data.media_library = [];
+      const [title, fileName, fileUrl, thumbUrl, fileType, category, fileSize, dimensions, uploadedBy] = params;
+      const newMedia = {
+        id: data.media_library.length + 1,
+        title: title || fileName,
+        file_name: fileName,
+        file_url: fileUrl,
+        thumbnail_url: thumbUrl || null,
+        file_type: fileType || "image/jpeg",
+        category: category || "general",
+        file_size: parseInt(fileSize, 10) || 0,
+        dimensions: dimensions || "",
+        uploaded_by: uploadedBy || null,
+        usage_count: 0,
+        created_at: new Date().toISOString(),
+      };
+      data.media_library.push(newMedia);
+      this.writeMockData(data);
+      return { rows: [newMedia], rowCount: 1 };
+    }
+    if (cleanSql.startsWith("DELETE FROM MEDIA_LIBRARY")) {
+      const id = parseInt(params[0], 10);
+      data.media_library = (data.media_library || []).filter((m) => m.id !== id);
+      this.writeMockData(data);
+      return { rowCount: 1 };
+    }
+
+    // 13. Blog Categories & Hashtags queries
+    if (cleanSql.includes("FROM BLOG_CATEGORIES")) {
+      if (cleanSql.includes("COUNT(*)")) {
+        return { rows: [{ total_categories: (data.blog_categories || []).length }] };
+      }
+      return { rows: [...(data.blog_categories || [])] };
+    }
+    if (cleanSql.includes("FROM BLOG_HASHTAGS")) {
+      if (cleanSql.includes("COUNT(*)")) {
+        return { rows: [{ total_hashtags: (data.blog_hashtags || []).length }] };
+      }
+      return { rows: [...(data.blog_hashtags || [])] };
+    }
+
+    // 14. Admin Activity Logs
+    if (cleanSql.includes("FROM ADMIN_ACTIVITY_LOGS")) {
+      return { rows: [...(data.admin_activity_logs || [])].reverse().slice(0, 50) };
+    }
+    if (cleanSql.startsWith("INSERT INTO ADMIN_ACTIVITY_LOGS")) {
+      if (!data.admin_activity_logs) data.admin_activity_logs = [];
+      const [adminId, action, entityType, entityId, details, ipAddress] = params;
+      const logEntry = {
+        log_id: data.admin_activity_logs.length + 1,
+        admin_id: adminId || null,
+        action,
+        entity_type: entityType,
+        entity_id: entityId,
+        details: typeof details === "string" ? JSON.parse(details || "{}") : details,
+        ip_address: ipAddress,
+        created_at: new Date().toISOString(),
+      };
+      data.admin_activity_logs.push(logEntry);
+      this.writeMockData(data);
+      return { rows: [logEntry], rowCount: 1 };
+    }
+
     return { rows: [] };
   }
 }

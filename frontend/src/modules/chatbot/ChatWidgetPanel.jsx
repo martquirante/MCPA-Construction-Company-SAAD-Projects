@@ -221,63 +221,35 @@ function renderInlineMarkdown(text) {
 }
 
 /**
- * Animated AI Chatbot Mascot Avatar
- * Vector animated mascot in MCPA Safety Amber (#F59E0B)
+ * Official MCPA Brand Logo Avatar
+ * Renders the authentic MCPA Construction & Supply emblem inside a circular badge with subtle amber border
  */
-function AnimatedBotAvatar({ className = "" }) {
+function AnimatedBotAvatar({ className = "", size = "md" }) {
+  const sizeClasses =
+    size === "sm"
+      ? "w-5 h-5 p-0.5"
+      : size === "lg"
+      ? "w-8 h-8 p-1"
+      : "w-7 h-7 p-1";
+
   return (
     <div
-      className={`relative flex items-center justify-center shrink-0 select-none animate-bot-float ${className}`}
+      className={`relative shrink-0 select-none flex items-center justify-center ${className}`}
       title="MCPA Assistant"
     >
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-6 h-6 text-amber-500 dark:text-amber-400 drop-shadow-xs"
+      <div
+        className={`${sizeClasses} rounded-full ring-1 ring-amber-500/40 bg-neutral-900 border border-white/10 flex items-center justify-center shadow-xs overflow-hidden relative`}
       >
-        <path d="M12 2V5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <circle
-          cx="12"
-          cy="2"
-          r="1.6"
-          fill="#F59E0B"
-          className="animate-bot-antenna"
+        <Image
+          src="/assets/logo-white.svg"
+          alt="MCPA Logo"
+          fill
+          unoptimized
+          priority
+          className="object-contain p-0.5"
+          sizes="32px"
         />
-        <rect x="2" y="10" width="2" height="4" rx="1" fill="#F59E0B" />
-        <rect x="20" y="10" width="2" height="4" rx="1" fill="#F59E0B" />
-        <rect
-          x="3.5"
-          y="5"
-          width="17"
-          height="14"
-          rx="3.5"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          fill="rgba(245, 158, 11, 0.08)"
-        />
-        <rect
-          x="6"
-          y="7.5"
-          width="12"
-          height="6.5"
-          rx="2"
-          fill="#171717"
-          stroke="rgba(245, 158, 11, 0.35)"
-          strokeWidth="0.8"
-        />
-        <g className="animate-bot-eye">
-          <ellipse cx="9" cy="10.8" rx="1.3" ry="1.4" fill="#F59E0B" />
-          <ellipse cx="15" cy="10.8" rx="1.3" ry="1.4" fill="#F59E0B" />
-        </g>
-        <path
-          d="M8.5 16H15.5"
-          stroke="#F59E0B"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          className="opacity-90"
-        />
-      </svg>
+      </div>
     </div>
   );
 }
@@ -1159,11 +1131,9 @@ export default function ChatWidgetPanel({ onClose }) {
       -------------------------------------------------------------------- */}
       <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-white/10 bg-white/80 dark:bg-[#0c0e12]/80 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          {/* Header Avatar: Animated MCPA Bot Mascot */}
+          {/* Header Avatar: Official MCPA Brand Logo */}
           <div className="relative shrink-0 flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full ring-1 ring-neutral-300 dark:ring-white/20 bg-neutral-100 dark:bg-white/[0.06] flex items-center justify-center shadow-xs">
-              <AnimatedBotAvatar className="scale-90" />
-            </div>
+            <AnimatedBotAvatar size="lg" />
             {/* Small active green online beacon */}
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#0c0e12]" />
           </div>
@@ -1273,9 +1243,7 @@ export default function ChatWidgetPanel({ onClose }) {
           <div className="w-full flex flex-col space-y-2.5 py-2 animate-fadeIn">
             {/* Sender identity: MCPA Bot avatar + label */}
             <div className="flex items-center gap-1.5 px-0.5 select-none mb-0.5">
-              <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-amber-500/30 bg-neutral-900 flex items-center justify-center shrink-0">
-                <AnimatedBotAvatar className="scale-75" />
-              </div>
+              <AnimatedBotAvatar size="sm" />
               <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">
                 MCPA ASSISTANT
               </span>
