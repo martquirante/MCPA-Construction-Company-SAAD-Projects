@@ -625,37 +625,28 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
   // Send Test Email to Developer / Admin
   // -------------------------------------------------------------
   const handleSendTestEmail = async () => {
-    if (!testEmailAddress || !testEmailAddress.includes("@")) {
+    const targetEmail = (testEmailAddress || "").trim();
+    if (!targetEmail || !targetEmail.includes("@")) {
       showToast("Please enter a valid test recipient email address.", "error");
       return;
     }
 
     try {
       setSendingTest(true);
-      // If unsaved, save first or send with existing ID
-      let campaignId = editorCampaign.campaign_id;
-      if (!campaignId) {
-        const createRes = await authFetch("/api/email-marketing/campaigns", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(editorCampaign),
-        });
-        const createData = await createRes.json();
-        if (createData.success && createData.campaignId) {
-          campaignId = createData.campaignId;
-          setEditorCampaign({ ...editorCampaign, campaign_id: campaignId });
-        }
-      }
 
-      const res = await authFetch(`/api/email-marketing/campaigns/${campaignId}/send-test`, {
+      // Directly dispatch current live editorCampaign to the test endpoint
+      const res = await authFetch("/api/email-marketing/send-test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ testEmail: testEmailAddress }),
+        body: JSON.stringify({
+          testEmail: targetEmail,
+          campaign: editorCampaign,
+        }),
       });
 
       const data = await res.json();
       if (data.success) {
-        showToast(`Test email delivered to ${testEmailAddress}!`, "success");
+        showToast(`Test email delivered to ${targetEmail}! Please check inbox/spam.`, "success");
       } else {
         showToast(data.message || "Test email delivery failed.", "error");
       }
@@ -2167,17 +2158,30 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                   <div className="flex items-center gap-1.5">
                     <input
                       type="email"
-                      placeholder="Send test to email..."
+                      placeholder="Enter test recipient email..."
                       value={testEmailAddress}
                       onChange={(e) => setTestEmailAddress(e.target.value)}
-                      className="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-white placeholder-neutral-500 w-44 focus:outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSendTestEmail();
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 w-48 sm:w-56 focus:outline-none focus:border-amber-500 font-mono"
                     />
                     <button
                       onClick={handleSendTestEmail}
                       disabled={sendingTest}
-                      className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors disabled:opacity-50 cursor-pointer"
+                      className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1"
                     >
-                      {sendingTest ? "Sending..." : "Test"}
+                      {sendingTest ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          <span>Sending...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3 h-3" />
+                          <span>Send Test</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

@@ -731,34 +731,64 @@ async function deleteCampaign(req, res) {
 async function sendTestEmail(req, res) {
   try {
     const { id } = req.params;
-    const { testEmail } = req.body;
+    const { testEmail, campaign: directCampaign } = req.body;
 
     if (!testEmail || !testEmail.includes("@")) {
-      return res.status(400).json({ success: false, message: "Valid test email is required." });
+      return res.status(400).json({ success: false, message: "Valid test email address is required." });
     }
 
-    const campRes = await db.query(
-      "SELECT * FROM public.email_campaigns WHERE campaign_id = $1 LIMIT 1;",
-      [id]
-    );
-    if (!campRes?.rows?.length) {
-      return res.status(404).json({ success: false, message: "Campaign not found." });
+    let campaign = directCampaign;
+
+    // If campaign is not passed directly, look it up in the database if numeric id provided
+    const numericId = parseInt(id, 10);
+    if (!campaign && !isNaN(numericId) && numericId > 0) {
+      const campRes = await db.query(
+        "SELECT * FROM public.email_campaigns WHERE campaign_id = $1 LIMIT 1;",
+        [numericId]
+      );
+      if (campRes?.rows?.length) {
+        campaign = campRes.rows[0];
+      }
     }
 
-    const campaign = campRes.rows[0];
-    const testSubject = `[TEST] ${campaign.subject}`;
+    if (!campaign) {
+      return res.status(400).json({ success: false, message: "Campaign content is required to send test email." });
+    }
+
+    const testSubject = `[TEST] ${campaign.subject || "MCPA Construction Architectural Update"}`;
 
     // Personalized sample replacements
     const token = "sample-preview-token";
     const sampleUnsub = `https://mcpaconstruction.com/unsubscribe?token=${token}`;
     const samplePixel = `<div style="font-size:10px; color:#94a3b8; text-align:center; padding:10px;">[TEST EMAIL — Live Tracking Pixel Simulated]</div>`;
 
-    const html = (campaign.html_content || compileCampaignHtml(campaign))
+    // Compile fresh HTML from live blocks if present, or use html_content
+    let html = "";
+    if (campaign.blocks && Array.isArray(campaign.blocks) && campaign.blocks.length > 0) {
+      html = compileCampaignHtml(campaign);
+    } else if (campaign.html_content) {
+      html = campaign.html_content;
+    } else {
+      html = compileCampaignHtml({
+        title: campaign.title || "MCPA Update",
+        preview_text: campaign.preview_text || "",
+        logo_config: campaign.logo_config,
+        blocks: campaign.blocks || [],
+      });
+    }
+
+    html = html
       .replace(/\{\{unsubscribe_url\}\}/g, sampleUnsub)
       .replace(/\{\{tracking_pixel\}\}/g, samplePixel)
       .replace(/\{\{name\}\}/g, "Admin Test Recipient");
 
-    const plainText = (campaign.plain_text || compileCampaignPlainText(campaign))
+    let plainText = "";
+    if (campaign.plain_text) {
+      plainText = campaign.plain_text;
+    } else {
+      plainText = compileCampaignPlainText(campaign);
+    }
+    plainText = plainText
       .replace(/\{\{unsubscribe_url\}\}/g, sampleUnsub)
       .replace(/\{\{name\}\}/g, "Admin Test Recipient");
 
@@ -768,9 +798,9 @@ async function sendTestEmail(req, res) {
     });
 
     if (sent) {
-      return res.json({ success: true, message: `Test email sent to ${testEmail}!` });
+      return res.json({ success: true, message: `Test email successfully dispatched to ${testEmail.trim()}!` });
     } else {
-      return res.status(500).json({ success: false, message: "Failed to deliver test email." });
+      return res.status(500).json({ success: false, message: "Failed to deliver test email. Please check SMTP / Resend configuration." });
     }
   } catch (error) {
     console.error("[emailMarketingController] sendTestEmail error:", error);

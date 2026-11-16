@@ -57,6 +57,7 @@ router.put("/campaigns/:id", adminAuth, emailController.updateCampaign);
 router.delete("/campaigns/:id", adminAuth, emailController.deleteCampaign);
 
 // Actions
+router.post("/send-test", adminAuth, emailController.sendTestEmail);
 router.post("/campaigns/:id/send-test", adminAuth, emailController.sendTestEmail);
 router.post("/campaigns/:id/send-now", adminAuth, emailController.sendCampaignNow);
 
