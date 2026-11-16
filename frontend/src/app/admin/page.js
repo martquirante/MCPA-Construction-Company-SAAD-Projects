@@ -2628,7 +2628,7 @@ export default function AdminPage() {
       </aside>
 
       {/* Right Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-x-clip">
         {/* Top Header Bar */}
         <header className="sticky top-0 z-30 h-14 bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-md border-b border-neutral-200 dark:border-white/5 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 transition-colors select-none">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">

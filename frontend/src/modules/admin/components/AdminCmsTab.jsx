@@ -1802,10 +1802,10 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
           SUB-TAB 2: WEBSITE-WIDE DYNAMIC CONTENT MANAGEMENT
          ===================================================================== */}
       {activeSubTab === "website-content" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start relative">
           {/* Left Page Selector (Sticky while scrolling content) */}
-          <div className="lg:col-span-3 space-y-2 lg:sticky lg:top-20 self-start z-10">
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#10131a] border border-neutral-200 dark:border-white/10 space-y-1.5 shadow-xs max-h-[calc(100vh-6rem)] overflow-y-auto">
+          <div className="lg:col-span-3 space-y-2 lg:sticky lg:top-20 self-start z-10" style={{ position: "sticky", top: "5rem" }}>
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#10131a] border border-neutral-200 dark:border-white/10 space-y-1.5 shadow-xs max-h-[calc(100vh-6.5rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-amber-500/30">
               <div className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 px-2 pb-1">
                 Select Website Page
               </div>
@@ -2227,7 +2227,7 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
           </div>
 
           {/* Right 7 Cols: Interactive Responsive Live Preview (Sticky) */}
-          <div className="lg:col-span-7 space-y-4 lg:sticky lg:top-20 self-start">
+          <div className="lg:col-span-7 space-y-4 lg:sticky lg:top-20 self-start" style={{ position: "sticky", top: "5rem" }}>
             <div className="p-4 rounded-2xl bg-white dark:bg-[#10131a] border border-neutral-200 dark:border-white/10 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
                 Live Responsive Theme Preview
