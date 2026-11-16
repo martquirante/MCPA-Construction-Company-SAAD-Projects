@@ -319,7 +319,7 @@ export default function PortfolioSection({
             <ArrowRightIcon className="w-4 h-4 text-neutral-950 group-hover:translate-x-1.5 transition-transform" />
           </Link>
           <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400 font-mono">
-            Curated showcase Â· Click to view full portfolio & architectural floor plans
+            Curated showcase · Click to view full portfolio & architectural floor plans
           </p>
         </div>
       )}

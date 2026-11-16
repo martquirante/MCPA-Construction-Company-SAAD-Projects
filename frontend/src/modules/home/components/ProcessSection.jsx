@@ -477,7 +477,7 @@ export default function ProcessSection() {
                         Stage Highlights
                       </h4>
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                        Key Details Â· Step 0{activeStage + 1}
+                        Key Details · Step 0{activeStage + 1}
                       </p>
                     </div>
                   </div>

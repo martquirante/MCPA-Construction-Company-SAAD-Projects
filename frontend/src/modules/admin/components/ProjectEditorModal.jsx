@@ -1325,7 +1325,7 @@ export default function ProjectEditorModal({ isOpen, onClose, onSave, initialDat
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   {formData.status === "in_progress"
-                    ? "If enabled, shows on client portfolio with an 'IN PROGRESS Â· PLANS & RENDERS' badge."
+                    ? "If enabled, shows on client portfolio with an 'IN PROGRESS · PLANS & RENDERS' badge."
                     : formData.status === "planning"
                     ? "If enabled, showcases architectural blueprints & conceptual plans."
                     : "Determines if this project is displayed on the main client portfolio site."}
