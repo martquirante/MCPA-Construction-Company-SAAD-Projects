@@ -28,6 +28,7 @@ import {
   Layers,
   ShieldCheck,
   ChevronDown,
+  ArrowLeft,
   ArrowUp,
   ArrowDown,
   ExternalLink,
@@ -105,6 +106,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
   const [editorCampaign, setEditorCampaign] = useState(null);
   const [previewDevice, setPreviewDevice] = useState("desktop"); // desktop (600px), tablet (768px), mobile (375px)
   const [previewMode, setPreviewMode] = useState("html"); // html | text
+  const [mobileEditorTab, setMobileEditorTab] = useState("editor"); // "editor" | "preview" (for mobile-first responsiveness)
   const [testEmailAddress, setTestEmailAddress] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
 
@@ -319,6 +321,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
       is_recurring: false,
       recurring_pattern: "MONTHLY",
     });
+    setMobileEditorTab("editor");
     setIsEditorOpen(true);
   };
 
@@ -328,6 +331,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
       const data = await res.json();
       if (data.success && data.campaign) {
         setEditorCampaign(data.campaign);
+        setMobileEditorTab("editor");
         setIsEditorOpen(true);
       }
     } catch (err) {
@@ -357,6 +361,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
       scheduled_at: null,
       is_recurring: false,
     });
+    setMobileEditorTab("editor");
     setIsEditorOpen(true);
     showToast(`Template loaded into campaign editor!`, "success");
   };
@@ -768,7 +773,9 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
 
   return (
     <div className="space-y-6 animate-fade-in text-neutral-900 dark:text-neutral-100">
-      {/* 1. Header Bar */}
+      {!isEditorOpen && (
+        <>
+          {/* 1. Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-white/10">
         <div>
           <div className="flex items-center gap-2.5">
@@ -1678,24 +1685,71 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
         </div>
       )}
 
+        </>
+      )}
+
       {/* ========================================================================= */}
-      {/* MODAL / DRAWER: VISUAL DRAG-AND-DROP EMAIL BUILDER */}
+      {/* DEDICATED FULL-PAGE CAMPAIGN EDITOR (NON-OVERLAY, RESPONSIVE & MOBILE-FIRST) */}
       {/* ========================================================================= */}
       {isEditorOpen && editorCampaign && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
-          <div className="w-full max-w-7xl h-[94vh] bg-white dark:bg-[#0c0e14] border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
-            {/* 1. Editor Header */}
-            <div className="px-5 py-3.5 border-b border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-3 bg-neutral-50 dark:bg-[#10131a]">
-              <div className="flex items-center gap-3">
-                <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
+        <div className="space-y-3 animate-fade-in w-full text-neutral-900 dark:text-neutral-100">
+          {/* Top Breadcrumb & Status Navigation Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+            <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-400">
+              <button
+                type="button"
+                onClick={() => setIsEditorOpen(false)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 hover:bg-amber-500/15 hover:text-amber-500 text-xs font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700/80 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Campaigns</span>
+              </button>
+              <span className="text-neutral-300 dark:text-neutral-700">/</span>
+              <span className="text-neutral-500 dark:text-neutral-400">Email Marketing</span>
+              <span className="text-neutral-300 dark:text-neutral-700">/</span>
+              <span className="text-amber-500 font-bold truncate max-w-[200px] sm:max-w-xs">
+                {editorCampaign.title || "Untitled Campaign"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
+                Audience: <strong className="text-neutral-800 dark:text-neutral-200">{editorCampaign.target_audience}</strong>
+              </span>
+              {editorCampaign.status && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  {editorCampaign.status}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Full Page Editor Container (Takes Full Desktop Screen & Responsive Mobile Layout) */}
+          <div className="w-full min-h-[calc(100vh-140px)] lg:h-[calc(100vh-140px)] bg-white dark:bg-[#0c0e14] border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-xl flex flex-col overflow-hidden">
+            {/* 1. Desktop Editor Header (hidden on mobile, visible lg+) */}
+            <div className="hidden lg:flex px-6 py-3.5 border-b border-neutral-200 dark:border-neutral-800 items-center justify-between gap-4 bg-neutral-50 dark:bg-[#10131a] shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setIsEditorOpen(false)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-200/80 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-xs font-bold text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer shrink-0"
+                  title="Close and return to Campaigns list"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back</span>
+                </button>
+
+                <div className="h-5 w-px bg-neutral-300 dark:bg-neutral-700 shrink-0" />
+
+                <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0">
                   <Layout className="w-4 h-4" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <input
                     type="text"
                     value={editorCampaign.title}
                     onChange={(e) => setEditorCampaign({ ...editorCampaign, title: e.target.value })}
-                    className="font-bold text-sm text-neutral-900 dark:text-white bg-transparent border-b border-transparent hover:border-neutral-600 focus:border-amber-500 focus:outline-none transition-colors"
+                    className="font-extrabold text-base text-neutral-900 dark:text-white bg-transparent border-b border-transparent hover:border-neutral-400 dark:hover:border-neutral-600 focus:border-amber-500 focus:outline-none transition-colors truncate w-64 xl:w-96"
                     placeholder="Campaign Title..."
                   />
                   <div className="text-[10px] text-neutral-400 font-mono">
@@ -1705,60 +1759,69 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
               </div>
 
               {/* Center: Device Preview Switcher */}
-              <div className="flex items-center bg-neutral-200 dark:bg-neutral-800 p-0.5 rounded-xl border border-neutral-300 dark:border-neutral-700">
+              <div className="flex items-center bg-neutral-200/80 dark:bg-neutral-800 p-0.5 rounded-xl border border-neutral-300 dark:border-neutral-700 shadow-xs">
                 <button
+                  type="button"
                   onClick={() => setPreviewDevice("desktop")}
-                  className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                     previewDevice === "desktop"
-                      ? "bg-amber-500 text-neutral-950 font-bold"
-                      : "text-neutral-400 hover:text-white"
+                      ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
+                      : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
                   }`}
                   title="Desktop Preview (600px)"
                 >
                   <Monitor className="w-3.5 h-3.5" />
+                  <span>Desktop</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setPreviewDevice("tablet")}
-                  className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                     previewDevice === "tablet"
-                      ? "bg-amber-500 text-neutral-950 font-bold"
-                      : "text-neutral-400 hover:text-white"
+                      ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
+                      : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
                   }`}
-                  title="Tablet Preview (768px)"
+                  title="Tablet Preview (520px)"
                 >
                   <Tablet className="w-3.5 h-3.5" />
+                  <span>Tablet</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setPreviewDevice("mobile")}
-                  className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                     previewDevice === "mobile"
-                      ? "bg-amber-500 text-neutral-950 font-bold"
-                      : "text-neutral-400 hover:text-white"
+                      ? "bg-amber-500 text-neutral-950 font-bold shadow-xs"
+                      : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
                   }`}
                   title="Mobile Preview (375px)"
                 >
                   <Smartphone className="w-3.5 h-3.5" />
+                  <span>Mobile</span>
                 </button>
               </div>
 
-              {/* Right: Quick Actions (AI Assistant, Test Send, Save Draft, Schedule / Send) */}
+              {/* Right: Quick Actions */}
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => setIsAiModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl bg-purple-600/15 hover:bg-purple-600/25 text-purple-600 dark:text-purple-400 border border-purple-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>AI Assistant</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => handleSaveCampaign("DRAFT")}
-                  className="px-3 py-1.5 rounded-xl bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-bold cursor-pointer transition-colors"
                 >
                   Save Draft
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     const when = prompt("Enter scheduled date/time (e.g., 2026-11-20 09:00):", new Date(Date.now() + 86400000).toISOString().slice(0, 16).replace("T", " "));
                     if (when) {
@@ -1766,12 +1829,13 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                       handleSaveCampaign("SCHEDULED");
                     }
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer transition-colors shadow-xs"
                 >
                   Schedule Later
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     if (editorCampaign.campaign_id) {
                       handleSendNow(editorCampaign.campaign_id);
@@ -1781,15 +1845,16 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                       });
                     }
                   }}
-                  className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+                  className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Send Campaign Now</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setIsEditorOpen(false)}
-                  className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 cursor-pointer"
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-800 dark:hover:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800 cursor-pointer ml-1"
                   title="Close Editor"
                 >
                   <X className="w-5 h-5" />
@@ -1797,10 +1862,131 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
               </div>
             </div>
 
-            {/* 2. Editor Workspace (2-Column: Left Controls & Blocks, Right Real-time Preview) */}
-            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+            {/* 1b. Mobile-First Editor Header (visible < lg, hidden on desktop) */}
+            <div className="flex lg:hidden flex-col gap-2 p-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#10131a] shrink-0">
+              {/* Row 1: Back, Title, Send */}
+              <div className="flex items-center gap-2 justify-between">
+                <button
+                  type="button"
+                  onClick={() => setIsEditorOpen(false)}
+                  className="p-1.5 rounded-xl bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 shrink-0"
+                  title="Back to Campaigns"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+
+                <input
+                  type="text"
+                  value={editorCampaign.title}
+                  onChange={(e) => setEditorCampaign({ ...editorCampaign, title: e.target.value })}
+                  className="font-bold text-sm text-neutral-900 dark:text-white bg-transparent border-b border-neutral-300 dark:border-neutral-700 focus:border-amber-500 focus:outline-none flex-1 truncate mx-1"
+                  placeholder="Campaign Title..."
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editorCampaign.campaign_id) {
+                      handleSendNow(editorCampaign.campaign_id);
+                    } else {
+                      handleSaveCampaign("DRAFT").then(() => {
+                        showToast("Campaign draft saved! You can now click Send Now.", "success");
+                      });
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-extrabold text-xs flex items-center gap-1 shrink-0 shadow-xs"
+                >
+                  <Send className="w-3 h-3" />
+                  <span>Send</span>
+                </button>
+              </div>
+
+              {/* Row 2: Secondary action bar & preview device pills */}
+              <div className="flex items-center justify-between gap-1.5 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveCampaign("DRAFT")}
+                    className="px-2.5 py-1 rounded-lg bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-[11px] font-semibold"
+                  >
+                    Save Draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAiModalOpen(true)}
+                    className="px-2.5 py-1 rounded-lg bg-purple-600/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 text-[11px] font-semibold flex items-center gap-1"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>AI</span>
+                  </button>
+                </div>
+
+                {/* Mobile device preview switcher */}
+                <div className="flex items-center bg-neutral-200 dark:bg-neutral-800 p-0.5 rounded-lg border border-neutral-300 dark:border-neutral-700">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("desktop")}
+                    className={`p-1 rounded text-[10px] ${previewDevice === "desktop" ? "bg-amber-500 text-neutral-950 font-bold" : "text-neutral-400"}`}
+                    title="Desktop View"
+                  >
+                    <Monitor className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("tablet")}
+                    className={`p-1 rounded text-[10px] ${previewDevice === "tablet" ? "bg-amber-500 text-neutral-950 font-bold" : "text-neutral-400"}`}
+                    title="Tablet View"
+                  >
+                    <Tablet className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("mobile")}
+                    className={`p-1 rounded text-[10px] ${previewDevice === "mobile" ? "bg-amber-500 text-neutral-950 font-bold" : "text-neutral-400"}`}
+                    title="Mobile View"
+                  >
+                    <Smartphone className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 3: Mobile View Toggle (Segmented Pill: Compose vs Live Preview) */}
+              <div className="grid grid-cols-2 p-1 rounded-xl bg-neutral-200/80 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 text-xs font-bold mt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setMobileEditorTab("editor")}
+                  className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                    mobileEditorTab === "editor"
+                      ? "bg-amber-500 text-neutral-950 shadow-xs"
+                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Layout className="w-3.5 h-3.5" />
+                  <span>Editor &amp; Blocks ({editorCampaign.blocks?.length || 0})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileEditorTab("preview")}
+                  className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                    mobileEditorTab === "preview"
+                      ? "bg-amber-500 text-neutral-950 shadow-xs"
+                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Live Preview</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Editor Workspace (2-Column on Desktop: Left Controls & Blocks, Right Real-time Preview; Tabbed on Mobile) */}
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
               {/* Left Column: Subject, Logo Setup, Block Palette & Block Inspector */}
-              <div className="w-full lg:w-1/2 border-r border-neutral-200 dark:border-neutral-800 flex flex-col h-full overflow-hidden bg-white dark:bg-[#0c0e14]">
+              <div
+                className={`${
+                  mobileEditorTab === "editor" ? "flex" : "hidden"
+                } lg:flex w-full lg:w-1/2 border-r border-neutral-200 dark:border-neutral-800 flex-col h-full overflow-hidden bg-white dark:bg-[#0c0e14]`}
+              >
                 {/* Campaign Metadata Fields */}
                 <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 space-y-3 shrink-0 bg-neutral-50/50 dark:bg-neutral-900/30">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2315,9 +2501,13 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
               </div>
 
               {/* Right Column: Live Responsive Email Preview */}
-              <div className="w-full lg:w-1/2 flex flex-col h-full bg-neutral-100 dark:bg-[#07090d] overflow-hidden">
+              <div
+                className={`${
+                  mobileEditorTab === "preview" ? "flex" : "hidden"
+                } lg:flex w-full lg:w-1/2 flex-col h-full bg-neutral-100 dark:bg-[#07090d] overflow-hidden`}
+              >
                 {/* Preview Toolbar */}
-                <div className="px-4 py-2 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs bg-white dark:bg-[#0e1118]">
+                <div className="px-4 py-2 border-b border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-2 text-xs bg-white dark:bg-[#0e1118] shrink-0">
                   <span className="font-mono text-neutral-400">
                     Live Rendering ({previewDevice})
                   </span>
@@ -2332,7 +2522,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleSendTestEmail();
                       }}
-                      className="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 w-48 sm:w-56 focus:outline-none focus:border-amber-500 font-mono"
+                      className="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 w-36 sm:w-56 focus:outline-none focus:border-amber-500 font-mono"
                     />
                     <button
                       onClick={handleSendTestEmail}
@@ -2355,7 +2545,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                 </div>
 
                 {/* Email Canvas Preview Container */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-6 flex justify-center items-start">
                   <div
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -2367,7 +2557,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                         handleUploadMediaFiles({ target: { files } });
                       }
                     }}
-                    className="bg-white text-neutral-900 rounded-xl shadow-xl transition-all duration-300 overflow-hidden"
+                    className="bg-white text-neutral-900 rounded-xl shadow-xl transition-all duration-300 overflow-hidden max-w-full"
                     style={{
                       width: previewDevice === "mobile" ? "375px" : previewDevice === "tablet" ? "520px" : "600px",
                       padding: "28px 24px",

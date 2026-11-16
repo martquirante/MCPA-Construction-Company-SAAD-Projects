@@ -18,6 +18,9 @@ const {
   getAdminInviteLinkTemplate,
 } = require("../templates/emails");
 
+// Official company email for administrative notices & business correspondence
+const OFFICIAL_COMPANY_EMAIL = "contact@mcpaconstruction.com";
+
 // Official business emails that must NOT receive automated system notifications in dev/staging.
 const PROTECTED_OFFICIAL_EMAILS = [
   "mcpa.construction@gmail.com",
@@ -84,8 +87,7 @@ class EmailService {
 
   /**
    * Resolves a safe recipient address.
-   * If an automated notification targets the official company email and ALLOW_OFFICIAL_EMAIL_DISPATCH
-   * is not explicitly enabled, reroutes to ADMIN_ALERT_EMAIL or dev SMTP_EMAIL, or returns null.
+   * Directs all official notifications to the company's verified email (contact@mcpaconstruction.com).
    * @param {string} toEmail
    * @param {string} context
    * @returns {string|null}
@@ -94,26 +96,19 @@ class EmailService {
     if (!toEmail) return null;
     const clean = String(toEmail).trim().toLowerCase();
 
-    // Allow dispatch only if explicitly enabled (e.g. in real production deployment with client consent)
+    // The official company domain email is always authorized for production & official notifications
+    if (clean === OFFICIAL_COMPANY_EMAIL.toLowerCase()) {
+      return toEmail;
+    }
+
+    // Allow dispatch to all emails if explicitly enabled
     if (process.env.ALLOW_OFFICIAL_EMAIL_DISPATCH === "true") {
       return toEmail;
     }
 
     if (this.isProtectedOfficialEmail(clean)) {
-      const devAlertEmail = (process.env.ADMIN_ALERT_EMAIL || this.smtpEmail || "").trim();
-      const safeDevTarget = devAlertEmail && !this.isProtectedOfficialEmail(devAlertEmail) ? devAlertEmail : null;
-
-      if (safeDevTarget) {
-        console.warn(
-          `\x1b[33m[EmailService] 🛑 SAFEGUARD: Intercepted automated email intended for official company address (${toEmail}). Rerouted to developer test mailbox: ${safeDevTarget} (Context: ${context})\x1b[0m`
-        );
-        return safeDevTarget;
-      }
-
-      console.warn(
-        `\x1b[33m[EmailService] 🛑 SAFEGUARD: Suppressed automated email to official company address (${toEmail}). No safe dev alert mailbox configured. (Context: ${context})\x1b[0m`
-      );
-      return null;
+      const targetAdmin = (process.env.ADMIN_ALERT_EMAIL || OFFICIAL_COMPANY_EMAIL).trim();
+      return targetAdmin;
     }
 
     return toEmail;
@@ -476,13 +471,10 @@ Building Better Tomorrows • © ${new Date().getFullYear()} MCPA Construction a
   }
 
   /**
-   * Sends real-time alert to MCPA Admin team
+   * Sends real-time alert to MCPA Admin team at the official company mailbox
    */
   async sendInquiryAdminAlert(brief) {
-    let adminEmail = (process.env.ADMIN_ALERT_EMAIL || this.smtpEmail || "admin@mcpa.com").trim();
-    if (this.isProtectedOfficialEmail(adminEmail)) {
-      adminEmail = (this.smtpEmail && !this.isProtectedOfficialEmail(this.smtpEmail)) ? this.smtpEmail : "admin@mcpa.com";
-    }
+    const adminEmail = (process.env.ADMIN_ALERT_EMAIL || OFFICIAL_COMPANY_EMAIL).trim();
     const subId = brief.submission_id || brief.submissionId || "MCPA-CPB";
     const clientName = brief.client_name || brief.clientName || "Client";
     const projectType = brief.project_type || brief.projectType || "Design & Build";
@@ -506,13 +498,10 @@ Target Start: ${brief.target_date || "Flexible"}`;
 
   /**
    * Sends real-time notification to MCPA Admin team when a client updates their consultation schedule preferences.
-   * Centralized here to guarantee safety and prevent accidental dispatches to the official company email.
+   * Dispatches directly to official company admin mailbox (contact@mcpaconstruction.com).
    */
   async sendInquiryClientScheduleAdjustmentAlert(brief, adjustmentData = {}) {
-    let adminEmail = (process.env.ADMIN_ALERT_EMAIL || this.smtpEmail || "admin@mcpa.com").trim();
-    if (this.isProtectedOfficialEmail(adminEmail)) {
-      adminEmail = (this.smtpEmail && !this.isProtectedOfficialEmail(this.smtpEmail)) ? this.smtpEmail : "admin@mcpa.com";
-    }
+    const adminEmail = (process.env.ADMIN_ALERT_EMAIL || OFFICIAL_COMPANY_EMAIL).trim();
 
     const subId = brief.submission_id || brief.submissionId || "CPB";
     const clientName = brief.client_name || brief.clientName || "Client";

@@ -754,7 +754,8 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
     if (!editorRef.current) return;
     editorRef.current.focus();
     document.execCommand(cmd, false, value);
-    setPostForm((prev) => ({ ...prev, content: editorRef.current.innerHTML }));
+    const html = editorRef.current.innerHTML || "";
+    setPostForm((prev) => ({ ...prev, content: html }));
   };
 
   const handleUploadFilesToPost = async (fileList, attachToComposer = true) => {
@@ -1370,9 +1371,10 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
                         ref={editorRef}
                         contentEditable
                         suppressContentEditableWarning
-                        onInput={(e) =>
-                          setPostForm((prev) => ({ ...prev, content: e.currentTarget.innerHTML }))
-                        }
+                        onInput={(e) => {
+                          const html = e.currentTarget?.innerHTML ?? editorRef.current?.innerHTML ?? "";
+                          setPostForm((prev) => ({ ...prev, content: html }));
+                        }}
                         className="min-h-[160px] max-h-[340px] overflow-y-auto p-4 text-sm text-neutral-900 dark:text-neutral-100 outline-none prose prose-sm dark:prose-invert max-w-none"
                       />
                     </div>
