@@ -92,7 +92,12 @@ class CmsController {
       const conditions = [];
       const params = [];
 
-      const isAdminView = includeAll === "true" && req.user && ["admin", "super_admin", "content_manager", "editor"].includes((req.user.role || "").toLowerCase());
+      const isAdminView =
+        includeAll === "true" &&
+        req.user &&
+        ["admin", "super_admin", "content_manager", "editor", "architect", "engineer"].includes(
+          (req.user.role || "").toLowerCase()
+        );
 
       if (!isAdminView) {
         conditions.push(`p.status = 'published'`);
@@ -312,7 +317,15 @@ class CmsController {
         media = [],
         hashtags = [],
       } = req.body;
-      const effectiveCaption = caption !== undefined ? caption : caption_html;
+      const rawContentText = content ? String(content).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "";
+      const effectiveCaption =
+        caption !== undefined && caption !== null && String(caption).trim() !== ""
+          ? String(caption).trim()
+          : caption_html
+          ? String(caption_html).trim()
+          : rawContentText
+          ? rawContentText.substring(0, 300)
+          : (title ? String(title).trim() : "");
 
       const rawMeta = typeof metadata === "string" ? JSON.parse(metadata || "{}") : (metadata || {});
       const resolvedSocial = Array.isArray(social_links)
@@ -320,10 +333,10 @@ class CmsController {
         : (Array.isArray(rawMeta.social_links) ? rawMeta.social_links : (Array.isArray(rawMeta.cross_posts) ? rawMeta.cross_posts : []));
       const finalMetadata = { ...rawMeta, social_links: resolvedSocial };
 
-      if (!effectiveCaption && !title && (!media || media.length === 0)) {
+      if (!effectiveCaption && !title && (!media || media.length === 0) && !rawContentText) {
         return res.status(400).json({
           success: false,
-          message: "Please provide a post caption, title, or attach media.",
+          message: "Please provide a post caption, title, content body, or attach media.",
         });
       }
 
@@ -344,6 +357,8 @@ class CmsController {
       const resolvedAuthorName = author_name || req.user?.fullName || req.user?.name || req.user?.email || "MCPA Directorate";
       const resolvedAuthorRole = author_role || "Administrator";
       const publishedAt = status === "published" ? new Date().toISOString() : null;
+      const safeCategoryId = category_id && !isNaN(parseInt(category_id, 10)) ? parseInt(category_id, 10) : null;
+      const safeScheduledFor = scheduled_for && String(scheduled_for).trim() ? scheduled_for : null;
 
       const insertRes = await db.query(
         `INSERT INTO blog_posts (
@@ -358,18 +373,18 @@ class CmsController {
         [
           title || null,
           finalSlug,
-          effectiveCaption || title || "",
+          effectiveCaption || title || "MCPA Project Update",
           content || effectiveCaption || "",
           post_type,
           req.user?.userId || req.user?.id || null,
           resolvedAuthorName,
           resolvedAuthorRole,
           author_avatar || null,
-          category_id ? parseInt(category_id, 10) : null,
+          safeCategoryId,
           resolvedFeatured,
           status,
           publishedAt,
-          scheduled_for || null,
+          safeScheduledFor,
           layout_preference,
           link_preview ? JSON.stringify(link_preview) : null,
           JSON.stringify(finalMetadata),
@@ -387,6 +402,7 @@ class CmsController {
           const itemUrl = item?.url || item?.file_url;
           if (!item || !itemUrl) continue;
           const mType = item.media_type || (/\.(mp4|webm|mov)$/i.test(itemUrl) ? "video" : "image");
+          const safeFileSize = item.file_size && !isNaN(parseInt(item.file_size, 10)) ? parseInt(item.file_size, 10) : 0;
           const mRes = await db.query(
             `INSERT INTO blog_post_media (post_id, media_type, url, thumbnail_url, caption, alt_text, aspect_ratio, display_order, file_size)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -400,7 +416,7 @@ class CmsController {
               item.alt_text || title || "MCPA Construction Media",
               item.aspect_ratio || "16/9",
               i + 1,
-              item.file_size || null,
+              safeFileSize,
             ]
           );
           savedMedia.push(mRes.rows[0]);
@@ -416,7 +432,7 @@ class CmsController {
               itemUrl,
               item.thumbnail_url || null,
               mType === "video" ? "video/mp4" : "image/jpeg",
-              item.file_size || 0,
+              safeFileSize,
               req.user?.userId || req.user?.id || null,
             ]
           ).catch(() => {});
@@ -537,6 +553,19 @@ class CmsController {
           ? firstUpdateImg.url || firstUpdateImg.file_url || existing.featured_image
           : existing.featured_image;
 
+      const safeCategoryId =
+        category_id !== undefined
+          ? category_id && !isNaN(parseInt(category_id, 10))
+            ? parseInt(category_id, 10)
+            : null
+          : existing.category_id;
+      const safeScheduledFor =
+        scheduled_for !== undefined
+          ? scheduled_for && String(scheduled_for).trim()
+            ? scheduled_for
+            : null
+          : existing.scheduled_for;
+
       const updateRes = await db.query(
         `UPDATE blog_posts
          SET
@@ -564,11 +593,11 @@ class CmsController {
           post_type !== undefined ? post_type : existing.post_type,
           author_name !== undefined ? author_name : existing.author_name,
           author_role !== undefined ? author_role : existing.author_role,
-          category_id !== undefined ? (category_id ? parseInt(category_id, 10) : null) : existing.category_id,
+          safeCategoryId,
           resolvedFeatured,
           updatedStatus,
           publishedAt,
-          scheduled_for !== undefined ? scheduled_for : existing.scheduled_for,
+          safeScheduledFor,
           layout_preference !== undefined ? layout_preference : existing.layout_preference,
           link_preview !== undefined ? (link_preview ? JSON.stringify(link_preview) : null) : existing.link_preview,
           JSON.stringify(finalMetadata),
@@ -588,6 +617,7 @@ class CmsController {
           const itemUrl = item?.url || item?.file_url;
           if (!item || !itemUrl) continue;
           const mType = item.media_type || (/\.(mp4|webm|mov)$/i.test(itemUrl) ? "video" : "image");
+          const safeItemFileSize = item.file_size && !isNaN(parseInt(item.file_size, 10)) ? parseInt(item.file_size, 10) : 0;
           const mRes = await db.query(
             `INSERT INTO blog_post_media (post_id, media_type, url, thumbnail_url, caption, alt_text, aspect_ratio, display_order, file_size)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -601,7 +631,7 @@ class CmsController {
               item.alt_text || updatedPost.title || "MCPA Construction Media",
               item.aspect_ratio || "16/9",
               i + 1,
-              item.file_size || null,
+              safeItemFileSize,
             ]
           );
           savedMedia.push(mRes.rows[0]);
@@ -681,6 +711,9 @@ class CmsController {
     try {
       const { id } = req.params;
       const postId = parseInt(id, 10);
+      if (!postId || isNaN(postId)) {
+        return res.status(400).json({ success: false, message: "Valid numeric post ID is required." });
+      }
 
       const delRes = await db.query(
         `DELETE FROM blog_posts WHERE post_id = $1 RETURNING post_id, title, slug`,
@@ -1018,7 +1051,7 @@ class CmsController {
             file.mimetype || "image/jpeg",
             category,
             file.size || 0,
-            req.user?.userId || null,
+            req.user?.userId || req.user?.id || null,
           ]
         );
         uploadedItems.push(insRes.rows[0]);

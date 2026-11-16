@@ -12,6 +12,7 @@ import {
   LinkPreviewCard,
 } from "./PublicBlogExperience";
 import { SocialCrossPostBadges } from "./SocialCrossPostBadges";
+import SharePostModal from "./SharePostModal";
 import {
   ChevronRight,
   ArrowLeft,
@@ -34,6 +35,7 @@ export default function PublicPostDetail({ slug }) {
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [lightboxState, setLightboxState] = useState({ open: false, media: [], initialIndex: 0 });
 
   useEffect(() => {
@@ -135,8 +137,16 @@ export default function PublicPostDetail({ slug }) {
               {/* Author & Meta Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-200/80 dark:border-white/10">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-full bg-neutral-950 dark:bg-amber-500 text-amber-400 dark:text-neutral-950 font-extrabold text-sm flex items-center justify-center border-2 border-amber-500/40">
-                    MCPA
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-white dark:bg-neutral-900 border-2 border-amber-500/60 p-1 flex items-center justify-center shrink-0 shadow-sm">
+                    <img
+                      src="/icon.png"
+                      alt="MCPA Construction and Supply"
+                      className="w-full h-full object-contain rounded-full"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = "/assets/mcpa-logo.svg";
+                      }}
+                    />
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
@@ -255,20 +265,11 @@ export default function PublicPostDetail({ slug }) {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleCopyShare}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors cursor-pointer"
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors cursor-pointer shadow-sm shadow-amber-500/20"
                   >
-                    {copied ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>Copied Permalink!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Share2 className="w-4 h-4" />
-                        <span>Share Post</span>
-                      </>
-                    )}
+                    <Share2 className="w-4 h-4" />
+                    <span>Share Post</span>
                   </button>
                 </div>
               </div>
@@ -314,6 +315,12 @@ export default function PublicPostDetail({ slug }) {
       <MediaLightboxModal
         lightboxState={lightboxState}
         onClose={() => setLightboxState({ open: false, media: [], initialIndex: 0 })}
+      />
+
+      <SharePostModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        post={post}
       />
 
       <Footer />

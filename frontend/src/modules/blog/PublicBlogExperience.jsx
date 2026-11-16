@@ -7,6 +7,7 @@ import ClientNavbar from "@/modules/shared/ClientNavbar";
 import Footer from "@/modules/shared/Footer";
 import { useCms } from "@/modules/cms/CmsContext";
 import { SocialCrossPostBadges } from "./SocialCrossPostBadges";
+import SharePostModal from "./SharePostModal";
 import {
   Search,
   LayoutGrid,
@@ -54,6 +55,29 @@ function formatPublishDate(dateStr) {
 }
 
 /**
+ * Automatically recognizes and converts plain-text URLs in HTML strings into secure, clickable <a> anchors
+ * without affecting existing HTML tags, attributes, or anchors.
+ */
+export function autolinkHtml(html) {
+  if (!html || typeof html !== "string") return "";
+  return html.replace(
+    /(<a\b[^>]*>[\s\S]*?<\/a>|<[^>]+>)|((?:https?:\/\/|www\.)[^\s<"']+)/gi,
+    (match, tag, url) => {
+      if (tag) return tag;
+      if (!url) return match;
+      let cleanUrl = url;
+      let trailing = "";
+      while (/[.,;:)!]$/.test(cleanUrl)) {
+        trailing = cleanUrl.slice(-1) + trailing;
+        cleanUrl = cleanUrl.slice(0, -1);
+      }
+      const href = cleanUrl.startsWith("http") ? cleanUrl : `https://${cleanUrl}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-amber-600 dark:text-amber-400 font-semibold hover:underline break-all inline-flex items-center gap-0.5 underline underline-offset-2">${cleanUrl}</a>${trailing}`;
+    }
+  );
+}
+
+/**
  * Formats plain caption text to highlight clickable #Hashtags and URLs,
  * or renders rich HTML safely when HTML tags are present.
  */
@@ -64,21 +88,30 @@ export function FormattedPostText({ text, htmlContent, onHashtagClick, expanded 
 
   // Tokenize URLs and #Hashtags in plain text
   const renderInteractiveCaption = (str) => {
-    const parts = str.split(/(https?:\/\/[^\s<]+|#[a-zA-Z0-9_]{2,50})/g);
+    const parts = str.split(/((?:https?:\/\/|www\.)[^\s<]+|#[a-zA-Z0-9_]{2,50})/g);
     return parts.map((part, idx) => {
-      if (/^https?:\/\//i.test(part)) {
+      if (/^(?:https?:\/\/|www\.)/i.test(part)) {
+        let clean = part;
+        let trailing = "";
+        while (/[.,;:)!]$/.test(clean)) {
+          trailing = clean.slice(-1) + trailing;
+          clean = clean.slice(0, -1);
+        }
+        const href = clean.startsWith("http") ? clean : `https://${clean}`;
         return (
-          <a
-            key={idx}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-amber-600 dark:text-amber-400 hover:underline font-medium break-all inline-flex items-center gap-0.5"
-          >
-            {part}
-            <ExternalLink className="w-3 h-3 inline shrink-0" />
-          </a>
+          <span key={idx}>
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-amber-600 dark:text-amber-400 hover:underline font-semibold break-all inline-flex items-center gap-0.5 underline underline-offset-2"
+            >
+              {clean}
+              <ExternalLink className="w-3 h-3 inline shrink-0" />
+            </a>
+            {trailing}
+          </span>
         );
       }
       if (/^#[a-zA-Z0-9_]{2,50}$/.test(part)) {
@@ -122,8 +155,8 @@ export function FormattedPostText({ text, htmlContent, onHashtagClick, expanded 
       )}
       {expanded && htmlContent && htmlContent.trim() && htmlContent !== raw && (
         <div
-          className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-2 border-t border-neutral-200/70 dark:border-white/10 prose-headings:font-bold prose-a:text-amber-500 prose-blockquote:border-amber-500"
-          dangerouslySetInnerHTML={{ __html: htmlContent }}
+          className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-2 border-t border-neutral-200/70 dark:border-white/10 prose-headings:font-bold prose-a:text-amber-600 dark:prose-a:text-amber-400 hover:prose-a:underline prose-blockquote:border-amber-500"
+          dangerouslySetInnerHTML={{ __html: autolinkHtml(htmlContent) }}
         />
       )}
     </div>
@@ -594,6 +627,7 @@ export default function PublicBlogExperience({
   const [expandedPostIds, setExpandedPostIds] = useState({});
   const [likedPostIds, setLikedPostIds] = useState({});
   const [copiedSlug, setCopiedSlug] = useState(null);
+  const [shareModalPost, setShareModalPost] = useState(null);
   const [lightboxState, setLightboxState] = useState({ open: false, media: [], initialIndex: 0 });
 
   useEffect(() => {
@@ -666,26 +700,8 @@ export default function PublicBlogExperience({
     } catch (_) {}
   };
 
-  const handleShare = async (post) => {
-    const shareUrl = `${window.location.origin}/blog/${post.slug}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: post.title || "MCPA Construction Update",
-          text: post.caption?.substring(0, 140),
-          url: shareUrl,
-        });
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        setCopiedSlug(post.slug);
-        setTimeout(() => setCopiedSlug(null), 2500);
-      }
-      await fetch(`${API_BASE}/api/blog/posts/${post.post_id}/react`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "share" }),
-      });
-    } catch (_) {}
+  const handleShare = (post) => {
+    setShareModalPost(post);
   };
 
   const openLightbox = (media, initialIndex = 0) => {
@@ -867,8 +883,16 @@ export default function PublicBlogExperience({
                       {/* Post Author Header */}
                       <div className="p-4 sm:p-5 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-full bg-neutral-950 dark:bg-amber-500 text-amber-400 dark:text-neutral-950 font-extrabold text-sm flex items-center justify-center shrink-0 border-2 border-amber-500/40 shadow-xs">
-                            MCPA
+                          <div className="w-11 h-11 rounded-full overflow-hidden bg-white dark:bg-neutral-900 border-2 border-amber-500/60 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                            <img
+                              src="/icon.png"
+                              alt="MCPA Logo"
+                              className="w-full h-full object-contain rounded-full"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = "/assets/mcpa-logo.svg";
+                              }}
+                            />
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -1301,6 +1325,13 @@ export default function PublicBlogExperience({
       <MediaLightboxModal
         lightboxState={lightboxState}
         onClose={() => setLightboxState({ open: false, media: [], initialIndex: 0 })}
+      />
+
+      {/* COMPREHENSIVE MULTI-CHANNEL SHARE MODAL */}
+      <SharePostModal
+        isOpen={Boolean(shareModalPost)}
+        onClose={() => setShareModalPost(null)}
+        post={shareModalPost}
       />
 
       <Footer />

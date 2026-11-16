@@ -2876,6 +2876,15 @@ export default function AdminPage() {
         {["cms-blog", "cms-content", "cms-media", "cms-appearance"].includes(activeTab) && (
           <AdminCmsTab
             key={activeTab}
+            mode={
+              activeTab === "cms-blog"
+                ? "blog"
+                : activeTab === "cms-content"
+                ? "content"
+                : activeTab === "cms-media"
+                ? "media"
+                : "appearance"
+            }
             initialSection={
               activeTab === "cms-content"
                 ? "website-content"

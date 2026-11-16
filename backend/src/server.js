@@ -783,8 +783,8 @@ app.get("/api/admin/calendar/birthdays", requireAuth, requireRole("admin", "supe
 // -----------------------------------------------------------------------------
 // SOCIAL MEDIA BLOG, DYNAMIC WEBSITE CMS & THEME CUSTOMIZATION ROUTES
 // -----------------------------------------------------------------------------
-const cmsAdminRoles = ["admin", "super_admin", "content_manager", "editor"];
-const cmsPublishRoles = ["admin", "super_admin", "content_manager"];
+const cmsAdminRoles = ["admin", "super_admin", "content_manager", "editor", "architect", "engineer"];
+const cmsPublishRoles = ["admin", "super_admin", "content_manager", "architect", "engineer"];
 
 // Public Blog & Feed Routes
 app.get("/api/blog/posts", optionalAuth, (req, res) => cmsController.getPosts(req, res));
@@ -821,7 +821,7 @@ app.post("/api/admin/cms/media/upload", requireAuth, requireRole(...cmsAdminRole
 app.delete("/api/admin/cms/media/:id", requireAuth, requireRole(...cmsPublishRoles), (req, res) => cmsController.deleteMediaItem(req, res));
 
 // Admin Website-Wide Content Management
-app.put("/api/admin/cms/content", requireAuth, requireRole("admin", "super_admin", "content_manager"), (req, res) => cmsController.updateWebsiteContent(req, res));
+app.put("/api/admin/cms/content", requireAuth, requireRole("admin", "super_admin", "content_manager", "architect", "engineer"), (req, res) => cmsController.updateWebsiteContent(req, res));
 
 // Admin Website Appearance & Theme Customization
 app.put("/api/admin/cms/theme", requireAuth, requireRole("admin", "super_admin"), (req, res) => cmsController.updateThemeSettings(req, res));
