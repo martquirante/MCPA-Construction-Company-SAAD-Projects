@@ -16,7 +16,7 @@ import {
   CheckIcon,
   MessengerIcon,
 } from "../shared/Icons";
-import { Send, AlertCircle, RefreshCw, Video, UserCheck, MessageSquare, CheckCircle } from "lucide-react";
+import { RotateCcw, Send, AlertCircle, RefreshCw, Video, UserCheck, MessageSquare, CheckCircle } from "lucide-react";
 import {
   syncConversationToFirebase,
   saveMessageToFirebase,
@@ -221,87 +221,32 @@ function renderInlineMarkdown(text) {
 }
 
 /**
- * Animated AI Chatbot Mascot Avatar
- * Features:
- * - Pure vector icon (no background box, border, or tile)
- * - Antenna with pulsing amber radar beacon
- * - Expressive blinking cyber eyes
- * - Sleek cyber visor and friendly robot chassis
- * - Subtle floating breathing animation
+ * MART Assistant Avatar with Raymart's profile photo and fallback
  */
-function AnimatedBotAvatar({ className = "" }) {
+function SystemBotAvatar({ className = "" }) {
   return (
     <div
-      className={`relative flex items-center justify-center shrink-0 select-none animate-bot-float ${className}`}
-      title="MCPA Support Bot"
+      className={`relative shrink-0 select-none ${className}`}
+      title="MART"
     >
-      {/* Vector Animated Robot Face - Pure Icon */}
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-6.5 h-6.5 text-amber-500 dark:text-amber-400 drop-shadow-xs"
-      >
-        {/* Antenna Stem */}
-        <path d="M12 2V5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        {/* Antenna Bulb (Pulsing Radar Wave) */}
-        <circle
-          cx="12"
-          cy="2"
-          r="1.6"
-          fill="#F59E0B"
-          className="animate-bot-antenna"
+      <div className="w-6 h-6 rounded-full overflow-hidden ring-1 ring-neutral-300 dark:ring-white/20 bg-neutral-800 flex items-center justify-center shadow-2xs">
+        <img
+          src="https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
+          alt="MART"
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+            if (e.currentTarget.parentElement) {
+              e.currentTarget.parentElement.innerHTML = '<span class="font-bold text-amber-500 font-mono text-[9px]">M</span>';
+            }
+          }}
         />
-
-        {/* Side Ear Nodes / Screws */}
-        <rect x="2" y="10" width="2" height="4" rx="1" fill="#F59E0B" />
-        <rect x="20" y="10" width="2" height="4" rx="1" fill="#F59E0B" />
-
-        {/* Head Chassis */}
-        <rect
-          x="3.5"
-          y="5"
-          width="17"
-          height="14"
-          rx="3.5"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          fill="rgba(245, 158, 11, 0.08)"
-        />
-
-        {/* Inner Visor Display Screen */}
-        <rect
-          x="6"
-          y="7.5"
-          width="12"
-          height="6.5"
-          rx="2"
-          fill="#171717"
-          stroke="rgba(245, 158, 11, 0.35)"
-          strokeWidth="0.8"
-        />
-
-        {/* Animated Blinking Cyber Eyes */}
-        <g className="animate-bot-eye">
-          <ellipse cx="9" cy="10.8" rx="1.3" ry="1.4" fill="#F59E0B" />
-          <ellipse cx="15" cy="10.8" rx="1.3" ry="1.4" fill="#F59E0B" />
-        </g>
-
-        {/* Bot Mouth / Audio Waves */}
-        <path
-          d="M8.5 16H15.5"
-          stroke="#F59E0B"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          className="opacity-90"
-        />
-      </svg>
+      </div>
     </div>
   );
 }
 
-// Alias for backwards compatibility
-const SystemBotAvatar = AnimatedBotAvatar;
+const AnimatedBotAvatar = SystemBotAvatar;
 
 /**
  * Human Admin Avatar with verified photo and fallback initials badge
@@ -1134,27 +1079,13 @@ export default function ChatWidgetPanel({ onClose }) {
   // 10. Start a New Conversation (Step 4A Reset)
   const handleStartNewConversation = () => {
     localStorage.removeItem(STORAGE_KEY);
-    const { clientUser } = getClientAndStage();
-
-    if (clientUser && (clientUser.fullName || clientUser.name)) {
-      setMessages([]);
-      setQuestionInput("");
-      setStatus("BOT_ACTIVE");
-      setAssignedAdmin(null);
-      setIsEmailGateActive(false);
-      handleStartSession(null, {
-        customerName: clientUser.fullName || clientUser.name,
-        customerEmail: clientUser.email,
-      });
-    } else {
-      setSession(null);
-      setMessages([]);
-      setNameInput("");
-      setQuestionInput("");
-      setStatus("BOT_ACTIVE");
-      setAssignedAdmin(null);
-      setIsEmailGateActive(false);
-    }
+    setSession(null);
+    setMessages([]);
+    setNameInput("");
+    setQuestionInput("");
+    setStatus("BOT_ACTIVE");
+    setAssignedAdmin(null);
+    setIsEmailGateActive(false);
   };
 
   const isLiveSupportMode = ["AWAITING_HUMAN", "HUMAN_ASSIGNED", "HUMAN_ACTIVE"].includes(status);
@@ -1164,40 +1095,57 @@ export default function ChatWidgetPanel({ onClose }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="MCPA Construction Customer Support"
-      className="flex flex-col h-full w-full mcpa-dot-grid bg-white dark:bg-[#0c0e12] text-neutral-900 dark:text-neutral-100 select-text overflow-hidden font-sans border-0 shadow-none sm:rounded-[8px]"
+      aria-label="Customer Support with MART"
+      className="relative flex flex-col h-full w-full bg-white dark:bg-[#0c0e12] text-neutral-900 dark:text-neutral-100 select-text overflow-hidden font-sans border-0 shadow-none sm:rounded-[12px]"
     >
+      {/* Top-Right Fading Dot Grid (Dense & Small, fading towards bottom-left) */}
+      <div
+        className="absolute inset-0 pointer-events-none z-0 overflow-hidden hidden dark:block"
+        style={{
+          backgroundImage: "radial-gradient(rgba(255, 255, 255, 0.28) 1.1px, transparent 1.1px)",
+          backgroundSize: "13px 13px",
+          maskImage: "radial-gradient(ellipse 95% 85% at top right, rgba(0,0,0,1) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.12) 65%, transparent 85%)",
+          WebkitMaskImage: "radial-gradient(ellipse 95% 85% at top right, rgba(0,0,0,1) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.12) 65%, transparent 85%)",
+        }}
+      />
+      <div
+        className="absolute inset-0 pointer-events-none z-0 overflow-hidden block dark:hidden"
+        style={{
+          backgroundImage: "radial-gradient(rgba(0, 0, 0, 0.16) 1.1px, transparent 1.1px)",
+          backgroundSize: "13px 13px",
+          maskImage: "radial-gradient(ellipse 95% 85% at top right, rgba(0,0,0,1) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.12) 65%, transparent 85%)",
+          WebkitMaskImage: "radial-gradient(ellipse 95% 85% at top right, rgba(0,0,0,1) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.12) 65%, transparent 85%)",
+        }}
+      />
+
       {/* -------------------------------------------------------------------
-          HEADER BAR: Architectural styling with company emblem & status pill
+          HEADER BAR: Avatar + MART + Raymart's Personal AI Assistant + RotateCcw & Close
       -------------------------------------------------------------------- */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-white/10 bg-neutral-50/80 dark:bg-white/[0.02] shrink-0">
+      <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-white/10 bg-white/80 dark:bg-[#0c0e12]/80 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          {/* Header Icon: Official MCPA Company Logo */}
-          <div className="flex items-center justify-center shrink-0">
-            <Image
-              src="/assets/mcpa-logo.svg"
-              alt="MCPA Logo"
-              width={28}
-              height={18}
-              className="h-5 w-auto object-contain block dark:hidden"
-              priority
-              unoptimized
-            />
-            <Image
-              src="/assets/logo-white.svg"
-              alt="MCPA Logo"
-              width={28}
-              height={18}
-              className="h-5 w-auto object-contain hidden dark:block"
-              priority
-              unoptimized
-            />
+          {/* Header Avatar: Raymart */}
+          <div className="relative shrink-0">
+            <div className="w-8 h-8 rounded-full overflow-hidden ring-1 ring-neutral-300 dark:ring-white/20 bg-neutral-800 flex items-center justify-center shadow-xs">
+              <img
+                src="https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
+                alt="Raymart"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  if (e.currentTarget.parentElement) {
+                    e.currentTarget.parentElement.innerHTML = '<span class="font-bold text-amber-500 font-mono text-[11px]">RQ</span>';
+                  }
+                }}
+              />
+            </div>
+            {/* Small active green online beacon */}
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#0c0e12]" />
           </div>
 
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-xs uppercase tracking-wider truncate text-neutral-900 dark:text-white">
-                {t.headerTitle}
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-xs uppercase tracking-wider truncate text-neutral-900 dark:text-white font-sans">
+                MART
               </span>
               {clientInfo?.isStage2or3 && (
                 <span className="px-1.5 py-0.2 rounded-[3px] bg-amber-500/15 border border-amber-500/30 text-[9px] font-mono font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 shrink-0">
@@ -1206,8 +1154,8 @@ export default function ChatWidgetPanel({ onClose }) {
               )}
             </div>
 
-            {/* Sub-status Indicator */}
-            <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 truncate">
+            {/* Sub-status Indicator: Raymart's Personal AI Assistant */}
+            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate font-normal">
               {isLiveSupportMode
                 ? assignedAdmin
                   ? `${t.statusHumanAssigned} (${assignedAdmin.fullName})`
@@ -1216,13 +1164,13 @@ export default function ChatWidgetPanel({ onClose }) {
                 ? t.statusResolved
                 : clientInfo?.clientUser?.fullName
                 ? `${(t.welcomeBack || "Welcome back, {name}!").replace("{name}", clientInfo.clientUser.fullName.split(" ")[0])}`
-                : t.headerSubtitle}
+                : "Raymart's Personal AI Assistant"}
             </p>
           </div>
         </div>
 
-        {/* Action Controls: Instant Video Call (Stage 2 & 3), Direct Admin Chat (Stage 2 & 3), Minimize & Close */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Action Controls: Instant Video Call (Stage 2 & 3), Direct Admin Chat (Stage 2 & 3), Restart, Close */}
+        <div className="flex items-center gap-1 shrink-0">
           {clientInfo?.isStage2or3 && (
             <>
               {/* Instant Video Call Button (Connected to Instant Meeting) */}
@@ -1255,11 +1203,23 @@ export default function ChatWidgetPanel({ onClose }) {
             </>
           )}
 
+          {/* Reset / Restart Conversation Button */}
+          <button
+            type="button"
+            onClick={handleStartNewConversation}
+            title="Restart conversation"
+            aria-label="Restart conversation"
+            className="p-1.5 rounded-[4px] text-neutral-400 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Close Chat Button */}
           <button
             type="button"
             onClick={onClose}
             aria-label={t.close}
-            className="p-1.5 rounded-[4px] text-neutral-500 hover:text-rose-600 dark:text-neutral-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-[4px] text-neutral-400 hover:text-rose-600 dark:text-neutral-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
           >
             <CloseIcon className="w-4 h-4" />
           </button>
@@ -1270,8 +1230,8 @@ export default function ChatWidgetPanel({ onClose }) {
           CONVERSATION VIEWPORT: Scrollable messages container
       -------------------------------------------------------------------- */}
       <div
-        className={`flex-1 overflow-y-auto overscroll-contain p-4 mcpa-dot-grid bg-[#F8F9FA] dark:bg-[#080a0e] text-xs ${
-          !session ? "flex flex-col justify-center items-center" : "space-y-3.5"
+        className={`relative z-10 flex-1 overflow-y-auto overscroll-contain p-4 text-xs ${
+          !session ? "flex flex-col justify-start" : "space-y-3.5"
         }`}
       >
         {/* Loading Spinner during initial session check */}
@@ -1282,42 +1242,51 @@ export default function ChatWidgetPanel({ onClose }) {
           </div>
         )}
 
-        {/* STEP 1: INITIAL GREETING & NAME COLLECTION GATE (Centered Hero Layout with MCPA Logo) */}
+        {/* STEP 1: INITIAL GREETING & NAME COLLECTION GATE (3 Bot Bubbles + Name Card) */}
         {!isInitializing && !session && (
-          <div className="w-full max-w-sm mx-auto my-auto flex flex-col items-center text-center space-y-4 py-4 animate-fadeIn">
-            {/* Center MCPA company logo */}
-            <div className="relative flex items-center justify-center">
-              <Image
-                src="/assets/mcpa-logo.svg"
-                alt="MCPA Logo"
-                width={150}
-                height={48}
-                className="h-10 w-auto object-contain dark:invert"
-                priority
-              />
+          <div className="w-full flex flex-col space-y-2.5 py-2 animate-fadeIn">
+            {/* Sender identity: MART avatar + label */}
+            <div className="flex items-center gap-1.5 px-0.5 select-none mb-0.5">
+              <div className="w-4 h-4 rounded-full overflow-hidden ring-1 ring-white/15 bg-neutral-800 flex items-center justify-center shrink-0">
+                <img
+                  src="https://lh3.googleusercontent.com/a/ACg8ocJtqo6hgPKFhgTY1VobAyP9OC7g3kTeHOzrS0D18Z4Zi8A8H0Kk=s96-c"
+                  alt="MART"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-semibold">
+                MART
+              </span>
             </div>
 
-            {/* Welcome title */}
-            <div className="space-y-1">
-              <h2 className="text-sm font-bold uppercase tracking-tight text-neutral-900 dark:text-white font-mono">
-                {t.namePromptTitle || "Welcome to MCPA!"}
-              </h2>
-            </div>
-
-            {/* Friendly Greeting Description */}
-            <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed max-w-[310px]">
+            {/* Bubble 1 */}
+            <div className="p-3.5 rounded-2xl rounded-tl-sm bg-white dark:bg-[#151921] border border-neutral-200/80 dark:border-white/5 text-[12.5px] leading-relaxed text-neutral-800 dark:text-neutral-100 shadow-xs max-w-[95%]">
               {language === "fil"
-                ? "Kumusta! Narito kami upang sagutin ang iyong mga katanungan tungkol sa aming mga serbisyo, proyekto, at inquiries sa pagpapatayo."
-                : "Hello! Welcome to MCPA Construction and Supply. I'm here to help answer your questions about our services, projects, and construction inquiries."}
-            </p>
+                ? "Kumusta! 👋 Maligayang pagdating sa digital space ni Raymart."
+                : "Hey there! 👋 Welcome to Raymart's digital space."}
+            </div>
 
-            {/* Name Input Card */}
-            <div className="w-full p-4 rounded-[10px] bg-white dark:bg-[#121620] border border-neutral-200/90 dark:border-white/10 shadow-sm space-y-3 text-left">
-              <p className="text-xs font-mono font-bold text-center text-neutral-800 dark:text-neutral-200 uppercase tracking-wide">
-                {t.namePromptSubtitle || "Before we begin, what should I call you?"}
-              </p>
+            {/* Bubble 2 */}
+            <div className="p-3.5 rounded-2xl rounded-tl-sm bg-white dark:bg-[#151921] border border-neutral-200/80 dark:border-white/5 text-[12.5px] leading-relaxed text-neutral-800 dark:text-neutral-100 shadow-xs max-w-[95%]">
+              {language === "fil"
+                ? "Ako si MART, ang personal AI assistant ni Raymart. Maari kitang tulungan at magbahagi tungkol sa kanyang mga proyekto, kasanayan, karanasan, at interes."
+                : "I'm MART, Raymart's personal AI assistant. I can tell you more about his projects, skills, experiences, and interests."}
+            </div>
 
-              <form onSubmit={handleStartSession} className="space-y-2.5">
+            {/* Bubble 3 */}
+            <div className="p-3.5 rounded-2xl rounded-tl-sm bg-white dark:bg-[#151921] border border-neutral-200/80 dark:border-white/5 text-[12.5px] leading-relaxed text-neutral-800 dark:text-neutral-100 shadow-xs max-w-[95%]">
+              {language === "fil"
+                ? "Bago tayo magsimula, ano ang nais mong itawag ko sa iyo?"
+                : "Before we get started, what would you like me to call you?"}
+            </div>
+
+            {/* Display Name Input Card */}
+            <div className="w-full mt-2 p-3.5 rounded-xl bg-white dark:bg-[#0f131a] border border-neutral-200 dark:border-white/10 shadow-sm space-y-2.5">
+              <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                {t.namePromptSubtitle || "YOUR PREFERRED DISPLAY NAME"}
+              </label>
+
+              <form onSubmit={handleStartSession} className="flex items-center gap-2">
                 <input
                   type="text"
                   maxLength={50}
@@ -1326,26 +1295,26 @@ export default function ChatWidgetPanel({ onClose }) {
                     setNameInput(e.target.value);
                     if (nameError) setNameError("");
                   }}
-                  placeholder={t.namePlaceholder || "Enter your nickname or name..."}
+                  placeholder={t.namePlaceholder || "Enter your name..."}
                   autoFocus
-                  className="w-full px-3.5 py-2 text-xs text-center rounded-[6px] bg-neutral-50 dark:bg-black/30 border border-neutral-300 dark:border-white/15 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all text-neutral-900 dark:text-white placeholder:text-neutral-400"
+                  className="flex-1 px-3.5 py-2 text-xs rounded-lg bg-neutral-50 dark:bg-black/60 border border-neutral-300 dark:border-neutral-700/80 focus:border-amber-500 dark:focus:border-neutral-400 focus:outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 transition-colors font-sans"
                 />
-
-                {nameError && (
-                  <p className="text-[11px] text-rose-600 dark:text-rose-400 font-mono text-center flex items-center justify-center gap-1">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    <span>{nameError}</span>
-                  </p>
-                )}
 
                 <button
                   type="submit"
                   disabled={isSending || !nameInput.trim()}
-                  className="w-full py-2.5 px-3 rounded-[6px] bg-amber-500 hover:bg-amber-400 active:bg-amber-600 active:scale-[0.99] text-neutral-950 font-bold text-xs uppercase tracking-wider font-mono transition-all disabled:opacity-50 cursor-pointer shadow-[0_2px_10px_rgba(245,158,11,0.25)] flex items-center justify-center gap-1.5"
+                  className="px-4 py-2 rounded-lg bg-neutral-900 dark:bg-[#f4efe6] hover:bg-neutral-800 dark:hover:bg-white active:scale-95 text-white dark:text-neutral-950 font-bold text-xs uppercase tracking-wide transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0 shadow-xs flex items-center justify-center gap-1.5"
                 >
-                  <span>{isSending ? "Connecting..." : t.continue}</span>
+                  <span>{isSending ? "..." : t.continue}</span>
                 </button>
               </form>
+
+              {nameError && (
+                <p className="text-[11px] text-rose-600 dark:text-rose-400 font-mono flex items-center gap-1 pt-0.5">
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  <span>{nameError}</span>
+                </p>
+              )}
             </div>
           </div>
         )}

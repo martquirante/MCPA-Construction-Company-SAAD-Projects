@@ -111,8 +111,8 @@ export default function ChatWidgetRoot() {
         <div
           className={`fixed z-[70] transition-all duration-300 ease-out 
             inset-x-0 bottom-0 h-[100dvh] sm:inset-auto sm:bottom-5 sm:right-5 sm:w-[400px] sm:h-[620px] sm:max-h-[calc(100vh-2rem)]
-            sm:rounded-[8px] sm:border sm:border-neutral-200 sm:dark:border-white/10
-            sm:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] mcpa-dot-grid bg-white dark:bg-[#0c0e12] overflow-hidden`}
+            sm:rounded-[12px] sm:border sm:border-neutral-200/90 sm:dark:border-white/10
+            sm:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] bg-white dark:bg-[#0c0e12] overflow-hidden`}
         >
           <ChatWidgetPanel
             onClose={() => setIsOpen(false)}
