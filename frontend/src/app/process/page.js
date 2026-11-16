@@ -146,8 +146,8 @@ export default function ProcessPage() {
     },
     {
       icon: <HardHatIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.75} />,
-      title: "Licensed On-Site Supervision",
-      desc: "Every major construction stage is supervised in person by licensed Civil Engineers and Master Builders.",
+      title: getContent("process", "pillars", "pillar4_title", "Licensed On-Site Supervision"),
+      desc: getContent("process", "pillars", "pillar4_desc", "Every major construction stage is supervised in person by licensed Civil Engineers and Master Builders."),
     },
   ];
 
@@ -230,94 +230,6 @@ export default function ProcessPage() {
                       </div>
                     )}
 
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="text-4xl sm:text-5xl font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
-                        {stg.step}
-                      </span>
-                      <span className="px-2.5 py-1 rounded-[4px] bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/[0.08] text-neutral-700 dark:text-neutral-300 text-[10px] font-mono font-bold uppercase tracking-[0.12em]">
-                        {stg.badge}
-                      </span>
-                    </div>
-
-                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-950 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors duration-150">
-                      {stg.title}
-                    </h2>
-
-                    <p className="text-xs font-mono font-medium text-amber-700 dark:text-amber-400/90 uppercase tracking-wider mt-2 mb-4">
-                      {stg.subtitle}
-                    </p>
-
-                    <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal">
-                      {stg.desc}
-                    </p>
-                  </div>
-
-                  {/* Stage Highlights Badge — Architectural specification block */}
-                  <div className="mt-6 p-3.5 rounded-[4px] border-l-2 border-l-amber-500 border-y border-r border-neutral-200 dark:border-white/[0.08] bg-neutral-50 dark:bg-white/[0.02] font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
-                    <span className="text-amber-700 dark:text-amber-400 font-bold block mb-1 uppercase tracking-wider text-[10px]">
-                      Stage Telemetry Highlights
-                    </span>
-                    {stg.telemetry}
-                  </div>
-                </div>
-
-                {/* Checklist & Deliverables Col */}
-                <div className="lg:col-span-8 bg-neutral-50/70 dark:bg-white/[0.02] rounded-[6px] p-6 sm:p-8 border border-neutral-200 dark:border-white/[0.08] flex flex-col justify-between h-full">
-                  <div>
-                    <h3 className="text-xs font-mono font-bold uppercase tracking-[0.14em] text-neutral-900 dark:text-white mb-4 select-none">
-                      Step Verification Schedule
-                    </h3>
-
-                    {/* Unified Architectural Schedule Container */}
-                    <div className="rounded-[4px] border border-neutral-200 dark:border-white/[0.08] bg-white dark:bg-[#0c0e14] overflow-hidden">
-                      <div className="grid grid-cols-1 sm:grid-cols-2">
-                        {stg.checklist.map((item, i) => (
-                          <div
-                            key={i}
-                            className={`flex items-start gap-2.5 p-3 border-b border-neutral-150 dark:border-white/[0.05] ${
-                              i % 2 === 0 ? "sm:border-r border-neutral-150 dark:border-white/[0.05]" : ""
-                            } ${i >= stg.checklist.length - 2 ? "sm:border-b-0" : ""} hover:bg-neutral-50/70 dark:hover:bg-white/[0.02] transition-colors`}
-                          >
-                            <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5 shrink-0 select-none">
-                              {String(i + 1).padStart(2, "0")}
-                            </span>
-                            <span className="text-xs text-neutral-700 dark:text-neutral-300 leading-snug">
-                              {item}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                    <div>
-                      <span className="text-neutral-400 dark:text-neutral-500 block text-[10px] font-mono uppercase tracking-wider">
-                        Stage Output Handover:
-                      </span>
-                      <span className="font-semibold text-neutral-900 dark:text-white text-xs sm:text-sm">
-                        {stg.output}
-                      </span>
-                    </div>
-
-                    <Link
-                      href="/book"
-                      className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors shrink-0"
-                    >
-                      <span>Inquire About This Step</span>
-                      <ArrowRightIcon className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-            >
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* Stage Indicator Col */}
-                <div className="lg:col-span-4 flex flex-col justify-between">
-                  <div>
                     <div className="flex items-center gap-3 mb-4">
                       <span className="text-4xl sm:text-5xl font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
                         {stg.step}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -23,6 +23,23 @@ import { getThemePreference, setThemePreference } from "./SystemThemeSync";
 import { useLanguage } from "./LanguageContext";
 import { setReturnToCompletedHome } from "@/modules/home/homeState";
 
+function subscribeToNetwork(callback) {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+  };
+}
+
+function getNetworkSnapshot() {
+  return typeof navigator !== "undefined" ? navigator.onLine : true;
+}
+
+function getServerNetworkSnapshot() {
+  return true;
+}
+
 export default function ClientNavbar({ isCompleted = false, minimal = false } = {}) {
   const pathname = usePathname();
   const isMinimal = minimal || pathname === "/book";
@@ -33,9 +50,12 @@ export default function ClientNavbar({ isCompleted = false, minimal = false } = 
   const [announcementState, setAnnouncementState] = useState({ route: pathname, dismissed: false });
   const announcementDismissed = announcementState.route === pathname && announcementState.dismissed;
   const [isModalActive, setIsModalActive] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
+  const isBrowserOnline = useSyncExternalStore(subscribeToNetwork, getNetworkSnapshot, getServerNetworkSnapshot);
+  const [isServerReachable, setIsServerReachable] = useState(true);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [pingLatency, setPingLatency] = useState(null);
+
+  const isOnline = isBrowserOnline && isServerReachable;
 
   const checkMobileConnection = async () => {
     setIsCheckingConnection(true);
@@ -44,14 +64,14 @@ export default function ClientNavbar({ isCompleted = false, minimal = false } = 
       const res = await fetch("/api/health", { method: "GET", cache: "no-store" });
       const lat = Date.now() - start;
       if (res.ok) {
-        setIsOnline(true);
+        setIsServerReachable(true);
         setPingLatency(lat);
       } else {
-        setIsOnline(false);
+        setIsServerReachable(false);
         setPingLatency(null);
       }
     } catch (_) {
-      setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
+      setIsServerReachable(false);
       setPingLatency(null);
     } finally {
       setIsCheckingConnection(false);
@@ -60,19 +80,11 @@ export default function ClientNavbar({ isCompleted = false, minimal = false } = 
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (typeof navigator !== "undefined") setIsOnline(navigator.onLine);
-    const handleOff = () => {
-      setIsOnline(false);
-      setPingLatency(null);
-    };
     const handleOn = () => {
-      setIsOnline(true);
       checkMobileConnection();
     };
-    window.addEventListener("offline", handleOff);
     window.addEventListener("online", handleOn);
     return () => {
-      window.removeEventListener("offline", handleOff);
       window.removeEventListener("online", handleOn);
     };
   }, []);
@@ -92,10 +104,7 @@ export default function ClientNavbar({ isCompleted = false, minimal = false } = 
   }, []);
 
   useEffect(() => {
-    if (!isHome) {
-      setScrolledPastHero(true);
-      return;
-    }
+    if (!isHome) return;
     const handleScroll = () => {
       if (typeof window !== "undefined") {
         const overviewEl = document.getElementById("overview");
@@ -108,10 +117,11 @@ export default function ClientNavbar({ isCompleted = false, minimal = false } = 
         }
       }
     };
-    handleScroll();
+    const frameId = requestAnimationFrame(handleScroll);
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", handleScroll, { passive: true });
     return () => {
+      cancelAnimationFrame(frameId);
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleScroll);
     };

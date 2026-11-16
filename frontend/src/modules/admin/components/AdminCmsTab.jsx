@@ -396,7 +396,7 @@ const PAGE_SECTIONS_SCHEMA = [
       },
       {
         sectionKey: "pillars",
-        title: "Process Guarantees (3 Quality Pillars)",
+        title: "Process Guarantees (4 Quality Pillars)",
         fields: [
           { key: "pillar1_title", label: "Guarantee 1 Title", type: "text" },
           { key: "pillar1_desc", label: "Guarantee 1 Description", type: "textarea" },
@@ -404,6 +404,8 @@ const PAGE_SECTIONS_SCHEMA = [
           { key: "pillar2_desc", label: "Guarantee 2 Description", type: "textarea" },
           { key: "pillar3_title", label: "Guarantee 3 Title", type: "text" },
           { key: "pillar3_desc", label: "Guarantee 3 Description", type: "textarea" },
+          { key: "pillar4_title", label: "Guarantee 4 Title", type: "text" },
+          { key: "pillar4_desc", label: "Guarantee 4 Description", type: "textarea" },
         ],
       },
     ],
