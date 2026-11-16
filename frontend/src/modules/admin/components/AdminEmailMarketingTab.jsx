@@ -102,9 +102,12 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResults, setAiResults] = useState(null);
 
-  // State: Multi-file uploading
+  // State: Multi-file uploading & Logo Drag/Drop
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const mediaFileInputRef = useRef(null);
+  const [isDraggingOverLogo, setIsDraggingOverLogo] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const logoFileInputRef = useRef(null);
 
   // 1. Fetch Overview Metrics
   const fetchOverview = async () => {
@@ -232,7 +235,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
         height: "auto",
         padding: 20,
         link: "https://mcpaconstruction.com",
-        src: "https://mcpaconstruction.com/images/mcpa-logo-dark.png",
+        src: "/assets/email/email_logo_dark.png",
       },
       blocks: [
         {
@@ -333,7 +336,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
         height: "auto",
         padding: 20,
         link: "https://mcpaconstruction.com",
-        src: "https://mcpaconstruction.com/images/mcpa-logo-dark.png",
+        src: "/assets/email/email_logo_dark.png",
       },
       blocks: Array.isArray(tpl.blocks) ? JSON.parse(JSON.stringify(tpl.blocks)) : [],
       scheduled_at: null,
@@ -423,6 +426,65 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
         return {};
     }
   }
+
+  // -------------------------------------------------------------
+  // Dedicated Drag & Drop / Upload Handler for Campaign Logo
+  // -------------------------------------------------------------
+  const handleApplyLogoFile = async (file) => {
+    if (!file) return;
+    if (!file.type || !file.type.startsWith("image/")) {
+      showToast("Please select or drop an image file (PNG, JPG, SVG, WebP).", "error");
+      return;
+    }
+
+    // 1. Instant local preview via DataURL so user immediately sees their logo
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      if (editorCampaign) {
+        setEditorCampaign((prev) => ({
+          ...prev,
+          logo_config: {
+            ...(prev?.logo_config || {}),
+            src: dataUrl,
+          },
+        }));
+      }
+    };
+    reader.readAsDataURL(file);
+
+    // 2. Upload to backend/cloud to get a persistent public URL
+    try {
+      setIsUploadingLogo(true);
+      const formData = new FormData();
+      formData.append("files", file);
+
+      const res = await authFetch("/api/email-marketing/upload-media", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success && data.media?.[0]?.url) {
+        const uploadedUrl = data.media[0].url;
+        setEditorCampaign((prev) => ({
+          ...prev,
+          logo_config: {
+            ...(prev?.logo_config || {}),
+            src: uploadedUrl,
+          },
+        }));
+        showToast("MCPA brand logo updated and uploaded successfully!", "success");
+      } else {
+        showToast("Logo applied to email builder.", "success");
+      }
+    } catch (err) {
+      console.error("Error uploading logo:", err);
+      showToast("Logo applied locally to campaign.", "success");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
 
   // -------------------------------------------------------------
   // Real Multi-File Upload Handler (Photos & Videos)
@@ -1773,23 +1835,127 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                       </select>
                     </div>
 
-                    {/* Logo Positioning Panel */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-mono uppercase text-neutral-400">MCPA Logo Position</label>
-                      <select
-                        value={editorCampaign.logo_config?.position || "top-center"}
-                        onChange={(e) =>
-                          setEditorCampaign({
-                            ...editorCampaign,
-                            logo_config: { ...editorCampaign.logo_config, position: e.target.value },
-                          })
-                        }
-                        className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none"
+                    {/* Logo Configuration & Drag-and-Drop Panel */}
+                    <div className="space-y-2.5 col-span-1 sm:col-span-2 p-3 rounded-xl bg-neutral-100/70 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-mono uppercase text-amber-500 font-bold flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          MCPA Brand Logo Header
+                        </label>
+                        <span className="text-[9px] font-mono text-neutral-400">Drag &amp; drop or upload</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Position */}
+                        <div>
+                          <label className="text-[9px] font-mono text-neutral-400 block mb-1">Position</label>
+                          <select
+                            value={editorCampaign.logo_config?.position || "top-center"}
+                            onChange={(e) =>
+                              setEditorCampaign({
+                                ...editorCampaign,
+                                logo_config: { ...editorCampaign.logo_config, position: e.target.value },
+                              })
+                            }
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none"
+                          >
+                            <option value="top-left">Top Left</option>
+                            <option value="top-center">Top Center</option>
+                            <option value="top-right">Top Right</option>
+                          </select>
+                        </div>
+
+                        {/* Width / Size Slider */}
+                        <div>
+                          <label className="text-[9px] font-mono text-neutral-400 block mb-1">
+                            Width: {editorCampaign.logo_config?.width || 180}px
+                          </label>
+                          <input
+                            type="range"
+                            min="100"
+                            max="300"
+                            step="10"
+                            value={editorCampaign.logo_config?.width || 180}
+                            onChange={(e) =>
+                              setEditorCampaign({
+                                ...editorCampaign,
+                                logo_config: { ...editorCampaign.logo_config, width: parseInt(e.target.value) },
+                              })
+                            }
+                            className="w-full accent-amber-500 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Drag & Drop Box in Sidebar */}
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) handleApplyLogoFile(file);
+                        }}
+                        onClick={() => logoFileInputRef.current?.click()}
+                        className="p-2 border border-dashed border-amber-500/40 hover:border-amber-500 rounded-lg bg-white dark:bg-neutral-900/60 flex items-center justify-between gap-2 cursor-pointer transition-colors group"
                       >
-                        <option value="top-left">Top Left</option>
-                        <option value="top-center">Top Center</option>
-                        <option value="top-right">Top Right</option>
-                      </select>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img
+                            src={
+                              editorCampaign.logo_config?.src &&
+                              !editorCampaign.logo_config.src.includes("https://mcpaconstruction.com/images/mcpa-logo-dark.png")
+                                ? editorCampaign.logo_config.src
+                                : "/assets/email/email_logo_dark.png"
+                            }
+                            alt="Logo preview"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = "/assets/mcpa-logo.png";
+                            }}
+                            className="h-6 max-w-[80px] object-contain shrink-0"
+                          />
+                          <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 group-hover:text-amber-500 truncate">
+                            Drag &amp; drop logo file here
+                          </span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 font-bold shrink-0">
+                          {isUploadingLogo ? "Uploading..." : "Browse"}
+                        </span>
+                      </div>
+
+                      {/* Brand Logo Presets */}
+                      <div>
+                        <span className="text-[9px] font-mono text-neutral-400 block mb-1">Quick Presets:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            { label: "Dark Logo", src: "/assets/email/email_logo_dark.png" },
+                            { label: "Adaptive V2", src: "/assets/email/email_logo_adaptive_v2.png" },
+                            { label: "White Badge", src: "/assets/email/email_logo_white.png" },
+                            { label: "Brand Primary", src: "/assets/mcpa-logo.png" },
+                          ].map((preset) => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() =>
+                                setEditorCampaign({
+                                  ...editorCampaign,
+                                  logo_config: { ...editorCampaign.logo_config, src: preset.src },
+                                })
+                              }
+                              className={`px-2 py-0.5 rounded text-[9px] font-mono border transition-all cursor-pointer ${
+                                (editorCampaign.logo_config?.src || "/assets/email/email_logo_dark.png") === preset.src
+                                  ? "bg-amber-500 text-neutral-950 font-bold border-amber-500"
+                                  : "bg-white/50 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-amber-500"
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2019,16 +2185,26 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                 {/* Email Canvas Preview Container */}
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">
                   <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      const files = Array.from(e.dataTransfer.files || []);
+                      if (files.length > 0 && files.some((f) => f.type.startsWith("image/") || f.type.startsWith("video/"))) {
+                        e.preventDefault();
+                        handleUploadMediaFiles({ target: { files } });
+                      }
+                    }}
                     className="bg-white text-neutral-900 rounded-xl shadow-xl transition-all duration-300 overflow-hidden"
                     style={{
                       width: previewDevice === "mobile" ? "375px" : previewDevice === "tablet" ? "520px" : "600px",
                       padding: "28px 24px",
                     }}
                   >
-                    {/* Rendered Logo */}
+                    {/* Rendered Logo with Interactive Drag & Drop */}
                     {editorCampaign.logo_config && (
                       <div
-                        className="mb-4"
+                        className="mb-5 relative group"
                         style={{
                           textAlign:
                             editorCampaign.logo_config.position === "top-left"
@@ -2038,14 +2214,94 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                               : "center",
                         }}
                       >
-                        <img
-                          src={editorCampaign.logo_config.src || "/images/mcpa-logo-dark.png"}
-                          alt="MCPA Construction"
-                          style={{
-                            maxWidth: `${editorCampaign.logo_config.width || 180}px`,
-                            display: "inline-block",
+                        {/* Hidden File Input for Logo upload */}
+                        <input
+                          type="file"
+                          ref={logoFileInputRef}
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleApplyLogoFile(file);
                           }}
                         />
+
+                        {/* Interactive Dropzone Wrapper */}
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsDraggingOverLogo(true);
+                          }}
+                          onDragEnter={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsDraggingOverLogo(true);
+                          }}
+                          onDragLeave={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsDraggingOverLogo(false);
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsDraggingOverLogo(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) handleApplyLogoFile(file);
+                          }}
+                          onClick={() => logoFileInputRef.current?.click()}
+                          title="Click or drag and drop an image file here to change logo"
+                          className={`relative inline-block transition-all duration-200 cursor-pointer rounded-xl p-2 select-none group/logo ${
+                            isDraggingOverLogo
+                              ? "ring-2 ring-amber-500 bg-amber-500/10 scale-105 border-2 border-dashed border-amber-500"
+                              : "hover:bg-neutral-100 dark:hover:bg-neutral-800/50 border border-transparent hover:border-dashed hover:border-amber-500/50"
+                          }`}
+                        >
+                          <img
+                            src={
+                              editorCampaign.logo_config.src &&
+                              !editorCampaign.logo_config.src.includes("https://mcpaconstruction.com/images/mcpa-logo-dark.png")
+                                ? editorCampaign.logo_config.src
+                                : "/assets/email/email_logo_dark.png"
+                            }
+                            alt="MCPA Construction & Supply"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = "/assets/mcpa-logo.png";
+                            }}
+                            style={{
+                              maxWidth: `${editorCampaign.logo_config.width || 180}px`,
+                              display: "inline-block",
+                              height: "auto",
+                            }}
+                            className="transition-opacity"
+                          />
+
+                          {/* Drag & Drop Visual State Overlay */}
+                          {isDraggingOverLogo && (
+                            <div className="absolute inset-0 bg-amber-500/20 backdrop-blur-[1px] rounded-xl flex flex-col items-center justify-center p-2 text-center animate-pulse">
+                              <Upload className="w-5 h-5 text-amber-600 dark:text-amber-400 mb-1" />
+                              <span className="text-[10px] font-mono font-bold text-neutral-950 bg-amber-400 px-2 py-0.5 rounded shadow-sm">
+                                Drop Image Here to Apply Logo
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Hover Tooltip / Action Bar */}
+                          {!isDraggingOverLogo && (
+                            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 opacity-0 group-hover/logo:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap bg-neutral-900/90 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow-md flex items-center gap-1.5 border border-white/10">
+                              <Upload className="w-3 h-3 text-amber-400" />
+                              <span>Drag &amp; drop logo or click to upload</span>
+                            </div>
+                          )}
+
+                          {isUploadingLogo && (
+                            <div className="absolute inset-0 bg-white/70 dark:bg-black/60 rounded-xl flex items-center justify-center">
+                              <RefreshCw className="w-4 h-4 text-amber-500 animate-spin" />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
 

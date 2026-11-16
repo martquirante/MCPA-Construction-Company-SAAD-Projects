@@ -13,7 +13,10 @@ function renderLogoBlock(logoConfig) {
   const width = logoConfig.width || 180;
   const padding = logoConfig.padding || 20;
   const link = logoConfig.link || "https://mcpaconstruction.com";
-  const src = logoConfig.src || "https://mcpaconstruction.com/images/mcpa-logo-dark.png";
+  let src = logoConfig.src || "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png";
+  if (src.includes("https://mcpaconstruction.com/images/mcpa-logo-dark.png") || src === "/images/mcpa-logo-dark.png") {
+    src = "https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png";
+  }
 
   return `
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: ${padding}px;">

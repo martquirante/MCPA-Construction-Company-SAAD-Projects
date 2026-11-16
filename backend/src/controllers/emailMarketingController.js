@@ -104,7 +104,7 @@ async function subscribeNewsletter(req, res) {
       const welcomeHtml = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 32px; border-radius: 12px; border: 1px solid #e2e8f0;">
           <div style="text-align: center; margin-bottom: 24px;">
-            <img src="https://mcpaconstruction.com/images/mcpa-logo-dark.png" alt="MCPA Construction" width="180" style="display: block; margin: 0 auto;" />
+            <img src="https://dzqqyqothtttccplvvnb.supabase.co/storage/v1/object/public/portfolio/email/email_logo_adaptive_v2.png" alt="MCPA Construction" width="180" style="display: block; margin: 0 auto;" />
           </div>
           <h2 style="color: #0f172a; font-size: 22px; font-weight: 800; margin-bottom: 12px;">Subscription Confirmed!</h2>
           <p style="color: #475569; font-size: 15px; line-height: 1.6;">
