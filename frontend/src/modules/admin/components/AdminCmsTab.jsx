@@ -534,21 +534,44 @@ const THEME_PRESETS = [
 ];
 
 function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return "0 KB";
+  const num = Number(bytes);
+  if (!num || isNaN(num) || num <= 0) return "0 KB";
   const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.min(sizes.length - 1, Math.floor(Math.log(num) / Math.log(k)));
+  return `${parseFloat((num / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-export default function AdminCmsTab({ initialSection = "blog", showToast }) {
+export default function AdminCmsTab({ initialSection = "blog", mode = "all", showToast }) {
   const { refreshCms, previewTheme, theme: activeGlobalTheme } = useCms();
 
-  const [activeSubTab, setActiveSubTab] = useState(initialSection);
+  const effectiveMode =
+    mode && mode !== "all"
+      ? mode
+      : initialSection === "website-content"
+      ? "content"
+      : initialSection === "media-library"
+      ? "media"
+      : initialSection === "appearance"
+      ? "appearance"
+      : "blog";
+
+  const defaultSubTab =
+    effectiveMode === "content"
+      ? "website-content"
+      : effectiveMode === "media"
+      ? "media-library"
+      : effectiveMode === "appearance"
+      ? "appearance"
+      : initialSection === "categories-logs"
+      ? "categories-logs"
+      : "blog";
+
+  const [activeSubTab, setActiveSubTab] = useState(defaultSubTab);
   const [prevInitialSection, setPrevInitialSection] = useState(initialSection);
   if (initialSection !== prevInitialSection) {
     setPrevInitialSection(initialSection);
-    setActiveSubTab(initialSection);
+    setActiveSubTab(defaultSubTab);
   }
 
   // Overview & Logs state
@@ -630,70 +653,65 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
     [showToast]
   );
 
-  // Load CMS Data
-  useEffect(() => {
-    let isMounted = true;
-    const load = async () => {
-      setLoadingPosts(true);
-      try {
-        const q = new URLSearchParams({ includeAll: "true", limit: "100" });
-        if (postFilterStatus !== "all") q.set("status", postFilterStatus);
-        if (postFilterCategory !== "all") q.set("category", postFilterCategory);
-        if (postSearch.trim()) q.set("search", postSearch.trim());
+  // Centralized Load CMS Data Function
+  const loadAllCmsData = useCallback(async () => {
+    setLoadingPosts(true);
+    try {
+      const q = new URLSearchParams({ includeAll: "true", limit: "100" });
+      if (postFilterStatus !== "all") q.set("status", postFilterStatus);
+      if (postFilterCategory !== "all") q.set("category", postFilterCategory);
+      if (postSearch.trim()) q.set("search", postSearch.trim());
 
-        const [overviewRes, postsRes, catsRes, tagsRes, mediaRes, contentRes, themeRes] =
-          await Promise.all([
-            authFetch("/api/admin/cms/overview").catch(() => null),
-            authFetch(`/api/blog/posts?${q.toString()}`).catch(() => null),
-            authFetch("/api/blog/categories").catch(() => null),
-            authFetch("/api/blog/hashtags").catch(() => null),
-            authFetch("/api/admin/cms/media").catch(() => null),
-            authFetch("/api/cms/content").catch(() => null),
-            authFetch("/api/cms/theme").catch(() => null),
-          ]);
+      const [overviewRes, postsRes, catsRes, tagsRes, mediaRes, contentRes, themeRes] =
+        await Promise.all([
+          authFetch("/api/admin/cms/overview").catch(() => null),
+          authFetch(`/api/blog/posts?${q.toString()}`).catch(() => null),
+          authFetch("/api/blog/categories").catch(() => null),
+          authFetch("/api/blog/hashtags").catch(() => null),
+          authFetch("/api/admin/cms/media").catch(() => null),
+          authFetch("/api/cms/content").catch(() => null),
+          authFetch("/api/cms/theme").catch(() => null),
+        ]);
 
-        if (!isMounted) return;
-
-        if (overviewRes && overviewRes.ok) {
-          const d = await overviewRes.json();
-          setOverview(d.summary || {});
-          setActivityLogs(d.activityLogs || []);
-        }
-        if (postsRes && postsRes.ok) {
-          const d = await postsRes.json();
-          setPosts(d.posts || []);
-        }
-        if (catsRes && catsRes.ok) {
-          const d = await catsRes.json();
-          setCategories(d.categories || []);
-        }
-        if (tagsRes && tagsRes.ok) {
-          const d = await tagsRes.json();
-          setHashtags(d.hashtags || []);
-        }
-        if (mediaRes && mediaRes.ok) {
-          const d = await mediaRes.json();
-          setMediaItems(d.media || []);
-        }
-        if (contentRes && contentRes.ok) {
-          const d = await contentRes.json();
-          if (d.content) setEditableContentMap(d.content);
-        }
-        if (themeRes && themeRes.ok) {
-          const d = await themeRes.json();
-          if (d.theme) setDraftTheme({ ...DEFAULT_CMS_THEME, ...d.theme });
-        }
-      } catch (err) {
-        console.warn("[AdminCmsTab] Load warning:", err.message);
-      } finally {
-        if (isMounted) setLoadingPosts(false);
+      if (overviewRes && overviewRes.ok) {
+        const d = await overviewRes.json();
+        setOverview(d.summary || {});
+        setActivityLogs(d.activityLogs || []);
       }
-    };
-    load();
-    return () => {
-      isMounted = false;
-    };
+      if (postsRes && postsRes.ok) {
+        const d = await postsRes.json();
+        setPosts(d.posts || []);
+      }
+      if (catsRes && catsRes.ok) {
+        const d = await catsRes.json();
+        setCategories(d.categories || []);
+      }
+      if (tagsRes && tagsRes.ok) {
+        const d = await tagsRes.json();
+        setHashtags(d.hashtags || []);
+      }
+      if (mediaRes && mediaRes.ok) {
+        const d = await mediaRes.json();
+        setMediaItems(d.media || []);
+      }
+      if (contentRes && contentRes.ok) {
+        const d = await contentRes.json();
+        if (d.content) setEditableContentMap(d.content);
+      }
+      if (themeRes && themeRes.ok) {
+        const d = await themeRes.json();
+        if (d.theme) setDraftTheme({ ...DEFAULT_CMS_THEME, ...d.theme });
+      }
+    } catch (err) {
+      console.warn("[AdminCmsTab] Load warning:", err.message);
+    } finally {
+      setLoadingPosts(false);
+    }
   }, [postFilterStatus, postFilterCategory, postSearch]);
+
+  useEffect(() => {
+    loadAllCmsData();
+  }, [loadAllCmsData]);
 
   // ===========================================================================
   // BLOG COMPOSER HANDLERS
@@ -779,7 +797,7 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
           method: "POST",
           body: formData,
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (res.ok && data.success && Array.isArray(data.media)) {
           const added = data.media.map((m) => ({
             media_type:
@@ -790,7 +808,7 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
             file_name: m.file_name || m.title || "Uploaded Media",
             caption: "",
             alt_text: m.title || m.file_name || "MCPA Construction Media",
-            file_size: m.file_size,
+            file_size: m.file_size ? parseInt(m.file_size, 10) : 0,
           }));
           allUploadedMedia.push(...added);
 
@@ -801,7 +819,7 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
             }));
           }
         } else {
-          notify(data.message || "A batch failed to upload.", "error");
+          notify(data.message || `Upload failed (HTTP ${res.status}). Please check network or sign in again.`, "error");
         }
 
         setUploadProgress({
@@ -816,11 +834,12 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
         const parts = [];
         if (imgCount > 0) parts.push(`${imgCount} photo${imgCount > 1 ? "s" : ""}`);
         if (vidCount > 0) parts.push(`${vidCount} video${vidCount > 1 ? "s" : ""}`);
-        notify(`Uploaded ${parts.join(" & ")} (${allUploadedMedia.length} file${allUploadedMedia.length > 1 ? "s" : ""})!`, "success");
+        notify(`Uploaded ${parts.join(" & ")} (${allUploadedMedia.length} file${allUploadedMedia.length > 1 ? "s" : ""}) successfully!`, "success");
         loadAllCmsData();
       }
     } catch (err) {
-      notify("Error uploading files.", "error");
+      console.error("[handleUploadFilesToPost] Upload error:", err);
+      notify("Error uploading media files. Please try again.", "error");
     } finally {
       setUploadingMedia(false);
       setUploadProgress({ current: 0, total: 0 });
@@ -869,8 +888,16 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
 
   const handleSavePost = async (overrideStatus) => {
     const finalStatus = overrideStatus || postForm.status || "published";
-    if (!postForm.caption.trim() && !postForm.title.trim() && postForm.media.length === 0) {
-      notify("Please write a caption, title, or attach media before saving.", "error");
+    const currentHtml = editorRef.current ? editorRef.current.innerHTML : (postForm.content || "");
+    const editorPlainText = currentHtml ? currentHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "";
+
+    const hasCaption = Boolean(postForm.caption && postForm.caption.trim());
+    const hasTitle = Boolean(postForm.title && postForm.title.trim());
+    const hasMedia = Array.isArray(postForm.media) && postForm.media.length > 0;
+    const hasContent = Boolean(editorPlainText);
+
+    if (!hasCaption && !hasTitle && !hasMedia && !hasContent) {
+      notify("Please provide a title, caption, content body, or attach media before saving.", "error");
       return;
     }
 
@@ -878,8 +905,16 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
     try {
       const payload = {
         ...postForm,
+        caption: hasCaption
+          ? postForm.caption.trim()
+          : (hasContent ? editorPlainText.substring(0, 280) : (postForm.title?.trim() || "MCPA Construction Update")),
+        title: hasTitle
+          ? postForm.title.trim()
+          : (hasCaption ? postForm.caption.trim().substring(0, 70) : (editorPlainText ? editorPlainText.substring(0, 70) : "MCPA Project Update")),
         status: finalStatus,
-        content: editorRef.current ? editorRef.current.innerHTML : postForm.content,
+        content: currentHtml,
+        scheduled_for: postForm.scheduled_for && postForm.scheduled_for.trim() ? postForm.scheduled_for : null,
+        category_id: postForm.category_id && postForm.category_id !== "" ? postForm.category_id : null,
       };
 
       const url = editingPost
@@ -892,18 +927,19 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
-        notify(data.message || "Post saved and synchronized with website!", "success");
+        notify(data.message || "Post saved and published successfully!", "success");
         setComposerOpen(false);
         setEditingPost(null);
         await loadAllCmsData();
         await refreshCms();
         notifyCmsUpdate();
       } else {
-        notify(data.message || "Failed to save post.", "error");
+        notify(data.message || `Failed to save post (HTTP ${res.status}).`, "error");
       }
     } catch (err) {
+      console.error("[handleSavePost] Error:", err);
       notify("Error saving post.", "error");
     } finally {
       setSavingPost(false);
@@ -927,18 +963,34 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
 
   const handleDeletePostConfirmed = async () => {
     if (!deleteConfirmPost) return;
+    const targetId = deleteConfirmPost.post_id || deleteConfirmPost.id;
+    if (!targetId) {
+      notify("Cannot delete post: missing post ID.", "error");
+      setDeleteConfirmPost(null);
+      return;
+    }
+
     try {
-      const res = await authFetch(`/api/admin/blog/posts/${deleteConfirmPost.post_id}`, {
+      const res = await authFetch(`/api/admin/blog/posts/${targetId}`, {
         method: "DELETE",
       });
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         notify("Post deleted permanently.", "success");
         setDeleteConfirmPost(null);
-        loadAllCmsData();
+        await loadAllCmsData();
         notifyCmsUpdate();
+      } else if (res.status === 404) {
+        notify("Post was already removed from the website.", "info");
+        setDeleteConfirmPost(null);
+        await loadAllCmsData();
+        notifyCmsUpdate();
+      } else {
+        notify(data.message || `Failed to delete post (HTTP ${res.status}).`, "error");
       }
-    } catch (_) {
-      notify("Failed to delete post.", "error");
+    } catch (err) {
+      console.error("[handleDeletePostConfirmed] Error:", err);
+      notify("Failed to delete post. Please check your connection.", "error");
     }
   };
 
@@ -1098,6 +1150,101 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
   const currentPageSchema =
     PAGE_SECTIONS_SCHEMA.find((p) => p.pageKey === activePageKey) || PAGE_SECTIONS_SCHEMA[0];
 
+  // Title and subtitle per mode
+  const sectionTitle =
+    effectiveMode === "blog"
+      ? "Blog & Social Media Posts"
+      : effectiveMode === "content"
+      ? "Website Content (CMS) & Dynamic Copy"
+      : effectiveMode === "media"
+      ? "Central Media Library"
+      : effectiveMode === "appearance"
+      ? "Website Appearance & Branding"
+      : "Website Content & Social Blog Manager";
+
+  const sectionSubtitle =
+    effectiveMode === "blog"
+      ? "Create, publish, schedule updates, structural milestones, and articles for the official blog."
+      : effectiveMode === "content"
+      ? "Live visual content editor for all website pages (Home, Services, Process, Projects, About, and Contact)."
+      : effectiveMode === "media"
+      ? "Manage high-resolution photography, site videos, and architectural assets in cloud storage."
+      : effectiveMode === "appearance"
+      ? "Fine-tune brand colors, typography, card styling, and default feed display preferences."
+      : "Manage public website copy, newsroom feed, and media assets.";
+
+  const liveLinkHref = effectiveMode === "blog" ? "/blog" : "/";
+  const liveLinkLabel = effectiveMode === "blog" ? "View Live Blog" : "View Live Website";
+
+  const availableSubTabs =
+    effectiveMode === "blog"
+      ? [
+          { id: "blog", label: "Posts & Publications", icon: Newspaper },
+          { id: "categories-logs", label: "Categories, Hashtags & Logs", icon: Activity },
+        ]
+      : effectiveMode === "content"
+      ? [
+          { id: "website-content", label: "Website Pages & Sections", icon: Globe },
+        ]
+      : effectiveMode === "media"
+      ? [
+          { id: "media-library", label: "Media Assets", icon: ImageIcon },
+        ]
+      : effectiveMode === "appearance"
+      ? [
+          { id: "appearance", label: "Theme & Styling", icon: Palette },
+        ]
+      : [
+          { id: "blog", label: "Blog & Posts", icon: Newspaper },
+          { id: "website-content", label: "Website Content", icon: Globe },
+          { id: "media-library", label: "Media Library", icon: ImageIcon },
+          { id: "appearance", label: "Website Appearance", icon: Palette },
+          { id: "categories-logs", label: "Categories & Logs", icon: Activity },
+        ];
+
+  // Mode-specific KPI cards
+  const kpiCards =
+    effectiveMode === "blog"
+      ? [
+          { label: "Published Posts", value: overview?.published_posts ?? 0, sub: `${overview?.total_posts ?? 0} total` },
+          { label: "Drafts / Scheduled", value: (overview?.draft_posts ?? 0) + (overview?.scheduled_posts ?? 0), sub: "Ready to publish" },
+          { label: "Media in Posts", value: overview?.total_media ?? 0, sub: formatBytes(overview?.total_bytes) },
+          { label: "Categories", value: overview?.total_categories ?? 0, sub: "Active topics" },
+          { label: "Hashtags", value: overview?.total_hashtags ?? 0, sub: "Indexed tags" },
+          { label: "Default Layout", value: (draftTheme.defaultBlogLayout || "feed").toUpperCase(), sub: "Public View" },
+        ]
+      : effectiveMode === "content"
+      ? [
+          { label: "Editable Pages", value: "8 Pages", sub: "Home, Services, Process..." },
+          { label: "Dynamic Keys", value: overview?.total_content_keys ?? 89, sub: "Live CMS fields" },
+          { label: "Selected Page", value: activePageKey.toUpperCase(), sub: "Active editor" },
+          { label: "Cloud Sync", value: "Real-time", sub: "Live auto-publish" },
+          { label: "Failover Engine", value: "Active", sub: "Azure + Supabase + Neon" },
+          { label: "Media Library", value: overview?.total_media ?? 0, sub: formatBytes(overview?.total_bytes) },
+        ]
+      : effectiveMode === "media"
+      ? [
+          { label: "Total Files", value: overview?.total_media ?? 0, sub: "Cloud assets" },
+          { label: "Storage Used", value: formatBytes(overview?.total_bytes), sub: "Total blob volume" },
+          { label: "Photos", value: mediaItems.filter((m) => (m.file_type || "").startsWith("image") || !m.file_type?.startsWith("video")).length, sub: "Image assets" },
+          { label: "Videos", value: mediaItems.filter((m) => (m.file_type || "").startsWith("video") || /\.(mp4|webm|mov)$/i.test(m.file_url || "")).length, sub: "Video clips" },
+        ]
+      : effectiveMode === "appearance"
+      ? [
+          { label: "Primary Accent", value: draftTheme.primaryColor || "#F59E0B", sub: "Brand Amber" },
+          { label: "Heading Font", value: draftTheme.headingFont || "Plus Jakarta Sans", sub: "Typography" },
+          { label: "Base Font Size", value: draftTheme.baseFontSize || "16px", sub: "Body scale" },
+          { label: "Default Layout", value: (draftTheme.defaultBlogLayout || "feed").toUpperCase(), sub: "Public blog" },
+        ]
+      : [
+          { label: "Published Posts", value: overview?.published_posts ?? 0, sub: `${overview?.total_posts ?? 0} total` },
+          { label: "Drafts / Scheduled", value: (overview?.draft_posts ?? 0) + (overview?.scheduled_posts ?? 0), sub: "Ready to publish" },
+          { label: "Media Library", value: overview?.total_media ?? 0, sub: formatBytes(overview?.total_bytes) },
+          { label: "Categories", value: overview?.total_categories ?? 0, sub: "Active topics" },
+          { label: "Hashtags", value: overview?.total_hashtags ?? 0, sub: "Indexed tags" },
+          { label: "Dynamic Keys", value: overview?.total_content_keys ?? 0, sub: "Live CMS fields" },
+        ];
+
   return (
     <div className="space-y-6">
       {/* TOP SUB-NAVIGATION BAR */}
@@ -1105,61 +1252,53 @@ export default function AdminCmsTab({ initialSection = "blog", showToast }) {
         <div className="shrink-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-950 dark:text-white">
-              Website Content &amp; Social Blog Manager
+              {sectionTitle}
             </h2>
             <a
-              href="/blog"
+              href={liveLinkHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline shrink-0"
             >
-              <span>View Live Blog</span>
+              <span>{liveLinkLabel}</span>
               <ExternalLink className="w-3 h-3" />
             </a>
           </div>
+          <p className="text-xs text-neutral-500 mt-1 max-w-xl">
+            {sectionSubtitle}
+          </p>
         </div>
 
-        {/* Sub-Tabs with Horizontal Scroll */}
-        <div className="w-full lg:w-auto overflow-x-auto pb-1.5 pt-0.5 flex items-center gap-2 max-w-full scrollbar-thin scrollbar-thumb-amber-500/40 scrollbar-track-neutral-100 dark:scrollbar-track-white/5">
-          {[
-            { id: "blog", label: "Blog & Posts", icon: Newspaper },
-            { id: "website-content", label: "Website Content", icon: Globe },
-            { id: "media-library", label: "Media Library", icon: ImageIcon },
-            { id: "appearance", label: "Website Appearance", icon: Palette },
-            { id: "categories-logs", label: "Categories & Logs", icon: Activity },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const active = activeSubTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveSubTab(tab.id)}
-                className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
-                  active
-                    ? "bg-amber-500 text-neutral-950 shadow-xs"
-                    : "bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Sub-Tabs with Horizontal Scroll (shown when more than 1 sub-tab is available) */}
+        {availableSubTabs.length > 1 && (
+          <div className="w-full lg:w-auto overflow-x-auto pb-1.5 pt-0.5 flex items-center gap-2 max-w-full scrollbar-thin scrollbar-thumb-amber-500/40 scrollbar-track-neutral-100 dark:scrollbar-track-white/5">
+            {availableSubTabs.map((tab) => {
+              const Icon = tab.icon;
+              const active = activeSubTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveSubTab(tab.id)}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                    active
+                      ? "bg-amber-500 text-neutral-950 shadow-xs"
+                      : "bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* KPI SUMMARY STRIP */}
       {overview && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {[
-            { label: "Published Posts", value: overview.published_posts ?? 0, sub: `${overview.total_posts ?? 0} total` },
-            { label: "Drafts / Scheduled", value: (overview.draft_posts ?? 0) + (overview.scheduled_posts ?? 0), sub: "Ready to publish" },
-            { label: "Media Library", value: overview.total_media ?? 0, sub: formatBytes(overview.total_bytes) },
-            { label: "Categories", value: overview.total_categories ?? 0, sub: "Active topics" },
-            { label: "Hashtags", value: overview.total_hashtags ?? 0, sub: "Indexed tags" },
-            { label: "Dynamic Keys", value: overview.total_content_keys ?? 0, sub: "Live CMS fields" },
-          ].map((stat, idx) => (
+          {kpiCards.map((stat, idx) => (
             <div
               key={idx}
               className="rounded-2xl bg-white dark:bg-[#10131a] border border-neutral-200 dark:border-white/10 p-4"
