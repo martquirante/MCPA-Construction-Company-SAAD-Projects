@@ -109,6 +109,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
   const [mobileEditorTab, setMobileEditorTab] = useState("editor"); // "editor" | "preview" (for mobile-first responsiveness)
   const [testEmailAddress, setTestEmailAddress] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
+  const [isLogoConfigExpanded, setIsLogoConfigExpanded] = useState(false);
 
   // State: AI Copy Assistant Modal
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -2067,7 +2068,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
               <div
                 className={`${
                   mobileEditorTab === "editor" ? "flex" : "hidden"
-                } lg:flex w-full lg:w-1/2 border-r border-neutral-200 dark:border-neutral-800 flex-col h-full overflow-hidden bg-white dark:bg-[#0c0e14]`}
+                } lg:flex w-full lg:w-1/2 border-r border-neutral-200 dark:border-neutral-800 flex-col h-full overflow-y-auto bg-white dark:bg-[#0c0e14]`}
               >
                 {/* Campaign Metadata Fields */}
                 <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 space-y-3 shrink-0 bg-neutral-50/50 dark:bg-neutral-900/30">
@@ -2109,185 +2110,199 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                       </select>
                     </div>
 
-                    {/* Logo Configuration & Drag-and-Drop Panel */}
+                    {/* Logo Configuration & Drag-and-Drop Panel (Collapsible) */}
                     <div className="space-y-2.5 col-span-1 sm:col-span-2 p-3 rounded-xl bg-neutral-100/70 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-mono uppercase text-amber-500 font-bold flex items-center gap-1.5">
-                          <ImageIcon className="w-3.5 h-3.5" />
-                          MCPA Brand Logo Header
-                        </label>
-                        <span className="text-[9px] font-mono text-neutral-400">Drag &amp; drop or upload</span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* Position */}
-                        <div>
-                          <label className="text-[9px] font-mono text-neutral-400 block mb-1">Position</label>
-                          <select
-                            value={editorCampaign.logo_config?.position || "top-center"}
-                            onChange={(e) =>
-                              setEditorCampaign({
-                                ...editorCampaign,
-                                logo_config: { ...editorCampaign.logo_config, position: e.target.value },
-                              })
-                            }
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none"
-                          >
-                            <option value="top-left">Top Left</option>
-                            <option value="top-center">Top Center</option>
-                            <option value="top-right">Top Right</option>
-                          </select>
-                        </div>
-
-                        {/* Width / Size Slider */}
-                        <div>
-                          <label className="text-[9px] font-mono text-neutral-400 block mb-1">
-                            Width: {editorCampaign.logo_config?.width || 180}px
-                          </label>
-                          <input
-                            type="range"
-                            min="100"
-                            max="300"
-                            step="10"
-                            value={editorCampaign.logo_config?.width || 180}
-                            onChange={(e) =>
-                              setEditorCampaign({
-                                ...editorCampaign,
-                                logo_config: { ...editorCampaign.logo_config, width: parseInt(e.target.value) },
-                              })
-                            }
-                            className="w-full accent-amber-500 cursor-pointer"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Drag & Drop Box in Sidebar */}
                       <div
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const file = e.dataTransfer.files?.[0];
-                          if (file) handleApplyLogoFile(file);
-                        }}
-                        onClick={() => logoFileInputRef.current?.click()}
-                        className="p-2 border border-dashed border-amber-500/40 hover:border-amber-500 rounded-lg bg-white dark:bg-neutral-900/60 flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                        onClick={() => setIsLogoConfigExpanded((prev) => !prev)}
+                        className="flex items-center justify-between cursor-pointer select-none"
+                        title={isLogoConfigExpanded ? "Click to collapse logo settings" : "Click to customize logo and sizing"}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <img
-                            src={
-                              editorCampaign.logo_config?.src &&
-                              !editorCampaign.logo_config.src.includes("https://mcpaconstruction.com/images/mcpa-logo-dark.png")
-                                ? editorCampaign.logo_config.src
-                                : "/assets/email/email_logo_dark.png"
-                            }
-                            alt="Logo preview"
-                            onError={(e) => {
-                              e.currentTarget.onerror = null;
-                              e.currentTarget.src = "/assets/mcpa-logo.png";
-                            }}
-                            className="h-6 max-w-[80px] object-contain shrink-0"
-                          />
-                          <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 group-hover:text-amber-500 truncate">
-                            Drag &amp; drop logo file here
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] font-mono uppercase text-amber-500 font-bold flex items-center gap-1.5 cursor-pointer">
+                            <ImageIcon className="w-3.5 h-3.5" />
+                            <span>MCPA Brand Logo Header</span>
+                          </label>
+                          <span className="text-[9px] font-mono text-neutral-400 hidden sm:inline">
+                            ({editorCampaign.logo_config?.position || "top-center"} • {editorCampaign.logo_config?.width || 180}px)
                           </span>
                         </div>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 font-bold shrink-0">
-                          {isUploadingLogo ? "Uploading..." : "Browse"}
-                        </span>
-                      </div>
-
-                      {/* Brand Logo Presets */}
-                      <div>
-                        <span className="text-[9px] font-mono text-neutral-400 block mb-1">Quick Presets:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {[
-                            { label: "Dark Logo", src: "/assets/email/email_logo_dark.png" },
-                            { label: "Adaptive V2", src: "/assets/email/email_logo_adaptive_v2.png" },
-                            { label: "White Badge", src: "/assets/email/email_logo_white.png" },
-                            { label: "Brand Primary", src: "/assets/mcpa-logo.png" },
-                          ].map((preset) => (
-                            <button
-                              key={preset.label}
-                              type="button"
-                              onClick={() =>
-                                setEditorCampaign({
-                                  ...editorCampaign,
-                                  logo_config: { ...editorCampaign.logo_config, src: preset.src },
-                                })
-                              }
-                              className={`px-2 py-0.5 rounded text-[9px] font-mono border transition-all cursor-pointer ${
-                                (editorCampaign.logo_config?.src || "/assets/email/email_logo_dark.png") === preset.src
-                                  ? "bg-amber-500 text-neutral-950 font-bold border-amber-500"
-                                  : "bg-white/50 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-amber-500"
-                              }`}
-                            >
-                              {preset.label}
-                            </button>
-                          ))}
+                        <div className="flex items-center gap-1 text-[9px] font-mono text-amber-500 font-bold">
+                          <span>{isLogoConfigExpanded ? "Hide Settings" : "Configure Logo"}</span>
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isLogoConfigExpanded ? "rotate-180" : ""}`} />
                         </div>
                       </div>
 
-                      {/* Logo Destination Link */}
-                      <div className="pt-1 border-t border-neutral-200 dark:border-white/5">
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="text-[9px] font-mono text-neutral-400">Logo Destination Link</label>
-                          <span className="text-[9px] font-mono text-amber-500 font-bold">Select Page ▾</span>
-                        </div>
-                        <div className="space-y-1">
-                          <input
-                            type="text"
-                            value={editorCampaign.logo_config?.link || "https://mcpaconstruction.com"}
-                            onChange={(e) =>
-                              setEditorCampaign({
-                                ...editorCampaign,
-                                logo_config: { ...editorCampaign.logo_config, link: e.target.value },
-                              })
-                            }
-                            className="w-full px-2.5 py-1 rounded bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-[11px] font-mono text-neutral-900 dark:text-white focus:outline-none"
-                            placeholder="https://mcpaconstruction.com"
-                          />
-                          <div className="relative">
-                            <select
-                              value={
-                                MCPA_SITE_LINKS.some(
-                                  (p) => p.url === (editorCampaign.logo_config?.link || "https://mcpaconstruction.com")
-                                )
-                                  ? editorCampaign.logo_config?.link
-                                  : "custom"
-                              }
-                              onChange={(e) => {
-                                if (e.target.value !== "custom") {
+                      {isLogoConfigExpanded && (
+                        <div className="space-y-2.5 pt-2 border-t border-neutral-200 dark:border-white/10 animate-fade-in">
+                          <div className="grid grid-cols-2 gap-2">
+                            {/* Position */}
+                            <div>
+                              <label className="text-[9px] font-mono text-neutral-400 block mb-1">Position</label>
+                              <select
+                                value={editorCampaign.logo_config?.position || "top-center"}
+                                onChange={(e) =>
+                                  setEditorCampaign({
+                                    ...editorCampaign,
+                                    logo_config: { ...editorCampaign.logo_config, position: e.target.value },
+                                  })
+                                }
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none"
+                              >
+                                <option value="top-left">Top Left</option>
+                                <option value="top-center">Top Center</option>
+                                <option value="top-right">Top Right</option>
+                              </select>
+                            </div>
+
+                            {/* Width / Size Slider */}
+                            <div>
+                              <label className="text-[9px] font-mono text-neutral-400 block mb-1">
+                                Width: {editorCampaign.logo_config?.width || 180}px
+                              </label>
+                              <input
+                                type="range"
+                                min="100"
+                                max="300"
+                                step="10"
+                                value={editorCampaign.logo_config?.width || 180}
+                                onChange={(e) =>
+                                  setEditorCampaign({
+                                    ...editorCampaign,
+                                    logo_config: { ...editorCampaign.logo_config, width: parseInt(e.target.value) },
+                                  })
+                                }
+                                className="w-full accent-amber-500 cursor-pointer"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Drag & Drop Box in Sidebar */}
+                          <div
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            onClick={() => logoFileInputRef.current?.click()}
+                            className="p-2 border border-dashed border-amber-500/40 hover:border-amber-500 rounded-lg bg-white dark:bg-neutral-900/60 flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <img
+                                src={
+                                  editorCampaign.logo_config?.src &&
+                                  !editorCampaign.logo_config.src.includes("https://mcpaconstruction.com/images/mcpa-logo-dark.png")
+                                    ? editorCampaign.logo_config.src
+                                    : "/assets/email/email_logo_dark.png"
+                                }
+                                alt="Logo preview"
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = "/assets/mcpa-logo.png";
+                                }}
+                                className="h-6 max-w-[80px] object-contain shrink-0"
+                              />
+                              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 group-hover:text-amber-500 truncate">
+                                Drag &amp; drop logo file here
+                              </span>
+                            </div>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 font-bold shrink-0">
+                              {isUploadingLogo ? "Uploading..." : "Browse"}
+                            </span>
+                          </div>
+
+                          {/* Brand Logo Presets */}
+                          <div>
+                            <span className="text-[9px] font-mono text-neutral-400 block mb-1">Quick Presets:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {[
+                                { label: "Dark Logo", src: "/assets/email/email_logo_dark.png" },
+                                { label: "Adaptive V2", src: "/assets/email/email_logo_adaptive_v2.png" },
+                                { label: "White Badge", src: "/assets/email/email_logo_white.png" },
+                                { label: "Brand Primary", src: "/assets/mcpa-logo.png" },
+                              ].map((preset) => (
+                                <button
+                                  key={preset.label}
+                                  type="button"
+                                  onClick={() =>
+                                    setEditorCampaign({
+                                      ...editorCampaign,
+                                      logo_config: { ...editorCampaign.logo_config, src: preset.src },
+                                    })
+                                  }
+                                  className={`px-2 py-0.5 rounded text-[9px] font-mono border transition-all cursor-pointer ${
+                                    (editorCampaign.logo_config?.src || "/assets/email/email_logo_dark.png") === preset.src
+                                      ? "bg-amber-500 text-neutral-950 font-bold border-amber-500"
+                                      : "bg-white/50 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-amber-500"
+                                  }`}
+                                >
+                                  {preset.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Logo Destination Link */}
+                          <div className="pt-1 border-t border-neutral-200 dark:border-white/5">
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-[9px] font-mono text-neutral-400">Logo Destination Link</label>
+                              <span className="text-[9px] font-mono text-amber-500 font-bold">Select Page ▾</span>
+                            </div>
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                value={editorCampaign.logo_config?.link || "https://mcpaconstruction.com"}
+                                onChange={(e) =>
                                   setEditorCampaign({
                                     ...editorCampaign,
                                     logo_config: { ...editorCampaign.logo_config, link: e.target.value },
-                                  });
+                                  })
                                 }
-                              }}
-                              className="w-full appearance-none pl-2.5 pr-7 py-1 rounded bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-[10px] font-mono text-neutral-700 dark:text-neutral-300 focus:outline-none cursor-pointer"
-                            >
-                              <option value="custom" disabled>
-                                -- Select Official Site Page Link --
-                              </option>
-                              {MCPA_SITE_LINKS.map((page) => (
-                                <option key={page.url} value={page.url}>
-                                  {page.label} ({page.path})
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400" />
+                                className="w-full px-2.5 py-1 rounded bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-[11px] font-mono text-neutral-900 dark:text-white focus:outline-none"
+                                placeholder="https://mcpaconstruction.com"
+                              />
+                              <div className="relative">
+                                <select
+                                  value={
+                                    MCPA_SITE_LINKS.some(
+                                      (p) => p.url === (editorCampaign.logo_config?.link || "https://mcpaconstruction.com")
+                                    )
+                                      ? editorCampaign.logo_config?.link
+                                      : "custom"
+                                  }
+                                  onChange={(e) => {
+                                    if (e.target.value !== "custom") {
+                                      setEditorCampaign({
+                                        ...editorCampaign,
+                                        logo_config: { ...editorCampaign.logo_config, link: e.target.value },
+                                      });
+                                    }
+                                  }}
+                                  className="w-full appearance-none pl-2.5 pr-7 py-1 rounded bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-[10px] font-mono text-neutral-700 dark:text-neutral-300 focus:outline-none cursor-pointer"
+                                >
+                                  <option value="custom" disabled>
+                                    -- Select Official Site Page Link --
+                                  </option>
+                                  {MCPA_SITE_LINKS.map((page) => (
+                                    <option key={page.url} value={page.url}>
+                                      {page.label} ({page.path})
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400" />
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Add Content Blocks Palette */}
-                <div className="p-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-100/50 dark:bg-neutral-900/60 shrink-0">
+                {/* Add Content Blocks Palette (Sticky at top of scroll when moving down) */}
+                <div className="p-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-100/90 dark:bg-neutral-900/90 backdrop-blur-md shrink-0 sticky top-0 z-10 shadow-xs">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                       Add Content Block:
@@ -2342,8 +2357,17 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                 </div>
 
                 {/* Blocks List & Inline Inspector */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {editorCampaign.blocks.map((block, index) => (
+                <div className="p-4 space-y-3 min-h-[200px]">
+                  {editorCampaign.blocks.length === 0 ? (
+                    <div className="p-8 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl space-y-2">
+                      <Layout className="w-8 h-8 text-neutral-400 mx-auto opacity-40" />
+                      <p className="text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300">No content blocks added yet</p>
+                      <p className="text-[11px] text-neutral-400 max-w-xs mx-auto">
+                        Click any block type above (Heading, Paragraph, Image, etc.) or use &quot;Upload Photos / Videos&quot; to build your email.
+                      </p>
+                    </div>
+                  ) : (
+                    editorCampaign.blocks.map((block, index) => (
                     <div
                       key={block.id}
                       className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 space-y-2 group"
@@ -2578,7 +2602,7 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                         </div>
                       )}
                     </div>
-                  ))}
+                  )))}
                 </div>
               </div>
 
