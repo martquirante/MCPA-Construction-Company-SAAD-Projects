@@ -302,28 +302,29 @@ function compileCampaignHtml(campaign, options = {}) {
   <style>
     body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
     table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
-    img { -ms-interpolation-mode: bicubic; }
-    img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
     table { border-collapse: collapse !important; }
     body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f1f5f9; }
     @media screen and (max-width: 620px) {
-      .email-container { width: 100% !important; max-width: 100% !important; padding: 12px !important; }
+      .email-container { width: 100% !important; max-width: 100% !important; border-radius: 8px !important; }
+      .email-content-td { padding: 24px 20px !important; }
+      .email-outer-td { padding: 12px 6px !important; }
     }
   </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f1f5f9;">
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
   ${preview_text ? `
-  <div style="display: none; font-size: 1px; color: #fefefe; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+  <div style="display: none; font-size: 1px; color: #fefefe; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all;">
     ${preview_text}
   </div>` : ""}
   
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 10px;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; width: 100%; margin: 0; padding: 0;">
     <tr>
-      <td align="center">
+      <td align="center" class="email-outer-td" style="padding: 28px 12px; background-color: #f1f5f9;">
         <!-- Main Email Container -->
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08); padding: 32px 28px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 600px; width: 100%; margin: 0 auto; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06);">
           <tr>
-            <td>
+            <td class="email-content-td" style="padding: 36px 32px; background-color: #ffffff;">
               ${logoHtml}
               ${renderedBlocks}
             </td>
