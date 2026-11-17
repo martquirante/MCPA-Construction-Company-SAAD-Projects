@@ -1139,6 +1139,7 @@ module.exports = {
   deleteCampaign,
   sendTestEmail,
   sendCampaignNow,
+  resolveAudienceEmails,
   uploadCampaignMedia,
   aiAssist,
   trackOpen,
