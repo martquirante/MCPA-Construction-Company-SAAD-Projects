@@ -354,8 +354,10 @@ class CmsController {
         firstImg?.file_url ||
         null;
 
-      const resolvedAuthorName = author_name || req.user?.fullName || req.user?.name || req.user?.email || "MCPA Directorate";
-      const resolvedAuthorRole = author_role || "Administrator";
+      // Blog posts & updates are always published under the company brand,
+      // never the personal name/photo of the staff member who authored them.
+      const resolvedAuthorName = author_name || "MCPA Construction and Supply";
+      const resolvedAuthorRole = author_role || "MCPA Construction & Supply";
       const publishedAt = status === "published" ? new Date().toISOString() : null;
       const safeCategoryId = category_id && !isNaN(parseInt(category_id, 10)) ? parseInt(category_id, 10) : null;
       const safeScheduledFor = scheduled_for && String(scheduled_for).trim() ? scheduled_for : null;

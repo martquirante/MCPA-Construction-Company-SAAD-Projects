@@ -930,15 +930,14 @@ class AuthController {
           }
         }
 
-        // Link social identity & avatar if missing (for admins, keep company identity without personal photo)
-        const isAdmin = existingUser.role === "admin" || existingUser.role === "super_admin";
-        const newAvatar = isAdmin ? null : (verifiedIdentity.avatarUrl || existingUser.avatar_url);
+        // Link social identity & avatar if missing. Staff (including admins) keep their own
+        // personal name & photo; only public blog/updates are published under the company brand.
+        const newAvatar = verifiedIdentity.avatarUrl || existingUser.avatar_url;
         await db.query(
           `UPDATE users SET 
             provider_id = COALESCE(NULLIF(provider_id, ''), $1),
             auth_provider = CASE WHEN auth_provider IS NULL OR auth_provider = 'local' THEN $2 ELSE auth_provider END,
-            avatar_url = CASE WHEN role IN ('admin', 'super_admin') THEN NULL ELSE COALESCE(NULLIF(avatar_url, ''), $3) END,
-            full_name = CASE WHEN role IN ('admin', 'super_admin') THEN 'MCPA Construction and Supply' ELSE full_name END,
+            avatar_url = COALESCE(NULLIF(avatar_url, ''), $3),
             email_verified = TRUE,
             failed_login_attempts = 0,
             lockout_enabled = FALSE,

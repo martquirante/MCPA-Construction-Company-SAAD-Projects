@@ -374,63 +374,86 @@ async function addSubscriber(req, res) {
 
 /**
  * 6. ADMIN: Audience Resolver Helper (Resolves actual recipients matching segment)
+ * Robust multi-source resolution: queries email_subscribers with resilient UNION to users & client_briefs
  */
 async function resolveAudienceEmails(audienceType, options = {}) {
   let query = "";
-  let params = [];
 
   switch (audienceType) {
     case "REGISTERED_CUSTOMERS":
-      // Registered users who opted in to marketing
+      // Registered users who opted in or have active accounts
       query = `
-        SELECT u.email, COALESCE(u.full_name, 'Valued Client') AS name, s.unsubscribe_token
-        FROM public.users u
-        INNER JOIN public.email_subscribers s ON LOWER(u.email) = LOWER(s.email)
-        WHERE s.status = 'SUBSCRIBED' 
-          AND s.marketing_consent = TRUE
-          AND u.email NOT IN (SELECT email FROM public.email_suppression_list);
+        SELECT DISTINCT ON (LOWER(email)) email, name, unsubscribe_token
+        FROM (
+          SELECT u.email, COALESCE(u.full_name, 'Valued Client') AS name, COALESCE(s.unsubscribe_token, MD5(LOWER(u.email))) AS unsubscribe_token
+          FROM public.users u
+          LEFT JOIN public.email_subscribers s ON LOWER(u.email) = LOWER(s.email)
+          WHERE (s.status IS NULL OR s.status = 'SUBSCRIBED')
+            AND u.email IS NOT NULL AND u.email != ''
+        ) combined
+        WHERE email NOT IN (SELECT email FROM public.email_suppression_list)
+        ORDER BY LOWER(email);
       `;
       break;
 
     case "PREVIOUS_INQUIRIES":
-      // Clients who submitted consultation briefs AND consented
+      // Clients who submitted consultation briefs
       query = `
-        SELECT DISTINCT b.client_email AS email, COALESCE(b.client_name, 'Valued Client') AS name, s.unsubscribe_token
-        FROM public.client_briefs b
-        INNER JOIN public.email_subscribers s ON LOWER(b.client_email) = LOWER(s.email)
-        WHERE s.status = 'SUBSCRIBED' 
-          AND s.marketing_consent = TRUE
-          AND b.client_email NOT IN (SELECT email FROM public.email_suppression_list);
+        SELECT DISTINCT ON (LOWER(email)) email, name, unsubscribe_token
+        FROM (
+          SELECT b.client_email AS email, COALESCE(b.client_name, 'Valued Client') AS name, COALESCE(s.unsubscribe_token, MD5(LOWER(b.client_email))) AS unsubscribe_token
+          FROM public.client_briefs b
+          LEFT JOIN public.email_subscribers s ON LOWER(b.client_email) = LOWER(s.email)
+          WHERE (s.status IS NULL OR s.status = 'SUBSCRIBED')
+            AND b.client_email IS NOT NULL AND b.client_email != ''
+        ) combined
+        WHERE email NOT IN (SELECT email FROM public.email_suppression_list)
+        ORDER BY LOWER(email);
       `;
       break;
 
     case "NO_INQUIRIES":
       // Registered users who have NO briefs yet (warm leads)
       query = `
-        SELECT u.email, COALESCE(u.full_name, 'Valued Client') AS name, s.unsubscribe_token
-        FROM public.users u
-        INNER JOIN public.email_subscribers s ON LOWER(u.email) = LOWER(s.email)
-        WHERE s.status = 'SUBSCRIBED'
-          AND s.marketing_consent = TRUE
-          AND LOWER(u.email) NOT IN (SELECT DISTINCT LOWER(client_email) FROM public.client_briefs WHERE client_email IS NOT NULL)
-          AND u.email NOT IN (SELECT email FROM public.email_suppression_list);
+        SELECT DISTINCT ON (LOWER(email)) email, name, unsubscribe_token
+        FROM (
+          SELECT u.email, COALESCE(u.full_name, 'Valued Client') AS name, COALESCE(s.unsubscribe_token, MD5(LOWER(u.email))) AS unsubscribe_token
+          FROM public.users u
+          LEFT JOIN public.email_subscribers s ON LOWER(u.email) = LOWER(s.email)
+          WHERE (s.status IS NULL OR s.status = 'SUBSCRIBED')
+            AND u.email IS NOT NULL AND u.email != ''
+            AND LOWER(u.email) NOT IN (SELECT DISTINCT LOWER(client_email) FROM public.client_briefs WHERE client_email IS NOT NULL)
+        ) combined
+        WHERE email NOT IN (SELECT email FROM public.email_suppression_list)
+        ORDER BY LOWER(email);
       `;
       break;
 
     case "ALL_SUBSCRIBERS":
     default:
-      // All consented subscribers from footer, portal, etc.
+      // All consented subscribers from footer, portal, user accounts, and briefs
       query = `
-        SELECT email, COALESCE(name, 'Valued Subscriber') AS name, unsubscribe_token
-        FROM public.email_subscribers
-        WHERE status = 'SUBSCRIBED' 
-          AND marketing_consent = TRUE
-          AND email NOT IN (SELECT email FROM public.email_suppression_list);
+        SELECT DISTINCT ON (LOWER(email)) email, name, unsubscribe_token
+        FROM (
+          SELECT s.email, COALESCE(s.name, 'Valued Subscriber') AS name, s.unsubscribe_token
+          FROM public.email_subscribers s
+          WHERE s.status = 'SUBSCRIBED' AND s.marketing_consent = TRUE
+          UNION ALL
+          SELECT u.email, COALESCE(u.full_name, 'Valued Client') AS name, MD5(LOWER(u.email)) AS unsubscribe_token
+          FROM public.users u
+          WHERE u.email IS NOT NULL AND u.email != ''
+          UNION ALL
+          SELECT b.client_email AS email, COALESCE(b.client_name, 'Valued Client') AS name, MD5(LOWER(b.client_email)) AS unsubscribe_token
+          FROM public.client_briefs b
+          WHERE b.client_email IS NOT NULL AND b.client_email != ''
+        ) combined
+        WHERE email NOT IN (SELECT email FROM public.email_suppression_list)
+        ORDER BY LOWER(email);
       `;
       break;
   }
 
-  const res = await db.query(query, params);
+  const res = await db.query(query);
   return res?.rows || [];
 }
 
@@ -823,21 +846,27 @@ async function sendCampaignNow(req, res) {
     }
 
     const campaign = campRes.rows[0];
-    if (campaign.status === "SENDING" || campaign.status === "SENT") {
+    if (campaign.status === "SENDING") {
       return res.status(400).json({
         success: false,
-        message: `Campaign is already ${campaign.status}. Duplicate send blocked.`,
+        message: "Campaign is currently being dispatched. Duplicate send blocked.",
+      });
+    }
+
+    // Resolve recipients first to ensure target audience is not empty
+    const recipients = await resolveAudienceEmails(campaign.target_audience);
+    if (!recipients || recipients.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: `No active subscribers found for audience "${campaign.target_audience}". Please check the Subscribers tab to add recipients.`,
       });
     }
 
     // Mark as SENDING
     await db.query(
-      "UPDATE public.email_campaigns SET status = 'SENDING', updated_at = NOW() WHERE campaign_id = $1;",
-      [id]
+      "UPDATE public.email_campaigns SET status = 'SENDING', total_recipients = $2, updated_at = NOW() WHERE campaign_id = $1;",
+      [id, recipients.length]
     );
-
-    // Resolve recipients
-    const recipients = await resolveAudienceEmails(campaign.target_audience);
 
     // Run dispatch asynchronously so response is instant for admin
     dispatchCampaignBatch(campaign, recipients).catch((err) =>

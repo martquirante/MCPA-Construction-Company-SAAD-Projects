@@ -1503,9 +1503,9 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                 {/* Message History */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F7F7F5] dark:bg-[#080a0e] text-xs">
                   {convMessages.map((m, idx) => {
-                    const isCustomer = m.sender_type === "CUSTOMER";
+                    const isCustomer = m.sender_type === "CUSTOMER" || m.sender_type === "USER";
                     const isBot = m.sender_type === "BOT";
-                    const isAdmin = m.sender_type === "ADMIN";
+                    const isAdmin = m.sender_type === "ADMIN" || m.sender_type === "human_agent";
                     const isSystem = m.sender_type === "SYSTEM";
 
                     if (isSystem) {
@@ -1517,6 +1517,12 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                         </div>
                       );
                     }
+
+                    const senderLabel = isAdmin
+                      ? (m.sender_admin_name || m.sender_name || (currentUser?.full_name || "Staff Admin"))
+                      : isCustomer
+                      ? (selectedConv?.customer_name || "Customer")
+                      : "BOT";
 
                     return (
                       <div
@@ -1533,7 +1539,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                           }`}
                         >
                           <div className="flex items-center justify-between gap-3 text-[9.5px] font-mono opacity-70 mb-1">
-                            <span className="font-bold uppercase">{m.sender_type}</span>
+                            <span className="font-bold uppercase">{senderLabel}</span>
                             <span>{new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
                           <p className="whitespace-pre-line leading-relaxed">{m.message_text}</p>
@@ -1552,7 +1558,7 @@ export default function AdminChatbotTab({ currentUser, onShowToast }) {
                     type="text"
                     value={adminReplyInput}
                     onChange={(e) => setAdminReplyInput(e.target.value)}
-                    placeholder="Type reply as MCPA administrator..."
+                    placeholder={currentUser?.full_name ? `Type reply as ${currentUser.full_name}...` : "Type reply as staff administrator..."}
                     className="flex-1 px-3 py-2 text-xs rounded-[4px] bg-neutral-50 dark:bg-black/30 border border-neutral-200 dark:border-white/10 focus:border-amber-500 focus:outline-none text-neutral-900 dark:text-white"
                   />
                   <button

@@ -154,37 +154,19 @@ export function getRoleBadgeMeta(role) {
   };
 }
 
+export function resolveStaffDisplayName(user) {
+  if (!user) return "MCPA Staff";
+  const raw = user.fullName || user.full_name || user.name || "";
+  const name = typeof raw === "string" ? raw.trim() : "";
+  // Legacy company placeholder names are not personal names; fall back to email.
+  const isPlaceholder = /^mcpa (construction( and supply| & supply)?|administrator|directorate)$/i.test(name);
+  if (name && !isPlaceholder) return name;
+  return user.email || name || "MCPA Staff";
+}
+
 function AdminAvatar({ user, sizeClasses = "w-8 h-8", textClasses = "text-xs" }) {
-  const role = (user?.role || "admin").toLowerCase();
-  const isAdmin = role === "admin" || role === "super_admin";
-
-  // For admins, strictly use the official MCPA brand logo
-  if (isAdmin) {
-    return (
-      <div
-        className={`${sizeClasses} rounded-[4px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold ${textClasses} flex items-center justify-center shrink-0 font-mono overflow-hidden shadow-xs relative p-1`}
-        title="MCPA Construction and Supply"
-      >
-        <Image
-          src="/assets/mcpa-logo.svg"
-          alt="MCPA Logo"
-          fill
-          unoptimized
-          className="object-contain p-0.5 block dark:hidden"
-          sizes="36px"
-        />
-        <Image
-          src="/assets/logo-white.svg"
-          alt="MCPA Logo"
-          fill
-          unoptimized
-          className="object-contain p-0.5 hidden dark:block"
-          sizes="36px"
-        />
-      </div>
-    );
-  }
-
+  // Every staff member (admins included) shows their own uploaded photo.
+  // The MCPA logo is only a fallback when no personal photo exists.
   const resolvedUrl = useMemo(() => resolveAdminAvatar(user), [user]);
   const [currentSrc, setCurrentSrc] = useState(resolvedUrl);
   const [hasFailed, setHasFailed] = useState(false);
@@ -2513,7 +2495,7 @@ export default function AdminPage() {
               <AdminAvatar user={currentUser} sizeClasses="w-9 h-9" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                  {(currentUser?.role === "admin" || currentUser?.role === "super_admin") ? "MCPA Construction and Supply" : (currentUser?.fullName || currentUser?.name || currentUser?.email || "MCPA Administrator")}
+                  {resolveStaffDisplayName(currentUser)}
                 </p>
                 <div className="flex items-center mt-0.5">
                   <span className={`text-[9.5px] font-mono px-1.5 py-0.5 rounded-[3px] border uppercase font-bold tracking-wider ${roleMeta.badgeClass}`}>
@@ -2553,15 +2535,15 @@ export default function AdminPage() {
                   type="button"
                   onClick={() => setIsSettingsModalOpen(true)}
                   className="relative group cursor-pointer focus:outline-none"
-                  title={`${(currentUser?.role === "admin" || currentUser?.role === "super_admin") ? "MCPA Construction and Supply" : (currentUser?.fullName || currentUser?.name || currentUser?.email || "MCPA Administrator")} (${currentUser?.role || "ADMIN"})`}
+                  title={`${resolveStaffDisplayName(currentUser)} (${currentUser?.role || "ADMIN"})`}
                 >
                   <AdminAvatar user={currentUser} sizeClasses="w-8 h-8" />
 
                   {/* Tooltip */}
                   <div className="hidden lg:block absolute left-full bottom-0 ml-2 px-2.5 py-1 rounded-[4px] bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-mono shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                    <p className="font-bold">{(currentUser?.role === "admin" || currentUser?.role === "super_admin") ? "MCPA Construction and Supply" : (currentUser?.fullName || currentUser?.name || currentUser?.email || "MCPA Administrator")}</p>
+                    <p className="font-bold">{resolveStaffDisplayName(currentUser)}</p>
                     <p className="text-[10px] text-neutral-400 uppercase">{currentUser?.role || "ADMIN"}</p>
-                    <p className="text-[9px] text-amber-400 mt-0.5 font-medium">MCPA Administrator</p>
+                    <p className="text-[9px] text-amber-400 mt-0.5 font-medium">{roleMeta.title}</p>
                   </div>
                 </button>
 
@@ -2595,7 +2577,7 @@ export default function AdminPage() {
                   <AdminAvatar user={currentUser} sizeClasses="w-8 h-8" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                      {(currentUser?.role === "admin" || currentUser?.role === "super_admin") ? "MCPA Construction and Supply" : (currentUser?.fullName || currentUser?.name || currentUser?.email || "MCPA Administrator")}
+                      {resolveStaffDisplayName(currentUser)}
                     </p>
                     <div className="flex items-center mt-0.5">
                       <span className={`text-[9.5px] font-mono px-1.5 py-0.5 rounded-[3px] border uppercase font-bold tracking-wider ${roleMeta.badgeClass}`}>

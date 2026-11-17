@@ -119,6 +119,10 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResults, setAiResults] = useState(null);
 
+  // State: Schedule Dispatch Modal
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [scheduleDatetime, setScheduleDatetime] = useState("");
+
   // State: Multi-file uploading & Logo Drag/Drop
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const mediaFileInputRef = useRef(null);
@@ -572,16 +576,21 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
   // -------------------------------------------------------------
   // Save Campaign (Draft or Scheduled)
   // -------------------------------------------------------------
-  const handleSaveCampaign = async (targetStatus = "DRAFT") => {
-    if (!editorCampaign.title || !editorCampaign.subject) {
+  const handleSaveCampaign = async (targetStatus = "DRAFT", customScheduledAt = null, options = {}) => {
+    if (!editorCampaign?.title || !editorCampaign?.subject) {
       showToast("Campaign title and subject are required.", "error");
-      return;
+      return null;
     }
 
     try {
+      const scheduledAtVal = customScheduledAt !== null 
+        ? customScheduledAt 
+        : (targetStatus === "SCHEDULED" ? editorCampaign.scheduled_at : null);
+
       const payload = {
         ...editorCampaign,
         status: targetStatus,
+        scheduled_at: scheduledAtVal,
       };
 
       const isUpdate = Boolean(editorCampaign.campaign_id);
@@ -598,20 +607,31 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
 
       const data = await res.json();
       if (data.success) {
-        showToast(
-          targetStatus === "SCHEDULED"
-            ? "Campaign scheduled successfully!"
-            : "Campaign draft saved!",
-          "success"
-        );
-        setIsEditorOpen(false);
+        const resolvedId = data.campaignId || editorCampaign.campaign_id;
+        if (resolvedId && !editorCampaign.campaign_id) {
+          setEditorCampaign((prev) => ({ ...prev, campaign_id: resolvedId, scheduled_at: scheduledAtVal, status: targetStatus }));
+        }
+        if (!options.silent) {
+          showToast(
+            targetStatus === "SCHEDULED"
+              ? "Campaign scheduled successfully!"
+              : "Campaign draft saved!",
+            "success"
+          );
+        }
+        if (!options.stayOpen) {
+          setIsEditorOpen(false);
+        }
         fetchCampaigns();
         fetchOverview();
+        return { success: true, campaignId: resolvedId, ...data };
       } else {
         showToast(data.message || "Failed to save campaign.", "error");
+        return null;
       }
     } catch (err) {
       showToast("Error saving campaign: " + err.message, "error");
+      return null;
     }
   };
 
@@ -629,7 +649,10 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
       });
       const data = await res.json();
       if (data.success) {
-        showToast(data.message || "Campaign dispatch started!", "success");
+        showToast(
+          `${data.message} (${data.recipientCount} recipient${data.recipientCount === 1 ? '' : 's'}). Note: In Gmail, check the Promotions tab.`,
+          "success"
+        );
         fetchCampaigns();
         fetchOverview();
         if (isEditorOpen) setIsEditorOpen(false);
@@ -639,6 +662,76 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
     } catch (err) {
       showToast("Error triggering send: " + err.message, "error");
     }
+  };
+
+  // -------------------------------------------------------------
+  // Send Campaign Now from Visual Editor (Saves first then sends)
+  // -------------------------------------------------------------
+  const handleSendCampaignNow = async () => {
+    if (!editorCampaign?.title || !editorCampaign?.subject) {
+      showToast("Campaign title and subject are required before dispatching.", "error");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to dispatch this email campaign now to all eligible subscribers? This cannot be undone.")) {
+      return;
+    }
+
+    try {
+      // 1. Save campaign first (stayOpen: true, silent: true)
+      const saved = await handleSaveCampaign("DRAFT", null, { stayOpen: true, silent: true });
+      const campaignId = saved?.campaignId || editorCampaign.campaign_id;
+
+      if (!campaignId) {
+        showToast("Could not save campaign before sending. Please try again.", "error");
+        return;
+      }
+
+      // 2. Trigger send-now
+      const res = await authFetch(`/api/email-marketing/campaigns/${campaignId}/send-now`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(
+          `${data.message} (${data.recipientCount} recipient${data.recipientCount === 1 ? '' : 's'}). Note: In Gmail, check the Promotions tab.`,
+          "success"
+        );
+        fetchCampaigns();
+        fetchOverview();
+        setIsEditorOpen(false);
+      } else {
+        showToast(data.message || "Failed to send campaign.", "error");
+      }
+    } catch (err) {
+      showToast("Error triggering send: " + err.message, "error");
+    }
+  };
+
+  const handleOpenScheduleModal = () => {
+    if (!editorCampaign?.title || !editorCampaign?.subject) {
+      showToast("Campaign title and subject are required before scheduling.", "error");
+      return;
+    }
+    if (!scheduleDatetime) {
+      const tomorrow = new Date(Date.now() + 86400000);
+      tomorrow.setHours(9, 0, 0, 0);
+      const pad = (n) => String(n).padStart(2, "0");
+      const localStr = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T${pad(tomorrow.getHours())}:${pad(tomorrow.getMinutes())}`;
+      setScheduleDatetime(localStr);
+    }
+    setIsScheduleModalOpen(true);
+  };
+
+  const handleConfirmSchedule = async () => {
+    if (!scheduleDatetime) {
+      showToast("Please choose a valid date and time.", "error");
+      return;
+    }
+    const targetIso = new Date(scheduleDatetime).toISOString();
+    setEditorCampaign((prev) => ({ ...prev, scheduled_at: targetIso, status: "SCHEDULED" }));
+    setIsScheduleModalOpen(false);
+    await handleSaveCampaign("SCHEDULED", targetIso, { stayOpen: false });
   };
 
   // -------------------------------------------------------------
@@ -1822,29 +1915,16 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    const when = prompt("Enter scheduled date/time (e.g., 2026-11-20 09:00):", new Date(Date.now() + 86400000).toISOString().slice(0, 16).replace("T", " "));
-                    if (when) {
-                      setEditorCampaign({ ...editorCampaign, scheduled_at: new Date(when).toISOString() });
-                      handleSaveCampaign("SCHEDULED");
-                    }
-                  }}
-                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer transition-colors shadow-xs"
+                  onClick={handleOpenScheduleModal}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer transition-colors shadow-xs flex items-center gap-1.5"
                 >
-                  Schedule Later
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Schedule Later</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => {
-                    if (editorCampaign.campaign_id) {
-                      handleSendNow(editorCampaign.campaign_id);
-                    } else {
-                      handleSaveCampaign("DRAFT").then(() => {
-                        showToast("Campaign draft saved! You can now click Send Now.", "success");
-                      });
-                    }
-                  }}
+                  onClick={handleSendCampaignNow}
                   className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
                 >
                   <Send className="w-3.5 h-3.5" />
@@ -1885,16 +1965,18 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    if (editorCampaign.campaign_id) {
-                      handleSendNow(editorCampaign.campaign_id);
-                    } else {
-                      handleSaveCampaign("DRAFT").then(() => {
-                        showToast("Campaign draft saved! You can now click Send Now.", "success");
-                      });
-                    }
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-extrabold text-xs flex items-center gap-1 shrink-0 shadow-xs"
+                  onClick={handleOpenScheduleModal}
+                  className="px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1 shrink-0 shadow-xs cursor-pointer"
+                  title="Schedule Dispatch"
+                >
+                  <Calendar className="w-3 h-3" />
+                  <span>Sched</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendCampaignNow}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-extrabold text-xs flex items-center gap-1 shrink-0 shadow-xs cursor-pointer"
                 >
                   <Send className="w-3 h-3" />
                   <span>Send</span>
@@ -2928,6 +3010,74 @@ export default function AdminEmailMarketingTab({ showToast = () => {} }) {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: SCHEDULE CAMPAIGN DISPATCH */}
+      {/* ========================================================================= */}
+      {isScheduleModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 shadow-2xl space-y-4 animate-scale-in">
+            <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-3">
+              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                <Calendar className="w-5 h-5" />
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white">Schedule Campaign Dispatch</h3>
+              </div>
+              <button
+                onClick={() => setIsScheduleModalOpen(false)}
+                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-mono uppercase font-bold text-neutral-600 dark:text-neutral-400 block mb-1">
+                  Target Audience
+                </label>
+                <div className="px-3 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-xs font-mono font-bold text-amber-600 dark:text-amber-400 border border-neutral-200 dark:border-neutral-700">
+                  {editorCampaign?.target_audience || "ALL_SUBSCRIBERS"}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-mono uppercase font-bold text-neutral-600 dark:text-neutral-400 block mb-1">
+                  Dispatch Date & Time (Philippine Time)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={scheduleDatetime}
+                  onChange={(e) => setScheduleDatetime(e.target.value)}
+                  min={new Date().toISOString().slice(0, 16)}
+                  className="w-full px-3 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
+                />
+                <p className="text-[11px] text-neutral-500 mt-1.5 leading-relaxed">
+                  The automated background scheduler runs every 60 seconds and will automatically dispatch the campaign to all recipients once this time is reached.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setIsScheduleModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-xs font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSchedule}
+                disabled={!scheduleDatetime}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Confirm & Schedule</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -19,7 +19,7 @@ import {
   LinkedInIcon,
 } from "@/modules/shared/Icons";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
 
 // Custom SVG Icons for WhatsApp, Telegram, Viber
 function WhatsAppIcon({ className = "w-5 h-5" }) {

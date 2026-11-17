@@ -361,6 +361,7 @@ export default function ChatWidgetPanel({ onClose }) {
   const [status, setStatus] = useState("BOT_ACTIVE"); // BOT_ACTIVE | AWAITING_HUMAN | HUMAN_ASSIGNED | HUMAN_ACTIVE | RESOLVED | CLOSED
   const [assignedAdmin, setAssignedAdmin] = useState(null);
   const [animatingMessageId, setAnimatingMessageId] = useState(null);
+  const isSubmittingRef = useRef(false);
 
   // Live suggestions state
   const [suggestions, setSuggestions] = useState([]);
@@ -599,9 +600,21 @@ export default function ChatWidgetPanel({ onClose }) {
             }
             if (Array.isArray(data.messages) && data.messages.length > 0) {
               setMessages((prev) => {
-                const existingIds = new Set(prev.map((m) => m.message_id));
-                const newItems = data.messages.filter((m) => !existingIds.has(m.message_id));
-                return newItems.length > 0 ? [...prev, ...newItems] : prev;
+                const existingIds = new Set(prev.map((m) => String(m.message_id)));
+                const newItems = data.messages.filter((m) => !existingIds.has(String(m.message_id)));
+                if (newItems.length === 0) return prev;
+
+                // Remove optimistic temp customer bubbles whose confirmed version is in newItems
+                const incomingCustomerTexts = new Set(
+                  newItems
+                    .filter((m) => m.sender_type === "CUSTOMER")
+                    .map((m) => (m.message_text || "").trim())
+                );
+                const filteredPrev = prev.filter(
+                  (m) => !(String(m.message_id).startsWith("temp_") && incomingCustomerTexts.has((m.message_text || "").trim()))
+                );
+
+                return [...filteredPrev, ...newItems];
               });
             }
           }
@@ -644,7 +657,18 @@ export default function ChatWidgetPanel({ onClose }) {
           });
 
           if (incomingNew.length === 0) return prev;
-          return [...prev, ...incomingNew].sort(
+
+          // Remove optimistic temp customer bubbles whose confirmed version arrived via Firebase
+          const incomingCustomerTexts = new Set(
+            incomingNew
+              .filter((m) => m.sender_type === "CUSTOMER" || m.sender_type === "customer")
+              .map((m) => (m.message_text || "").trim())
+          );
+          const filteredPrev = prev.filter(
+            (m) => !(String(m.message_id).startsWith("temp_") && incomingCustomerTexts.has((m.message_text || "").trim()))
+          );
+
+          return [...filteredPrev, ...incomingNew].sort(
             (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
         });
@@ -874,9 +898,11 @@ export default function ChatWidgetPanel({ onClose }) {
   // 6. Handle Submitting Question (Step 3)
   const submitQuestion = useCallback(
     async (questionText) => {
+      if (isSubmittingRef.current) return;
       const text = (questionText || questionInput).trim();
       if (!text || isSending || !session) return;
 
+      isSubmittingRef.current = true;
       setIsSuggestionsOpen(false);
       setSuggestions([]);
       setQuestionInput("");
@@ -919,9 +945,11 @@ export default function ChatWidgetPanel({ onClose }) {
         if (data.success) {
           if (data.humanHandoffActive) {
             // Live admin mode
-            setMessages((prev) =>
-              prev.map((m) => (m.message_id === tempCustomerMsg.message_id ? data.customerMessage : m))
-            );
+            setMessages((prev) => {
+              const withoutTemp = prev.filter((m) => m.message_id !== tempCustomerMsg.message_id);
+              const exists = withoutTemp.some((m) => String(m.message_id) === String(data.customerMessage?.message_id));
+              return exists ? withoutTemp : [...withoutTemp, data.customerMessage];
+            });
             if (data.customerMessage) {
               saveMessageToFirebase(session.conversationId, data.customerMessage);
             }
@@ -931,11 +959,20 @@ export default function ChatWidgetPanel({ onClose }) {
             if (botMsg?.message_id) {
               setAnimatingMessageId(botMsg.message_id);
             }
-            setMessages((prev) => [
-              ...prev.filter((m) => m.message_id !== tempCustomerMsg.message_id),
-              data.customerMessage,
-              botMsg,
-            ]);
+            setMessages((prev) => {
+              const withoutTemp = prev.filter((m) => m.message_id !== tempCustomerMsg.message_id);
+              const existingIds = new Set(withoutTemp.map((m) => String(m.message_id)));
+
+              const next = [...withoutTemp];
+              if (data.customerMessage && !existingIds.has(String(data.customerMessage.message_id))) {
+                next.push(data.customerMessage);
+                existingIds.add(String(data.customerMessage.message_id));
+              }
+              if (botMsg && !existingIds.has(String(botMsg.message_id))) {
+                next.push(botMsg);
+              }
+              return next;
+            });
             if (data.customerMessage) {
               saveMessageToFirebase(session.conversationId, data.customerMessage);
             }
@@ -960,6 +997,7 @@ export default function ChatWidgetPanel({ onClose }) {
         ]);
       } finally {
         setIsSending(false);
+        isSubmittingRef.current = false;
         setTimeout(() => inputRef.current?.focus(), 50);
       }
     },
@@ -1131,9 +1169,13 @@ export default function ChatWidgetPanel({ onClose }) {
       -------------------------------------------------------------------- */}
       <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-white/10 bg-white/80 dark:bg-[#0c0e12]/80 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          {/* Header Avatar: Official MCPA Brand Logo */}
+          {/* Header Avatar: live agent's own photo once a human takes over, otherwise MCPA brand logo */}
           <div className="relative shrink-0 flex items-center justify-center">
-            <AnimatedBotAvatar size="lg" />
+            {isLiveSupportMode && assignedAdmin ? (
+              <AdminAvatar name={assignedAdmin.fullName} avatarUrl={assignedAdmin.avatarUrl} />
+            ) : (
+              <AnimatedBotAvatar size="lg" />
+            )}
             {/* Small active green online beacon */}
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#0c0e12]" />
           </div>
@@ -1141,7 +1183,9 @@ export default function ChatWidgetPanel({ onClose }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-xs uppercase tracking-wider truncate text-neutral-900 dark:text-white font-sans">
-                {t.headerTitle || "MCPA Support"}
+                {isLiveSupportMode && assignedAdmin?.fullName
+                  ? assignedAdmin.fullName
+                  : (t.headerTitle || "MCPA Support")}
               </span>
               {clientInfo?.isStage2or3 && (
                 <span className="px-1.5 py-0.2 rounded-[3px] bg-amber-500/15 border border-amber-500/30 text-[9px] font-mono font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 shrink-0">
@@ -1154,7 +1198,7 @@ export default function ChatWidgetPanel({ onClose }) {
             <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate font-normal">
               {isLiveSupportMode
                 ? assignedAdmin
-                  ? `${t.statusHumanAssigned} (${assignedAdmin.fullName})`
+                  ? t.statusHumanAssigned
                   : t.statusAwaitingHuman
                 : isResolvedMode
                 ? t.statusResolved
@@ -1349,7 +1393,17 @@ export default function ChatWidgetPanel({ onClose }) {
               </div>
             )}
 
-            {messages.map((msg, idx) => {
+            {(() => {
+              const seenIds = new Set();
+              const rendered = [];
+              for (const m of messages) {
+                const id = String(m.message_id || "");
+                if (id && seenIds.has(id)) continue;
+                if (id) seenIds.add(id);
+                rendered.push(m);
+              }
+              return rendered;
+            })().map((msg, idx) => {
               const isCustomer = msg.sender_type === "CUSTOMER";
               const isBot = msg.sender_type === "BOT";
               const isHumanAdmin = msg.sender_type === "ADMIN" || msg.sender_type === "human_agent" || msg.sender_type === "STAFF";

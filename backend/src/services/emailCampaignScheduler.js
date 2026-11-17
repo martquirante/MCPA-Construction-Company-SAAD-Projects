@@ -38,22 +38,50 @@ async function checkAndDispatchScheduledCampaigns() {
         [campaign.campaign_id]
       );
 
-      // Resolve audience
+      // Resolve audience (multi-source robust resolution)
       let query = `
-        SELECT email, COALESCE(name, 'Valued Subscriber') AS name, unsubscribe_token
-        FROM public.email_subscribers
-        WHERE status = 'SUBSCRIBED' 
-          AND marketing_consent = TRUE
-          AND email NOT IN (SELECT email FROM public.email_suppression_list);
+        SELECT DISTINCT ON (LOWER(email)) email, name, unsubscribe_token
+        FROM (
+          SELECT s.email, COALESCE(s.name, 'Valued Subscriber') AS name, s.unsubscribe_token
+          FROM public.email_subscribers s
+          WHERE s.status = 'SUBSCRIBED' AND s.marketing_consent = TRUE
+          UNION ALL
+          SELECT u.email, COALESCE(u.full_name, 'Valued Client') AS name, MD5(LOWER(u.email)) AS unsubscribe_token
+          FROM public.users u
+          WHERE u.email IS NOT NULL AND u.email != ''
+          UNION ALL
+          SELECT b.client_email AS email, COALESCE(b.client_name, 'Valued Client') AS name, MD5(LOWER(b.client_email)) AS unsubscribe_token
+          FROM public.client_briefs b
+          WHERE b.client_email IS NOT NULL AND b.client_email != ''
+        ) combined
+        WHERE email NOT IN (SELECT email FROM public.email_suppression_list)
+        ORDER BY LOWER(email);
       `;
       if (campaign.target_audience === "REGISTERED_CUSTOMERS") {
         query = `
-          SELECT u.email, COALESCE(u.full_name, 'Valued Client') AS name, s.unsubscribe_token
-          FROM public.users u
-          INNER JOIN public.email_subscribers s ON LOWER(u.email) = LOWER(s.email)
-          WHERE s.status = 'SUBSCRIBED' 
-            AND s.marketing_consent = TRUE
-            AND u.email NOT IN (SELECT email FROM public.email_suppression_list);
+          SELECT DISTINCT ON (LOWER(email)) email, name, unsubscribe_token
+          FROM (
+            SELECT u.email, COALESCE(u.full_name, 'Valued Client') AS name, COALESCE(s.unsubscribe_token, MD5(LOWER(u.email))) AS unsubscribe_token
+            FROM public.users u
+            LEFT JOIN public.email_subscribers s ON LOWER(u.email) = LOWER(s.email)
+            WHERE (s.status IS NULL OR s.status = 'SUBSCRIBED')
+              AND u.email IS NOT NULL AND u.email != ''
+          ) combined
+          WHERE email NOT IN (SELECT email FROM public.email_suppression_list)
+          ORDER BY LOWER(email);
+        `;
+      } else if (campaign.target_audience === "PREVIOUS_INQUIRIES") {
+        query = `
+          SELECT DISTINCT ON (LOWER(email)) email, name, unsubscribe_token
+          FROM (
+            SELECT b.client_email AS email, COALESCE(b.client_name, 'Valued Client') AS name, COALESCE(s.unsubscribe_token, MD5(LOWER(b.client_email))) AS unsubscribe_token
+            FROM public.client_briefs b
+            LEFT JOIN public.email_subscribers s ON LOWER(b.client_email) = LOWER(s.email)
+            WHERE (s.status IS NULL OR s.status = 'SUBSCRIBED')
+              AND b.client_email IS NOT NULL AND b.client_email != ''
+          ) combined
+          WHERE email NOT IN (SELECT email FROM public.email_suppression_list)
+          ORDER BY LOWER(email);
         `;
       }
 
