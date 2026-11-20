@@ -12,6 +12,7 @@ import {
   User,
   Sparkles,
   Volume2,
+  X,
 } from "lucide-react";
 import {
   registerCallServiceWorker,
@@ -31,6 +32,7 @@ export default function AdminIncomingCallManager({
   const [incomingCall, setIncomingCall] = useState(null);
   const [secondsRemaining, setSecondsRemaining] = useState(180);
   const [hasNotifPermission, setHasNotifPermission] = useState(false);
+  const [isPromptDismissed, setIsPromptDismissed] = useState(true);
   const socketRef = useRef(null);
   const incomingCallRef = useRef(null);
   const handleAnswerRef = useRef(null);
@@ -39,10 +41,16 @@ export default function AdminIncomingCallManager({
     incomingCallRef.current = incomingCall;
   }, [incomingCall]);
 
-  // 1. Initialize Service Worker & check Notification permission
+  // 1. Initialize Service Worker & check Notification permission / dismissal
   useEffect(() => {
     registerCallServiceWorker();
     setHasNotifPermission(hasCallNotificationPermission());
+    try {
+      const dismissed = localStorage.getItem("mcpa_call_notif_dismissed_v1") === "true";
+      setIsPromptDismissed(dismissed);
+    } catch (e) {
+      setIsPromptDismissed(false);
+    }
   }, []);
 
   // 2. Connect to Socket.IO signaling hub for real-time instant call alerts
@@ -240,26 +248,51 @@ export default function AdminIncomingCallManager({
     } else {
       showToast("Notification permission was denied in your browser settings.");
     }
+    try {
+      localStorage.setItem("mcpa_call_notif_dismissed_v1", "true");
+      setIsPromptDismissed(true);
+    } catch (e) {}
+  };
+
+  const handleDismissNotificationPrompt = (e) => {
+    e?.stopPropagation();
+    try {
+      localStorage.setItem("mcpa_call_notif_dismissed_v1", "true");
+    } catch (e) {}
+    setIsPromptDismissed(true);
   };
 
   return (
     <>
-      {/* Sleek Persistent Notification Permission Bar if not yet granted */}
-      {!hasNotifPermission && (
-        <div className="fixed top-3 right-3 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
-          <button
-            type="button"
-            onClick={handleEnableNotifications}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900/90 dark:bg-white/10 hover:bg-neutral-800 text-white backdrop-blur-md border border-amber-500/30 text-xs font-mono shadow-xl transition-all hover:scale-105 cursor-pointer group"
-            title="Enable device notifications so incoming calls ring even when browser is closed or in another tab"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-            </span>
-            <Bell className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-12 transition-transform" />
-            <span className="text-[11px] font-semibold text-amber-300">Allow Call Ringtone &amp; Notifs</span>
-          </button>
+      {/* Sleek Notification Permission Bar (Desktop only, dismissible, persistent in localStorage) */}
+      {!hasNotifPermission && !isPromptDismissed && (
+        <div className="hidden md:flex fixed top-3 right-3 z-50 animate-in fade-in slide-in-from-top-2 duration-300 items-center">
+          <div className="flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full bg-neutral-900/95 dark:bg-[#12141a]/95 text-white backdrop-blur-md border border-amber-500/40 text-xs font-mono shadow-2xl transition-all">
+            <button
+              type="button"
+              onClick={handleEnableNotifications}
+              className="flex items-center gap-2 cursor-pointer group"
+              title="Enable device notifications so incoming calls ring even when browser is closed or in another tab"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+              </span>
+              <Bell className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-12 transition-transform" />
+              <span className="text-[11px] font-semibold text-amber-300 hover:text-amber-200">
+                Allow Call Ringtone &amp; Notifs
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDismissNotificationPrompt}
+              className="p-1 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors cursor-pointer ml-1"
+              title="Dismiss notification prompt"
+              aria-label="Dismiss notification prompt"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
